@@ -541,7 +541,7 @@ describe('BotBrain', () => {
       expect(blockCount).toBeLessThan(250);
     });
 
-    it('hard bot always bluff-blocks Contessa vs assassination', () => {
+    it('hard bot almost always bluff-blocks Contessa vs assassination', () => {
       const game = createGame();
       game.turnPhase = TurnPhase.AwaitingBlock;
       setCards(game, 'p2', [Character.Duke, Character.Duke]); // No Contessa
@@ -552,13 +552,16 @@ describe('BotBrain', () => {
         claimedCharacter: Character.Assassin,
       };
 
-      for (let i = 0; i < 50; i++) {
+      let blockCount = 0;
+      for (let i = 0; i < 200; i++) {
         const result = decide(game, 'p2', 'hard', { pendingAction, blockPassedPlayerIds: [] });
-        expect(result!.type).toBe('block');
-        if (result!.type === 'block') {
+        if (result?.type === 'block') {
           expect(result!.character).toBe(Character.Contessa);
+          blockCount++;
         }
       }
+      // With 2 influences, bluffs Contessa ~95% of the time
+      expect(blockCount).toBeGreaterThan(150);
     });
 
     it('non-target cannot block assassination', () => {

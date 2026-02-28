@@ -324,11 +324,11 @@ describe('BotController', () => {
       const botPlayers: RoomPlayer[] = [
         {
           id: 'bot1', name: 'Bot1', socketId: '', connected: true,
-          isBot: true, personality: { honesty: 50, skepticism: 50, vengefulness: 50 },
+          isBot: true, difficulty: 'medium',
         },
         {
           id: 'bot2', name: 'Bot2', socketId: '', connected: true,
-          isBot: true, personality: { honesty: 50, skepticism: 50, vengefulness: 50 },
+          isBot: true, difficulty: 'medium',
         },
       ];
       engine.startGame([
