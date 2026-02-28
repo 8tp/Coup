@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { RoomManager } from '../RoomManager';
+import { RoomManager } from '@/server/RoomManager';
 
 describe('RoomManager', () => {
   let manager: RoomManager;

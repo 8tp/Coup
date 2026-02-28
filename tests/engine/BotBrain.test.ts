@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { BotBrain, BotDecision } from '../BotBrain';
-import { Game } from '../Game';
-import { Player } from '../Player';
+import { BotBrain, BotDecision } from '@/engine/BotBrain';
+import { Game } from '@/engine/Game';
+import { Player } from '@/engine/Player';
 import {
   ActionType,
   AiPersonality,
@@ -12,7 +12,7 @@ import {
   ChallengeState,
   InfluenceLossRequest,
   ExchangeState,
-} from '../../shared/types';
+} from '@/shared/types';
 
 // ─── Helpers ───
 

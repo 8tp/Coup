@@ -178,6 +178,8 @@ The `GameEngine.applySideEffect()` method interprets each effect and mutates the
 
 ## Testing Tips
 
+- Tests live in the top-level `tests/` directory, mirroring `src/` structure: `tests/engine/` and `tests/server/`
+- Test imports use the `@/` path alias (e.g., `import { Game } from '@/engine/Game'`)
 - Engine tests should test the `ActionResolver` and `Game` classes directly, without sockets
 - Create players and a game programmatically, then call resolver methods and assert on the returned `ResolverResult`
 - Use `vitest` -- the config is in `vitest.config.ts`

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Deck } from '../Deck';
-import { Character } from '../../shared/types';
-import { CARDS_PER_CHARACTER } from '../../shared/constants';
+import { Deck } from '@/engine/Deck';
+import { Character } from '@/shared/types';
+import { CARDS_PER_CHARACTER } from '@/shared/constants';
 
 describe('Deck', () => {
   let deck: Deck;

@@ -141,6 +141,12 @@ AwaitingAction
 ```
 Coup/
 ├── server.ts                       # Express + Socket.io + Next.js entry point
+├── docs/                           # Project documentation
+│   ├── CONTRIBUTING.md             # Contribution guidelines
+│   └── PRD.md                      # Product requirements document
+├── tests/                          # Test suite
+│   ├── engine/                     # Engine unit tests
+│   └── server/                     # Server unit tests
 ├── src/
 │   ├── shared/                     # Shared types, constants, protocol
 │   │   ├── types.ts                # All TypeScript interfaces and enums
@@ -202,7 +208,7 @@ Set the build command to `npm run build` and the start command to `npm start`. T
 
 ## Contributing
 
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions are welcome! Please see [CONTRIBUTING.md](docs/CONTRIBUTING.md) for guidelines.
 
 ## License
 

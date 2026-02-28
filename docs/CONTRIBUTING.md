@@ -62,6 +62,8 @@ The development server runs at `http://localhost:3000` with hot reloading for bo
 
 ### Project Layout
 
+- `docs/` -- project documentation (CONTRIBUTING.md, PRD.md)
+- `tests/` -- test suite mirroring `src/` structure (`tests/engine/`, `tests/server/`)
 - `src/shared/` -- types, constants, and protocol definitions shared between client and server
 - `src/engine/` -- pure game logic with no I/O dependencies (start here if working on rules)
 - `src/server/` -- Socket.io handlers, room management, state serialization

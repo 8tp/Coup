@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { serializeForPlayer } from '../StateSerializer';
+import { serializeForPlayer } from '@/server/StateSerializer';
 import {
   GameState,
   GameStatus,
@@ -7,7 +7,7 @@ import {
   Character,
   PlayerState,
   ExchangeState,
-} from '../../shared/types';
+} from '@/shared/types';
 
 function createMockGameState(overrides: Partial<GameState> = {}): GameState {
   const player1: PlayerState = {

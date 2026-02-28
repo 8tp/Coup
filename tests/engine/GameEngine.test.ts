@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { GameEngine } from '../GameEngine';
-import { ActionType, Character, TurnPhase, GameStatus, GameState } from '../../shared/types';
+import { GameEngine } from '@/engine/GameEngine';
+import { ActionType, Character, TurnPhase, GameStatus, GameState } from '@/shared/types';
 
 function createEngine(playerCount = 3): GameEngine {
   const engine = new GameEngine('TEST01');

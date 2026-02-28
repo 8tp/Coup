@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Player } from '../Player';
-import { Character, Influence } from '../../shared/types';
+import { Player } from '@/engine/Player';
+import { Character, Influence } from '@/shared/types';
 
 describe('Player', () => {
   let player: Player;

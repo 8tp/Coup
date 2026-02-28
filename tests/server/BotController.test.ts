@@ -1,20 +1,20 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { BotController } from '../BotController';
-import { GameEngine } from '../../engine/GameEngine';
-import { BotBrain } from '../../engine/BotBrain';
+import { BotController } from '@/server/BotController';
+import { GameEngine } from '@/engine/GameEngine';
+import { BotBrain } from '@/engine/BotBrain';
 import {
   ActionType,
   Character,
   TurnPhase,
   GameStatus,
   RoomPlayer,
-} from '../../shared/types';
+} from '@/shared/types';
 import {
   BOT_ACTION_DELAY_MIN,
   BOT_ACTION_DELAY_MAX,
   BOT_REACTION_DELAY_MIN,
   BOT_REACTION_DELAY_MAX,
-} from '../../shared/constants';
+} from '@/shared/constants';
 
 function createEngineWithBots(): { engine: GameEngine; botPlayers: RoomPlayer[] } {
   const engine = new GameEngine('TEST01');

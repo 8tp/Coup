@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Game } from '../Game';
-import { Player } from '../Player';
-import { Character, GameStatus, TurnPhase } from '../../shared/types';
-import { STARTING_COINS, STARTING_HAND_SIZE, TOTAL_COINS } from '../../shared/constants';
+import { Game } from '@/engine/Game';
+import { Player } from '@/engine/Player';
+import { Character, GameStatus, TurnPhase } from '@/shared/types';
+import { STARTING_COINS, STARTING_HAND_SIZE, TOTAL_COINS } from '@/shared/constants';
 
 describe('Game', () => {
   let game: Game;

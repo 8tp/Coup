@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ActionResolver, ResolverResult } from '../ActionResolver';
-import { Game } from '../Game';
-import { Character, ActionType, TurnPhase } from '../../shared/types';
+import { ActionResolver, ResolverResult } from '@/engine/ActionResolver';
+import { Game } from '@/engine/Game';
+import { Character, ActionType, TurnPhase } from '@/shared/types';
 import {
   FORCED_COUP_THRESHOLD,
   STARTING_COINS,
-} from '../../shared/constants';
+} from '@/shared/constants';
 
 /** Helper: set up a 3-player game with known cards */
 function setupGame(): Game {
