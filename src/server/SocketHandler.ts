@@ -27,7 +27,8 @@ export class SocketHandler {
         return;
       }
 
-      const result = this.roomManager.createRoom(name, socket.id);
+      const result = this.roomManager.createRoom(name, socket.id, data.isPublic);
+      socket.leave('browser');
       socket.join(result.room.code);
       callback({
         success: true,
@@ -36,6 +37,7 @@ export class SocketHandler {
       });
 
       this.broadcastRoomUpdate(result.room.code);
+      this.maybeBroadcastPublicRoomList(result.room);
     });
 
     socket.on('room:join', (data, callback) => {
@@ -56,6 +58,7 @@ export class SocketHandler {
         return;
       }
 
+      socket.leave('browser');
       socket.join(result.room.code);
       callback({
         success: true,
@@ -64,6 +67,7 @@ export class SocketHandler {
       });
 
       this.broadcastRoomUpdate(result.room.code);
+      this.maybeBroadcastPublicRoomList(result.room);
     });
 
     socket.on('room:rejoin', (data, callback) => {
@@ -106,6 +110,17 @@ export class SocketHandler {
       this.handleDisconnect(socket);
     });
 
+    // ─── Room Browser ───
+
+    socket.on('browser:subscribe', () => {
+      socket.join('browser');
+      socket.emit('browser:list', { rooms: this.roomManager.getPublicRooms() });
+    });
+
+    socket.on('browser:unsubscribe', () => {
+      socket.leave('browser');
+    });
+
     // ─── Bots ───
 
     socket.on('bot:add', (data, callback) => {
@@ -133,6 +148,7 @@ export class SocketHandler {
 
       callback({ success: true, botId: result.botId });
       this.broadcastRoomUpdate(found.room.code);
+      this.maybeBroadcastPublicRoomList(found.room);
     });
 
     socket.on('bot:remove', (data, callback) => {
@@ -154,6 +170,7 @@ export class SocketHandler {
 
       callback({ success: true });
       this.broadcastRoomUpdate(found.room.code);
+      this.maybeBroadcastPublicRoomList(found.room);
     });
 
     socket.on('room:update_settings', (data, callback) => {
@@ -167,6 +184,7 @@ export class SocketHandler {
         return;
       }
 
+      const wasPublic = found.room.settings.isPublic;
       const result = this.roomManager.updateSettings(found.room.code, data.settings);
       if ('error' in result) {
         callback({ success: false, error: result.error });
@@ -175,6 +193,7 @@ export class SocketHandler {
 
       callback({ success: true });
       this.broadcastRoomUpdate(found.room.code);
+      this.maybeBroadcastPublicRoomList(found.room, wasPublic);
     });
 
     socket.on('game:start', () => {
@@ -214,6 +233,7 @@ export class SocketHandler {
       this.broadcastGameState(found.room.code, engine.getFullState());
       // Trigger initial bot evaluation
       botController?.onStateChange();
+      this.maybeBroadcastPublicRoomList(found.room);
     });
 
     // ─── Chat ───
@@ -270,6 +290,7 @@ export class SocketHandler {
 
       this.io.to(room.code).emit('game:rematch_to_lobby');
       this.broadcastRoomUpdate(room.code);
+      this.maybeBroadcastPublicRoomList(room);
     });
 
     // ─── Game Actions ───
@@ -371,12 +392,17 @@ export class SocketHandler {
     const found = this.roomManager.getPlayerRoom(socket.id);
     if (!found) return;
 
+    const wasPublic = found.room.settings.isPublic;
     console.log(`Player ${found.player.name} disconnected from room ${found.room.code}`);
     const room = this.roomManager.leaveRoom(found.room.code, found.player.id);
     socket.leave(found.room.code);
 
     if (room) {
       this.broadcastRoomUpdate(room.code);
+      this.maybeBroadcastPublicRoomList(room, wasPublic);
+    } else if (wasPublic) {
+      // Room was deleted — still need to update browser
+      this.broadcastPublicRoomList();
     }
   }
 
@@ -389,6 +415,16 @@ export class SocketHandler {
       hostId: room.hostId,
       settings: room.settings,
     });
+  }
+
+  private broadcastPublicRoomList(): void {
+    this.io.to('browser').emit('browser:list', { rooms: this.roomManager.getPublicRooms() });
+  }
+
+  private maybeBroadcastPublicRoomList(room: { settings: { isPublic: boolean } }, wasPublic?: boolean): void {
+    if (room.settings.isPublic || wasPublic) {
+      this.broadcastPublicRoomList();
+    }
   }
 
   private broadcastGameState(roomCode: string, state: GameState): void {

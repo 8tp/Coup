@@ -14,7 +14,8 @@ export const BLOCK_TIMER_MS = 15_000;
 export const EXCHANGE_DRAW_COUNT = 2;
 
 // ─── Room Settings ───
-export const DEFAULT_ROOM_SETTINGS: RoomSettings = { actionTimerSeconds: 15 };
+export const DEFAULT_ROOM_SETTINGS: RoomSettings = { actionTimerSeconds: 15, isPublic: false };
+export const PUBLIC_ROOM_LIST_MAX = 50;
 export const MIN_ACTION_TIMER = 10;
 export const MAX_ACTION_TIMER = 60;
 

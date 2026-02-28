@@ -216,6 +216,17 @@ export interface RoomPlayer {
 // ─── Room Settings ───
 export interface RoomSettings {
   actionTimerSeconds: number;
+  isPublic: boolean;
+}
+
+// ─── Public Room Info (for room browser) ───
+export interface PublicRoomInfo {
+  code: string;
+  hostName: string;
+  playerCount: number;
+  maxPlayers: number;
+  settings: RoomSettings;
+  hasGame: boolean;
 }
 
 // ─── Challenge Reveal Event ───

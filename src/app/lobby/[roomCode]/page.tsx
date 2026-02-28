@@ -71,7 +71,9 @@ export default function LobbyPage() {
           >
             {roomCode}
           </button>
-          <p className="text-gray-600 text-xs mt-1">Tap to copy</p>
+          <p className="text-gray-600 text-xs mt-1">
+            Tap to copy &middot; {roomSettings?.isPublic ? 'Public' : 'Private'}
+          </p>
         </div>
 
         {error && (
@@ -138,6 +140,30 @@ export default function LobbyPage() {
         {roomSettings && (
           <div className="card-container mb-6">
             <h2 className="font-bold text-gray-400 text-sm uppercase mb-3">Room Settings</h2>
+
+            {/* Visibility Toggle */}
+            <div className="flex items-center justify-between mb-4">
+              <label className="text-sm text-gray-300">Visibility</label>
+              {isHost ? (
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={roomSettings.isPublic}
+                  onClick={() => {
+                    updateRoomSettings({ ...roomSettings, isPublic: !roomSettings.isPublic });
+                  }}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${roomSettings.isPublic ? 'bg-coup-accent' : 'bg-gray-600'}`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${roomSettings.isPublic ? 'translate-x-6' : 'translate-x-1'}`}
+                  />
+                </button>
+              ) : (
+                <span className="text-sm text-gray-400">{roomSettings.isPublic ? 'Public' : 'Private'}</span>
+              )}
+            </div>
+
+            {/* Action Timer */}
             <div className="flex items-center justify-between">
               <label className="text-sm text-gray-300">Action Timer</label>
               <span className="text-sm font-mono text-coup-accent">{roomSettings.actionTimerSeconds}s</span>
@@ -150,7 +176,7 @@ export default function LobbyPage() {
                 step={5}
                 value={roomSettings.actionTimerSeconds}
                 onChange={(e) => {
-                  updateRoomSettings({ actionTimerSeconds: Number(e.target.value) });
+                  updateRoomSettings({ ...roomSettings, actionTimerSeconds: Number(e.target.value) });
                 }}
                 className="w-full mt-2 accent-coup-accent"
               />
