@@ -91,7 +91,7 @@ Not every turn visits every phase. Income resolves immediately. Coup skips to In
 | `src/engine/Game.ts` | Game model: players, deck, turn order, treasury, action log |
 | `src/engine/Player.ts` | Player model: influences, coins, hasCharacter, revealInfluence |
 | `src/engine/Deck.ts` | Card deck: shuffle (Fisher-Yates), draw, return, reset |
-| `src/engine/BotBrain.ts` | Pure AI decision logic: personality-driven action/challenge/block choices |
+| `src/engine/BotBrain.ts` | Pure AI decision logic: difficulty-tiered (easy/medium/hard) action/challenge/block choices with card counting |
 | `src/server/RoomManager.ts` | Room lifecycle: create, join, rejoin, leave, cleanup (24h TTL), chat storage, rematch reset, bot management |
 | `src/server/SocketHandler.ts` | Socket.io event routing: validates context, delegates to engine |
 | `src/server/StateSerializer.ts` | Per-player state filtering before sending to clients |
@@ -104,7 +104,7 @@ Not every turn visits every phase. Income resolves immediately. Coup skips to In
 | `src/app/components/chat/ChatPanel.tsx` | Chat message list + text input |
 | `src/app/components/game/GameCenterTabs.tsx` | Log/Chat tabbed container with unread indicator |
 | `src/app/components/game/GameOverOverlay.tsx` | Game over screen with rematch flow |
-| `src/app/components/lobby/AddBotModal.tsx` | Modal with name input + personality sliders for adding bots |
+| `src/app/components/lobby/AddBotModal.tsx` | Modal with name input + difficulty selector (Easy/Medium/Hard) for adding bots |
 
 ---
 
@@ -129,19 +129,22 @@ Room-scoped chat works in both lobby and in-game. Messages are stored server-sid
 
 ### Computer Players (Bots)
 
-The host can add 1–5 AI players from the lobby via `bot:add`. Each bot has three personality sliders (0–100):
+The host can add 1–5 AI players from the lobby via `bot:add`. Each bot has a difficulty level (`BotDifficulty = 'easy' | 'medium' | 'hard'`):
 
-- **Honesty** — high values prefer playing cards the bot actually holds; low values bluff aggressively
-- **Skepticism** — high values challenge opponents more often
-- **Vengefulness** — high values target leading players; low values pick randomly
+- **Easy** — Plays honestly (only uses actions it has cards for), never bluffs or challenges, random targeting, random exchange/influence loss choices
+- **Medium** — Occasional bluffs (~30%), challenges (~20%), 50% bluff-Contessa vs assassination, static card value ranking for exchanges/influence loss, 50% chance to target leader
+- **Hard** — Strategic card counting (challenges at 100% when all copies of a character are revealed), always bluffs Contessa vs assassination (mathematically correct), never challenges assassination with 2 influences (too risky), always targets highest-coin player, uses `dynamicCardValue()` for context-aware card ranking, prefers Steal in 1v1, avoids bluffing characters with 2+ copies revealed
+
+The default difficulty is `'medium'` (defined as `DEFAULT_BOT_DIFFICULTY` in constants). The lobby UI presents three color-coded buttons: Easy (green), Medium (yellow), Hard (red).
 
 Bots are server-side only — they use the same `GameEngine` methods as human players but decisions are made by `BotBrain` (pure logic, no I/O) and scheduled by `BotController` (timing layer with randomized delays: 1.5–3.5s for actions, 0.8–2s for reactions). Only one bot acts at a time; each action triggers a state change which cascades to the next bot.
 
 Key behaviors:
-- Bots never peek at opponents' hidden cards or the deck
-- When targeted by an action the bot can block (e.g., Contessa vs Assassination), it passes the challenge phase and blocks instead
-- Bots survive rematch (`resetToLobby` preserves them), but a bot can never become host
+- Bots never peek at opponents' hidden cards or the deck (hard bots only use publicly revealed card information for card counting)
+- When targeted by an action the bot can block with a card it holds (e.g., Contessa vs Assassination), it passes the challenge phase and blocks instead
+- Bots survive rematch (`resetToLobby` preserves them with difficulty preserved), but a bot can never become host
 - State broadcasts skip bots (no socket to send to)
+- Difficulty badges are shown next to the BOT badge in the lobby player list (color-coded: green/yellow/red)
 
 ### Rematch Flow
 

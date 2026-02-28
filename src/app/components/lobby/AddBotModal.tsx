@@ -2,20 +2,53 @@
 
 import { useState, useCallback } from 'react';
 import { Modal } from '../ui/Modal';
-import { AiPersonality } from '@/shared/types';
-import { BOT_NAMES, DEFAULT_PERSONALITY } from '@/shared/constants';
+import { BotDifficulty } from '@/shared/types';
+import { BOT_NAMES, DEFAULT_BOT_DIFFICULTY } from '@/shared/constants';
 
 interface AddBotModalProps {
   open: boolean;
   onClose: () => void;
-  onAdd: (name: string, personality: AiPersonality) => Promise<void>;
+  onAdd: (name: string, difficulty: BotDifficulty) => Promise<void>;
   existingNames: string[];
 }
 
+const DIFFICULTY_OPTIONS: Array<{
+  value: BotDifficulty;
+  label: string;
+  description: string;
+  color: string;
+  bgColor: string;
+  borderColor: string;
+}> = [
+  {
+    value: 'easy',
+    label: 'Easy',
+    description: 'Plays honestly, never bluffs or challenges',
+    color: 'text-green-400',
+    bgColor: 'bg-green-500/20',
+    borderColor: 'border-green-500',
+  },
+  {
+    value: 'medium',
+    label: 'Medium',
+    description: 'Occasional bluffs and challenges',
+    color: 'text-yellow-400',
+    bgColor: 'bg-yellow-500/20',
+    borderColor: 'border-yellow-500',
+  },
+  {
+    value: 'hard',
+    label: 'Hard',
+    description: 'Strategic play with card counting',
+    color: 'text-red-400',
+    bgColor: 'bg-red-500/20',
+    borderColor: 'border-red-500',
+  },
+];
+
 export function AddBotModal({ open, onClose, onAdd, existingNames }: AddBotModalProps) {
   const [name, setName] = useState('');
-  const [customize, setCustomize] = useState(false);
-  const [personality, setPersonality] = useState<AiPersonality>({ ...DEFAULT_PERSONALITY });
+  const [difficulty, setDifficulty] = useState<BotDifficulty>(DEFAULT_BOT_DIFFICULTY);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,14 +63,6 @@ export function AddBotModal({ open, onClose, onAdd, existingNames }: AddBotModal
     setName(available[Math.floor(Math.random() * available.length)]);
   }, [existingNames]);
 
-  const randomizePersonality = useCallback(() => {
-    setPersonality({
-      honesty: Math.floor(Math.random() * 101),
-      skepticism: Math.floor(Math.random() * 101),
-      vengefulness: Math.floor(Math.random() * 101),
-    });
-  }, []);
-
   const handleSubmit = async () => {
     const trimmed = name.trim();
     if (!trimmed) {
@@ -47,18 +72,10 @@ export function AddBotModal({ open, onClose, onAdd, existingNames }: AddBotModal
     setSubmitting(true);
     setError(null);
     try {
-      const finalPersonality = customize
-        ? personality
-        : {
-          honesty: Math.floor(Math.random() * 101),
-          skepticism: Math.floor(Math.random() * 101),
-          vengefulness: Math.floor(Math.random() * 101),
-        };
-      await onAdd(trimmed, finalPersonality);
+      await onAdd(trimmed, difficulty);
       // Reset and close
       setName('');
-      setCustomize(false);
-      setPersonality({ ...DEFAULT_PERSONALITY });
+      setDifficulty(DEFAULT_BOT_DIFFICULTY);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add bot');
@@ -92,60 +109,29 @@ export function AddBotModal({ open, onClose, onAdd, existingNames }: AddBotModal
           </div>
         </div>
 
-        {/* Customize Toggle */}
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setCustomize(!customize)}
-            className={`relative w-10 h-5 rounded-full transition-colors ${customize ? 'bg-coup-accent' : 'bg-gray-600'}`}
-          >
-            <span
-              className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${customize ? 'translate-x-5' : ''}`}
-            />
-          </button>
-          <span className="text-sm text-gray-300">Customize Personality</span>
-        </div>
-
-        {/* Personality Sliders */}
-        {customize && (
-          <div className="space-y-3 bg-coup-bg rounded-xl p-4">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-xs text-gray-500 uppercase font-bold">Personality</span>
+        {/* Difficulty Selector */}
+        <div>
+          <label className="block text-sm text-gray-400 mb-2">Difficulty</label>
+          <div className="space-y-2">
+            {DIFFICULTY_OPTIONS.map(opt => (
               <button
+                key={opt.value}
                 type="button"
-                onClick={randomizePersonality}
-                className="text-xs text-gray-400 hover:text-white transition"
+                onClick={() => setDifficulty(opt.value)}
+                className={`w-full text-left px-4 py-3 rounded-lg border-2 transition ${
+                  difficulty === opt.value
+                    ? `${opt.bgColor} ${opt.borderColor}`
+                    : 'border-gray-700 hover:border-gray-500'
+                }`}
               >
-                Randomize
+                <span className={`font-bold text-sm ${difficulty === opt.value ? opt.color : 'text-gray-300'}`}>
+                  {opt.label}
+                </span>
+                <p className="text-xs text-gray-400 mt-0.5">{opt.description}</p>
               </button>
-            </div>
-
-            <SliderRow
-              label="Honesty"
-              value={personality.honesty}
-              onChange={v => setPersonality(p => ({ ...p, honesty: v }))}
-              color="bg-green-500"
-              lowLabel="Deceptive"
-              highLabel="Truthful"
-            />
-            <SliderRow
-              label="Skepticism"
-              value={personality.skepticism}
-              onChange={v => setPersonality(p => ({ ...p, skepticism: v }))}
-              color="bg-blue-500"
-              lowLabel="Trusting"
-              highLabel="Suspicious"
-            />
-            <SliderRow
-              label="Vengefulness"
-              value={personality.vengefulness}
-              onChange={v => setPersonality(p => ({ ...p, vengefulness: v }))}
-              color="bg-red-500"
-              lowLabel="Forgiving"
-              highLabel="Ruthless"
-            />
+            ))}
           </div>
-        )}
+        </div>
 
         {error && (
           <p className="text-red-400 text-sm">{error}</p>
@@ -171,43 +157,5 @@ export function AddBotModal({ open, onClose, onAdd, existingNames }: AddBotModal
         </div>
       </div>
     </Modal>
-  );
-}
-
-function SliderRow({
-  label,
-  value,
-  onChange,
-  color,
-  lowLabel,
-  highLabel,
-}: {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-  color: string;
-  lowLabel: string;
-  highLabel: string;
-}) {
-  return (
-    <div>
-      <div className="flex justify-between text-sm mb-1">
-        <span className="text-gray-300">{label}</span>
-        <span className="text-gray-400 font-mono">{value}%</span>
-      </div>
-      <input
-        type="range"
-        min={0}
-        max={100}
-        value={value}
-        onChange={e => onChange(Number(e.target.value))}
-        className={`w-full h-1.5 rounded-full appearance-none cursor-pointer accent-current ${color}`}
-        style={{ accentColor: color === 'bg-green-500' ? '#22c55e' : color === 'bg-blue-500' ? '#3b82f6' : '#ef4444' }}
-      />
-      <div className="flex justify-between text-xs text-gray-500 mt-0.5">
-        <span>{lowLabel}</span>
-        <span>{highLabel}</span>
-      </div>
-    </div>
   );
 }

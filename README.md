@@ -26,7 +26,7 @@ Play Coup with 2–6 friends from any device — no app install, no accounts. Cr
 - **Real-time WebSocket gameplay** — instant action broadcasts via Socket.io
 - **Server-authoritative** — all game logic runs server-side; clients never see hidden cards
 - **Room codes** — 6-character codes for easy sharing, no accounts required
-- **Computer players** — add 1–5 AI opponents with configurable personality sliders
+- **Computer players** — add 1–5 AI opponents with 3 difficulty tiers (Easy, Medium, Hard)
 - **Reconnection** — drop and rejoin mid-game without losing your seat
 - **Auto-cleanup** — stale rooms expire after 24 hours
 
@@ -70,15 +70,15 @@ The server starts at [http://localhost:3000](http://localhost:3000). Open it in 
 
 ### Computer Players
 
-The host can add AI opponents from the lobby. Each bot has three personality sliders:
+The host can add AI opponents from the lobby. Each bot has a difficulty level:
 
-| Slider | Low (0) | High (100) |
-|--------|---------|------------|
-| **Honesty** | Bluffs aggressively | Plays cards it actually holds |
-| **Skepticism** | Trusts other players | Challenges frequently |
-| **Vengefulness** | Targets randomly | Targets leading players |
+| Difficulty | Bluffing | Challenges | Targeting | Strategy |
+|------------|----------|------------|-----------|----------|
+| **Easy** | Never bluffs | Never challenges | Random | Plays honestly — only uses cards it holds |
+| **Medium** | ~30% chance | ~20% chance | 50% targets leader | Occasional bluffs and challenges |
+| **Hard** | Strategic | Card counting | Always targets leader | Bluffs Contessa vs assassination, avoids bluffing dead characters, prefers Steal in 1v1 |
 
-Bots make decisions with realistic delays and follow all the same rules as human players — they never peek at hidden cards.
+Bots make decisions with realistic delays and follow all the same rules as human players — they never peek at hidden cards. Hard bots use card counting (tracking publicly revealed cards) to make near-certain challenges when all copies of a character are accounted for.
 
 ## Game Rules
 
@@ -158,7 +158,7 @@ Coup/
 │   ├── engine/                     # Pure game logic (no I/O)
 │   │   ├── GameEngine.ts           # Orchestrator: timers, state, broadcasts
 │   │   ├── ActionResolver.ts       # State machine: phase transitions + side effects
-│   │   ├── BotBrain.ts             # AI decision logic: personality-driven choices
+│   │   ├── BotBrain.ts             # AI decision logic: difficulty-tiered choices
 │   │   ├── Game.ts                 # Game state: players, deck, turns, treasury
 │   │   ├── Player.ts              # Player model: influences, coins
 │   │   └── Deck.ts                # Card deck: shuffle, draw, return
@@ -185,7 +185,7 @@ Coup/
 | `npm run dev` | Start dev server (Express + Next.js + Socket.io) |
 | `npm run build` | Build for production |
 | `npm start` | Run production build |
-| `npm test` | Run test suite (197 tests across 7 files) |
+| `npm test` | Run test suite (325 tests across 9 files) |
 | `npm run test:watch` | Run tests in watch mode |
 
 ```sh

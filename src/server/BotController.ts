@@ -1,16 +1,17 @@
-import { AiPersonality, RoomPlayer } from '../shared/types';
+import { BotDifficulty, RoomPlayer } from '../shared/types';
 import {
   BOT_ACTION_DELAY_MIN,
   BOT_ACTION_DELAY_MAX,
   BOT_REACTION_DELAY_MIN,
   BOT_REACTION_DELAY_MAX,
+  DEFAULT_BOT_DIFFICULTY,
 } from '../shared/constants';
 import { GameEngine } from '../engine/GameEngine';
 import { BotBrain, BotDecision } from '../engine/BotBrain';
 
 interface BotInfo {
   id: string;
-  personality: AiPersonality;
+  difficulty: BotDifficulty;
 }
 
 export class BotController {
@@ -22,8 +23,8 @@ export class BotController {
   constructor(engine: GameEngine, botPlayers: RoomPlayer[]) {
     this.engine = engine;
     this.bots = botPlayers
-      .filter(p => p.isBot && p.personality)
-      .map(p => ({ id: p.id, personality: p.personality! }));
+      .filter(p => p.isBot)
+      .map(p => ({ id: p.id, difficulty: p.difficulty ?? DEFAULT_BOT_DIFFICULTY }));
   }
 
   /**
@@ -45,7 +46,7 @@ export class BotController {
       const decision = BotBrain.decide(
         game,
         bot.id,
-        bot.personality,
+        bot.difficulty,
         state.pendingAction,
         state.pendingBlock,
         state.challengeState,

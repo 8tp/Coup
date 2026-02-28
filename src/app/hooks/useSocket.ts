@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import type { ClientToServerEvents, ServerToClientEvents } from '@/shared/protocol';
-import type { AiPersonality, RoomSettings } from '@/shared/types';
+import type { BotDifficulty, RoomSettings } from '@/shared/types';
 import { useGameStore } from '../stores/gameStore';
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -166,9 +166,9 @@ export function useSocket() {
     socketRef.current.emit('game:rematch');
   }, []);
 
-  const addBot = useCallback((name: string, personality: AiPersonality): Promise<string> => {
+  const addBot = useCallback((name: string, difficulty: BotDifficulty): Promise<string> => {
     return new Promise((resolve, reject) => {
-      socketRef.current.emit('bot:add', { name, personality }, (response) => {
+      socketRef.current.emit('bot:add', { name, difficulty }, (response) => {
         if (response.success && response.botId) {
           resolve(response.botId);
         } else {

@@ -187,12 +187,8 @@ export interface ClientExchangeState {
   keepCount: number;
 }
 
-// ─── AI Personality ───
-export interface AiPersonality {
-  honesty: number;     // 0–100
-  skepticism: number;  // 0–100
-  vengefulness: number; // 0–100
-}
+// ─── Bot Difficulty ───
+export type BotDifficulty = 'easy' | 'medium' | 'hard';
 
 // ─── Room ───
 export interface Room {
@@ -210,7 +206,7 @@ export interface RoomPlayer {
   socketId: string;
   connected: boolean;
   isBot?: boolean;
-  personality?: AiPersonality;
+  difficulty?: BotDifficulty;
 }
 
 // ─── Room Settings ───

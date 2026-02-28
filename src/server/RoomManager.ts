@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { AiPersonality, ChatMessage, PublicRoomInfo, Room, RoomPlayer, RoomSettings } from '../shared/types';
+import { BotDifficulty, ChatMessage, PublicRoomInfo, Room, RoomPlayer, RoomSettings } from '../shared/types';
 import { CHAT_MAX_HISTORY, CHAT_MAX_MESSAGE_LENGTH, CHAT_RATE_LIMIT_MS, DEFAULT_ROOM_SETTINGS, MAX_ACTION_TIMER, MAX_PLAYERS, MIN_ACTION_TIMER, MIN_PLAYERS, PUBLIC_ROOM_LIST_MAX } from '../shared/constants';
 import { GameEngine } from '../engine/GameEngine';
 import { BotController } from './BotController';
@@ -84,7 +84,7 @@ export class RoomManager {
   addBot(
     roomCode: string,
     name: string,
-    personality: AiPersonality,
+    difficulty: BotDifficulty,
   ): { botId: string } | { error: string } {
     const room = this.rooms.get(roomCode.toUpperCase());
     if (!room) return { error: 'Room not found' };
@@ -102,7 +102,7 @@ export class RoomManager {
       socketId: '',
       connected: true,
       isBot: true,
-      personality,
+      difficulty,
     });
 
     return { botId };

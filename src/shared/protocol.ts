@@ -1,4 +1,4 @@
-import { ActionType, AiPersonality, ChallengeRevealEvent, Character, ChatMessage, ClientGameState, PublicRoomInfo, RoomPlayer, RoomSettings } from './types';
+import { ActionType, BotDifficulty, ChallengeRevealEvent, Character, ChatMessage, ClientGameState, PublicRoomInfo, RoomPlayer, RoomSettings } from './types';
 
 // ─── Client → Server Events ───
 export interface ClientToServerEvents {
@@ -25,7 +25,7 @@ export interface ClientToServerEvents {
   'game:rematch': () => void;
 
   // Bots
-  'bot:add': (data: { name: string; personality: AiPersonality }, callback: (response: { success: boolean; botId?: string; error?: string }) => void) => void;
+  'bot:add': (data: { name: string; difficulty: BotDifficulty }, callback: (response: { success: boolean; botId?: string; error?: string }) => void) => void;
   'bot:remove': (data: { botId: string }, callback: (response: { success: boolean; error?: string }) => void) => void;
 
   // Room settings

@@ -47,8 +47,8 @@ export default function LobbyPage() {
     navigator.clipboard.writeText(roomCode);
   };
 
-  const handleAddBot = async (name: string, personality: import('@/shared/types').AiPersonality) => {
-    await addBot(name, personality);
+  const handleAddBot = async (name: string, difficulty: import('@/shared/types').BotDifficulty) => {
+    await addBot(name, difficulty);
   };
 
   const handleRemoveBot = async (botId: string) => {
@@ -99,9 +99,20 @@ export default function LobbyPage() {
                 </span>
                 <div className="flex items-center gap-2">
                   {p.isBot && (
-                    <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full font-bold">
-                      BOT
-                    </span>
+                    <>
+                      <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full font-bold">
+                        BOT
+                      </span>
+                      {p.difficulty && (
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                          p.difficulty === 'easy' ? 'bg-green-600 text-white' :
+                          p.difficulty === 'hard' ? 'bg-red-600 text-white' :
+                          'bg-yellow-600 text-white'
+                        }`}>
+                          {p.difficulty.toUpperCase()}
+                        </span>
+                      )}
+                    </>
                   )}
                   {p.id === hostId && (
                     <span className="text-xs bg-coup-accent text-coup-bg px-2 py-0.5 rounded-full font-bold">
