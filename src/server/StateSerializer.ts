@@ -5,17 +5,18 @@ import {
   ClientInfluence,
   ClientChallengeState,
   ClientExchangeState,
+  RoomPlayer,
 } from '../shared/types';
 
 /**
  * Converts full server-side game state into a per-player client view.
  * Hides other players' unrevealed cards and restricts exchange info.
  */
-export function serializeForPlayer(state: GameState, playerId: string): ClientGameState {
+export function serializeForPlayer(state: GameState, playerId: string, roomPlayers?: RoomPlayer[]): ClientGameState {
   return {
     roomCode: state.roomCode,
     status: state.status,
-    players: state.players.map(p => serializePlayer(p, playerId)),
+    players: state.players.map(p => serializePlayer(p, playerId, roomPlayers)),
     currentPlayerIndex: state.currentPlayerIndex,
     turnPhase: state.turnPhase,
     deckCount: state.deck.length,
@@ -34,8 +35,9 @@ export function serializeForPlayer(state: GameState, playerId: string): ClientGa
   };
 }
 
-function serializePlayer(player: import('../shared/types').PlayerState, viewerId: string): ClientPlayerState {
+function serializePlayer(player: import('../shared/types').PlayerState, viewerId: string, roomPlayers?: RoomPlayer[]): ClientPlayerState {
   const isMe = player.id === viewerId;
+  const roomPlayer = roomPlayers?.find(rp => rp.id === player.id);
 
   return {
     id: player.id,
@@ -44,6 +46,7 @@ function serializePlayer(player: import('../shared/types').PlayerState, viewerId
     influences: player.influences.map(inf => serializeInfluence(inf, isMe)),
     isAlive: player.isAlive,
     seatIndex: player.seatIndex,
+    isBot: roomPlayer?.isBot || undefined,
   };
 }
 

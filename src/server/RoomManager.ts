@@ -1,13 +1,15 @@
 import { v4 as uuidv4 } from 'uuid';
-import { ChatMessage, Room, RoomPlayer } from '../shared/types';
+import { AiPersonality, ChatMessage, Room, RoomPlayer } from '../shared/types';
 import { CHAT_MAX_HISTORY, CHAT_MAX_MESSAGE_LENGTH, CHAT_RATE_LIMIT_MS, MAX_PLAYERS, MIN_PLAYERS } from '../shared/constants';
 import { GameEngine } from '../engine/GameEngine';
+import { BotController } from './BotController';
 
 const ROOM_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 export class RoomManager {
   private rooms: Map<string, Room> = new Map();
   private engines: Map<string, GameEngine> = new Map();
+  private botControllers: Map<string, BotController> = new Map();
   private chatMessages: Map<string, ChatMessage[]> = new Map();
   private lastChatTime: Map<string, number> = new Map();
   private cleanupInterval: ReturnType<typeof setInterval>;
@@ -78,6 +80,54 @@ export class RoomManager {
     return { room, playerId };
   }
 
+  addBot(
+    roomCode: string,
+    name: string,
+    personality: AiPersonality,
+  ): { botId: string } | { error: string } {
+    const room = this.rooms.get(roomCode.toUpperCase());
+    if (!room) return { error: 'Room not found' };
+    if (room.gameState) return { error: 'Game already in progress' };
+    if (room.players.length >= MAX_PLAYERS) return { error: 'Room is full' };
+
+    if (room.players.some(p => p.name.toLowerCase() === name.toLowerCase())) {
+      return { error: 'Name already taken in this room' };
+    }
+
+    const botId = uuidv4();
+    room.players.push({
+      id: botId,
+      name,
+      socketId: '',
+      connected: true,
+      isBot: true,
+      personality,
+    });
+
+    return { botId };
+  }
+
+  removeBot(roomCode: string, botId: string): { success: boolean } | { error: string } {
+    const room = this.rooms.get(roomCode.toUpperCase());
+    if (!room) return { error: 'Room not found' };
+    if (room.gameState) return { error: 'Game already in progress' };
+
+    const player = room.players.find(p => p.id === botId);
+    if (!player) return { error: 'Player not found' };
+    if (!player.isBot) return { error: 'Player is not a bot' };
+
+    room.players = room.players.filter(p => p.id !== botId);
+    return { success: true };
+  }
+
+  getBotController(code: string): BotController | undefined {
+    return this.botControllers.get(code.toUpperCase());
+  }
+
+  setBotController(code: string, controller: BotController): void {
+    this.botControllers.set(code.toUpperCase(), controller);
+  }
+
   rejoinRoom(
     roomCode: string,
     playerId: string,
@@ -116,9 +166,20 @@ export class RoomManager {
       return null;
     }
 
-    // If host left, assign new host
+    // If host left, assign new host (skip bots)
     if (room.hostId === playerId) {
-      room.hostId = room.players[0].id;
+      const humanPlayer = room.players.find(p => !p.isBot);
+      if (humanPlayer) {
+        room.hostId = humanPlayer.id;
+      } else {
+        // All remaining are bots — delete the room
+        this.rooms.delete(roomCode);
+        this.engines.delete(roomCode);
+        this.chatMessages.delete(roomCode);
+        const bc = this.botControllers.get(roomCode);
+        if (bc) { bc.destroy(); this.botControllers.delete(roomCode); }
+        return null;
+      }
     }
 
     return room;
@@ -203,10 +264,17 @@ export class RoomManager {
       this.engines.delete(roomCode);
     }
 
+    // Destroy bot controller
+    const bc = this.botControllers.get(roomCode);
+    if (bc) {
+      bc.destroy();
+      this.botControllers.delete(roomCode);
+    }
+
     room.gameState = null;
 
-    // Remove disconnected players
-    room.players = room.players.filter(p => p.connected);
+    // Remove disconnected human players; bots always survive
+    room.players = room.players.filter(p => p.isBot || p.connected);
 
     // If room is empty after filtering, delete it
     if (room.players.length === 0) {
@@ -215,9 +283,17 @@ export class RoomManager {
       return null;
     }
 
-    // Reassign host if needed
-    if (!room.players.find(p => p.id === room.hostId)) {
-      room.hostId = room.players[0].id;
+    // Reassign host if needed (skip bots)
+    if (!room.players.find(p => p.id === room.hostId && !p.isBot)) {
+      const humanPlayer = room.players.find(p => !p.isBot);
+      if (humanPlayer) {
+        room.hostId = humanPlayer.id;
+      } else {
+        // Only bots remain — delete room
+        this.rooms.delete(roomCode);
+        this.chatMessages.delete(roomCode);
+        return null;
+      }
     }
 
     return room;
@@ -238,6 +314,8 @@ export class RoomManager {
         this.rooms.delete(code);
         this.engines.delete(code);
         this.chatMessages.delete(code);
+        const bc = this.botControllers.get(code);
+        if (bc) { bc.destroy(); this.botControllers.delete(code); }
       }
     }
   }

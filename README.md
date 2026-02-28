@@ -24,6 +24,7 @@ Play Coup with 2–6 friends from any device — no app install, no accounts. Cr
 - **Real-time WebSocket gameplay** — instant action broadcasts via Socket.io
 - **Server-authoritative** — all game logic runs server-side; clients never see hidden cards
 - **Room codes** — 6-character codes for easy sharing, no accounts required
+- **Computer players** — add 1–5 AI opponents with configurable personality sliders
 - **Reconnection** — drop and rejoin mid-game without losing your seat
 - **Auto-cleanup** — stale rooms expire after 24 hours
 
@@ -61,8 +62,21 @@ The server starts at [http://localhost:3000](http://localhost:3000). Open it in 
 1. Click **Create Room** and enter your name
 2. Share the 6-character room code with friends
 3. Friends click **Join Room** and enter the code
-4. The host clicks **Start Game** once 2–6 players have joined
-5. Bluff, challenge, and eliminate your way to victory
+4. Optionally, the host can click **Add Computer Player** to fill seats with AI opponents
+5. The host clicks **Start Game** once 2–6 players have joined
+6. Bluff, challenge, and eliminate your way to victory
+
+### Computer Players
+
+The host can add AI opponents from the lobby. Each bot has three personality sliders:
+
+| Slider | Low (0) | High (100) |
+|--------|---------|------------|
+| **Honesty** | Bluffs aggressively | Plays cards it actually holds |
+| **Skepticism** | Trusts other players | Challenges frequently |
+| **Vengefulness** | Targets randomly | Targets leading players |
+
+Bots make decisions with realistic delays and follow all the same rules as human players — they never peek at hidden cards.
 
 ## Game Rules
 
@@ -136,6 +150,7 @@ Coup/
 │   ├── engine/                     # Pure game logic (no I/O)
 │   │   ├── GameEngine.ts           # Orchestrator: timers, state, broadcasts
 │   │   ├── ActionResolver.ts       # State machine: phase transitions + side effects
+│   │   ├── BotBrain.ts             # AI decision logic: personality-driven choices
 │   │   ├── Game.ts                 # Game state: players, deck, turns, treasury
 │   │   ├── Player.ts              # Player model: influences, coins
 │   │   └── Deck.ts                # Card deck: shuffle, draw, return
@@ -143,6 +158,7 @@ Coup/
 │   ├── server/                     # Networking and room management
 │   │   ├── RoomManager.ts          # Room CRUD, player tracking, TTL cleanup
 │   │   ├── SocketHandler.ts        # Routes socket events to engine
+│   │   ├── BotController.ts        # Bot timing/execution: delays + engine calls
 │   │   └── StateSerializer.ts     # Per-player state filtering
 │   │
 │   └── app/                        # Next.js App Router (client UI)
@@ -161,7 +177,7 @@ Coup/
 | `npm run dev` | Start dev server (Express + Next.js + Socket.io) |
 | `npm run build` | Build for production |
 | `npm start` | Run production build |
-| `npm test` | Run test suite (196 tests across 7 files) |
+| `npm test` | Run test suite (197 tests across 7 files) |
 | `npm run test:watch` | Run tests in watch mode |
 
 ```sh

@@ -35,6 +35,11 @@ export function PlayerSeat({
         <span className={`font-bold text-sm truncate max-w-[80px] ${isMe ? 'text-coup-accent' : ''}`}>
           {player.name}
           {isMe && ' (You)'}
+          {player.isBot && (
+            <span className="ml-1 text-[10px] bg-blue-600 text-white px-1 py-px rounded font-bold align-middle">
+              BOT
+            </span>
+          )}
         </span>
         <span className="flex items-center gap-1 text-coup-gold font-bold text-sm shrink-0">
           <CoinIcon size={14} />
