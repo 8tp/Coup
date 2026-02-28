@@ -15,6 +15,13 @@ const REASON_LABELS: Record<string, string> = {
   challenge_failed_defense: 'Your bluff was called!',
 };
 
+const SPECTATOR_REASON_LABELS: Record<string, string> = {
+  coup: 'Coup',
+  assassination: 'Assassination',
+  challenge_lost: 'Lost challenge',
+  challenge_failed_defense: 'Caught bluffing',
+};
+
 export function InfluenceLossPrompt({ gameState }: InfluenceLossPromptProps) {
   const socket = getSocket();
   const { turnPhase, influenceLossRequest, myId } = gameState;
@@ -23,14 +30,14 @@ export function InfluenceLossPrompt({ gameState }: InfluenceLossPromptProps) {
 
   if (influenceLossRequest.playerId !== myId) {
     const loser = gameState.players.find(p => p.id === influenceLossRequest.playerId);
-    const reasonText = REASON_LABELS[influenceLossRequest.reason] || 'Must lose an influence';
+    const spectatorReason = SPECTATOR_REASON_LABELS[influenceLossRequest.reason] || 'Must lose an influence';
     return (
       <div className="prompt-info">
         <p className="text-center text-gray-300 text-sm">
           <span className="font-bold">{loser?.name}</span> must choose an influence to lose.
         </p>
         <p className="text-center text-gray-500 text-xs mt-1">
-          Reason: {influenceLossRequest.reason.replace(/_/g, ' ')}
+          {spectatorReason}
         </p>
       </div>
     );

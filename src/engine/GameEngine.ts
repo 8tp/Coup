@@ -260,6 +260,22 @@ export class GameEngine {
       this.game.turnPhase = result.newPhase;
     }
 
+    // After side effects are applied, check if we're entering AwaitingBlock
+    // but the target (potential blocker) is already dead. This happens when
+    // an assassination target challenges, loses (auto-revealed), and the game
+    // tries to give them a chance to block — but they're already eliminated.
+    if (
+      result.newPhase === TurnPhase.AwaitingBlock &&
+      this.pendingAction?.targetId
+    ) {
+      const target = this.game.getPlayer(this.pendingAction.targetId);
+      if (target && !target.isAlive) {
+        const autoResult = this.resolver.allPassedBlock(this.game, this.pendingAction);
+        this.applyResult(autoResult);
+        return;
+      }
+    }
+
     this.broadcastState();
   }
 

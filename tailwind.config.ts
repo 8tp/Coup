@@ -25,6 +25,7 @@ const config: Config = {
         'slide-up': 'slideUp 0.3s ease-out',
         'fade-in': 'fadeIn 0.3s ease-out',
         'pulse-gold': 'pulseGold 2s ease-in-out infinite',
+        'coin-float': 'coinFloat 1.2s ease-out forwards',
       },
       keyframes: {
         flip: {
@@ -43,6 +44,10 @@ const config: Config = {
         pulseGold: {
           '0%, 100%': { boxShadow: '0 0 0 0 rgba(230, 168, 23, 0.4)' },
           '50%': { boxShadow: '0 0 0 8px rgba(230, 168, 23, 0)' },
+        },
+        coinFloat: {
+          '0%': { transform: 'translateY(0)', opacity: '1' },
+          '100%': { transform: 'translateY(-20px)', opacity: '0' },
         },
       },
     },

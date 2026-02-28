@@ -13,6 +13,7 @@ import { ExchangeView } from './ExchangeView';
 import { GameCenterTabs } from './GameCenterTabs';
 import { GameOverOverlay } from './GameOverOverlay';
 import { PhaseStatus } from './PhaseStatus';
+import { WaitingView } from './WaitingView';
 
 interface GameTableProps {
   gameState: ClientGameState;
@@ -49,6 +50,7 @@ export function GameTable({ gameState, chatMessages, onSendChat, isHost, onRemat
             player={p}
             isCurrentTurn={p.id === currentPlayerId}
             isMe={false}
+            timerExpiry={p.id === currentPlayerId ? gameState.timerExpiry : null}
           />
         ))}
       </div>
@@ -70,6 +72,7 @@ export function GameTable({ gameState, chatMessages, onSendChat, isHost, onRemat
           <BlockChallengePrompt gameState={gameState} />
           <InfluenceLossPrompt gameState={gameState} />
           <ExchangeView gameState={gameState} />
+          <WaitingView gameState={gameState} />
         </div>
       </div>
 
