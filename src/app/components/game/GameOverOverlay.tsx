@@ -1,8 +1,32 @@
 'use client';
 
-import { ClientGameState, TurnPhase } from '@/shared/types';
+import { Character, ClientGameState, ClientInfluence, TurnPhase } from '@/shared/types';
 import { useGameStore } from '../../stores/gameStore';
-import { CardFace } from './CardFace';
+import { CHARACTER_SVG_ICONS } from '../icons';
+
+const characterColors: Record<Character, string> = {
+  [Character.Duke]: 'border-purple-500 bg-purple-900/40',
+  [Character.Assassin]: 'border-gray-500 bg-gray-800/40',
+  [Character.Captain]: 'border-blue-500 bg-blue-900/40',
+  [Character.Ambassador]: 'border-green-500 bg-green-900/40',
+  [Character.Contessa]: 'border-red-500 bg-red-900/40',
+};
+
+function ResultCard({ influence }: { influence: ClientInfluence }) {
+  if (!influence.character) return null;
+  const Icon = CHARACTER_SVG_ICONS[influence.character];
+  return (
+    <div className={`w-11 h-16 rounded-lg border-2 flex flex-col items-center justify-center
+      ${characterColors[influence.character]}
+      ${influence.revealed ? 'opacity-40' : ''}`}
+    >
+      <Icon size={18} />
+      <span className="text-[9px] mt-0.5 leading-none font-bold truncate w-full text-center px-0.5">
+        {influence.character}
+      </span>
+    </div>
+  );
+}
 
 interface GameOverOverlayProps {
   gameState: ClientGameState;
@@ -19,50 +43,79 @@ export function GameOverOverlay({ gameState, isHost, onRematch }: GameOverOverla
   const winner = gameState.players.find(p => p.id === gameState.winnerId);
   const isMe = winner?.id === gameState.myId;
 
+  // Sort: winner first, then alive, then eliminated
+  const sortedPlayers = [...gameState.players].sort((a, b) => {
+    if (a.id === gameState.winnerId) return -1;
+    if (b.id === gameState.winnerId) return 1;
+    if (a.isAlive !== b.isAlive) return a.isAlive ? -1 : 1;
+    return 0;
+  });
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 animate-fade-in p-4">
-      <div className="text-center bg-coup-surface rounded-2xl p-8 border border-gray-700 max-w-sm w-full max-h-[90vh] overflow-y-auto">
-        <div className="text-5xl mb-4">{isMe ? '🏆' : '💀'}</div>
-        <h1 className="text-3xl font-bold mb-2">
-          {isMe ? 'You Win!' : `${winner?.name} Wins!`}
-        </h1>
-        <p className="text-lg text-coup-accent mb-4">
-          {isMe ? 'Your bluffs were legendary.' : 'Better luck next time.'}
-        </p>
-        <p className="text-gray-400 text-sm mb-4">
-          Game lasted {gameState.turnNumber} turns
-        </p>
-
-        {/* All players' cards revealed */}
-        <div className="space-y-2 mb-6">
-          {gameState.players.map(p => (
-            <div key={p.id} className="flex items-center gap-2 justify-center">
-              <span className={`text-xs font-medium w-20 text-right truncate ${
-                p.id === gameState.winnerId ? 'text-coup-accent' : 'text-gray-400'
-              }`}>
-                {p.id === gameState.myId ? 'You' : p.name}
-              </span>
-              <div className="flex gap-1">
-                {p.influences.map((inf, i) => (
-                  <CardFace key={i} influence={inf} size="sm" />
-                ))}
-              </div>
-            </div>
-          ))}
+      <div className="bg-coup-surface rounded-2xl border border-gray-700 max-w-sm w-full max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="text-center pt-8 pb-4 px-6">
+          <div className="text-5xl mb-3">{isMe ? '🏆' : '💀'}</div>
+          <h1 className="text-3xl font-bold mb-1">
+            {isMe ? 'You Win!' : `${winner?.name} Wins!`}
+          </h1>
+          <p className="text-coup-accent text-sm">
+            {isMe ? 'Your bluffs were legendary.' : 'Better luck next time.'}
+          </p>
+          <p className="text-gray-500 text-xs mt-1">
+            {gameState.turnNumber} turns
+          </p>
         </div>
 
-        {isHost ? (
-          <button
-            className="btn-primary w-full"
-            onClick={onRematch}
-          >
-            Play Again
-          </button>
-        ) : (
-          <p className="text-gray-500 text-sm">
-            Waiting for host to start rematch...
-          </p>
-        )}
+        {/* Player results */}
+        <div className="px-4 pb-4">
+          <div className="bg-coup-bg/60 rounded-xl border border-gray-800 divide-y divide-gray-800">
+            {sortedPlayers.map(p => {
+              const isWinner = p.id === gameState.winnerId;
+              return (
+                <div
+                  key={p.id}
+                  className={`flex items-center px-3 py-2.5 gap-3 ${
+                    isWinner ? 'bg-coup-accent/5' : ''
+                  }`}
+                >
+                  {/* Place indicator */}
+                  <span className="text-sm w-5 text-center flex-none">
+                    {isWinner ? '👑' : !p.isAlive ? '💀' : ''}
+                  </span>
+
+                  {/* Name */}
+                  <span className={`text-sm font-medium flex-1 min-w-0 truncate ${
+                    isWinner ? 'text-coup-accent' : p.isAlive ? 'text-gray-300' : 'text-gray-500'
+                  }`}>
+                    {p.id === gameState.myId ? 'You' : p.name}
+                  </span>
+
+                  {/* Cards */}
+                  <div className="flex gap-1.5 flex-none">
+                    {p.influences.map((inf, i) => (
+                      <ResultCard key={i} influence={inf} />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Action */}
+        <div className="px-6 pb-6">
+          {isHost ? (
+            <button className="btn-primary w-full" onClick={onRematch}>
+              Play Again
+            </button>
+          ) : (
+            <p className="text-gray-500 text-sm text-center">
+              Waiting for host to start rematch...
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
