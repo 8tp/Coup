@@ -134,7 +134,8 @@ export type LogEventType =
   | 'challenge' | 'challenge_fail' | 'challenge_success'
   | 'block' | 'block_challenge' | 'block_challenge_fail' | 'block_challenge_success' | 'block_unchallenged'
   | 'influence_loss' | 'exchange' | 'exchange_draw'
-  | 'action_resolve' | 'assassination' | 'elimination' | 'win';
+  | 'action_resolve' | 'assassination' | 'elimination' | 'win'
+  | 'bot_replace';
 
 // ─── Log Entry ───
 export interface LogEntry {
@@ -221,6 +222,7 @@ export interface RoomPlayer {
   connected: boolean;
   isBot?: boolean;
   difficulty?: BotDifficulty;
+  replacedByBot?: boolean;
 }
 
 // ─── Room Settings ───

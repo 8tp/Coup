@@ -83,6 +83,9 @@ export class SocketHandler {
         return;
       }
 
+      // Cancel disconnect timer on successful rejoin
+      this.roomManager.cancelDisconnectTimer(code, data.playerId);
+
       socket.join(result.room.code);
       callback({
         success: true,
@@ -215,24 +218,24 @@ export class SocketHandler {
       }
 
       const engine = result;
+      const roomCode = found.room.code;
 
       // Create BotController if there are bots in the room
       const botPlayers = found.room.players.filter(p => p.isBot);
-      let botController: BotController | null = null;
       if (botPlayers.length > 0) {
-        botController = new BotController(engine, botPlayers);
-        this.roomManager.setBotController(found.room.code, botController);
+        const botController = new BotController(engine, botPlayers);
+        this.roomManager.setBotController(roomCode, botController);
       }
 
       engine.setOnStateChange((state: GameState) => {
-        this.broadcastGameState(found.room.code, state);
-        // Notify bots after state broadcast
-        botController?.onStateChange();
+        this.broadcastGameState(roomCode, state);
+        // Dynamically look up BotController so mid-game additions are picked up
+        this.roomManager.getBotController(roomCode)?.onStateChange();
       });
 
-      this.broadcastGameState(found.room.code, engine.getFullState());
+      this.broadcastGameState(roomCode, engine.getFullState());
       // Trigger initial bot evaluation
-      botController?.onStateChange();
+      this.roomManager.getBotController(roomCode)?.onStateChange();
       this.maybeBroadcastPublicRoomList(found.room);
     });
 
@@ -393,16 +396,48 @@ export class SocketHandler {
     if (!found) return;
 
     const wasPublic = found.room.settings.isPublic;
-    console.log(`Player ${found.player.name} disconnected from room ${found.room.code}`);
-    const room = this.roomManager.leaveRoom(found.room.code, found.player.id);
-    socket.leave(found.room.code);
+    const roomCode = found.room.code;
+    const playerId = found.player.id;
+    const playerName = found.player.name;
+
+    // Check if game is in progress and player is alive before leaving
+    const engine = this.roomManager.getEngine(roomCode);
+    const gamePlayer = engine?.game.getPlayer(playerId);
+    const gameInProgress = engine && engine.game.status === 'InProgress';
+    const playerAlive = gamePlayer?.isAlive ?? false;
+
+    console.log(`Player ${playerName} disconnected from room ${roomCode}`);
+    const room = this.roomManager.leaveRoom(roomCode, playerId);
+    socket.leave(roomCode);
 
     if (room) {
+      // Start disconnect timer if game is in progress and player is alive
+      if (gameInProgress && playerAlive) {
+        this.roomManager.startDisconnectTimer(roomCode, playerId, () => {
+          this.handleBotReplacement(roomCode, playerId);
+        });
+      }
+
       this.broadcastRoomUpdate(room.code);
       this.maybeBroadcastPublicRoomList(room, wasPublic);
     } else if (wasPublic) {
       // Room was deleted — still need to update browser
       this.broadcastPublicRoomList();
+    }
+  }
+
+  private handleBotReplacement(roomCode: string, playerId: string): void {
+    const replaced = this.roomManager.replaceWithBot(roomCode, playerId);
+    if (!replaced) return;
+
+    // Broadcast updated room and game state
+    this.broadcastRoomUpdate(roomCode);
+    const engine = this.roomManager.getEngine(roomCode);
+    if (engine) {
+      this.broadcastGameState(roomCode, engine.getFullState());
+      // Trigger bot evaluation so the new bot acts if it's their turn
+      const bc = this.roomManager.getBotController(roomCode);
+      bc?.onStateChange();
     }
   }
 

@@ -33,6 +33,7 @@ export const BOT_ACTION_DELAY_MIN = 1500;
 export const BOT_ACTION_DELAY_MAX = 3500;
 export const BOT_REACTION_DELAY_MIN = 800;
 export const BOT_REACTION_DELAY_MAX = 2000;
+export const DISCONNECT_BOT_REPLACE_MS = 60_000;
 
 // ─── Chat Constants ───
 export const CHAT_MAX_MESSAGE_LENGTH = 200;
@@ -145,6 +146,7 @@ export const LOG_EVENT_ICONS: Record<LogEventType, string> = {
   assassination: '🗡️',
   elimination: '☠️',
   win: '🏆',
+  bot_replace: '🤖',
 };
 
 // ─── Character colors (for UI) ───

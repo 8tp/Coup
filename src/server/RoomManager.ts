@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
-import { BotDifficulty, ChatMessage, PublicRoomInfo, Room, RoomPlayer, RoomSettings } from '../shared/types';
-import { CHAT_MAX_HISTORY, CHAT_MAX_MESSAGE_LENGTH, CHAT_RATE_LIMIT_MS, DEFAULT_ROOM_SETTINGS, MAX_ACTION_TIMER, MAX_PLAYERS, MIN_ACTION_TIMER, MIN_PLAYERS, PUBLIC_ROOM_LIST_MAX } from '../shared/constants';
+import { BotDifficulty, ChatMessage, GameStatus, PublicRoomInfo, Room, RoomPlayer, RoomSettings } from '../shared/types';
+import { CHAT_MAX_HISTORY, CHAT_MAX_MESSAGE_LENGTH, CHAT_RATE_LIMIT_MS, DEFAULT_ROOM_SETTINGS, DISCONNECT_BOT_REPLACE_MS, MAX_ACTION_TIMER, MAX_PLAYERS, MIN_ACTION_TIMER, MIN_PLAYERS, PUBLIC_ROOM_LIST_MAX } from '../shared/constants';
 import { GameEngine } from '../engine/GameEngine';
 import { BotController } from './BotController';
 
@@ -12,6 +12,7 @@ export class RoomManager {
   private botControllers: Map<string, BotController> = new Map();
   private chatMessages: Map<string, ChatMessage[]> = new Map();
   private lastChatTime: Map<string, number> = new Map();
+  private disconnectTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private cleanupInterval: ReturnType<typeof setInterval>;
 
   constructor() {
@@ -139,6 +140,10 @@ export class RoomManager {
 
     const player = room.players.find(p => p.id === playerId);
     if (!player) return { error: 'Player not found in room' };
+
+    if (player.replacedByBot) {
+      return { error: 'You have been replaced by a bot due to inactivity' };
+    }
 
     player.socketId = socketId;
     player.connected = true;
@@ -306,8 +311,11 @@ export class RoomManager {
 
     room.gameState = null;
 
-    // Remove disconnected human players; bots always survive
-    room.players = room.players.filter(p => p.isBot || p.connected);
+    // Clear all disconnect timers for this room
+    this.clearDisconnectTimersForRoom(roomCode);
+
+    // Remove disconnected human players and bot-replaced players; original bots survive
+    room.players = room.players.filter(p => (p.isBot && !p.replacedByBot) || p.connected);
 
     // If room is empty after filtering, delete it
     if (room.players.length === 0) {
@@ -340,10 +348,93 @@ export class RoomManager {
     return null;
   }
 
+  // ─── Disconnect Timer & Bot Replacement ───
+
+  startDisconnectTimer(roomCode: string, playerId: string, onReplace: () => void): void {
+    const key = `${roomCode}:${playerId}`;
+    // Clear any existing timer for this player
+    const existing = this.disconnectTimers.get(key);
+    if (existing) clearTimeout(existing);
+
+    const timer = setTimeout(() => {
+      this.disconnectTimers.delete(key);
+      onReplace();
+    }, DISCONNECT_BOT_REPLACE_MS);
+
+    this.disconnectTimers.set(key, timer);
+  }
+
+  cancelDisconnectTimer(roomCode: string, playerId: string): void {
+    const key = `${roomCode}:${playerId}`;
+    const timer = this.disconnectTimers.get(key);
+    if (timer) {
+      clearTimeout(timer);
+      this.disconnectTimers.delete(key);
+    }
+  }
+
+  replaceWithBot(roomCode: string, playerId: string): boolean {
+    const room = this.rooms.get(roomCode);
+    if (!room) return false;
+
+    const engine = this.engines.get(roomCode);
+    if (!engine || engine.game.status !== GameStatus.InProgress) return false;
+
+    const roomPlayer = room.players.find(p => p.id === playerId);
+    if (!roomPlayer || roomPlayer.connected || roomPlayer.isBot) return false;
+
+    const gamePlayer = engine.game.getPlayer(playerId);
+    if (!gamePlayer || !gamePlayer.isAlive) return false;
+
+    // Convert to bot
+    roomPlayer.isBot = true;
+    roomPlayer.difficulty = 'hard';
+    roomPlayer.replacedByBot = true;
+    roomPlayer.connected = true; // Bots are always "connected"
+
+    // Register with BotController (create one if needed)
+    let bc = this.botControllers.get(roomCode);
+    if (bc) {
+      bc.addBot(playerId, 'hard');
+    } else {
+      bc = new BotController(engine, [roomPlayer]);
+      this.botControllers.set(roomCode, bc);
+    }
+
+    // Reassign host if the replaced player was host
+    if (room.hostId === playerId) {
+      const humanPlayer = room.players.find(p => !p.isBot && p.connected);
+      if (humanPlayer) {
+        room.hostId = humanPlayer.id;
+      }
+    }
+
+    // Log replacement
+    engine.game.log(
+      `${roomPlayer.name} has been replaced by a bot.`,
+      'bot_replace',
+      null,
+      playerId,
+      roomPlayer.name,
+    );
+
+    return true;
+  }
+
+  private clearDisconnectTimersForRoom(roomCode: string): void {
+    for (const [key, timer] of this.disconnectTimers.entries()) {
+      if (key.startsWith(`${roomCode}:`)) {
+        clearTimeout(timer);
+        this.disconnectTimers.delete(key);
+      }
+    }
+  }
+
   private cleanup(): void {
     const now = Date.now();
     for (const [code, room] of this.rooms.entries()) {
       if (now - room.createdAt > ROOM_TTL_MS) {
+        this.clearDisconnectTimersForRoom(code);
         this.rooms.delete(code);
         this.engines.delete(code);
         this.chatMessages.delete(code);
@@ -355,5 +446,9 @@ export class RoomManager {
 
   destroy(): void {
     clearInterval(this.cleanupInterval);
+    for (const timer of this.disconnectTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.disconnectTimers.clear();
   }
 }

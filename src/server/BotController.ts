@@ -28,6 +28,15 @@ export class BotController {
   }
 
   /**
+   * Register a new bot mid-game (e.g., when a disconnected player is replaced).
+   */
+  addBot(playerId: string, difficulty: BotDifficulty): void {
+    if (this.destroyed) return;
+    if (this.bots.some(b => b.id === playerId)) return;
+    this.bots.push({ id: playerId, difficulty });
+  }
+
+  /**
    * Called after every state broadcast. Evaluates whether any bot needs to act
    * and schedules the first one with a randomized delay.
    */
