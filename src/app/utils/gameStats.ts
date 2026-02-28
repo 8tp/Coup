@@ -1,0 +1,317 @@
+import { LogEntry, ClientGameState } from '@/shared/types';
+
+interface PlayerStats {
+  playerId: string;
+  playerName: string;
+  challengesMade: number;
+  challengesWon: number;
+  challengesLost: number;
+  timesCaughtBluffing: number;
+  timesProvenHonest: number;
+  blocksMade: number;
+  coupsMade: number;
+  assassinationsMade: number;
+  actionsClaimed: number;
+  eliminationOrder: number; // 0 = not eliminated, 1 = first out, etc.
+}
+
+export interface Award {
+  emoji: string;
+  title: string;
+  playerName: string;
+  description: string;
+}
+
+function computePlayerStats(log: LogEntry[], playerIds: string[], playerNames: Map<string, string>): Map<string, PlayerStats> {
+  const stats = new Map<string, PlayerStats>();
+
+  for (const id of playerIds) {
+    stats.set(id, {
+      playerId: id,
+      playerName: playerNames.get(id) ?? 'Unknown',
+      challengesMade: 0,
+      challengesWon: 0,
+      challengesLost: 0,
+      timesCaughtBluffing: 0,
+      timesProvenHonest: 0,
+      blocksMade: 0,
+      coupsMade: 0,
+      assassinationsMade: 0,
+      actionsClaimed: 0,
+      eliminationOrder: 0,
+    });
+  }
+
+  let eliminationCounter = 0;
+
+  for (let i = 0; i < log.length; i++) {
+    const entry = log[i];
+    const id = entry.actorId;
+    if (!id) continue;
+    const s = stats.get(id);
+    if (!s) continue;
+
+    switch (entry.eventType) {
+      case 'claim_action':
+        s.actionsClaimed++;
+        break;
+      case 'challenge':
+      case 'block_challenge':
+        s.challengesMade++;
+        break;
+      case 'challenge_success':
+      case 'block_challenge_success':
+        // actorId = the challenger who won
+        s.challengesWon++;
+        // Find who was bluffing by scanning backwards
+        if (entry.eventType === 'challenge_success') {
+          // The bluffer is the preceding claim_action's actor
+          for (let j = i - 1; j >= 0; j--) {
+            if (log[j].eventType === 'claim_action' && log[j].actorId) {
+              const bluffer = stats.get(log[j].actorId!);
+              if (bluffer) bluffer.timesCaughtBluffing++;
+              break;
+            }
+          }
+        } else {
+          // block_challenge_success: the bluffer is the preceding block's actor
+          for (let j = i - 1; j >= 0; j--) {
+            if (log[j].eventType === 'block' && log[j].actorId) {
+              const bluffer = stats.get(log[j].actorId!);
+              if (bluffer) bluffer.timesCaughtBluffing++;
+              break;
+            }
+          }
+        }
+        break;
+      case 'challenge_fail':
+      case 'block_challenge_fail':
+        // actorId = the challenged player who was proven honest
+        s.timesProvenHonest++;
+        // The challenger who lost: scan backwards for challenge/block_challenge
+        {
+          const challengeType = entry.eventType === 'challenge_fail' ? 'challenge' : 'block_challenge';
+          for (let j = i - 1; j >= 0; j--) {
+            if (log[j].eventType === challengeType && log[j].actorId) {
+              const challenger = stats.get(log[j].actorId!);
+              if (challenger) challenger.challengesLost++;
+              break;
+            }
+          }
+        }
+        break;
+      case 'block':
+        s.blocksMade++;
+        break;
+      case 'coup':
+        s.coupsMade++;
+        break;
+      case 'assassination':
+        s.assassinationsMade++;
+        break;
+      case 'elimination':
+        eliminationCounter++;
+        s.eliminationOrder = eliminationCounter;
+        break;
+    }
+  }
+
+  return stats;
+}
+
+function selectAwards(stats: Map<string, PlayerStats>): Award[] {
+  const all = Array.from(stats.values());
+  const candidates: { award: Award; priority: number; playerId: string }[] = [];
+
+  // Pants on Fire — most times caught bluffing (≥1)
+  const mostCaught = all.filter(s => s.timesCaughtBluffing >= 1)
+    .sort((a, b) => b.timesCaughtBluffing - a.timesCaughtBluffing)[0];
+  if (mostCaught) {
+    candidates.push({
+      playerId: mostCaught.playerId,
+      priority: 1,
+      award: {
+        emoji: '🤥',
+        title: 'Pants on Fire',
+        playerName: mostCaught.playerName,
+        description: `caught bluffing ${mostCaught.timesCaughtBluffing}x`,
+      },
+    });
+  }
+
+  // Honest Abe — most times proven honest, 0 caught bluffing (≥1 proven)
+  const honestCandidates = all.filter(s => s.timesProvenHonest >= 1 && s.timesCaughtBluffing === 0)
+    .sort((a, b) => b.timesProvenHonest - a.timesProvenHonest);
+  if (honestCandidates.length > 0) {
+    const h = honestCandidates[0];
+    candidates.push({
+      playerId: h.playerId,
+      priority: 2,
+      award: {
+        emoji: '😇',
+        title: 'Honest Abe',
+        playerName: h.playerName,
+        description: `proven honest ${h.timesProvenHonest}x, never caught`,
+      },
+    });
+  }
+
+  // The Inquisitor — most challenges made (≥2)
+  const mostChallenges = all.filter(s => s.challengesMade >= 2)
+    .sort((a, b) => b.challengesMade - a.challengesMade)[0];
+  if (mostChallenges) {
+    candidates.push({
+      playerId: mostChallenges.playerId,
+      priority: 3,
+      award: {
+        emoji: '🔍',
+        title: 'The Inquisitor',
+        playerName: mostChallenges.playerName,
+        description: `${mostChallenges.challengesMade} challenges made`,
+      },
+    });
+  }
+
+  // Eagle Eye — best challenge win rate (≥2 challenges)
+  const eagleEyeCandidates = all.filter(s => s.challengesMade >= 2)
+    .map(s => ({ ...s, winRate: s.challengesWon / s.challengesMade }))
+    .sort((a, b) => b.winRate - a.winRate);
+  if (eagleEyeCandidates.length > 0) {
+    const e = eagleEyeCandidates[0];
+    const pct = Math.round(e.winRate * 100);
+    candidates.push({
+      playerId: e.playerId,
+      priority: 4,
+      award: {
+        emoji: '🦅',
+        title: 'Eagle Eye',
+        playerName: e.playerName,
+        description: `${pct}% challenge accuracy`,
+      },
+    });
+  }
+
+  // The Wall — most blocks made (≥2)
+  const mostBlocks = all.filter(s => s.blocksMade >= 2)
+    .sort((a, b) => b.blocksMade - a.blocksMade)[0];
+  if (mostBlocks) {
+    candidates.push({
+      playerId: mostBlocks.playerId,
+      priority: 5,
+      award: {
+        emoji: '🧱',
+        title: 'The Wall',
+        playerName: mostBlocks.playerName,
+        description: `${mostBlocks.blocksMade} blocks made`,
+      },
+    });
+  }
+
+  // Smooth Operator — most claims with 0 times caught (≥3 claims)
+  const smoothCandidates = all.filter(s => s.actionsClaimed >= 3 && s.timesCaughtBluffing === 0)
+    .sort((a, b) => b.actionsClaimed - a.actionsClaimed);
+  if (smoothCandidates.length > 0) {
+    const sm = smoothCandidates[0];
+    candidates.push({
+      playerId: sm.playerId,
+      priority: 6,
+      award: {
+        emoji: '🎭',
+        title: 'Smooth Operator',
+        playerName: sm.playerName,
+        description: `${sm.actionsClaimed} claims, never caught`,
+      },
+    });
+  }
+
+  // Coup Machine — most coups (≥2)
+  const mostCoups = all.filter(s => s.coupsMade >= 2)
+    .sort((a, b) => b.coupsMade - a.coupsMade)[0];
+  if (mostCoups) {
+    candidates.push({
+      playerId: mostCoups.playerId,
+      priority: 7,
+      award: {
+        emoji: '⚔️',
+        title: 'Coup Machine',
+        playerName: mostCoups.playerName,
+        description: `${mostCoups.coupsMade} coups launched`,
+      },
+    });
+  }
+
+  // Silent Assassin — most assassinations (≥2)
+  const mostAssassinations = all.filter(s => s.assassinationsMade >= 2)
+    .sort((a, b) => b.assassinationsMade - a.assassinationsMade)[0];
+  if (mostAssassinations) {
+    candidates.push({
+      playerId: mostAssassinations.playerId,
+      priority: 8,
+      award: {
+        emoji: '🗡️',
+        title: 'Silent Assassin',
+        playerName: mostAssassinations.playerName,
+        description: `${mostAssassinations.assassinationsMade} assassinations`,
+      },
+    });
+  }
+
+  // Bold Strategy — most challenges lost (≥2)
+  const mostLost = all.filter(s => s.challengesLost >= 2)
+    .sort((a, b) => b.challengesLost - a.challengesLost)[0];
+  if (mostLost) {
+    candidates.push({
+      playerId: mostLost.playerId,
+      priority: 9,
+      award: {
+        emoji: '🎲',
+        title: 'Bold Strategy',
+        playerName: mostLost.playerName,
+        description: `${mostLost.challengesLost} challenges backfired`,
+      },
+    });
+  }
+
+  // Quick Exit — first player eliminated (exactly 1 person with eliminationOrder === 1)
+  const firstOut = all.find(s => s.eliminationOrder === 1);
+  if (firstOut) {
+    candidates.push({
+      playerId: firstOut.playerId,
+      priority: 10,
+      award: {
+        emoji: '🚪',
+        title: 'Quick Exit',
+        playerName: firstOut.playerName,
+        description: 'first player eliminated',
+      },
+    });
+  }
+
+  // Deduplicate: max 1 award per player (pick lowest priority = rarest)
+  const awarded = new Set<string>();
+  const selected: Award[] = [];
+
+  candidates.sort((a, b) => a.priority - b.priority);
+
+  for (const c of candidates) {
+    if (awarded.has(c.playerId)) continue;
+    awarded.add(c.playerId);
+    selected.push(c.award);
+    if (selected.length >= 4) break;
+  }
+
+  return selected;
+}
+
+export function computeAwards(gameState: ClientGameState): Award[] {
+  if (gameState.turnNumber < 3) return [];
+
+  const playerIds = gameState.players.map(p => p.id);
+  const playerNames = new Map<string, string>();
+  for (const p of gameState.players) {
+    playerNames.set(p.id, p.id === gameState.myId ? 'You' : p.name);
+  }
+
+  const stats = computePlayerStats(gameState.actionLog, playerIds, playerNames);
+  return selectAwards(stats);
+}

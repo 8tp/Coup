@@ -1,8 +1,10 @@
 'use client';
 
+import { useMemo } from 'react';
 import { Character, ClientGameState, ClientInfluence, TurnPhase } from '@/shared/types';
 import { useGameStore } from '../../stores/gameStore';
 import { CHARACTER_SVG_ICONS } from '../icons';
+import { computeAwards } from '../../utils/gameStats';
 
 const characterColors: Record<Character, string> = {
   [Character.Duke]: 'border-purple-500 bg-purple-900/40',
@@ -36,6 +38,7 @@ interface GameOverOverlayProps {
 
 export function GameOverOverlay({ gameState, isHost, onRematch }: GameOverOverlayProps) {
   const challengeReveal = useGameStore(s => s.challengeReveal);
+  const awards = useMemo(() => computeAwards(gameState), [gameState]);
 
   // Wait for any challenge reveal animation to finish before showing
   if (gameState.turnPhase !== TurnPhase.GameOver || challengeReveal) return null;
@@ -103,6 +106,24 @@ export function GameOverOverlay({ gameState, isHost, onRematch }: GameOverOverla
             })}
           </div>
         </div>
+
+        {/* Awards */}
+        {awards.length > 0 && (
+          <div className="px-4 pb-4">
+            <p className="text-center text-xs text-gray-500 uppercase tracking-wider mb-2">Awards</p>
+            <div className="bg-coup-bg/60 rounded-xl border border-gray-800 divide-y divide-gray-800">
+              {awards.map((award, i) => (
+                <div key={i} className="px-3 py-2.5 flex items-start gap-2.5">
+                  <span className="text-lg leading-none mt-0.5">{award.emoji}</span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-gray-200">{award.title}</p>
+                    <p className="text-xs text-gray-500">{award.playerName} · {award.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Action */}
         <div className="px-6 pb-6">
