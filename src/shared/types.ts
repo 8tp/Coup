@@ -164,6 +164,7 @@ export interface ClientPlayerState {
   influences: ClientInfluence[];
   isAlive: boolean;
   seatIndex: number;
+  isBot?: boolean;
 }
 
 export interface ClientInfluence {
@@ -186,6 +187,13 @@ export interface ClientExchangeState {
   keepCount: number;
 }
 
+// ─── AI Personality ───
+export interface AiPersonality {
+  honesty: number;     // 0–100
+  skepticism: number;  // 0–100
+  vengefulness: number; // 0–100
+}
+
 // ─── Room ───
 export interface Room {
   code: string;
@@ -200,6 +208,8 @@ export interface RoomPlayer {
   name: string;
   socketId: string;
   connected: boolean;
+  isBot?: boolean;
+  personality?: AiPersonality;
 }
 
 // ─── Chat ───

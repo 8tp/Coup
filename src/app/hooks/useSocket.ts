@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import type { ClientToServerEvents, ServerToClientEvents } from '@/shared/protocol';
+import type { AiPersonality } from '@/shared/types';
 import { useGameStore } from '../stores/gameStore';
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -153,6 +154,30 @@ export function useSocket() {
     socketRef.current.emit('game:rematch');
   }, []);
 
+  const addBot = useCallback((name: string, personality: AiPersonality): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      socketRef.current.emit('bot:add', { name, personality }, (response) => {
+        if (response.success && response.botId) {
+          resolve(response.botId);
+        } else {
+          reject(new Error(response.error || 'Failed to add bot'));
+        }
+      });
+    });
+  }, []);
+
+  const removeBot = useCallback((botId: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      socketRef.current.emit('bot:remove', { botId }, (response) => {
+        if (response.success) {
+          resolve();
+        } else {
+          reject(new Error(response.error || 'Failed to remove bot'));
+        }
+      });
+    });
+  }, []);
+
   return {
     socket: socketRef.current,
     createRoom,
@@ -161,5 +186,7 @@ export function useSocket() {
     leaveRoom,
     sendChat,
     rematch,
+    addBot,
+    removeBot,
   };
 }

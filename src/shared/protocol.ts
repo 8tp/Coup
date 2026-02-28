@@ -1,4 +1,4 @@
-import { ActionType, Character, ChatMessage, ClientGameState, RoomPlayer } from './types';
+import { ActionType, AiPersonality, Character, ChatMessage, ClientGameState, RoomPlayer } from './types';
 
 // ─── Client → Server Events ───
 export interface ClientToServerEvents {
@@ -23,6 +23,10 @@ export interface ClientToServerEvents {
 
   // Rematch
   'game:rematch': () => void;
+
+  // Bots
+  'bot:add': (data: { name: string; personality: AiPersonality }, callback: (response: { success: boolean; botId?: string; error?: string }) => void) => void;
+  'bot:remove': (data: { botId: string }, callback: (response: { success: boolean; error?: string }) => void) => void;
 
   // Reconnection
   'room:rejoin': (data: { roomCode: string; playerId: string }, callback: (response: RoomResponse) => void) => void;

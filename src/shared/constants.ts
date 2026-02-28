@@ -1,4 +1,4 @@
-import { ActionType, Character } from './types';
+import { ActionType, AiPersonality, Character } from './types';
 
 // ─── Game Constants ───
 export const MIN_PLAYERS = 2;
@@ -15,6 +15,18 @@ export const EXCHANGE_DRAW_COUNT = 2;
 
 // Total coins in the game (physical game has 50)
 export const TOTAL_COINS = 50;
+
+// ─── Bot Constants ───
+export const BOT_NAMES = [
+  'R2-D2', 'HAL 9000', 'WALL-E', 'Terminator', 'GLaDOS',
+  'JARVIS', 'Data', 'Cortana', 'Baymax', 'Optimus',
+  'Ultron', 'Skynet', 'Bender', 'C-3PO', 'Marvin',
+];
+export const DEFAULT_PERSONALITY: AiPersonality = { honesty: 50, skepticism: 50, vengefulness: 50 };
+export const BOT_ACTION_DELAY_MIN = 1500;
+export const BOT_ACTION_DELAY_MAX = 3500;
+export const BOT_REACTION_DELAY_MIN = 800;
+export const BOT_REACTION_DELAY_MAX = 2000;
 
 // ─── Chat Constants ───
 export const CHAT_MAX_MESSAGE_LENGTH = 200;

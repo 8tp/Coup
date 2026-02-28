@@ -4,6 +4,7 @@ import { GameState, GameStatus } from '../shared/types';
 import { CHAT_MAX_MESSAGE_LENGTH } from '../shared/constants';
 import { RoomManager } from './RoomManager';
 import { serializeForPlayer } from './StateSerializer';
+import { BotController } from './BotController';
 
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 
@@ -91,7 +92,7 @@ export class SocketHandler {
       const engine = this.roomManager.getEngine(code);
       if (engine) {
         const state = engine.getFullState();
-        socket.emit('game:state', serializeForPlayer(state, result.player.id));
+        socket.emit('game:state', serializeForPlayer(state, result.player.id, result.room.players));
       }
 
       // Send chat history
@@ -103,6 +104,56 @@ export class SocketHandler {
 
     socket.on('room:leave', () => {
       this.handleDisconnect(socket);
+    });
+
+    // ─── Bots ───
+
+    socket.on('bot:add', (data, callback) => {
+      const found = this.roomManager.getPlayerRoom(socket.id);
+      if (!found) {
+        callback({ success: false, error: 'Not in a room' });
+        return;
+      }
+      if (found.player.id !== found.room.hostId) {
+        callback({ success: false, error: 'Only the host can add bots' });
+        return;
+      }
+
+      const name = data.name?.trim();
+      if (!name || name.length > 20) {
+        callback({ success: false, error: 'Invalid name (1-20 chars)' });
+        return;
+      }
+
+      const result = this.roomManager.addBot(found.room.code, name, data.personality);
+      if ('error' in result) {
+        callback({ success: false, error: result.error });
+        return;
+      }
+
+      callback({ success: true, botId: result.botId });
+      this.broadcastRoomUpdate(found.room.code);
+    });
+
+    socket.on('bot:remove', (data, callback) => {
+      const found = this.roomManager.getPlayerRoom(socket.id);
+      if (!found) {
+        callback({ success: false, error: 'Not in a room' });
+        return;
+      }
+      if (found.player.id !== found.room.hostId) {
+        callback({ success: false, error: 'Only the host can remove bots' });
+        return;
+      }
+
+      const result = this.roomManager.removeBot(found.room.code, data.botId);
+      if ('error' in result) {
+        callback({ success: false, error: result.error });
+        return;
+      }
+
+      callback({ success: true });
+      this.broadcastRoomUpdate(found.room.code);
     });
 
     socket.on('game:start', () => {
@@ -124,11 +175,24 @@ export class SocketHandler {
       }
 
       const engine = result;
+
+      // Create BotController if there are bots in the room
+      const botPlayers = found.room.players.filter(p => p.isBot);
+      let botController: BotController | null = null;
+      if (botPlayers.length > 0) {
+        botController = new BotController(engine, botPlayers);
+        this.roomManager.setBotController(found.room.code, botController);
+      }
+
       engine.setOnStateChange((state: GameState) => {
         this.broadcastGameState(found.room.code, state);
+        // Notify bots after state broadcast
+        botController?.onStateChange();
       });
 
       this.broadcastGameState(found.room.code, engine.getFullState());
+      // Trigger initial bot evaluation
+      botController?.onStateChange();
     });
 
     // ─── Chat ───
@@ -170,7 +234,12 @@ export class SocketHandler {
         return;
       }
 
-      if (!found.room.gameState || found.room.gameState.status !== GameStatus.Finished) {
+      // Check the engine's live state, not the stale room.gameState snapshot
+      const engine = this.roomManager.getEngine(found.room.code);
+      const isFinished = engine
+        ? engine.game.status === GameStatus.Finished
+        : found.room.gameState?.status === GameStatus.Finished;
+      if (!isFinished) {
         socket.emit('game:error', { message: 'Game is not finished' });
         return;
       }
@@ -304,10 +373,10 @@ export class SocketHandler {
     const room = this.roomManager.getRoom(roomCode);
     if (!room) return;
 
-    // Send personalized state to each player
+    // Send personalized state to each human player
     for (const player of room.players) {
-      if (!player.connected) continue;
-      const clientState = serializeForPlayer(state, player.id);
+      if (!player.connected || player.isBot) continue;
+      const clientState = serializeForPlayer(state, player.id, room.players);
       this.io.to(player.socketId).emit('game:state', clientState);
     }
   }

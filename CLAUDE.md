@@ -91,9 +91,11 @@ Not every turn visits every phase. Income resolves immediately. Coup skips to In
 | `src/engine/Game.ts` | Game model: players, deck, turn order, treasury, action log |
 | `src/engine/Player.ts` | Player model: influences, coins, hasCharacter, revealInfluence |
 | `src/engine/Deck.ts` | Card deck: shuffle (Fisher-Yates), draw, return, reset |
-| `src/server/RoomManager.ts` | Room lifecycle: create, join, rejoin, leave, cleanup (24h TTL), chat storage, rematch reset |
+| `src/engine/BotBrain.ts` | Pure AI decision logic: personality-driven action/challenge/block choices |
+| `src/server/RoomManager.ts` | Room lifecycle: create, join, rejoin, leave, cleanup (24h TTL), chat storage, rematch reset, bot management |
 | `src/server/SocketHandler.ts` | Socket.io event routing: validates context, delegates to engine |
 | `src/server/StateSerializer.ts` | Per-player state filtering before sending to clients |
+| `src/server/BotController.ts` | Bot timing/execution: schedules AI decisions with randomized delays |
 | `server.ts` | Entry point: wires Express + Socket.io + Next.js |
 | `src/app/page.tsx` | Home screen UI (create/join room) |
 | `src/app/hooks/useSocket.ts` | Socket.io client hook with reconnection and session storage |
@@ -102,6 +104,7 @@ Not every turn visits every phase. Income resolves immediately. Coup skips to In
 | `src/app/components/chat/ChatPanel.tsx` | Chat message list + text input |
 | `src/app/components/game/GameCenterTabs.tsx` | Log/Chat tabbed container with unread indicator |
 | `src/app/components/game/GameOverOverlay.tsx` | Game over screen with rematch flow |
+| `src/app/components/lobby/AddBotModal.tsx` | Modal with name input + personality sliders for adding bots |
 
 ---
 
@@ -124,9 +127,25 @@ Not every turn visits every phase. Income resolves immediately. Coup skips to In
 
 Room-scoped chat works in both lobby and in-game. Messages are stored server-side per room (up to `CHAT_MAX_HISTORY`), rate-limited to 1 per second per player, and sent to rejoining players via `chat:history`. In-game, the `GameCenterTabs` component provides Log and Chat tabs with an unread indicator.
 
+### Computer Players (Bots)
+
+The host can add 1–5 AI players from the lobby via `bot:add`. Each bot has three personality sliders (0–100):
+
+- **Honesty** — high values prefer playing cards the bot actually holds; low values bluff aggressively
+- **Skepticism** — high values challenge opponents more often
+- **Vengefulness** — high values target leading players; low values pick randomly
+
+Bots are server-side only — they use the same `GameEngine` methods as human players but decisions are made by `BotBrain` (pure logic, no I/O) and scheduled by `BotController` (timing layer with randomized delays: 1.5–3.5s for actions, 0.8–2s for reactions). Only one bot acts at a time; each action triggers a state change which cascades to the next bot.
+
+Key behaviors:
+- Bots never peek at opponents' hidden cards or the deck
+- When targeted by an action the bot can block (e.g., Contessa vs Assassination), it passes the challenge phase and blocks instead
+- Bots survive rematch (`resetToLobby` preserves them), but a bot can never become host
+- State broadcasts skip bots (no socket to send to)
+
 ### Rematch Flow
 
-After a game finishes, the host can click "Play Again" which triggers `game:rematch` → server calls `resetToLobby()` (destroys engine, clears game state, removes disconnected players) → broadcasts `game:rematch_to_lobby` → all clients clear game state and redirect to the lobby. Chat history is preserved across rematches.
+After a game finishes, the host can click "Play Again" which triggers `game:rematch` → server calls `resetToLobby()` (destroys engine and BotController, clears game state, removes disconnected human players, preserves bots) → broadcasts `game:rematch_to_lobby` → all clients clear game state and redirect to the lobby. Chat history is preserved across rematches.
 
 ### Side Effect Pattern
 
@@ -152,7 +171,8 @@ The `GameEngine.applySideEffect()` method interprets each effect and mutates the
 - **All game constants** are in `src/shared/constants.ts` -- do not hardcode magic numbers
 - **Room codes** are 6 characters using `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` (no ambiguous characters like O/0/I/1)
 - **Player IDs** are UUIDs generated server-side
-- **State broadcasts** go to every connected player in the room, each receiving their own filtered view
+- **State broadcasts** go to every connected human player in the room, each receiving their own filtered view (bots are skipped)
+- **Bots use the same engine API** -- `BotBrain` is pure logic (no I/O), `BotController` handles timing. Never add socket or timer logic to `BotBrain`
 
 ---
 
