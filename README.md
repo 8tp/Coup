@@ -1,4 +1,6 @@
-<h1 align="center">Coup Online</h1>
+<p align="center">
+  <img src="public/coup-logo.png" alt="Coup Online" width="400">
+</p>
 
 <p align="center">
   A real-time multiplayer web adaptation of the classic bluffing card game.

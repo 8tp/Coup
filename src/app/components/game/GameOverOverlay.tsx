@@ -1,6 +1,7 @@
 'use client';
 
 import { ClientGameState, TurnPhase } from '@/shared/types';
+import { useGameStore } from '../../stores/gameStore';
 
 interface GameOverOverlayProps {
   gameState: ClientGameState;
@@ -9,7 +10,10 @@ interface GameOverOverlayProps {
 }
 
 export function GameOverOverlay({ gameState, isHost, onRematch }: GameOverOverlayProps) {
-  if (gameState.turnPhase !== TurnPhase.GameOver) return null;
+  const challengeReveal = useGameStore(s => s.challengeReveal);
+
+  // Wait for any challenge reveal animation to finish before showing
+  if (gameState.turnPhase !== TurnPhase.GameOver || challengeReveal) return null;
 
   const winner = gameState.players.find(p => p.id === gameState.winnerId);
   const isMe = winner?.id === gameState.myId;
