@@ -1,0 +1,134 @@
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useSocket } from './hooks/useSocket';
+import { useGameStore } from './stores/gameStore';
+
+export default function Home() {
+  const router = useRouter();
+  const { createRoom, joinRoom } = useSocket();
+  const { error, setError, setRoom } = useGameStore();
+  const [mode, setMode] = useState<'idle' | 'create' | 'join'>('idle');
+  const [name, setName] = useState('');
+  const [roomCode, setRoomCode] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleCreate = async () => {
+    if (!name.trim()) { setError('Enter your name'); return; }
+    setLoading(true);
+    try {
+      const result = await createRoom(name.trim());
+      setRoom(result.roomCode, result.playerId);
+      router.push(`/lobby/${result.roomCode}`);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleJoin = async () => {
+    if (!name.trim()) { setError('Enter your name'); return; }
+    if (!roomCode.trim()) { setError('Enter room code'); return; }
+    setLoading(true);
+    try {
+      const result = await joinRoom(roomCode.trim(), name.trim());
+      setRoom(result.roomCode, result.playerId);
+      router.push(`/lobby/${result.roomCode}`);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center px-4">
+      <div className="max-w-md w-full text-center">
+        <h1 className="text-5xl font-bold text-coup-accent mb-2">COUP</h1>
+        <p className="text-gray-400 mb-8">The classic bluffing game</p>
+
+        {error && (
+          <div className="bg-red-900/50 border border-red-600 rounded-xl p-3 mb-4 text-sm animate-fade-in">
+            {error}
+          </div>
+        )}
+
+        {mode === 'idle' && (
+          <div className="space-y-4 animate-fade-in">
+            <button className="btn-primary w-full" onClick={() => setMode('create')}>
+              Create Room
+            </button>
+            <button className="btn-secondary w-full" onClick={() => setMode('join')}>
+              Join Room
+            </button>
+          </div>
+        )}
+
+        {mode === 'create' && (
+          <div className="space-y-4 animate-slide-up">
+            <input
+              className="input-field"
+              placeholder="Your name"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              maxLength={20}
+              autoFocus
+            />
+            <button
+              className="btn-primary w-full"
+              onClick={handleCreate}
+              disabled={loading}
+            >
+              {loading ? 'Creating...' : 'Create Room'}
+            </button>
+            <button
+              className="btn-secondary w-full"
+              onClick={() => setMode('idle')}
+            >
+              Back
+            </button>
+          </div>
+        )}
+
+        {mode === 'join' && (
+          <div className="space-y-4 animate-slide-up">
+            <input
+              className="input-field"
+              placeholder="Your name"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              maxLength={20}
+              autoFocus
+            />
+            <input
+              className="input-field uppercase"
+              placeholder="Room code"
+              value={roomCode}
+              onChange={e => setRoomCode(e.target.value.toUpperCase())}
+              maxLength={6}
+            />
+            <button
+              className="btn-primary w-full"
+              onClick={handleJoin}
+              disabled={loading}
+            >
+              {loading ? 'Joining...' : 'Join Room'}
+            </button>
+            <button
+              className="btn-secondary w-full"
+              onClick={() => setMode('idle')}
+            >
+              Back
+            </button>
+          </div>
+        )}
+
+        <div className="mt-12 text-gray-600 text-xs">
+          <p>2-6 players. Bluff, challenge, eliminate.</p>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-coup-accent text-coup-bg font-bold py-3 px-6 rounded-xl
+           active:scale-95 transition-transform duration-100
+           disabled:opacity-50 disabled:cursor-not-allowed
+           text-lg min-h-[48px] min-w-[48px];
+  }
+
+  .btn-danger {
+    @apply bg-red-600 text-white font-bold py-3 px-6 rounded-xl
+           active:scale-95 transition-transform duration-100
+           disabled:opacity-50 disabled:cursor-not-allowed
+           text-lg min-h-[48px] min-w-[48px];
+  }
+
+  .btn-secondary {
+    @apply bg-coup-card text-white font-bold py-3 px-6 rounded-xl border border-gray-600
+           active:scale-95 transition-transform duration-100
+           disabled:opacity-50 disabled:cursor-not-allowed
+           text-lg min-h-[48px] min-w-[48px];
+  }
+
+  .card-container {
+    @apply bg-coup-card rounded-xl border-2 border-gray-700 p-4
+           transition-all duration-200;
+  }
+
+  .card-face {
+    @apply rounded-lg flex flex-col items-center justify-center
+           font-bold border-2 transition-all duration-300 shrink-0;
+  }
+
+  .card-face-sm {
+    @apply w-10 h-[60px] text-[10px];
+  }
+
+  .card-face-md {
+    @apply w-14 h-[84px] text-xs;
+  }
+
+  .card-face-lg {
+    @apply w-[72px] h-[108px] text-sm;
+  }
+
+  .input-field {
+    @apply bg-coup-surface border border-gray-600 rounded-xl px-4 py-3
+           text-white text-lg placeholder-gray-500
+           focus:outline-none focus:border-coup-accent focus:ring-1 focus:ring-coup-accent
+           min-h-[48px] w-full;
+  }
+
+  /* Prompt urgency levels */
+  .prompt-urgent {
+    @apply bg-red-950 border-2 border-red-500 rounded-xl p-4 animate-slide-up;
+  }
+
+  .prompt-action {
+    @apply bg-coup-accent/10 border-2 border-coup-accent rounded-xl p-4 animate-slide-up;
+  }
+
+  .prompt-info {
+    @apply bg-coup-card border-2 border-gray-600 rounded-xl p-4 animate-fade-in;
+  }
+}
