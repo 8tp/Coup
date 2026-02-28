@@ -1,8 +1,8 @@
-import { ActionType, AiPersonality, ChallengeRevealEvent, Character, ChatMessage, ClientGameState, RoomPlayer, RoomSettings } from './types';
+import { ActionType, AiPersonality, ChallengeRevealEvent, Character, ChatMessage, ClientGameState, PublicRoomInfo, RoomPlayer, RoomSettings } from './types';
 
 // ─── Client → Server Events ───
 export interface ClientToServerEvents {
-  'room:create': (data: { playerName: string }, callback: (response: RoomResponse) => void) => void;
+  'room:create': (data: { playerName: string; isPublic?: boolean }, callback: (response: RoomResponse) => void) => void;
   'room:join': (data: { roomCode: string; playerName: string }, callback: (response: RoomResponse) => void) => void;
   'room:leave': () => void;
   'game:start': () => void;
@@ -31,6 +31,10 @@ export interface ClientToServerEvents {
   // Room settings
   'room:update_settings': (data: { settings: RoomSettings }, callback: (response: { success: boolean; error?: string }) => void) => void;
 
+  // Room browser
+  'browser:subscribe': () => void;
+  'browser:unsubscribe': () => void;
+
   // Reconnection
   'room:rejoin': (data: { roomCode: string; playerId: string }, callback: (response: RoomResponse) => void) => void;
 }
@@ -46,6 +50,7 @@ export interface ServerToClientEvents {
   'chat:history': (data: { messages: ChatMessage[] }) => void;
   'game:challenge_reveal': (data: ChallengeRevealEvent) => void;
   'game:rematch_to_lobby': () => void;
+  'browser:list': (data: { rooms: PublicRoomInfo[] }) => void;
 }
 
 // ─── Response Types ───

@@ -1,7 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
-import { ChallengeRevealEvent, ChatMessage, ClientGameState, RoomPlayer, RoomSettings } from '@/shared/types';
+import { ChallengeRevealEvent, ChatMessage, ClientGameState, PublicRoomInfo, RoomPlayer, RoomSettings } from '@/shared/types';
 
 interface GameStore {
   // Connection state
@@ -30,6 +30,10 @@ interface GameStore {
   // Challenge reveal
   challengeReveal: ChallengeRevealEvent | null;
   setChallengeReveal: (data: ChallengeRevealEvent | null) => void;
+
+  // Public rooms (browser)
+  publicRooms: PublicRoomInfo[];
+  setPublicRooms: (rooms: PublicRoomInfo[]) => void;
 
   // Error state
   error: string | null;
@@ -67,6 +71,9 @@ export const useGameStore = create<GameStore>((set) => ({
 
   challengeReveal: null,
   setChallengeReveal: (data) => set({ challengeReveal: data }),
+
+  publicRooms: [],
+  setPublicRooms: (rooms) => set({ publicRooms: rooms }),
 
   error: null,
   setError: (error) => set({ error }),

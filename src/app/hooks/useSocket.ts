@@ -32,6 +32,7 @@ export function useSocket() {
     addChatMessage,
     setChatHistory,
     setChallengeReveal,
+    setPublicRooms,
     roomCode,
     playerId,
   } = useGameStore();
@@ -100,6 +101,10 @@ export function useSocket() {
       setChallengeReveal(data);
     });
 
+    socket.on('browser:list', (data) => {
+      setPublicRooms(data.rooms);
+    });
+
     return () => {
       socket.off('connect');
       socket.off('disconnect');
@@ -111,12 +116,13 @@ export function useSocket() {
       socket.off('chat:history');
       socket.off('game:rematch_to_lobby');
       socket.off('game:challenge_reveal');
+      socket.off('browser:list');
     };
-  }, [setConnected, setRoomPlayers, setGameState, setError, addChatMessage, setChatHistory, setChallengeReveal]);
+  }, [setConnected, setRoomPlayers, setGameState, setError, addChatMessage, setChatHistory, setChallengeReveal, setPublicRooms]);
 
-  const createRoom = useCallback((playerName: string): Promise<{ roomCode: string; playerId: string }> => {
+  const createRoom = useCallback((playerName: string, isPublic?: boolean): Promise<{ roomCode: string; playerId: string }> => {
     return new Promise((resolve, reject) => {
-      socketRef.current.emit('room:create', { playerName }, (response) => {
+      socketRef.current.emit('room:create', { playerName, isPublic }, (response) => {
         if (response.success && response.roomCode && response.playerId) {
           sessionStorage.setItem('coup_room', response.roomCode);
           sessionStorage.setItem('coup_player', response.playerId);
@@ -196,6 +202,14 @@ export function useSocket() {
     });
   }, []);
 
+  const subscribeToBrowser = useCallback(() => {
+    socketRef.current.emit('browser:subscribe');
+  }, []);
+
+  const unsubscribeFromBrowser = useCallback(() => {
+    socketRef.current.emit('browser:unsubscribe');
+  }, []);
+
   return {
     socket: socketRef.current,
     createRoom,
@@ -207,5 +221,7 @@ export function useSocket() {
     addBot,
     removeBot,
     updateRoomSettings,
+    subscribeToBrowser,
+    unsubscribeFromBrowser,
   };
 }

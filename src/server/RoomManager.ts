@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
-import { AiPersonality, ChatMessage, Room, RoomPlayer, RoomSettings } from '../shared/types';
-import { CHAT_MAX_HISTORY, CHAT_MAX_MESSAGE_LENGTH, CHAT_RATE_LIMIT_MS, DEFAULT_ROOM_SETTINGS, MAX_ACTION_TIMER, MAX_PLAYERS, MIN_ACTION_TIMER, MIN_PLAYERS } from '../shared/constants';
+import { AiPersonality, ChatMessage, PublicRoomInfo, Room, RoomPlayer, RoomSettings } from '../shared/types';
+import { CHAT_MAX_HISTORY, CHAT_MAX_MESSAGE_LENGTH, CHAT_RATE_LIMIT_MS, DEFAULT_ROOM_SETTINGS, MAX_ACTION_TIMER, MAX_PLAYERS, MIN_ACTION_TIMER, MIN_PLAYERS, PUBLIC_ROOM_LIST_MAX } from '../shared/constants';
 import { GameEngine } from '../engine/GameEngine';
 import { BotController } from './BotController';
 
@@ -31,7 +31,7 @@ export class RoomManager {
     return code;
   }
 
-  createRoom(playerName: string, socketId: string): { room: Room; playerId: string } {
+  createRoom(playerName: string, socketId: string, isPublic?: boolean): { room: Room; playerId: string } {
     const code = this.generateRoomCode();
     const playerId = uuidv4();
 
@@ -48,7 +48,7 @@ export class RoomManager {
       ],
       gameState: null,
       createdAt: Date.now(),
-      settings: { ...DEFAULT_ROOM_SETTINGS },
+      settings: { ...DEFAULT_ROOM_SETTINGS, isPublic: !!isPublic },
     };
 
     this.rooms.set(code, room);
@@ -196,8 +196,25 @@ export class RoomManager {
       return { error: `Timer must be between ${MIN_ACTION_TIMER} and ${MAX_ACTION_TIMER} seconds` };
     }
 
-    room.settings = { actionTimerSeconds: timer };
+    room.settings = { actionTimerSeconds: timer, isPublic: !!settings.isPublic };
     return { success: true };
+  }
+
+  getPublicRooms(): PublicRoomInfo[] {
+    const result: PublicRoomInfo[] = [];
+    for (const room of this.rooms.values()) {
+      if (!room.settings.isPublic) continue;
+      result.push({
+        code: room.code,
+        hostName: room.players.find(p => p.id === room.hostId)?.name || 'Unknown',
+        playerCount: room.players.length,
+        maxPlayers: MAX_PLAYERS,
+        settings: { ...room.settings },
+        hasGame: room.gameState !== null,
+      });
+      if (result.length >= PUBLIC_ROOM_LIST_MAX) break;
+    }
+    return result;
   }
 
   getRoom(code: string): Room | undefined {

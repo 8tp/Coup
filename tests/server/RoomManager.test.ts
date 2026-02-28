@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { RoomManager } from '@/server/RoomManager';
-import { DEFAULT_ROOM_SETTINGS, MIN_ACTION_TIMER, MAX_ACTION_TIMER } from '@/shared/constants';
+import { DEFAULT_ROOM_SETTINGS, MIN_ACTION_TIMER, MAX_ACTION_TIMER, PUBLIC_ROOM_LIST_MAX, MAX_PLAYERS } from '@/shared/constants';
 import { ActionType, TurnPhase } from '@/shared/types';
 
 describe('RoomManager', () => {
@@ -499,7 +499,7 @@ describe('RoomManager', () => {
   describe('updateSettings()', () => {
     it('updates action timer to a valid value', () => {
       const { room } = manager.createRoom('Alice', 'socket1');
-      const result = manager.updateSettings(room.code, { actionTimerSeconds: 30 });
+      const result = manager.updateSettings(room.code, { actionTimerSeconds: 30, isPublic: false });
       expect('error' in result).toBe(false);
 
       const updated = manager.getRoom(room.code)!;
@@ -508,7 +508,7 @@ describe('RoomManager', () => {
 
     it('accepts minimum timer value', () => {
       const { room } = manager.createRoom('Alice', 'socket1');
-      const result = manager.updateSettings(room.code, { actionTimerSeconds: MIN_ACTION_TIMER });
+      const result = manager.updateSettings(room.code, { actionTimerSeconds: MIN_ACTION_TIMER, isPublic: false });
       expect('error' in result).toBe(false);
 
       const updated = manager.getRoom(room.code)!;
@@ -517,7 +517,7 @@ describe('RoomManager', () => {
 
     it('accepts maximum timer value', () => {
       const { room } = manager.createRoom('Alice', 'socket1');
-      const result = manager.updateSettings(room.code, { actionTimerSeconds: MAX_ACTION_TIMER });
+      const result = manager.updateSettings(room.code, { actionTimerSeconds: MAX_ACTION_TIMER, isPublic: false });
       expect('error' in result).toBe(false);
 
       const updated = manager.getRoom(room.code)!;
@@ -526,7 +526,7 @@ describe('RoomManager', () => {
 
     it('rounds non-integer timer values', () => {
       const { room } = manager.createRoom('Alice', 'socket1');
-      const result = manager.updateSettings(room.code, { actionTimerSeconds: 22.7 });
+      const result = manager.updateSettings(room.code, { actionTimerSeconds: 22.7, isPublic: false });
       expect('error' in result).toBe(false);
 
       const updated = manager.getRoom(room.code)!;
@@ -535,7 +535,7 @@ describe('RoomManager', () => {
 
     it('rejects timer below minimum', () => {
       const { room } = manager.createRoom('Alice', 'socket1');
-      const result = manager.updateSettings(room.code, { actionTimerSeconds: MIN_ACTION_TIMER - 1 });
+      const result = manager.updateSettings(room.code, { actionTimerSeconds: MIN_ACTION_TIMER - 1, isPublic: false });
       expect('error' in result).toBe(true);
       if ('error' in result) {
         expect(result.error).toContain('between');
@@ -544,7 +544,7 @@ describe('RoomManager', () => {
 
     it('rejects timer above maximum', () => {
       const { room } = manager.createRoom('Alice', 'socket1');
-      const result = manager.updateSettings(room.code, { actionTimerSeconds: MAX_ACTION_TIMER + 1 });
+      const result = manager.updateSettings(room.code, { actionTimerSeconds: MAX_ACTION_TIMER + 1, isPublic: false });
       expect('error' in result).toBe(true);
       if ('error' in result) {
         expect(result.error).toContain('between');
@@ -552,7 +552,7 @@ describe('RoomManager', () => {
     });
 
     it('rejects if room not found', () => {
-      const result = manager.updateSettings('ZZZZZZ', { actionTimerSeconds: 30 });
+      const result = manager.updateSettings('ZZZZZZ', { actionTimerSeconds: 30, isPublic: false });
       expect('error' in result).toBe(true);
       if ('error' in result) {
         expect(result.error).toContain('not found');
@@ -564,7 +564,7 @@ describe('RoomManager', () => {
       manager.joinRoom(room.code, 'Bob', 'socket2');
       manager.startGame(room.code);
 
-      const result = manager.updateSettings(room.code, { actionTimerSeconds: 30 });
+      const result = manager.updateSettings(room.code, { actionTimerSeconds: 30, isPublic: false });
       expect('error' in result).toBe(true);
       if ('error' in result) {
         expect(result.error).toContain('during a game');
@@ -573,7 +573,7 @@ describe('RoomManager', () => {
 
     it('is case-insensitive on room code', () => {
       const { room } = manager.createRoom('Alice', 'socket1');
-      const result = manager.updateSettings(room.code.toLowerCase(), { actionTimerSeconds: 30 });
+      const result = manager.updateSettings(room.code.toLowerCase(), { actionTimerSeconds: 30, isPublic: false });
       expect('error' in result).toBe(false);
     });
   });
@@ -583,7 +583,7 @@ describe('RoomManager', () => {
       const { room } = manager.createRoom('Alice', 'socket1');
       manager.joinRoom(room.code, 'Bob', 'socket2');
 
-      manager.updateSettings(room.code, { actionTimerSeconds: 45 });
+      manager.updateSettings(room.code, { actionTimerSeconds: 45, isPublic: false });
       manager.startGame(room.code);
 
       const reset = manager.resetToLobby(room.code);
@@ -596,7 +596,7 @@ describe('RoomManager', () => {
     it('passes custom timer to engine', () => {
       const { room } = manager.createRoom('Alice', 'socket1');
       manager.joinRoom(room.code, 'Bob', 'socket2');
-      manager.updateSettings(room.code, { actionTimerSeconds: 30 });
+      manager.updateSettings(room.code, { actionTimerSeconds: 30, isPublic: false });
 
       const result = manager.startGame(room.code);
       expect('error' in result).toBe(false);
@@ -630,6 +630,117 @@ describe('RoomManager', () => {
       const expectedExpiry = Date.now() + DEFAULT_ROOM_SETTINGS.actionTimerSeconds * 1000;
       expect(engine!.timerExpiry!).toBeGreaterThanOrEqual(expectedExpiry - 200);
       expect(engine!.timerExpiry!).toBeLessThanOrEqual(expectedExpiry + 200);
+    });
+  });
+
+  // ─── Public Room Features ───
+
+  describe('Public room features', () => {
+    it('createRoom defaults to isPublic: false', () => {
+      const { room } = manager.createRoom('Alice', 'socket1');
+      expect(room.settings.isPublic).toBe(false);
+    });
+
+    it('createRoom accepts isPublic: true', () => {
+      const { room } = manager.createRoom('Alice', 'socket1', true);
+      expect(room.settings.isPublic).toBe(true);
+    });
+
+    it('getPublicRooms returns only public rooms', () => {
+      manager.createRoom('Alice', 'socket1', true);
+      manager.createRoom('Bob', 'socket2', false);
+      manager.createRoom('Charlie', 'socket3', true);
+
+      const publicRooms = manager.getPublicRooms();
+      expect(publicRooms).toHaveLength(2);
+      expect(publicRooms.map(r => r.hostName)).toContain('Alice');
+      expect(publicRooms.map(r => r.hostName)).toContain('Charlie');
+      expect(publicRooms.map(r => r.hostName)).not.toContain('Bob');
+    });
+
+    it('getPublicRooms returns correct PublicRoomInfo shape', () => {
+      const { room } = manager.createRoom('Alice', 'socket1', true);
+      manager.joinRoom(room.code, 'Bob', 'socket2');
+
+      const publicRooms = manager.getPublicRooms();
+      expect(publicRooms).toHaveLength(1);
+
+      const info = publicRooms[0];
+      expect(info.code).toBe(room.code);
+      expect(info.hostName).toBe('Alice');
+      expect(info.playerCount).toBe(2);
+      expect(info.maxPlayers).toBe(MAX_PLAYERS);
+      expect(info.settings).toEqual({ actionTimerSeconds: 15, isPublic: true });
+      expect(info.hasGame).toBe(false);
+    });
+
+    it('getPublicRooms shows hasGame: true when game in progress', () => {
+      const { room } = manager.createRoom('Alice', 'socket1', true);
+      manager.joinRoom(room.code, 'Bob', 'socket2');
+      manager.startGame(room.code);
+
+      const publicRooms = manager.getPublicRooms();
+      expect(publicRooms).toHaveLength(1);
+      expect(publicRooms[0].hasGame).toBe(true);
+    });
+
+    it('getPublicRooms returns empty array when no public rooms', () => {
+      manager.createRoom('Alice', 'socket1', false);
+      manager.createRoom('Bob', 'socket2');
+
+      const publicRooms = manager.getPublicRooms();
+      expect(publicRooms).toHaveLength(0);
+    });
+
+    it('getPublicRooms respects PUBLIC_ROOM_LIST_MAX', () => {
+      for (let i = 0; i < PUBLIC_ROOM_LIST_MAX + 5; i++) {
+        manager.createRoom(`Player${i}`, `socket${i}`, true);
+      }
+
+      const publicRooms = manager.getPublicRooms();
+      expect(publicRooms).toHaveLength(PUBLIC_ROOM_LIST_MAX);
+    });
+
+    it('updateSettings can toggle isPublic on', () => {
+      const { room } = manager.createRoom('Alice', 'socket1');
+      expect(room.settings.isPublic).toBe(false);
+
+      manager.updateSettings(room.code, { actionTimerSeconds: 15, isPublic: true });
+      const updated = manager.getRoom(room.code)!;
+      expect(updated.settings.isPublic).toBe(true);
+
+      const publicRooms = manager.getPublicRooms();
+      expect(publicRooms).toHaveLength(1);
+    });
+
+    it('updateSettings can toggle isPublic off', () => {
+      const { room } = manager.createRoom('Alice', 'socket1', true);
+      expect(room.settings.isPublic).toBe(true);
+
+      manager.updateSettings(room.code, { actionTimerSeconds: 15, isPublic: false });
+      const updated = manager.getRoom(room.code)!;
+      expect(updated.settings.isPublic).toBe(false);
+
+      const publicRooms = manager.getPublicRooms();
+      expect(publicRooms).toHaveLength(0);
+    });
+
+    it('deleted room disappears from getPublicRooms', () => {
+      const { room, playerId } = manager.createRoom('Alice', 'socket1', true);
+      expect(manager.getPublicRooms()).toHaveLength(1);
+
+      manager.leaveRoom(room.code, playerId);
+      expect(manager.getPublicRooms()).toHaveLength(0);
+    });
+
+    it('resetToLobby preserves isPublic setting', () => {
+      const { room } = manager.createRoom('Alice', 'socket1', true);
+      manager.joinRoom(room.code, 'Bob', 'socket2');
+      manager.startGame(room.code);
+
+      const reset = manager.resetToLobby(room.code);
+      expect(reset).not.toBeNull();
+      expect(reset!.settings.isPublic).toBe(true);
     });
   });
 });
