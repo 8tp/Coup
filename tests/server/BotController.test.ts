@@ -25,7 +25,7 @@ function createEngineWithBots(): { engine: GameEngine; botPlayers: RoomPlayer[] 
       socketId: '',
       connected: true,
       isBot: true,
-      personality: { honesty: 50, skepticism: 50, vengefulness: 50 },
+      difficulty: 'medium' as const,
     },
   ];
   const allPlayers = [

@@ -141,21 +141,25 @@ Coup is a fast-paced (15 min) bluffing / social deduction game for 2–6 players
 
 ## 7. Out of Scope (MVP)
 - Accounts / friends list / matchmaking.
-- AI opponents.
 - Expansions (Reformation, Rebellion).
 - Voice chat / video integration.
 - Monetization / ads.
 - Spectators (watch-only).
 
-## 8. Future Enhancements (Post-MVP)
+## 8. Implemented Post-MVP Features
+- **AI Bots** — 3 difficulty tiers (Easy/Medium/Hard). Easy plays honestly with no bluffs. Medium bluffs and challenges occasionally. Hard uses card counting, always bluffs Contessa vs assassination, targets leaders strategically. Host adds bots from lobby with a difficulty selector. Up to 5 bots per room.
+- **Public/private rooms** — Room browser for public games.
+- **Room settings** — Configurable action timer (10–60s), public/private toggle.
+- **Chat** — Room-scoped chat in lobby and in-game with rate limiting.
+- **Rematch flow** — Host can restart from game over screen; bots and settings preserved.
+
+## 9. Future Enhancements
 - Reformation expansion.
-- Bots (simple rule-based or LLM).
 - Custom card art / themes.
 - Statistics dashboard.
-- Private rooms with passwords.
 - Sound effects & music toggle.
 
-## 9. Implementation Roadmap for Claude
+## 10. Implementation Roadmap for Claude
 1. **Phase 1:** Rules engine (pure JS/TS class for Game, Player, Deck, Action resolution).
 2. **Phase 2:** Local hotseat mode (test all rules).
 3. **Phase 3:** Socket.io multiplayer + rooms.

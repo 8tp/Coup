@@ -140,7 +140,7 @@ export class SocketHandler {
         return;
       }
 
-      const result = this.roomManager.addBot(found.room.code, name, data.personality);
+      const result = this.roomManager.addBot(found.room.code, name, data.difficulty);
       if ('error' in result) {
         callback({ success: false, error: result.error });
         return;

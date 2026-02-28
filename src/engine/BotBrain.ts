@@ -1,6 +1,6 @@
 import {
   ActionType,
-  AiPersonality,
+  BotDifficulty,
   Character,
   TurnPhase,
   PendingAction,
@@ -14,6 +14,7 @@ import {
   FORCED_COUP_THRESHOLD,
   COUP_COST,
   ASSASSINATE_COST,
+  CARDS_PER_CHARACTER,
 } from '../shared/constants';
 import { Game } from './Game';
 
@@ -30,20 +31,14 @@ export type BotDecision =
   | { type: 'choose_influence_loss'; influenceIndex: number }
   | { type: 'choose_exchange'; keepIndices: number[] };
 
-// ─── Card Value Rankings (higher = more valuable to keep) ───
-
-const CARD_VALUE: Record<Character, number> = {
-  [Character.Duke]: 5,       // Tax is strong income
-  [Character.Assassin]: 4,   // Cheap elimination
-  [Character.Captain]: 3,    // Steal disrupts + blocks steal
-  [Character.Ambassador]: 2, // Exchange for better cards + blocks steal
-  [Character.Contessa]: 1,   // Only blocks assassination
-};
-
 /**
  * BotBrain — Pure decision logic for AI players.
- * No I/O, no timers, no randomness in structure (only in probability thresholds).
- * Only reads the bot's own cards, never peeks at opponents or deck.
+ * No I/O, no timers. Only reads the bot's own cards and publicly revealed cards.
+ *
+ * Difficulty tiers:
+ * - Easy: Plays honestly, never bluffs or challenges
+ * - Medium: Occasional bluffs and challenges
+ * - Hard: Strategic play with card counting
  */
 export class BotBrain {
 
@@ -54,7 +49,7 @@ export class BotBrain {
   static decide(
     game: Game,
     botId: string,
-    personality: AiPersonality,
+    difficulty: BotDifficulty,
     pendingAction: PendingAction | null,
     pendingBlock: PendingBlock | null,
     challengeState: ChallengeState | null,
@@ -68,28 +63,28 @@ export class BotBrain {
     switch (game.turnPhase) {
       case TurnPhase.AwaitingAction:
         if (game.currentPlayer.id === botId) {
-          return this.decideAction(game, botId, personality);
+          return this.decideAction(game, botId, difficulty);
         }
         return null;
 
       case TurnPhase.AwaitingActionChallenge:
-        return this.decideActionChallenge(game, botId, personality, pendingAction, challengeState);
+        return this.decideActionChallenge(game, botId, difficulty, pendingAction, challengeState);
 
       case TurnPhase.AwaitingBlock:
-        return this.decideBlock(game, botId, personality, pendingAction, blockPassedPlayerIds);
+        return this.decideBlock(game, botId, difficulty, pendingAction, blockPassedPlayerIds);
 
       case TurnPhase.AwaitingBlockChallenge:
-        return this.decideBlockChallenge(game, botId, personality, pendingAction, pendingBlock, challengeState);
+        return this.decideBlockChallenge(game, botId, difficulty, pendingAction, pendingBlock, challengeState);
 
       case TurnPhase.AwaitingInfluenceLoss:
         if (influenceLossRequest?.playerId === botId) {
-          return this.decideInfluenceLoss(game, botId);
+          return this.decideInfluenceLoss(game, botId, difficulty);
         }
         return null;
 
       case TurnPhase.AwaitingExchange:
         if (exchangeState?.playerId === botId) {
-          return this.decideExchange(game, botId, exchangeState);
+          return this.decideExchange(game, botId, difficulty, exchangeState);
         }
         return null;
 
@@ -98,74 +93,294 @@ export class BotBrain {
     }
   }
 
-  // ─── Action Selection ───
+  // ─── Helpers ───
 
-  private static decideAction(game: Game, botId: string, personality: AiPersonality): BotDecision {
+  /** Count all revealed (face-up) characters across all players. */
+  static countRevealedCharacters(game: Game): Map<Character, number> {
+    const counts = new Map<Character, number>();
+    for (const char of Object.values(Character)) {
+      counts.set(char, 0);
+    }
+    for (const player of game.players) {
+      for (const inf of player.influences) {
+        if (inf.revealed) {
+          counts.set(inf.character, (counts.get(inf.character) || 0) + 1);
+        }
+      }
+    }
+    return counts;
+  }
+
+  /**
+   * Context-aware card ranking. Factors in game state for hard bots.
+   * Higher value = more valuable to keep.
+   */
+  static dynamicCardValue(character: Character, game: Game, botId: string): number {
+    const alivePlayers = game.getAlivePlayers();
+    const aliveCount = alivePlayers.length;
+    const revealed = this.countRevealedCharacters(game);
     const bot = game.getPlayer(botId)!;
-    const { honesty, vengefulness } = personality;
 
-    // Must coup at 10+ coins
-    if (bot.coins >= FORCED_COUP_THRESHOLD) {
-      return { type: 'action', action: ActionType.Coup, targetId: this.pickTarget(game, botId, vengefulness) };
+    let value = 0;
+
+    switch (character) {
+      case Character.Duke:
+        // Tax is strong, especially early game
+        value = 5;
+        if (aliveCount > 3) value += 1; // More valuable with more players (safe income)
+        break;
+
+      case Character.Captain:
+        // Steal is a 4-coin swing, dominant in 1v1
+        value = 4;
+        if (aliveCount === 2) value += 3; // Dominant in 1v1
+        break;
+
+      case Character.Assassin:
+        // Cheap elimination
+        value = 4;
+        if (bot.coins < ASSASSINATE_COST) value -= 1; // Less useful without coins
+        break;
+
+      case Character.Ambassador:
+        // Exchange for better cards + blocks steal
+        value = 2;
+        if (aliveCount <= 2) value -= 1; // Less useful late game
+        break;
+
+      case Character.Contessa:
+        // Blocks assassination
+        value = 2;
+        // More valuable when opponents have 3+ coins (assassination threat)
+        const opponentsWithCoins = alivePlayers.filter(p => p.id !== botId && p.coins >= ASSASSINATE_COST);
+        if (opponentsWithCoins.length > 0) value += 2;
+        break;
     }
 
-    // Can afford coup — consider it if we have 7+ coins
+    // Reduce value if most copies are revealed (harder to bluff with)
+    const revealedCount = revealed.get(character) || 0;
+    if (revealedCount >= 2) value -= 1;
+
+    return value;
+  }
+
+  /** Pick a target: hard always targets highest-coin, medium 50%, easy random. */
+  private static pickTarget(
+    game: Game,
+    botId: string,
+    difficulty: BotDifficulty,
+    candidateIds?: string[],
+  ): string {
+    let candidates = game.getAlivePlayers().filter(p => p.id !== botId);
+    if (candidateIds) {
+      candidates = candidates.filter(p => candidateIds.includes(p.id));
+    }
+    if (candidates.length === 0) return '';
+
+    if (difficulty === 'hard') {
+      // Always target highest-coin player (especially 7+ for coup threat)
+      candidates.sort((a, b) => b.coins - a.coins);
+      return candidates[0].id;
+    }
+
+    if (difficulty === 'medium') {
+      // 50% chance to target leader
+      if (Math.random() < 0.5) {
+        candidates.sort((a, b) => b.coins - a.coins);
+        return candidates[0].id;
+      }
+    }
+
+    // Easy or random fallback
+    return candidates[Math.floor(Math.random() * candidates.length)].id;
+  }
+
+  /** Weighted random pick from candidates. */
+  private static weightedPick(
+    candidates: Array<{ action: ActionType; targetId?: string; weight: number }>,
+  ): BotDecision {
+    const valid = candidates.filter(c => c.weight > 0);
+    if (valid.length === 0) {
+      return { type: 'action', action: ActionType.Income };
+    }
+
+    const totalWeight = valid.reduce((sum, c) => sum + c.weight, 0);
+    let roll = Math.random() * totalWeight;
+
+    for (const c of valid) {
+      roll -= c.weight;
+      if (roll <= 0) {
+        return { type: 'action', action: c.action, targetId: c.targetId };
+      }
+    }
+
+    const last = valid[valid.length - 1];
+    return { type: 'action', action: last.action, targetId: last.targetId };
+  }
+
+  // ─── Action Selection ───
+
+  private static decideAction(game: Game, botId: string, difficulty: BotDifficulty): BotDecision {
+    const bot = game.getPlayer(botId)!;
+    const alivePlayers = game.getAlivePlayers();
+    const aliveCount = alivePlayers.length;
+
+    // Must coup at 10+ coins (all tiers)
+    if (bot.coins >= FORCED_COUP_THRESHOLD) {
+      return { type: 'action', action: ActionType.Coup, targetId: this.pickTarget(game, botId, difficulty) };
+    }
+
+    // Can afford coup — consider it based on difficulty
     if (bot.coins >= COUP_COST) {
-      if (Math.random() < 0.4) {
-        return { type: 'action', action: ActionType.Coup, targetId: this.pickTarget(game, botId, vengefulness) };
+      const coupProb = difficulty === 'hard' ? 0.85 : difficulty === 'medium' ? 0.65 : 0.4;
+      if (Math.random() < coupProb) {
+        return { type: 'action', action: ActionType.Coup, targetId: this.pickTarget(game, botId, difficulty) };
       }
     }
 
     const ownedCharacters = bot.hiddenCharacters;
-    const honestyFactor = honesty / 100;
-
-    // Build list of candidate actions with weights
     const candidates: Array<{ action: ActionType; targetId?: string; weight: number }> = [];
 
-    // Income — always safe, low reward
-    candidates.push({ action: ActionType.Income, weight: 1 });
+    if (difficulty === 'easy') {
+      return this.decideActionEasy(game, botId, bot, ownedCharacters, candidates);
+    } else if (difficulty === 'medium') {
+      return this.decideActionMedium(game, botId, bot, ownedCharacters, candidates);
+    } else {
+      return this.decideActionHard(game, botId, bot, ownedCharacters, candidates, aliveCount);
+    }
+  }
 
-    // Foreign Aid — no bluff needed, but can be blocked
+  private static decideActionEasy(
+    game: Game, botId: string, bot: any, ownedCharacters: Character[],
+    candidates: Array<{ action: ActionType; targetId?: string; weight: number }>,
+  ): BotDecision {
+    // Easy: never bluffs, only plays actions it has cards for
+    candidates.push({ action: ActionType.Income, weight: 2 });
     candidates.push({ action: ActionType.ForeignAid, weight: 2 });
 
-    // Tax (Duke) — high honesty prefers if has Duke, low honesty bluffs
+    if (ownedCharacters.includes(Character.Duke)) {
+      candidates.push({ action: ActionType.Tax, weight: 3 });
+    }
+
+    const stealTargets = game.getAlivePlayers().filter(p => p.id !== botId && p.coins > 0);
+    if (ownedCharacters.includes(Character.Captain) && stealTargets.length > 0) {
+      const targetId = this.pickTarget(game, botId, 'easy', stealTargets.map(p => p.id));
+      candidates.push({ action: ActionType.Steal, targetId, weight: 3 });
+    }
+
+    if (bot.coins >= ASSASSINATE_COST && ownedCharacters.includes(Character.Assassin)) {
+      const targetId = this.pickTarget(game, botId, 'easy');
+      candidates.push({ action: ActionType.Assassinate, targetId, weight: 3 });
+    }
+
+    if (ownedCharacters.includes(Character.Ambassador)) {
+      candidates.push({ action: ActionType.Exchange, weight: 2 });
+    }
+
+    return this.weightedPick(candidates);
+  }
+
+  private static decideActionMedium(
+    game: Game, botId: string, bot: any, ownedCharacters: Character[],
+    candidates: Array<{ action: ActionType; targetId?: string; weight: number }>,
+  ): BotDecision {
+    // Medium: slight preference for Tax/Steal, 30% bluff chance
+    candidates.push({ action: ActionType.Income, weight: 1 });
+    candidates.push({ action: ActionType.ForeignAid, weight: 2 });
+
     const hasDuke = ownedCharacters.includes(Character.Duke);
     if (hasDuke) {
       candidates.push({ action: ActionType.Tax, weight: 5 });
-    } else {
-      candidates.push({ action: ActionType.Tax, weight: 3 * (1 - honestyFactor) });
+    } else if (Math.random() < 0.3) {
+      candidates.push({ action: ActionType.Tax, weight: 3 });
     }
 
-    // Steal (Captain) — needs target with coins
     const stealTargets = game.getAlivePlayers().filter(p => p.id !== botId && p.coins > 0);
     if (stealTargets.length > 0) {
       const hasCaptain = ownedCharacters.includes(Character.Captain);
-      const targetId = this.pickTarget(game, botId, vengefulness, stealTargets.map(p => p.id));
+      const targetId = this.pickTarget(game, botId, 'medium', stealTargets.map(p => p.id));
       if (hasCaptain) {
         candidates.push({ action: ActionType.Steal, targetId, weight: 4 });
-      } else {
-        candidates.push({ action: ActionType.Steal, targetId, weight: 2.5 * (1 - honestyFactor) });
+      } else if (Math.random() < 0.3) {
+        candidates.push({ action: ActionType.Steal, targetId, weight: 2 });
       }
     }
 
-    // Assassinate (Assassin) — needs 3 coins
     if (bot.coins >= ASSASSINATE_COST) {
       const hasAssassin = ownedCharacters.includes(Character.Assassin);
-      const targetId = this.pickTarget(game, botId, vengefulness);
+      const targetId = this.pickTarget(game, botId, 'medium');
       if (hasAssassin) {
         candidates.push({ action: ActionType.Assassinate, targetId, weight: 4 });
-      } else {
-        candidates.push({ action: ActionType.Assassinate, targetId, weight: 2 * (1 - honestyFactor) });
+      } else if (Math.random() < 0.3) {
+        candidates.push({ action: ActionType.Assassinate, targetId, weight: 2 });
       }
     }
 
-    // Exchange (Ambassador) — useful for getting better cards
     const hasAmbassador = ownedCharacters.includes(Character.Ambassador);
     if (hasAmbassador) {
       candidates.push({ action: ActionType.Exchange, weight: 2 });
-    } else {
-      candidates.push({ action: ActionType.Exchange, weight: 1 * (1 - honestyFactor) });
+    } else if (Math.random() < 0.3) {
+      candidates.push({ action: ActionType.Exchange, weight: 1 });
     }
+
+    return this.weightedPick(candidates);
+  }
+
+  private static decideActionHard(
+    game: Game, botId: string, bot: any, ownedCharacters: Character[],
+    candidates: Array<{ action: ActionType; targetId?: string; weight: number }>,
+    aliveCount: number,
+  ): BotDecision {
+    // Hard: strategic, bluffs high-value claims, avoids bluffing dead characters
+    const revealed = this.countRevealedCharacters(game);
+
+    candidates.push({ action: ActionType.Income, weight: 1 });
+    candidates.push({ action: ActionType.ForeignAid, weight: 1.5 });
+
+    // Tax (Duke) — strong preference, especially early
+    const hasDuke = ownedCharacters.includes(Character.Duke);
+    const dukeRevealed = revealed.get(Character.Duke) || 0;
+    if (hasDuke) {
+      candidates.push({ action: ActionType.Tax, weight: 6 });
+    } else if (dukeRevealed < 2) {
+      // Safe to bluff Duke if not many revealed
+      candidates.push({ action: ActionType.Tax, weight: 4 });
+    }
+
+    // Steal (Captain) — strong preference in 1v1
+    const stealTargets = game.getAlivePlayers().filter(p => p.id !== botId && p.coins > 0);
+    if (stealTargets.length > 0) {
+      const hasCaptain = ownedCharacters.includes(Character.Captain);
+      const captainRevealed = revealed.get(Character.Captain) || 0;
+      const targetId = this.pickTarget(game, botId, 'hard', stealTargets.map(p => p.id));
+      if (hasCaptain) {
+        const weight = aliveCount === 2 ? 8 : 5; // Dominant in 1v1
+        candidates.push({ action: ActionType.Steal, targetId, weight });
+      } else if (captainRevealed < 2) {
+        const weight = aliveCount === 2 ? 5 : 3;
+        candidates.push({ action: ActionType.Steal, targetId, weight });
+      }
+    }
+
+    // Assassinate
+    if (bot.coins >= ASSASSINATE_COST) {
+      const hasAssassin = ownedCharacters.includes(Character.Assassin);
+      const assassinRevealed = revealed.get(Character.Assassin) || 0;
+      const targetId = this.pickTarget(game, botId, 'hard');
+      if (hasAssassin) {
+        candidates.push({ action: ActionType.Assassinate, targetId, weight: 5 });
+      } else if (assassinRevealed < 2) {
+        candidates.push({ action: ActionType.Assassinate, targetId, weight: 3 });
+      }
+    }
+
+    // Exchange (Ambassador)
+    const hasAmbassador = ownedCharacters.includes(Character.Ambassador);
+    if (hasAmbassador) {
+      const weight = aliveCount <= 2 ? 1 : 2;
+      candidates.push({ action: ActionType.Exchange, weight });
+    }
+    // Hard bots don't bluff Ambassador (low payoff)
 
     return this.weightedPick(candidates);
   }
@@ -175,7 +390,7 @@ export class BotBrain {
   private static decideActionChallenge(
     game: Game,
     botId: string,
-    personality: AiPersonality,
+    difficulty: BotDifficulty,
     pendingAction: PendingAction | null,
     challengeState: ChallengeState | null,
   ): BotDecision | null {
@@ -183,41 +398,76 @@ export class BotBrain {
     if (pendingAction.actorId === botId) return null;
     if (challengeState.passedPlayerIds.includes(botId)) return null;
 
-    const { skepticism } = personality;
     const bot = game.getPlayer(botId)!;
     const claimedChar = pendingAction.claimedCharacter;
     if (!claimedChar) return { type: 'pass_challenge' };
 
-    // If bot can block this action with a card it actually holds, strongly prefer
-    // passing the challenge and blocking instead — blocking is much safer than challenging.
+    // If bot can block this action with a card it actually holds, prefer passing to block instead
     const def = ACTION_DEFINITIONS[pendingAction.type];
     if (pendingAction.targetId === botId && def.blockedBy.length > 0) {
       const canBlock = def.blockedBy.some(c => bot.hiddenCharacters.includes(c));
       if (canBlock) {
-        // Almost always pass — wait to block instead. Only challenge 5% of the time.
-        if (Math.random() > 0.05) {
-          return { type: 'pass_challenge' };
-        }
+        return { type: 'pass_challenge' };
       }
     }
 
-    // If bot holds the claimed character, the actor is more likely bluffing
-    const botHasClaimedChar = bot.hiddenCharacters.includes(claimedChar);
-    let challengeProb = skepticism / 100 * 0.5; // Base: 0–50% from skepticism
-
-    if (botHasClaimedChar) {
-      challengeProb += 0.25; // We hold one copy, so more likely a bluff
+    if (difficulty === 'easy') {
+      // Easy: never challenges
+      return { type: 'pass_challenge' };
     }
 
-    // If action is dangerous and targets us (and we can't block), be more willing to challenge
-    if (pendingAction.targetId === botId) {
-      challengeProb += 0.15;
+    if (difficulty === 'medium') {
+      // Medium: 20% base challenge rate
+      // Never challenge assassination when we have 2 influences (50% avoids)
+      if (pendingAction.type === ActionType.Assassinate && pendingAction.targetId === botId) {
+        if (bot.aliveInfluenceCount >= 2 && Math.random() < 0.5) {
+          return { type: 'pass_challenge' };
+        }
+      }
+
+      let challengeProb = 0.20;
+      // Boost if bot holds the claimed character
+      if (bot.hiddenCharacters.includes(claimedChar)) {
+        challengeProb += 0.15;
+      }
+      // Boost if targeted
+      if (pendingAction.targetId === botId) {
+        challengeProb += 0.10;
+      }
+
+      return Math.random() < challengeProb ? { type: 'challenge' } : { type: 'pass_challenge' };
     }
 
-    if (Math.random() < challengeProb) {
+    // Hard: card-counting challenges
+    const revealed = this.countRevealedCharacters(game);
+    const revealedCount = revealed.get(claimedChar) || 0;
+    const botHoldsCount = bot.hiddenCharacters.filter(c => c === claimedChar).length;
+    const accountedFor = revealedCount + botHoldsCount;
+
+    // Never challenge assassination when we have 2 influences (too risky — can lose both)
+    if (pendingAction.type === ActionType.Assassinate && pendingAction.targetId === botId) {
+      if (bot.aliveInfluenceCount >= 2) {
+        return { type: 'pass_challenge' };
+      }
+    }
+
+    // If all copies are accounted for, 100% challenge
+    if (accountedFor >= CARDS_PER_CHARACTER) {
       return { type: 'challenge' };
     }
-    return { type: 'pass_challenge' };
+
+    // If 2+ revealed, high challenge rate
+    if (accountedFor >= 2) {
+      return Math.random() < 0.7 ? { type: 'challenge' } : { type: 'pass_challenge' };
+    }
+
+    // If bot holds a copy, moderate challenge rate
+    if (botHoldsCount > 0) {
+      return Math.random() < 0.4 ? { type: 'challenge' } : { type: 'pass_challenge' };
+    }
+
+    // Otherwise low challenge rate
+    return Math.random() < 0.1 ? { type: 'challenge' } : { type: 'pass_challenge' };
   }
 
   // ─── Block Decision ───
@@ -225,7 +475,7 @@ export class BotBrain {
   private static decideBlock(
     game: Game,
     botId: string,
-    personality: AiPersonality,
+    difficulty: BotDifficulty,
     pendingAction: PendingAction | null,
     blockPassedPlayerIds: string[],
   ): BotDecision | null {
@@ -242,28 +492,54 @@ export class BotBrain {
     if (pendingAction.type === ActionType.Steal && !isTarget) return { type: 'pass_block' };
     if (pendingAction.type === ActionType.Assassinate && !isTarget) return { type: 'pass_block' };
 
-    // For Foreign Aid, any player can block claiming Duke
-    const { honesty } = personality;
-    const honestyFactor = honesty / 100;
-
     for (const blockChar of def.blockedBy) {
       const hasCard = bot.hiddenCharacters.includes(blockChar);
 
       if (hasCard) {
-        // We actually have the card — always block when targeted
+        // All tiers: always block when holding the card and targeted
         if (isTarget) return { type: 'block', character: blockChar };
         // For Foreign Aid, block with some probability
         if (Math.random() < 0.6) return { type: 'block', character: blockChar };
       } else {
-        // Bluff block — more likely if dishonest, and much more likely if we're the target
+        // Bluff blocking
+        if (difficulty === 'easy') {
+          // Easy: never bluff-blocks
+          continue;
+        }
+
+        if (difficulty === 'medium') {
+          if (isTarget && blockChar === Character.Contessa && pendingAction.type === ActionType.Assassinate) {
+            // 50% bluff Contessa vs assassination
+            if (Math.random() < 0.5) return { type: 'block', character: blockChar };
+          } else if (isTarget) {
+            // 20% bluff other blocks when targeted
+            if (Math.random() < 0.2) return { type: 'block', character: blockChar };
+          } else {
+            // 10% bluff Duke block on foreign aid
+            if (Math.random() < 0.1) return { type: 'block', character: blockChar };
+          }
+          continue;
+        }
+
+        // Hard: strategic bluff blocking
+        const revealed = this.countRevealedCharacters(game);
+        const revealedCount = revealed.get(blockChar) || 0;
+
+        if (isTarget && blockChar === Character.Contessa && pendingAction.type === ActionType.Assassinate) {
+          // Always bluff Contessa vs assassination (mathematically correct)
+          return { type: 'block', character: blockChar };
+        }
+
         if (isTarget) {
-          // Being assassinated/stolen from — bluff block more aggressively
-          const bluffProb = 0.7 * (1 - honestyFactor);
-          if (Math.random() < bluffProb) return { type: 'block', character: blockChar };
+          // Bluff block if not too many copies revealed
+          if (revealedCount < 2) {
+            if (Math.random() < 0.6) return { type: 'block', character: blockChar };
+          }
         } else {
-          // Foreign aid — bluff Duke block occasionally
-          const bluffProb = 0.2 * (1 - honestyFactor);
-          if (Math.random() < bluffProb) return { type: 'block', character: blockChar };
+          // Foreign aid Duke block — bluff based on revealed Duke count
+          if (revealedCount < 2 && Math.random() < 0.3) {
+            return { type: 'block', character: blockChar };
+          }
         }
       }
     }
@@ -276,7 +552,7 @@ export class BotBrain {
   private static decideBlockChallenge(
     game: Game,
     botId: string,
-    personality: AiPersonality,
+    difficulty: BotDifficulty,
     pendingAction: PendingAction | null,
     pendingBlock: PendingBlock | null,
     challengeState: ChallengeState | null,
@@ -286,33 +562,53 @@ export class BotBrain {
     if (pendingAction.actorId !== botId) return null;
     if (challengeState.passedPlayerIds.includes(botId)) return null;
 
-    const { skepticism } = personality;
+    if (difficulty === 'easy') {
+      // Easy: never challenges blocks
+      return { type: 'pass_challenge_block' };
+    }
+
     const bot = game.getPlayer(botId)!;
     const blockerClaimedChar = pendingBlock.claimedCharacter;
 
-    // If bot holds the claimed character, more likely the blocker is bluffing
-    const botHasChar = bot.hiddenCharacters.includes(blockerClaimedChar);
-    let challengeProb = skepticism / 100 * 0.4;
-
-    if (botHasChar) {
-      challengeProb += 0.2;
+    if (difficulty === 'medium') {
+      // Medium: 15% base challenge rate for blocks
+      let challengeProb = 0.15;
+      if (bot.hiddenCharacters.includes(blockerClaimedChar)) {
+        challengeProb += 0.15;
+      }
+      const costDef = ACTION_DEFINITIONS[pendingAction.type];
+      if (costDef.cost > 0) {
+        challengeProb += 0.1;
+      }
+      return Math.random() < challengeProb ? { type: 'challenge_block' } : { type: 'pass_challenge_block' };
     }
 
-    // If our action cost coins (assassination), more incentive to challenge the block
-    const def = ACTION_DEFINITIONS[pendingAction.type];
-    if (def.cost > 0) {
-      challengeProb += 0.1;
-    }
+    // Hard: card-counting
+    const revealed = this.countRevealedCharacters(game);
+    const revealedCount = revealed.get(blockerClaimedChar) || 0;
+    const botHoldsCount = bot.hiddenCharacters.filter(c => c === blockerClaimedChar).length;
+    const accountedFor = revealedCount + botHoldsCount;
 
-    if (Math.random() < challengeProb) {
+    if (accountedFor >= CARDS_PER_CHARACTER) {
       return { type: 'challenge_block' };
     }
-    return { type: 'pass_challenge_block' };
+
+    if (accountedFor >= 2) {
+      return Math.random() < 0.6 ? { type: 'challenge_block' } : { type: 'pass_challenge_block' };
+    }
+
+    // If our action cost coins, more incentive to challenge
+    const costDef = ACTION_DEFINITIONS[pendingAction.type];
+    if (costDef.cost > 0 && Math.random() < 0.3) {
+      return { type: 'challenge_block' };
+    }
+
+    return Math.random() < 0.1 ? { type: 'challenge_block' } : { type: 'pass_challenge_block' };
   }
 
   // ─── Influence Loss Decision ───
 
-  private static decideInfluenceLoss(game: Game, botId: string): BotDecision {
+  private static decideInfluenceLoss(game: Game, botId: string, difficulty: BotDifficulty): BotDecision {
     const bot = game.getPlayer(botId)!;
 
     // Find unrevealed influences
@@ -324,81 +620,74 @@ export class BotBrain {
       return { type: 'choose_influence_loss', influenceIndex: unrevealed[0].index };
     }
 
-    // Lose the least valuable card
-    unrevealed.sort((a, b) => CARD_VALUE[a.character] - CARD_VALUE[b.character]);
+    if (difficulty === 'easy') {
+      // Easy: random
+      const pick = unrevealed[Math.floor(Math.random() * unrevealed.length)];
+      return { type: 'choose_influence_loss', influenceIndex: pick.index };
+    }
+
+    if (difficulty === 'medium') {
+      // Medium: static card value ranking (lose lowest)
+      const STATIC_VALUE: Record<Character, number> = {
+        [Character.Duke]: 5,
+        [Character.Assassin]: 4,
+        [Character.Captain]: 3,
+        [Character.Ambassador]: 2,
+        [Character.Contessa]: 1,
+      };
+      unrevealed.sort((a, b) => STATIC_VALUE[a.character] - STATIC_VALUE[b.character]);
+      return { type: 'choose_influence_loss', influenceIndex: unrevealed[0].index };
+    }
+
+    // Hard: dynamic card value (context-aware)
+    unrevealed.sort((a, b) =>
+      this.dynamicCardValue(a.character, game, botId) - this.dynamicCardValue(b.character, game, botId)
+    );
     return { type: 'choose_influence_loss', influenceIndex: unrevealed[0].index };
   }
 
   // ─── Exchange Decision ───
 
-  private static decideExchange(game: Game, botId: string, exchangeState: ExchangeState): BotDecision {
+  private static decideExchange(
+    game: Game, botId: string, difficulty: BotDifficulty, exchangeState: ExchangeState,
+  ): BotDecision {
     const bot = game.getPlayer(botId)!;
     const currentCards = bot.hiddenCharacters;
     const allCards = [...currentCards, ...exchangeState.drawnCards];
     const keepCount = bot.aliveInfluenceCount;
 
-    // Rank all cards by value, keep the best ones
-    const indexed = allCards.map((char, i) => ({ char, index: i, value: CARD_VALUE[char] }));
-    indexed.sort((a, b) => b.value - a.value);
-
-    const keepIndices = indexed.slice(0, keepCount).map(x => x.index);
-    return { type: 'choose_exchange', keepIndices };
-  }
-
-  // ─── Helpers ───
-
-  /**
-   * Pick a target player. Higher vengefulness = prefer leading players (most coins).
-   * Lower vengefulness = more random.
-   */
-  private static pickTarget(
-    game: Game,
-    botId: string,
-    vengefulness: number,
-    candidateIds?: string[],
-  ): string {
-    let candidates = game.getAlivePlayers().filter(p => p.id !== botId);
-    if (candidateIds) {
-      candidates = candidates.filter(p => candidateIds.includes(p.id));
-    }
-    if (candidates.length === 0) return '';
-
-    const vengeFactor = vengefulness / 100;
-
-    if (Math.random() < vengeFactor) {
-      // Target the player with the most coins (leading player)
-      candidates.sort((a, b) => b.coins - a.coins);
-      return candidates[0].id;
-    }
-
-    // Random target
-    return candidates[Math.floor(Math.random() * candidates.length)].id;
-  }
-
-  /**
-   * Weighted random pick from candidates.
-   */
-  private static weightedPick(
-    candidates: Array<{ action: ActionType; targetId?: string; weight: number }>,
-  ): BotDecision {
-    // Filter out zero or negative weights
-    const valid = candidates.filter(c => c.weight > 0);
-    if (valid.length === 0) {
-      return { type: 'action', action: ActionType.Income };
-    }
-
-    const totalWeight = valid.reduce((sum, c) => sum + c.weight, 0);
-    let roll = Math.random() * totalWeight;
-
-    for (const c of valid) {
-      roll -= c.weight;
-      if (roll <= 0) {
-        return { type: 'action', action: c.action, targetId: c.targetId };
+    if (difficulty === 'easy') {
+      // Easy: random selection
+      const indices = allCards.map((_, i) => i);
+      // Shuffle
+      for (let i = indices.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [indices[i], indices[j]] = [indices[j], indices[i]];
       }
+      return { type: 'choose_exchange', keepIndices: indices.slice(0, keepCount) };
     }
 
-    // Fallback
-    const last = valid[valid.length - 1];
-    return { type: 'action', action: last.action, targetId: last.targetId };
+    if (difficulty === 'medium') {
+      // Medium: static card value ranking
+      const STATIC_VALUE: Record<Character, number> = {
+        [Character.Duke]: 5,
+        [Character.Assassin]: 4,
+        [Character.Captain]: 3,
+        [Character.Ambassador]: 2,
+        [Character.Contessa]: 1,
+      };
+      const indexed = allCards.map((char, i) => ({ char, index: i, value: STATIC_VALUE[char] }));
+      indexed.sort((a, b) => b.value - a.value);
+      return { type: 'choose_exchange', keepIndices: indexed.slice(0, keepCount).map(x => x.index) };
+    }
+
+    // Hard: dynamic card value
+    const indexed = allCards.map((char, i) => ({
+      char,
+      index: i,
+      value: this.dynamicCardValue(char, game, botId),
+    }));
+    indexed.sort((a, b) => b.value - a.value);
+    return { type: 'choose_exchange', keepIndices: indexed.slice(0, keepCount).map(x => x.index) };
   }
 }

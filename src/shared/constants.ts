@@ -1,4 +1,4 @@
-import { ActionType, AiPersonality, Character, RoomSettings } from './types';
+import { ActionType, BotDifficulty, Character, RoomSettings } from './types';
 
 // ─── Game Constants ───
 export const MIN_PLAYERS = 2;
@@ -28,7 +28,7 @@ export const BOT_NAMES = [
   'JARVIS', 'Data', 'Cortana', 'Baymax', 'Optimus',
   'Ultron', 'Skynet', 'Bender', 'C-3PO', 'Marvin',
 ];
-export const DEFAULT_PERSONALITY: AiPersonality = { honesty: 50, skepticism: 50, vengefulness: 50 };
+export const DEFAULT_BOT_DIFFICULTY: BotDifficulty = 'medium';
 export const BOT_ACTION_DELAY_MIN = 1500;
 export const BOT_ACTION_DELAY_MAX = 3500;
 export const BOT_REACTION_DELAY_MIN = 800;
