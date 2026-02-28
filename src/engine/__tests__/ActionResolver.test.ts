@@ -717,7 +717,7 @@ describe('ActionResolver', () => {
       expect(advanceEffect).toBeDefined();
     });
 
-    it('advances turn for challenge_failed_defense', () => {
+    it('advances turn for challenge_failed_defense when action was cancelled (action challenge)', () => {
       const request = { playerId: 'p1', reason: 'challenge_failed_defense' as const };
       const result = resolver.chooseInfluenceLoss(game, 'p1', 0, null, request);
       expect(isError(result)).toBe(false);
@@ -725,6 +725,28 @@ describe('ActionResolver', () => {
 
       const advanceEffect = result.sideEffects.find(e => e.type === 'advance_turn');
       expect(advanceEffect).toBeDefined();
+    });
+
+    it('resolves action for challenge_failed_defense when pendingAction exists (block challenge)', () => {
+      // Scenario: Player assassinates target, target claims Contessa to block,
+      // assassin challenges block, target doesn't have Contessa → target loses
+      // influence for failed bluff AND assassination proceeds
+      game.getPlayer('p2')!.coins = 4;
+      const pendingAction = {
+        type: ActionType.Assassinate,
+        actorId: 'p1',
+        targetId: 'p2',
+        claimedCharacter: Character.Assassin,
+      };
+      const request = { playerId: 'p2', reason: 'challenge_failed_defense' as const };
+      const result = resolver.chooseInfluenceLoss(game, 'p2', 0, pendingAction, request);
+      expect(isError(result)).toBe(false);
+      if (isError(result)) return;
+
+      // Assassination should proceed — target must lose another influence
+      expect(result.newPhase).toBe(TurnPhase.AwaitingInfluenceLoss);
+      expect(result.influenceLossRequest?.playerId).toBe('p2');
+      expect(result.influenceLossRequest?.reason).toBe('assassination');
     });
 
     it('proceeds to block phase for challenge_lost with blockable action', () => {

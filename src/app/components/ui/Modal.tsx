@@ -4,10 +4,12 @@ interface ModalProps {
   open: boolean;
   onClose?: () => void;
   title?: string;
+  maxWidth?: string;
+  scrollable?: boolean;
   children: React.ReactNode;
 }
 
-export function Modal({ open, onClose, title, children }: ModalProps) {
+export function Modal({ open, onClose, title, maxWidth = 'max-w-md', scrollable, children }: ModalProps) {
   if (!open) return null;
 
   return (
@@ -16,7 +18,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
         className="absolute inset-0 bg-black/70"
         onClick={onClose}
       />
-      <div className="relative bg-coup-surface border border-gray-700 rounded-2xl p-6 w-full max-w-md animate-slide-up">
+      <div className={`relative bg-coup-surface border border-gray-700 rounded-2xl p-6 w-full ${maxWidth} animate-slide-up ${scrollable ? 'max-h-[85vh] overflow-y-auto' : ''}`}>
         {title && (
           <h2 className="text-xl font-bold mb-4">{title}</h2>
         )}

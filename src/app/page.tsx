@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSocket } from './hooks/useSocket';
 import { useGameStore } from './stores/gameStore';
+import { CoupLogo } from './components/icons';
+import { HowToPlay } from './components/home/HowToPlay';
 
 export default function Home() {
   const router = useRouter();
@@ -13,6 +15,7 @@ export default function Home() {
   const [name, setName] = useState('');
   const [roomCode, setRoomCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showHowToPlay, setShowHowToPlay] = useState(false);
 
   const handleCreate = async () => {
     if (!name.trim()) { setError('Enter your name'); return; }
@@ -44,9 +47,23 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4">
-      <div className="max-w-md w-full text-center">
-        <h1 className="text-5xl font-bold text-coup-accent mb-2">COUP</h1>
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden">
+      {/* Decorative background pattern */}
+      <div
+        className="absolute inset-0 opacity-[0.03] pointer-events-none"
+        style={{
+          backgroundImage: `repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 20px,
+            currentColor 20px,
+            currentColor 21px
+          )`,
+        }}
+      />
+
+      <div className="max-w-md w-full text-center relative">
+        <CoupLogo className="w-64 h-auto mx-auto mb-2" />
         <p className="text-gray-400 mb-8">The classic bluffing game</p>
 
         {error && (
@@ -62,6 +79,19 @@ export default function Home() {
             </button>
             <button className="btn-secondary w-full" onClick={() => setMode('join')}>
               Join Room
+            </button>
+
+            <div className="flex items-center gap-3 my-2">
+              <div className="flex-1 h-px bg-gray-700" />
+              <span className="text-gray-600 text-xs">or</span>
+              <div className="flex-1 h-px bg-gray-700" />
+            </div>
+
+            <button
+              className="text-gray-400 hover:text-coup-accent text-sm font-medium transition-colors w-full py-2"
+              onClick={() => setShowHowToPlay(true)}
+            >
+              How to Play
             </button>
           </div>
         )}
@@ -129,6 +159,8 @@ export default function Home() {
           <p>2-6 players. Bluff, challenge, eliminate.</p>
         </div>
       </div>
+
+      <HowToPlay open={showHowToPlay} onClose={() => setShowHowToPlay(false)} />
     </div>
   );
 }

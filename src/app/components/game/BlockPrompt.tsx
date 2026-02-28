@@ -1,7 +1,8 @@
 'use client';
 
-import { ClientGameState, TurnPhase, ActionType, Character } from '@/shared/types';
-import { ACTION_DEFINITIONS, CHARACTER_ICONS } from '@/shared/constants';
+import { ClientGameState, TurnPhase, ActionType } from '@/shared/types';
+import { ACTION_DEFINITIONS } from '@/shared/constants';
+import { CHARACTER_SVG_ICONS } from '../icons';
 import { Timer } from '../ui/Timer';
 import { getSocket } from '../../hooks/useSocket';
 
@@ -63,7 +64,6 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
   }
 
   // ── Actionable: this player can block ──
-  // Different urgency for assassination vs other actions
   const isAssassination = pendingAction.type === ActionType.Assassinate;
   const isStealing = pendingAction.type === ActionType.Steal;
   const isForeignAid = pendingAction.type === ActionType.ForeignAid;
@@ -97,16 +97,19 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
       </p>
       <Timer expiresAt={gameState.timerExpiry} />
       <div className="flex flex-col gap-2 mt-3">
-        {def.blockedBy.map(char => (
-          <button
-            key={char}
-            className={`${isAssassination ? 'btn-primary' : 'btn-primary'} w-full flex items-center justify-center gap-2`}
-            onClick={() => socket.emit('game:block', { character: char })}
-          >
-            <span>{CHARACTER_ICONS[char]}</span>
-            Block with {char}
-          </button>
-        ))}
+        {def.blockedBy.map(char => {
+          const Icon = CHARACTER_SVG_ICONS[char];
+          return (
+            <button
+              key={char}
+              className="btn-primary w-full flex items-center justify-center gap-2"
+              onClick={() => socket.emit('game:block', { character: char })}
+            >
+              <Icon size={20} />
+              Block with {char}
+            </button>
+          );
+        })}
         <button
           className="btn-secondary w-full"
           onClick={() => socket.emit('game:pass_block')}

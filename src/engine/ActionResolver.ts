@@ -554,7 +554,11 @@ export class ActionResolver {
     }
 
     if (reason === 'challenge_failed_defense') {
-      // The challenged player (action actor) lost — action cancelled, advance turn
+      if (pendingAction) {
+        // Block challenge succeeded (blocker was bluffing) — original action proceeds
+        return this.resolveAction(game, pendingAction, sideEffects);
+      }
+      // Action challenge succeeded (actor was bluffing) — action cancelled, advance turn
       sideEffects.push({ type: 'win_check' });
       sideEffects.push({ type: 'advance_turn' });
       return this.resolved(sideEffects);

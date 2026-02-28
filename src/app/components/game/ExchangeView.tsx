@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { ClientGameState, TurnPhase, Character } from '@/shared/types';
-import { CHARACTER_ICONS } from '@/shared/constants';
+import { CHARACTER_SVG_ICONS } from '../icons';
 import { getSocket } from '../../hooks/useSocket';
 
 const characterColors: Record<Character, string> = {
@@ -61,18 +61,21 @@ export function ExchangeView({ gameState }: ExchangeViewProps) {
         Tap {keepCount} card{keepCount > 1 ? 's' : ''} to keep. The rest go back to the deck.
       </p>
       <div className="flex flex-wrap gap-3 justify-center mb-4">
-        {availableCards.map((char, i) => (
-          <button
-            key={i}
-            className={`card-face card-face-lg ${characterColors[char]}
-              ${selectedIndices.includes(i) ? 'ring-2 ring-coup-accent scale-105' : 'opacity-60'}
-              transition-all cursor-pointer hover:scale-105`}
-            onClick={() => toggleCard(i)}
-          >
-            <span className="text-2xl">{CHARACTER_ICONS[char]}</span>
-            <span className="mt-0.5 font-bold">{char}</span>
-          </button>
-        ))}
+        {availableCards.map((char, i) => {
+          const Icon = CHARACTER_SVG_ICONS[char];
+          return (
+            <button
+              key={i}
+              className={`card-face card-face-lg ${characterColors[char]}
+                ${selectedIndices.includes(i) ? 'ring-2 ring-coup-accent scale-105' : 'opacity-60'}
+                transition-all cursor-pointer hover:scale-105`}
+              onClick={() => toggleCard(i)}
+            >
+              <Icon size={36} />
+              <span className="card-face-label">{char}</span>
+            </button>
+          );
+        })}
       </div>
       <button
         className="btn-primary w-full"

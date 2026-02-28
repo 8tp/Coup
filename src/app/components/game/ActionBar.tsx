@@ -3,7 +3,43 @@
 import { useState } from 'react';
 import { ActionType, ClientGameState, TurnPhase } from '@/shared/types';
 import { ACTION_DEFINITIONS, FORCED_COUP_THRESHOLD } from '@/shared/constants';
+import { DukeIcon, AssassinIcon, CaptainIcon, AmbassadorIcon, CoinIcon } from '../icons';
 import { getSocket } from '../../hooks/useSocket';
+
+function CoinsIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 64 64" fill="none">
+      <circle cx="24" cy="36" r="18" fill="#fbbf24" stroke="#f59e0b" strokeWidth="2.5" />
+      <circle cx="40" cy="28" r="18" fill="#fbbf24" stroke="#f59e0b" strokeWidth="2.5" />
+      <circle cx="24" cy="36" r="11" fill="none" stroke="#f59e0b" strokeWidth="1.5" />
+      <circle cx="40" cy="28" r="11" fill="none" stroke="#f59e0b" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+function SwordsIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 64 64" fill="none">
+      <path d="M16 8l4 32-6 4 4 4 4-6 32 4" stroke="#94a3b8" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M48 8l-4 32 6 4-4 4-4-6-32 4" stroke="#94a3b8" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+const actionConfig: Array<{
+  type: ActionType;
+  label: string;
+  desc: string;
+  icon: React.ComponentType<{ size?: number }>;
+}> = [
+  { type: ActionType.Income, label: 'Income', desc: '+1 coin (safe)', icon: CoinIcon },
+  { type: ActionType.ForeignAid, label: 'Foreign Aid', desc: '+2 coins (blockable)', icon: CoinsIcon },
+  { type: ActionType.Tax, label: 'Tax', desc: '+3 coins (claim Duke)', icon: DukeIcon },
+  { type: ActionType.Steal, label: 'Steal', desc: 'Take 2 (claim Captain)', icon: CaptainIcon },
+  { type: ActionType.Assassinate, label: 'Assassinate', desc: 'Pay 3, kill (claim Assassin)', icon: AssassinIcon },
+  { type: ActionType.Exchange, label: 'Exchange', desc: 'Swap cards (claim Ambassador)', icon: AmbassadorIcon },
+  { type: ActionType.Coup, label: 'Coup', desc: 'Pay 7, guaranteed kill', icon: SwordsIcon },
+];
 
 interface ActionBarProps {
   gameState: ClientGameState;
@@ -95,24 +131,15 @@ export function ActionBar({ gameState }: ActionBarProps) {
     );
   }
 
-  const actions = [
-    { type: ActionType.Income, label: 'Income', desc: '+1 coin (safe)', icon: '🪙' },
-    { type: ActionType.ForeignAid, label: 'Foreign Aid', desc: '+2 coins (blockable)', icon: '💰' },
-    { type: ActionType.Tax, label: 'Tax', desc: '+3 coins (claim Duke)', icon: '👑' },
-    { type: ActionType.Steal, label: 'Steal', desc: 'Take 2 (claim Captain)', icon: '🛡️' },
-    { type: ActionType.Assassinate, label: 'Assassinate', desc: 'Pay 3, kill (claim Assassin)', icon: '🗡️' },
-    { type: ActionType.Exchange, label: 'Exchange', desc: 'Swap cards (claim Ambassador)', icon: '📜' },
-    { type: ActionType.Coup, label: 'Coup', desc: 'Pay 7, guaranteed kill', icon: '⚔️' },
-  ];
-
   return (
     <div className="prompt-action">
       <div className="grid grid-cols-2 gap-2">
-        {actions.map(a => {
+        {actionConfig.map(a => {
           const def = ACTION_DEFINITIONS[a.type];
           const canAfford = me.coins >= def.cost;
           const hasTargets = !def.requiresTarget || targets.length > 0;
           const disabled = !canAfford || !hasTargets;
+          const Icon = a.icon;
 
           return (
             <button
@@ -124,7 +151,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
               disabled={disabled}
             >
               <div className="flex items-start gap-2">
-                <span className="text-base mt-0.5">{a.icon}</span>
+                <span className="mt-0.5 shrink-0"><Icon size={18} /></span>
                 <div className="min-w-0">
                   <div className="font-bold text-sm leading-tight">{a.label}</div>
                   <div className="text-[10px] text-gray-400 leading-tight mt-0.5">{a.desc}</div>

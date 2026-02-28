@@ -1,7 +1,7 @@
 'use client';
 
 import { Character, ClientInfluence } from '@/shared/types';
-import { CHARACTER_ICONS } from '@/shared/constants';
+import { CHARACTER_SVG_ICONS, CardBack } from '../icons';
 
 const characterColors: Record<Character, string> = {
   [Character.Duke]: 'border-purple-500 bg-purple-900/40',
@@ -10,6 +10,8 @@ const characterColors: Record<Character, string> = {
   [Character.Ambassador]: 'border-green-500 bg-green-900/40',
   [Character.Contessa]: 'border-red-500 bg-red-900/40',
 };
+
+const iconPixelSizes = { sm: 20, md: 28, lg: 36 } as const;
 
 interface CardFaceProps {
   influence: ClientInfluence;
@@ -20,18 +22,20 @@ interface CardFaceProps {
 
 export function CardFace({ influence, size = 'md', onClick, selected }: CardFaceProps) {
   const sizeClass = `card-face-${size}`;
-  const iconSize = size === 'sm' ? 'text-base' : size === 'md' ? 'text-xl' : 'text-2xl';
+  const iconPx = iconPixelSizes[size];
 
   if (influence.revealed && influence.character) {
+    const Icon = CHARACTER_SVG_ICONS[influence.character];
     return (
-      <div className={`card-face ${sizeClass} ${characterColors[influence.character]} opacity-40`}>
-        <span className={iconSize}>{CHARACTER_ICONS[influence.character]}</span>
-        <span className="mt-0.5 leading-tight">{influence.character}</span>
+      <div className={`card-face ${sizeClass} ${characterColors[influence.character]} card-face-revealed`}>
+        <Icon size={iconPx} />
+        <span className="card-face-label">{influence.character}</span>
       </div>
     );
   }
 
   if (influence.character) {
+    const Icon = CHARACTER_SVG_ICONS[influence.character];
     return (
       <div
         className={`card-face ${sizeClass} ${characterColors[influence.character]}
@@ -39,15 +43,15 @@ export function CardFace({ influence, size = 'md', onClick, selected }: CardFace
           ${selected ? 'ring-2 ring-coup-accent scale-105' : ''}`}
         onClick={onClick}
       >
-        <span className={iconSize}>{CHARACTER_ICONS[influence.character]}</span>
-        <span className="mt-0.5 leading-tight">{influence.character}</span>
+        <Icon size={iconPx} />
+        <span className="card-face-label">{influence.character}</span>
       </div>
     );
   }
 
   return (
-    <div className={`card-face ${sizeClass} border-gray-600 bg-coup-surface`}>
-      <span className={iconSize}>?</span>
+    <div className={`card-face ${sizeClass} border-gray-600 bg-coup-surface card-back`}>
+      <CardBack size={iconPx} />
     </div>
   );
 }

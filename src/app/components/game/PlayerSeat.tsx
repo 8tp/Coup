@@ -2,6 +2,7 @@
 
 import { ClientPlayerState } from '@/shared/types';
 import { CardFace } from './CardFace';
+import { CoinIcon } from '../icons';
 
 interface PlayerSeatProps {
   player: ClientPlayerState;
@@ -35,14 +36,15 @@ export function PlayerSeat({
           {player.name}
           {isMe && ' (You)'}
         </span>
-        <span className="text-coup-gold font-bold text-sm shrink-0">
-          {player.coins} coin{player.coins !== 1 ? 's' : ''}
+        <span className="flex items-center gap-1 text-coup-gold font-bold text-sm shrink-0">
+          <CoinIcon size={14} />
+          {player.coins}
         </span>
       </div>
 
       <div className="flex gap-2 justify-center">
         {player.influences.map((inf, i) => (
-          <CardFace key={i} influence={inf} size="sm" />
+          <CardFace key={i} influence={inf} size="md" />
         ))}
       </div>
 

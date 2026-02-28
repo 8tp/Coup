@@ -12,9 +12,14 @@
 @layer components {
   .btn-primary {
     @apply bg-coup-accent text-coup-bg font-bold py-3 px-6 rounded-xl
-           active:scale-95 transition-transform duration-100
+           active:scale-95 transition-all duration-100
            disabled:opacity-50 disabled:cursor-not-allowed
            text-lg min-h-[48px] min-w-[48px];
+    background-image: linear-gradient(to bottom, rgba(255,255,255,0.1), transparent);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    box-shadow: 0 0 16px rgba(251, 191, 36, 0.3);
   }
 
   .btn-danger {
@@ -38,19 +43,66 @@
 
   .card-face {
     @apply rounded-lg flex flex-col items-center justify-center
-           font-bold border-2 transition-all duration-300 shrink-0;
+           font-bold border-2 transition-all duration-300 flex-none;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 1px 2px rgba(255,255,255,0.08);
+  }
+
+  .card-face-label {
+    @apply mt-0.5 leading-tight w-full text-center truncate px-0.5;
+  }
+
+  .card-face::before {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 4px;
+    pointer-events: none;
   }
 
   .card-face-sm {
-    @apply w-10 h-[60px] text-[10px];
+    @apply w-12 h-[72px] text-[10px];
   }
 
   .card-face-md {
-    @apply w-14 h-[84px] text-xs;
+    @apply w-16 h-[96px] text-xs;
   }
 
   .card-face-lg {
-    @apply w-[72px] h-[108px] text-sm;
+    @apply w-20 h-[120px] text-sm;
+  }
+
+  .card-face-revealed {
+    filter: grayscale(0.6);
+    opacity: 0.5;
+  }
+
+  .card-face-revealed::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 8px,
+      rgba(220, 38, 38, 0.25) 8px,
+      rgba(220, 38, 38, 0.25) 10px
+    );
+    pointer-events: none;
+    border-radius: inherit;
+  }
+
+  .card-back {
+    background-image:
+      repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 6px,
+        rgba(251, 191, 36, 0.05) 6px,
+        rgba(251, 191, 36, 0.05) 7px
+      );
   }
 
   .input-field {
@@ -71,5 +123,18 @@
 
   .prompt-info {
     @apply bg-coup-card border-2 border-gray-600 rounded-xl p-4 animate-fade-in;
+  }
+
+  /* How to Play tabs */
+  .how-to-play-tab {
+    @apply px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap;
+  }
+
+  .how-to-play-tab[data-active='true'] {
+    @apply bg-coup-accent text-coup-bg;
+  }
+
+  .how-to-play-tab[data-active='false'] {
+    @apply bg-coup-card text-gray-400 hover:text-white;
   }
 }
