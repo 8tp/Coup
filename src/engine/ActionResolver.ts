@@ -7,6 +7,7 @@ import {
   ChallengeState,
   InfluenceLossRequest,
   ExchangeState,
+  LogEventType,
 } from '../shared/types';
 import {
   ACTION_DEFINITIONS,
@@ -33,7 +34,7 @@ export type SideEffect =
   | { type: 'advance_turn' }
   | { type: 'set_timer'; durationMs: number }
   | { type: 'clear_timer' }
-  | { type: 'log'; message: string }
+  | { type: 'log'; message: string; eventType: LogEventType; character: Character | null; actorId: string | null; actorName: string | null }
   | { type: 'start_exchange'; playerId: string; drawnCards: Character[] }
   | { type: 'win_check' }
   | { type: 'challenge_reveal'; challengerName: string; challengedName: string; character: Character; wasGenuine: boolean };
@@ -46,6 +47,8 @@ export interface ResolverResult {
   influenceLossRequest: InfluenceLossRequest | null;
   exchangeState: ExchangeState | null;
   sideEffects: SideEffect[];
+  /** Players who should be auto-passed in the block phase (e.g., a challenger who already chose to challenge cannot also block) */
+  blockAutoPassIds?: string[];
 }
 
 export class ActionResolver {
@@ -117,13 +120,13 @@ export class ActionResolver {
     // Income and Coup cannot be challenged or blocked
     if (actionType === ActionType.Income) {
       sideEffects.push({ type: 'give_coins', playerId: actorId, amount: 1 });
-      sideEffects.push({ type: 'log', message: `${actor.name} takes Income (+1 coin).` });
+      sideEffects.push({ type: 'log', message: `${actor.name} takes Income (+1 coin).`, eventType: 'income', character: null, actorId, actorName: actor.name });
       sideEffects.push({ type: 'advance_turn' });
       return this.resolved(sideEffects);
     }
 
     if (actionType === ActionType.Coup) {
-      sideEffects.push({ type: 'log', message: `${actor.name} launches a Coup against ${game.getPlayer(targetId!)?.name}.` });
+      sideEffects.push({ type: 'log', message: `${actor.name} launches a Coup against ${game.getPlayer(targetId!)?.name}.`, eventType: 'coup', character: null, actorId, actorName: actor.name });
       // Target must lose influence
       return {
         newPhase: TurnPhase.AwaitingInfluenceLoss,
@@ -143,11 +146,19 @@ export class ActionResolver {
       sideEffects.push({
         type: 'log',
         message: `${actor.name} claims ${def.claimedCharacter} to ${actionType}${targetPart}.`,
+        eventType: 'claim_action',
+        character: def.claimedCharacter,
+        actorId,
+        actorName: actor.name,
       });
     } else {
       sideEffects.push({
         type: 'log',
         message: `${actor.name} declares ${actionType}.`,
+        eventType: 'declare_action',
+        character: null,
+        actorId,
+        actorName: actor.name,
       });
     }
 
@@ -206,7 +217,7 @@ export class ActionResolver {
     const claimedChar = pendingAction.claimedCharacter!;
     const sideEffects: SideEffect[] = [
       { type: 'clear_timer' },
-      { type: 'log', message: `${challenger.name} challenges ${challenged.name}'s claim of ${claimedChar}!` },
+      { type: 'log', message: `${challenger.name} challenges ${challenged.name}'s claim of ${claimedChar}!`, eventType: 'challenge', character: claimedChar, actorId: challengerId, actorName: challenger.name },
     ];
 
     if (challenged.hasCharacter(claimedChar)) {
@@ -221,6 +232,10 @@ export class ActionResolver {
       sideEffects.push({
         type: 'log',
         message: `${challenged.name} reveals ${claimedChar} — challenge fails! ${challenger.name} must lose an influence.`,
+        eventType: 'challenge_fail',
+        character: claimedChar,
+        actorId: challenged.id,
+        actorName: challenged.name,
       });
 
       // Challenged player gets a replacement card
@@ -243,7 +258,7 @@ export class ActionResolver {
         sideEffects.push({ type: 'eliminate_check', playerId: challengerId });
 
         // Action still proceeds — move to block phase or resolve
-        return this.afterSuccessfulActionChallengeDefense(game, pendingAction, sideEffects);
+        return this.afterSuccessfulActionChallengeDefense(game, pendingAction, sideEffects, challengerId);
       }
 
       // Challenger must choose which influence to lose
@@ -268,6 +283,10 @@ export class ActionResolver {
       sideEffects.push({
         type: 'log',
         message: `${challenged.name} does NOT have ${claimedChar} — challenge succeeds!`,
+        eventType: 'challenge_success',
+        character: claimedChar,
+        actorId: challengerId,
+        actorName: challenger.name,
       });
 
       // Refund action cost
@@ -301,11 +320,13 @@ export class ActionResolver {
   /**
    * After a challenge on the action fails (defender proved they had the card),
    * the action proceeds. Move to block phase or resolve.
+   * The challenger cannot also block (per Coup rules: choose challenge OR block, not both).
    */
   private afterSuccessfulActionChallengeDefense(
     game: Game,
     pendingAction: PendingAction,
     sideEffects: SideEffect[],
+    challengerId: string,
   ): ResolverResult {
     const def = ACTION_DEFINITIONS[pendingAction.type];
 
@@ -320,6 +341,7 @@ export class ActionResolver {
         influenceLossRequest: null,
         exchangeState: null,
         sideEffects,
+        blockAutoPassIds: [challengerId],
       };
     }
 
@@ -384,7 +406,7 @@ export class ActionResolver {
 
     const sideEffects: SideEffect[] = [
       { type: 'clear_timer' },
-      { type: 'log', message: `${blocker.name} blocks with ${claimedCharacter}!` },
+      { type: 'log', message: `${blocker.name} blocks with ${claimedCharacter}!`, eventType: 'block', character: claimedCharacter, actorId: blockerId, actorName: blocker.name },
       { type: 'set_timer', durationMs: this.timerMs },
     ];
 
@@ -436,7 +458,7 @@ export class ActionResolver {
     const claimedChar = pendingBlock.claimedCharacter;
     const sideEffects: SideEffect[] = [
       { type: 'clear_timer' },
-      { type: 'log', message: `${challenger.name} challenges ${blocker.name}'s block with ${claimedChar}!` },
+      { type: 'log', message: `${challenger.name} challenges ${blocker.name}'s block with ${claimedChar}!`, eventType: 'block_challenge', character: claimedChar, actorId: challengerId, actorName: challenger.name },
     ];
 
     if (blocker.hasCharacter(claimedChar)) {
@@ -452,6 +474,10 @@ export class ActionResolver {
       sideEffects.push({
         type: 'log',
         message: `${blocker.name} reveals ${claimedChar} — block stands! ${challenger.name} must lose an influence.`,
+        eventType: 'block_challenge_fail',
+        character: claimedChar,
+        actorId: blocker.id,
+        actorName: blocker.name,
       });
 
       // Blocker gets replacement
@@ -502,6 +528,10 @@ export class ActionResolver {
       sideEffects.push({
         type: 'log',
         message: `${blocker.name} does NOT have ${claimedChar} — block fails! Action proceeds.`,
+        eventType: 'block_challenge_success',
+        character: claimedChar,
+        actorId: challengerId,
+        actorName: challenger.name,
       });
 
       if (blocker.aliveInfluenceCount === 1) {
@@ -535,7 +565,7 @@ export class ActionResolver {
   ): ResolverResult {
     const sideEffects: SideEffect[] = [
       { type: 'clear_timer' },
-      { type: 'log', message: 'Block is not challenged — action is blocked.' },
+      { type: 'log', message: 'Block is not challenged — action is blocked.', eventType: 'block_unchallenged', character: null, actorId: null, actorName: null },
     ];
 
     // Refund action cost
@@ -572,7 +602,7 @@ export class ActionResolver {
     const revealedChar = player.influences[influenceIndex].character;
     const sideEffects: SideEffect[] = [
       { type: 'reveal_influence', playerId, influenceIndex },
-      { type: 'log', message: `${player.name} loses ${revealedChar}.` },
+      { type: 'log', message: `${player.name} loses ${revealedChar}.`, eventType: 'influence_loss', character: revealedChar, actorId: playerId, actorName: player.name },
       { type: 'eliminate_check', playerId },
     ];
 
@@ -601,15 +631,18 @@ export class ActionResolver {
 
     if (reason === 'challenge_lost') {
       // Challenger lost — the action still proceeds
+      // The challenger (playerId) cannot also block (challenge OR block, not both)
       if (pendingAction) {
         // Check if there's a block phase after
         const def = ACTION_DEFINITIONS[pendingAction.type];
         if (def.blockedBy.length > 0) {
           // Check if the target is still alive to block
+          // If the challenger IS the target, they already chose to challenge so they can't block
           const targetAlive = pendingAction.targetId
             ? game.getPlayer(pendingAction.targetId)?.isAlive ?? false
             : true;
-          if (targetAlive) {
+          const challengerIsTarget = pendingAction.targetId === playerId;
+          if (targetAlive && !challengerIsTarget) {
             sideEffects.push({ type: 'set_timer', durationMs: this.timerMs });
             return {
               newPhase: TurnPhase.AwaitingBlock,
@@ -619,7 +652,12 @@ export class ActionResolver {
               influenceLossRequest: null,
               exchangeState: null,
               sideEffects,
+              blockAutoPassIds: [playerId],
             };
+          }
+          // If challenger IS the target, they forfeited their block — resolve action directly
+          if (challengerIsTarget) {
+            return this.resolveAction(game, pendingAction, sideEffects);
           }
         }
         return this.resolveAction(game, pendingAction, sideEffects);
@@ -678,7 +716,7 @@ export class ActionResolver {
     const returnedCards = allCards.filter((_, i) => !keepIndices.includes(i));
 
     const sideEffects: SideEffect[] = [
-      { type: 'log', message: `${player.name} completes the exchange.` },
+      { type: 'log', message: `${player.name} completes the exchange.`, eventType: 'exchange', character: Character.Ambassador, actorId: playerId, actorName: player.name },
     ];
 
     // Return cards to deck
@@ -714,13 +752,13 @@ export class ActionResolver {
     switch (pendingAction.type) {
       case ActionType.Tax:
         sideEffects.push({ type: 'give_coins', playerId: actor.id, amount: 3 });
-        sideEffects.push({ type: 'log', message: `${actor.name} collects Tax (+3 coins).` });
+        sideEffects.push({ type: 'log', message: `${actor.name} collects Tax (+3 coins).`, eventType: 'action_resolve', character: Character.Duke, actorId: actor.id, actorName: actor.name });
         sideEffects.push({ type: 'advance_turn' });
         return this.resolved(sideEffects);
 
       case ActionType.ForeignAid:
         sideEffects.push({ type: 'give_coins', playerId: actor.id, amount: 2 });
-        sideEffects.push({ type: 'log', message: `${actor.name} takes Foreign Aid (+2 coins).` });
+        sideEffects.push({ type: 'log', message: `${actor.name} takes Foreign Aid (+2 coins).`, eventType: 'action_resolve', character: null, actorId: actor.id, actorName: actor.name });
         sideEffects.push({ type: 'advance_turn' });
         return this.resolved(sideEffects);
 
@@ -736,6 +774,10 @@ export class ActionResolver {
         sideEffects.push({
           type: 'log',
           message: `${actor.name} steals ${stealAmount} coin(s) from ${target.name}.`,
+          eventType: 'action_resolve',
+          character: Character.Captain,
+          actorId: actor.id,
+          actorName: actor.name,
         });
         sideEffects.push({ type: 'advance_turn' });
         return this.resolved(sideEffects);
@@ -752,7 +794,7 @@ export class ActionResolver {
         if (target.aliveInfluenceCount === 1) {
           const idx = target.influences.findIndex(inf => !inf.revealed);
           sideEffects.push({ type: 'reveal_influence', playerId: target.id, influenceIndex: idx });
-          sideEffects.push({ type: 'log', message: `${target.name} loses an influence to assassination.` });
+          sideEffects.push({ type: 'log', message: `${target.name} loses an influence to assassination.`, eventType: 'assassination', character: Character.Assassin, actorId: actor.id, actorName: actor.name });
           sideEffects.push({ type: 'eliminate_check', playerId: target.id });
           sideEffects.push({ type: 'win_check' });
           sideEffects.push({ type: 'advance_turn' });
@@ -760,7 +802,7 @@ export class ActionResolver {
         }
 
         // Target chooses which influence to lose
-        sideEffects.push({ type: 'log', message: `${target.name} must lose an influence to assassination.` });
+        sideEffects.push({ type: 'log', message: `${target.name} must lose an influence to assassination.`, eventType: 'assassination', character: Character.Assassin, actorId: actor.id, actorName: actor.name });
         return {
           newPhase: TurnPhase.AwaitingInfluenceLoss,
           pendingAction,

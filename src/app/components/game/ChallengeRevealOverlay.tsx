@@ -67,18 +67,31 @@ export function ChallengeRevealOverlay() {
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 animate-fade-in">
       <div className="flex flex-col items-center gap-4">
         {/* Card */}
-        <div
-          className={`
-            w-28 h-40 rounded-xl border-2 flex flex-col items-center justify-center gap-2 shadow-2xl
-            ${cardStyle}
-            ${phase === 'reveal' ? 'animate-challenge-card-in' : ''}
-            ${phase === 'card-to-deck' ? 'animate-challenge-card-out' : ''}
-            ${phase === 'new-card' ? 'hidden' : ''}
-          `}
-        >
-          <Icon size={48} />
-          <span className="text-white font-bold text-sm">{character}</span>
-        </div>
+        {wasGenuine ? (
+          <div
+            className={`
+              w-28 h-40 rounded-xl border-2 flex flex-col items-center justify-center gap-2 shadow-2xl
+              ${cardStyle}
+              ${phase === 'reveal' ? 'animate-challenge-card-in' : ''}
+              ${phase === 'card-to-deck' ? 'animate-challenge-card-out' : ''}
+              ${phase === 'new-card' ? 'hidden' : ''}
+            `}
+          >
+            <Icon size={48} />
+            <span className="text-white font-bold text-sm">{character}</span>
+          </div>
+        ) : (
+          <div
+            className={`
+              w-28 h-40 rounded-xl border-2 border-red-500 bg-red-900/40 flex flex-col items-center justify-center gap-2 shadow-2xl
+              ${phase === 'reveal' ? 'animate-challenge-card-in' : ''}
+              ${phase === 'card-to-deck' ? 'hidden' : ''}
+            `}
+          >
+            <span className="text-red-400 text-4xl font-bold">✗</span>
+            <span className="text-red-300 font-bold text-sm">{character}</span>
+          </div>
+        )}
 
         {/* New card from deck (phase 3) */}
         {phase === 'new-card' && (
@@ -92,7 +105,10 @@ export function ChallengeRevealOverlay() {
           {phase === 'reveal' && (
             <>
               <p className="text-white text-lg font-bold">
-                {challengedName} reveals <span className="text-coup-accent">{character}</span>!
+                {wasGenuine
+                  ? <>{challengedName} reveals <span className="text-coup-accent">{character}</span>!</>
+                  : <>{challengedName} does not have <span className="text-coup-accent">{character}</span>!</>
+                }
               </p>
               <p className={`text-sm font-bold mt-1 ${wasGenuine ? 'text-green-400' : 'text-red-400'}`}>
                 {wasGenuine ? 'Challenge fails!' : 'Caught bluffing!'}

@@ -6,6 +6,7 @@ import {
   ClientChallengeState,
   ClientExchangeState,
   RoomPlayer,
+  TurnPhase,
 } from '../shared/types';
 
 /**
@@ -13,10 +14,11 @@ import {
  * Hides other players' unrevealed cards and restricts exchange info.
  */
 export function serializeForPlayer(state: GameState, playerId: string, roomPlayers?: RoomPlayer[]): ClientGameState {
+  const isGameOver = state.turnPhase === TurnPhase.GameOver;
   return {
     roomCode: state.roomCode,
     status: state.status,
-    players: state.players.map(p => serializePlayer(p, playerId, roomPlayers)),
+    players: state.players.map(p => serializePlayer(p, playerId, roomPlayers, isGameOver)),
     currentPlayerIndex: state.currentPlayerIndex,
     turnPhase: state.turnPhase,
     deckCount: state.deck.length,
@@ -35,7 +37,7 @@ export function serializeForPlayer(state: GameState, playerId: string, roomPlaye
   };
 }
 
-function serializePlayer(player: import('../shared/types').PlayerState, viewerId: string, roomPlayers?: RoomPlayer[]): ClientPlayerState {
+function serializePlayer(player: import('../shared/types').PlayerState, viewerId: string, roomPlayers?: RoomPlayer[], isGameOver?: boolean): ClientPlayerState {
   const isMe = player.id === viewerId;
   const roomPlayer = roomPlayers?.find(rp => rp.id === player.id);
 
@@ -43,7 +45,7 @@ function serializePlayer(player: import('../shared/types').PlayerState, viewerId
     id: player.id,
     name: player.name,
     coins: player.coins,
-    influences: player.influences.map(inf => serializeInfluence(inf, isMe)),
+    influences: player.influences.map(inf => serializeInfluence(inf, isMe || !!isGameOver)),
     isAlive: player.isAlive,
     seatIndex: player.seatIndex,
     isBot: roomPlayer?.isBot || undefined,

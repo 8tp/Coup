@@ -10,6 +10,7 @@ import {
   InfluenceLossRequest,
   ExchangeState,
 } from '../shared/types';
+import { ACTION_DEFINITIONS } from '../shared/constants';
 import { Game } from './Game';
 import { ActionResolver, ResolverResult, SideEffect } from './ActionResolver';
 
@@ -256,6 +257,16 @@ export class GameEngine {
       this.blockPassedPlayerIds = null;
     }
 
+    // Pre-populate block pass list with players who challenged (challenge OR block, not both)
+    if (result.newPhase === TurnPhase.AwaitingBlock && result.blockAutoPassIds?.length) {
+      if (!this.blockPassedPlayerIds) {
+        this.blockPassedPlayerIds = new Set([this.pendingAction!.actorId]);
+      }
+      for (const id of result.blockAutoPassIds) {
+        this.blockPassedPlayerIds.add(id);
+      }
+    }
+
     // Update phase (unless advance_turn effect already moved it)
     if (result.newPhase !== TurnPhase.ActionResolved) {
       this.game.turnPhase = result.newPhase;
@@ -274,6 +285,18 @@ export class GameEngine {
         const autoResult = this.resolver.allPassedBlock(this.game, this.pendingAction);
         this.applyResult(autoResult);
         return;
+      }
+
+      // For targeted actions, only the target can block. If the target already
+      // challenged (and thus forfeited their block), skip block phase entirely.
+      if (this.blockPassedPlayerIds?.has(this.pendingAction.targetId)) {
+        const def = ACTION_DEFINITIONS[this.pendingAction.type];
+        const isTargetedBlock = this.pendingAction.type !== ActionType.ForeignAid && def.blockedBy.length > 0;
+        if (isTargetedBlock) {
+          const autoResult = this.resolver.allPassedBlock(this.game, this.pendingAction);
+          this.applyResult(autoResult);
+          return;
+        }
       }
     }
 
@@ -343,12 +366,19 @@ export class GameEngine {
         break;
       }
       case 'log': {
-        this.game.log(effect.message);
+        this.game.log(effect.message, effect.eventType, effect.character, effect.actorId, effect.actorName);
         break;
       }
       case 'start_exchange': {
         // Exchange state is set in applyResult
-        this.game.log(`${this.game.getPlayer(effect.playerId)?.name} draws cards for exchange.`);
+        const exchPlayer = this.game.getPlayer(effect.playerId);
+        this.game.log(
+          `${exchPlayer?.name} draws cards for exchange.`,
+          'exchange_draw',
+          Character.Ambassador,
+          effect.playerId,
+          exchPlayer?.name ?? null,
+        );
         break;
       }
       case 'win_check': {

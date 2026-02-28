@@ -4,6 +4,7 @@ import {
   TurnPhase,
   Character,
   LogEntry,
+  LogEventType,
 } from '../shared/types';
 import { STARTING_COINS, TOTAL_COINS, STARTING_HAND_SIZE } from '../shared/constants';
 import { Deck } from './Deck';
@@ -49,7 +50,7 @@ export class Game {
     this.winnerId = null;
     this.actionLog = [];
 
-    this.log(`Game started! ${this.currentPlayer.name}'s turn.`);
+    this.log(`Game started! ${this.currentPlayer.name}'s turn.`, 'game_start', null, null, null);
   }
 
   get currentPlayer(): Player {
@@ -73,7 +74,7 @@ export class Game {
       this.winnerId = alivePlayers[0]?.id ?? null;
       if (this.winnerId) {
         const winner = this.getPlayer(this.winnerId);
-        this.log(`${winner?.name} wins the game!`);
+        this.log(`${winner?.name} wins the game!`, 'win', null, this.winnerId, winner?.name ?? null);
       }
       return;
     }
@@ -87,7 +88,7 @@ export class Game {
     this.turnPhase = TurnPhase.AwaitingAction;
     this.turnNumber++;
 
-    this.log(`${this.currentPlayer.name}'s turn.`);
+    this.log(`${this.currentPlayer.name}'s turn.`, 'turn_start', null, this.currentPlayer.id, this.currentPlayer.name);
   }
 
   /** Check if only one player remains */
@@ -106,7 +107,7 @@ export class Game {
   eliminatePlayer(player: Player): void {
     this.treasury += player.coins;
     player.coins = 0;
-    this.log(`${player.name} has been eliminated!`);
+    this.log(`${player.name} has been eliminated!`, 'elimination', null, player.id, player.name);
   }
 
   giveCoins(player: Player, amount: number): void {
@@ -121,10 +122,21 @@ export class Game {
     this.treasury += actual;
   }
 
-  log(message: string): void {
+  log(
+    message: string,
+    eventType: LogEventType = 'game_start',
+    character: Character | null = null,
+    actorId: string | null = null,
+    actorName: string | null = null,
+  ): void {
     this.actionLog.push({
       message,
       timestamp: Date.now(),
+      eventType,
+      character,
+      turnNumber: this.turnNumber,
+      actorId,
+      actorName,
     });
   }
 

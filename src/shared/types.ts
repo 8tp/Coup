@@ -127,10 +127,24 @@ export interface GameState {
   turnNumber: number;
 }
 
+// ─── Log Event Types ───
+export type LogEventType =
+  | 'game_start' | 'turn_start' | 'income' | 'coup'
+  | 'claim_action' | 'declare_action'
+  | 'challenge' | 'challenge_fail' | 'challenge_success'
+  | 'block' | 'block_challenge' | 'block_challenge_fail' | 'block_challenge_success' | 'block_unchallenged'
+  | 'influence_loss' | 'exchange' | 'exchange_draw'
+  | 'action_resolve' | 'assassination' | 'elimination' | 'win';
+
 // ─── Log Entry ───
 export interface LogEntry {
   message: string;
   timestamp: number;
+  eventType: LogEventType;
+  character: Character | null;
+  turnNumber: number;
+  actorId: string | null;
+  actorName: string | null;
 }
 
 // ─── Client-visible state (what gets sent to each player) ───

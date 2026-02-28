@@ -74,6 +74,7 @@ export function GameTable({ gameState, chatMessages, onSendChat, isHost, onRemat
           log={gameState.actionLog}
           chatMessages={chatMessages}
           myId={gameState.myId}
+          myName={me?.name ?? ''}
           onSendChat={onSendChat}
         />
 

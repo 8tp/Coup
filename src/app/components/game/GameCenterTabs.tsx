@@ -9,10 +9,11 @@ interface GameCenterTabsProps {
   log: LogEntry[];
   chatMessages: ChatMessage[];
   myId: string | null;
+  myName: string;
   onSendChat: (message: string) => void;
 }
 
-export function GameCenterTabs({ log, chatMessages, myId, onSendChat }: GameCenterTabsProps) {
+export function GameCenterTabs({ log, chatMessages, myId, myName, onSendChat }: GameCenterTabsProps) {
   const [activeTab, setActiveTab] = useState<'log' | 'chat'>('log');
   const lastSeenCountRef = useRef(chatMessages.length);
   const [hasUnread, setHasUnread] = useState(false);
@@ -53,7 +54,7 @@ export function GameCenterTabs({ log, chatMessages, myId, onSendChat }: GameCent
 
       {/* Tab content */}
       {activeTab === 'log' ? (
-        <ActionLog log={log} />
+        <ActionLog log={log} myName={myName} />
       ) : (
         <ChatPanel messages={chatMessages} myId={myId} onSend={onSendChat} />
       )}

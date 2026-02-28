@@ -484,13 +484,14 @@ export class BotBrain {
     if (blockPassedPlayerIds.includes(botId)) return null;
 
     const bot = game.getPlayer(botId)!;
+    if (!bot.isAlive) return null;
+
     const def = ACTION_DEFINITIONS[pendingAction.type];
     if (def.blockedBy.length === 0) return { type: 'pass_block' };
 
-    // Check if bot is eligible to block
+    // Only the target can block targeted actions (Steal, Assassinate)
     const isTarget = pendingAction.targetId === botId;
-    if (pendingAction.type === ActionType.Steal && !isTarget) return { type: 'pass_block' };
-    if (pendingAction.type === ActionType.Assassinate && !isTarget) return { type: 'pass_block' };
+    if (pendingAction.targetId && !isTarget) return { type: 'pass_block' };
 
     for (const blockChar of def.blockedBy) {
       const hasCard = bot.hiddenCharacters.includes(blockChar);

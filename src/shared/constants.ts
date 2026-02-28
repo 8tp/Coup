@@ -1,4 +1,4 @@
-import { ActionType, BotDifficulty, Character, RoomSettings } from './types';
+import { ActionType, BotDifficulty, Character, LogEventType, RoomSettings } from './types';
 
 // ─── Game Constants ───
 export const MIN_PLAYERS = 2;
@@ -120,6 +120,31 @@ export const CHARACTER_DESCRIPTIONS: Record<Character, string> = {
   [Character.Captain]: 'Steal: Take 2 coins from target. Blocks Steal.',
   [Character.Ambassador]: 'Exchange: Draw 2, return 2. Blocks Steal.',
   [Character.Contessa]: 'Blocks Assassination.',
+};
+
+// ─── Log Event Icons ───
+export const LOG_EVENT_ICONS: Record<LogEventType, string> = {
+  game_start: '🎮',
+  turn_start: '▶',
+  income: '💰',
+  coup: '⚔️',
+  claim_action: '🎭',
+  declare_action: '📢',
+  challenge: '❓',
+  challenge_fail: '✅',
+  challenge_success: '❌',
+  block: '🛑',
+  block_challenge: '❓',
+  block_challenge_fail: '✅',
+  block_challenge_success: '❌',
+  block_unchallenged: '🛑',
+  influence_loss: '💀',
+  exchange: '🔄',
+  exchange_draw: '🔄',
+  action_resolve: '✨',
+  assassination: '🗡️',
+  elimination: '☠️',
+  win: '🏆',
 };
 
 // ─── Character colors (for UI) ───

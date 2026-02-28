@@ -2,33 +2,87 @@
 
 import { useRef, useEffect } from 'react';
 import { LogEntry } from '@/shared/types';
+import { LOG_EVENT_ICONS, CHARACTER_COLORS } from '@/shared/constants';
+import { formatLogMessage } from '@/app/utils/logFormat';
 
 interface ActionLogProps {
   log: LogEntry[];
+  myName: string;
 }
 
-export function ActionLog({ log }: ActionLogProps) {
+/** Group consecutive entries by turnNumber */
+function groupByTurn(entries: LogEntry[]): LogEntry[][] {
+  const groups: LogEntry[][] = [];
+  let current: LogEntry[] = [];
+  let currentTurn: number | null = null;
+
+  for (const entry of entries) {
+    if (entry.turnNumber !== currentTurn) {
+      if (current.length > 0) groups.push(current);
+      current = [entry];
+      currentTurn = entry.turnNumber;
+    } else {
+      current.push(entry);
+    }
+  }
+  if (current.length > 0) groups.push(current);
+  return groups;
+}
+
+/** Get the primary character color for a turn group */
+function getGroupBorderColor(group: LogEntry[]): string {
+  for (const entry of group) {
+    if (entry.character && entry.character in CHARACTER_COLORS) {
+      return CHARACTER_COLORS[entry.character];
+    }
+  }
+  return '#4b5563'; // gray-600 fallback
+}
+
+export function ActionLog({ log, myName }: ActionLogProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [log.length]);
 
-  // Always show last 8 entries
-  const recentLog = log.slice(-8);
+  const turnGroups = groupByTurn(log);
 
   return (
-    <div className="bg-coup-bg/60 rounded-lg border border-gray-800 px-3 py-2">
-      <div className="space-y-0.5 overflow-y-auto max-h-28">
-        {recentLog.length === 0 && (
+    <div className="px-3 py-2">
+      <div className="space-y-1.5 overflow-y-auto max-h-48">
+        {log.length === 0 && (
           <p className="text-xs text-gray-600 italic">Game starting...</p>
         )}
-        {recentLog.map((entry, i) => {
-          const isLatest = i === recentLog.length - 1;
+        {turnGroups.map((group, gi) => {
+          const borderColor = getGroupBorderColor(group);
           return (
-            <p key={log.length - recentLog.length + i} className={`text-xs ${isLatest ? 'text-gray-200 font-medium' : 'text-gray-500'}`}>
-              {entry.message}
-            </p>
+            <div
+              key={`turn-${group[0].turnNumber}-${gi}`}
+              className="pl-2 space-y-0.5"
+              style={{ borderLeft: `3px solid ${borderColor}` }}
+            >
+              {group.map((entry, ei) => {
+                const icon = LOG_EVENT_ICONS[entry.eventType] ?? '';
+                const isLatestGroup = gi === turnGroups.length - 1;
+                const isLatestEntry = isLatestGroup && ei === group.length - 1;
+                const message = formatLogMessage(entry.message, myName);
+
+                return (
+                  <p
+                    key={`${entry.turnNumber}-${ei}`}
+                    className={`text-xs ${
+                      isLatestEntry
+                        ? 'text-gray-200 font-medium'
+                        : 'text-gray-400'
+                    }`}
+                  >
+                    <span className="mr-1">{icon}</span>
+                    {message}
+                  </p>
+                );
+              })}
+            </div>
           );
         })}
         <div ref={bottomRef} />
