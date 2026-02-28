@@ -143,7 +143,7 @@ export default function LobbyPage() {
 
             {/* Visibility Toggle */}
             <div className="flex items-center justify-between mb-4">
-              <label className="text-sm text-gray-300">Visibility</label>
+              <label className="text-sm text-gray-300">{roomSettings.isPublic ? 'Public' : 'Private'}</label>
               {isHost ? (
                 <button
                   type="button"
