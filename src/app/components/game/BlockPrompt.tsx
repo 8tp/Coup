@@ -1,7 +1,7 @@
 'use client';
 
 import { ClientGameState, TurnPhase, ActionType } from '@/shared/types';
-import { ACTION_DEFINITIONS } from '@/shared/constants';
+import { ACTION_DEFINITIONS, ACTION_DISPLAY_NAMES } from '@/shared/constants';
 import { CHARACTER_SVG_ICONS } from '../icons';
 import { Timer } from '../ui/Timer';
 import { getSocket } from '../../hooks/useSocket';
@@ -30,7 +30,7 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
     return (
       <div className="prompt-info">
         <p className="text-center text-gray-300 text-sm">
-          Your {pendingAction.type} is proceeding...
+          Your {ACTION_DISPLAY_NAMES[pendingAction.type]} is proceeding...
           {target && <> Waiting for <span className="font-bold">{target.name}</span> to respond.</>}
           {!target && ' Waiting for potential blocks.'}
         </p>
@@ -44,7 +44,7 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
     return (
       <div className="prompt-info">
         <p className="text-center text-gray-400 text-sm">
-          <span className="font-bold">{actor?.name}</span> uses {pendingAction.type} on{' '}
+          <span className="font-bold">{actor?.name}</span> uses {ACTION_DISPLAY_NAMES[pendingAction.type]} on{' '}
           <span className="font-bold">{target?.name}</span>.
           Waiting for their response...
         </p>
@@ -83,7 +83,7 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
     headline = `${actor?.name} is taking Foreign Aid (+2 coins)`;
     subtext = 'Claim Duke to block them from getting coins';
   } else {
-    headline = `${actor?.name} is using ${pendingAction.type}`;
+    headline = `${actor?.name} is using ${ACTION_DISPLAY_NAMES[pendingAction.type]}`;
     subtext = 'You can block this action';
   }
 

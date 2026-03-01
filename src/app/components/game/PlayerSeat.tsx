@@ -122,10 +122,6 @@ export function PlayerSeat({
         ))}
       </div>
 
-      {!player.isAlive && (
-        <div className="text-xs text-red-400 mt-1 font-medium">Eliminated</div>
-      )}
-
       {isCurrentTurn && timerExpiry && (
         <TimerBar timerExpiry={timerExpiry} />
       )}

@@ -1,7 +1,7 @@
 'use client';
 
 import { ClientGameState, TurnPhase } from '@/shared/types';
-import { ACTION_DEFINITIONS } from '@/shared/constants';
+import { ACTION_DEFINITIONS, ACTION_DISPLAY_NAMES } from '@/shared/constants';
 import { Timer } from '../ui/Timer';
 import { getSocket } from '../../hooks/useSocket';
 
@@ -31,7 +31,7 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
     return (
       <div className="prompt-info">
         <p className="text-center text-gray-300 mb-1">
-          You claimed <span className="text-coup-accent font-bold">{pendingAction.claimedCharacter}</span> to {pendingAction.type}
+          You claimed <span className="text-coup-accent font-bold">{pendingAction.claimedCharacter}</span> to {ACTION_DISPLAY_NAMES[pendingAction.type]}
           {target && <> on <span className="font-bold">{target.name}</span></>}
         </p>
         <p className="text-center text-gray-500 text-xs">Waiting for others to accept or challenge...</p>
@@ -54,8 +54,8 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
 
   // Actionable: can challenge or pass
   const actionDesc = target
-    ? `${actor?.name} claims ${pendingAction.claimedCharacter} to ${pendingAction.type} ${target.name}`
-    : `${actor?.name} claims ${pendingAction.claimedCharacter} to ${pendingAction.type}`;
+    ? `${actor?.name} claims ${pendingAction.claimedCharacter} to ${ACTION_DISPLAY_NAMES[pendingAction.type]} ${target.name}`
+    : `${actor?.name} claims ${pendingAction.claimedCharacter} to ${ACTION_DISPLAY_NAMES[pendingAction.type]}`;
 
   return (
     <div className="prompt-action">

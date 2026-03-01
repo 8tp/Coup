@@ -67,7 +67,7 @@ export function InfluenceLossPrompt({ gameState }: InfluenceLossPromptProps) {
             className="transition-transform hover:scale-110 active:scale-95"
             onClick={() => socket.emit('game:choose_influence_loss', { influenceIndex: index })}
           >
-            <CardFace influence={inf} size="lg" />
+            <CardFace influence={inf} size="lg" disablePreview />
           </button>
         ))}
       </div>

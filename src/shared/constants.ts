@@ -1,5 +1,16 @@
 import { ActionType, BotDifficulty, Character, LogEventType, RoomSettings } from './types';
 
+// ─── Action Display Names ───
+export const ACTION_DISPLAY_NAMES: Record<ActionType, string> = {
+  [ActionType.Income]: 'Income',
+  [ActionType.ForeignAid]: 'Foreign Aid',
+  [ActionType.Coup]: 'Coup',
+  [ActionType.Tax]: 'Tax',
+  [ActionType.Assassinate]: 'Assassinate',
+  [ActionType.Steal]: 'Steal',
+  [ActionType.Exchange]: 'Exchange',
+};
+
 // ─── Game Constants ───
 export const MIN_PLAYERS = 2;
 export const MAX_PLAYERS = 6;
