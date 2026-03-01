@@ -122,7 +122,7 @@ export function PlayerSeat({
         ))}
       </div>
 
-      {isCurrentTurn && timerExpiry && (
+      {timerExpiry && (
         <TimerBar timerExpiry={timerExpiry} />
       )}
     </div>

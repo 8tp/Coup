@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSocket } from '../../hooks/useSocket';
 import { useGameStore } from '../../stores/gameStore';
-import { MIN_PLAYERS, MAX_PLAYERS, MIN_ACTION_TIMER, MAX_ACTION_TIMER, MIN_BOT_REACTION_SECONDS, MAX_BOT_REACTION_SECONDS } from '@/shared/constants';
+import { MIN_PLAYERS, MAX_PLAYERS, MIN_ACTION_TIMER, MAX_ACTION_TIMER, MIN_TURN_TIMER, MAX_TURN_TIMER, MIN_BOT_REACTION_SECONDS, MAX_BOT_REACTION_SECONDS } from '@/shared/constants';
 import { GameStatus } from '@/shared/types';
 import { ChatPanel } from '../../components/chat/ChatPanel';
 import { AddBotModal } from '../../components/lobby/AddBotModal';
@@ -250,6 +250,37 @@ export default function LobbyPage() {
               <span>{MIN_ACTION_TIMER}s</span>
               <span>{MAX_ACTION_TIMER}s</span>
             </div>
+
+            {/* Turn Timer */}
+            <div className="flex items-center justify-between mt-4">
+              <label className="text-sm text-gray-300">Turn Timer</label>
+              <span className="text-sm font-mono text-coup-accent">{roomSettings.turnTimerSeconds}s</span>
+            </div>
+            {isHost ? (
+              <input
+                type="range"
+                min={MIN_TURN_TIMER}
+                max={MAX_TURN_TIMER}
+                step={5}
+                value={roomSettings.turnTimerSeconds}
+                onChange={(e) => {
+                  updateRoomSettings({ ...roomSettings, turnTimerSeconds: Number(e.target.value) });
+                }}
+                className="w-full mt-2 accent-coup-accent"
+              />
+            ) : (
+              <div className="w-full bg-coup-bg rounded-full h-2 mt-2">
+                <div
+                  className="bg-coup-accent/40 h-2 rounded-full"
+                  style={{ width: `${((roomSettings.turnTimerSeconds - MIN_TURN_TIMER) / (MAX_TURN_TIMER - MIN_TURN_TIMER)) * 100}%` }}
+                />
+              </div>
+            )}
+            <div className="flex justify-between text-xs text-gray-600 mt-1">
+              <span>{MIN_TURN_TIMER}s</span>
+              <span>{MAX_TURN_TIMER}s</span>
+            </div>
+            <p className="text-xs text-gray-600 mt-1">Time limit for action selection, exchange, and influence loss</p>
 
             {/* Bot Min Reaction Time */}
             {hasBots && (

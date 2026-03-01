@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { CHALLENGE_TIMER_MS } from '@/shared/constants';
+import { useEffect, useRef, useState } from 'react';
 
 interface TimerProps {
   expiresAt: number | null;
@@ -9,12 +8,16 @@ interface TimerProps {
 
 export function Timer({ expiresAt }: TimerProps) {
   const [remaining, setRemaining] = useState(0);
+  const durationRef = useRef(0);
 
   useEffect(() => {
     if (!expiresAt) {
       setRemaining(0);
       return;
     }
+
+    // Capture total duration on mount (or when expiresAt changes)
+    durationRef.current = expiresAt - Date.now();
 
     const update = () => {
       const left = Math.max(0, expiresAt - Date.now());
@@ -26,10 +29,10 @@ export function Timer({ expiresAt }: TimerProps) {
     return () => clearInterval(interval);
   }, [expiresAt]);
 
-  if (!expiresAt || remaining <= 0) return null;
+  if (!expiresAt || remaining <= 0 || durationRef.current <= 0) return null;
 
   const seconds = Math.ceil(remaining / 1000);
-  const fraction = remaining / CHALLENGE_TIMER_MS;
+  const fraction = remaining / durationRef.current;
   const isLow = seconds <= 5;
 
   return (

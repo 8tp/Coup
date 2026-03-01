@@ -22,16 +22,19 @@ export const ASSASSINATE_COST = 3;
 export const FORCED_COUP_THRESHOLD = 10;
 export const CHALLENGE_TIMER_MS = 15_000;
 export const BLOCK_TIMER_MS = 15_000;
+export const TURN_TIMER_MS = 30_000;
 export const EXCHANGE_DRAW_COUNT = 2;
 
 // ─── Room Settings ───
 export const DEFAULT_BOT_MIN_REACTION_SECONDS = 2;
 export const MIN_BOT_REACTION_SECONDS = 1;
 export const MAX_BOT_REACTION_SECONDS = 10;
-export const DEFAULT_ROOM_SETTINGS: RoomSettings = { actionTimerSeconds: 15, isPublic: false, botMinReactionSeconds: DEFAULT_BOT_MIN_REACTION_SECONDS };
+export const DEFAULT_ROOM_SETTINGS: RoomSettings = { actionTimerSeconds: 15, turnTimerSeconds: 30, isPublic: false, botMinReactionSeconds: DEFAULT_BOT_MIN_REACTION_SECONDS };
 export const PUBLIC_ROOM_LIST_MAX = 50;
 export const MIN_ACTION_TIMER = 10;
 export const MAX_ACTION_TIMER = 60;
+export const MIN_TURN_TIMER = 15;
+export const MAX_TURN_TIMER = 90;
 
 // Total coins in the game (physical game has 50)
 export const TOTAL_COINS = 50;

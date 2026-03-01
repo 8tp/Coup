@@ -670,7 +670,7 @@ describe('RoomManager', () => {
       expect(info.hostName).toBe('Alice');
       expect(info.playerCount).toBe(2);
       expect(info.maxPlayers).toBe(MAX_PLAYERS);
-      expect(info.settings).toEqual({ actionTimerSeconds: 15, isPublic: true, botMinReactionSeconds: 2 });
+      expect(info.settings).toEqual({ actionTimerSeconds: 15, turnTimerSeconds: 30, isPublic: true, botMinReactionSeconds: 2 });
       expect(info.hasGame).toBe(false);
     });
 

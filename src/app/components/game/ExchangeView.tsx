@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ClientGameState, TurnPhase, Character } from '@/shared/types';
 import { CHARACTER_SVG_ICONS } from '../icons';
+import { Timer } from '../ui/Timer';
 import { getSocket } from '../../hooks/useSocket';
 import { haptic } from '../../utils/haptic';
 
@@ -22,6 +23,15 @@ export function ExchangeView({ gameState }: ExchangeViewProps) {
   const socket = getSocket();
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const { turnPhase, exchangeState } = gameState;
+  const prevTurnRef = useRef(gameState.turnNumber);
+
+  // Reset selection when a new exchange starts (different turn)
+  useEffect(() => {
+    if (prevTurnRef.current !== gameState.turnNumber) {
+      setSelectedIndices([]);
+      prevTurnRef.current = gameState.turnNumber;
+    }
+  }, [gameState.turnNumber]);
 
   if (turnPhase !== TurnPhase.AwaitingExchange || !exchangeState) {
     return null;
@@ -57,6 +67,7 @@ export function ExchangeView({ gameState }: ExchangeViewProps) {
 
   return (
     <div className="prompt-action">
+      <Timer expiresAt={gameState.timerExpiry} />
       <p className="text-center text-coup-accent font-bold text-lg mb-1">
         Ambassador Exchange
       </p>

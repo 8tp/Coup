@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { BotDifficulty, ChatMessage, GameStatus, PublicRoomInfo, Room, RoomPlayer, RoomSettings } from '../shared/types';
-import { CHAT_MAX_HISTORY, CHAT_MAX_MESSAGE_LENGTH, CHAT_RATE_LIMIT_MS, DEFAULT_ROOM_SETTINGS, DISCONNECT_BOT_REPLACE_MS, MAX_ACTION_TIMER, MAX_BOT_REACTION_SECONDS, MAX_PLAYERS, MIN_ACTION_TIMER, MIN_BOT_REACTION_SECONDS, MIN_PLAYERS, PUBLIC_ROOM_LIST_MAX, REACTION_RATE_LIMIT_MS } from '../shared/constants';
+import { CHAT_MAX_HISTORY, CHAT_MAX_MESSAGE_LENGTH, CHAT_RATE_LIMIT_MS, DEFAULT_ROOM_SETTINGS, DISCONNECT_BOT_REPLACE_MS, MAX_ACTION_TIMER, MAX_BOT_REACTION_SECONDS, MAX_PLAYERS, MAX_TURN_TIMER, MIN_ACTION_TIMER, MIN_BOT_REACTION_SECONDS, MIN_PLAYERS, MIN_TURN_TIMER, PUBLIC_ROOM_LIST_MAX, REACTION_RATE_LIMIT_MS } from '../shared/constants';
 import { GameEngine } from '../engine/GameEngine';
 import { BotController } from './BotController';
 
@@ -204,13 +204,16 @@ export class RoomManager {
       return { error: `Timer must be between ${MIN_ACTION_TIMER} and ${MAX_ACTION_TIMER} seconds` };
     }
 
+    // Validate turn timer: clamp to [MIN_TURN_TIMER, MAX_TURN_TIMER]
+    const turnTimer = Math.max(MIN_TURN_TIMER, Math.min(MAX_TURN_TIMER, Math.round(settings.turnTimerSeconds ?? room.settings.turnTimerSeconds)));
+
     // Validate bot min reaction time: clamp to [MIN, MAX], round to nearest 0.5, cap at action timer
     let botReaction = settings.botMinReactionSeconds ?? room.settings.botMinReactionSeconds;
     botReaction = Math.max(MIN_BOT_REACTION_SECONDS, Math.min(MAX_BOT_REACTION_SECONDS, botReaction));
     botReaction = Math.round(botReaction * 2) / 2; // round to nearest 0.5
     botReaction = Math.min(botReaction, timer); // can't exceed action timer
 
-    room.settings = { actionTimerSeconds: timer, isPublic: !!settings.isPublic, botMinReactionSeconds: botReaction };
+    room.settings = { actionTimerSeconds: timer, turnTimerSeconds: turnTimer, isPublic: !!settings.isPublic, botMinReactionSeconds: botReaction };
     return { success: true };
   }
 
@@ -253,7 +256,8 @@ export class RoomManager {
     room.lastWinnerId = undefined;
 
     const timerMs = room.settings.actionTimerSeconds * 1000;
-    const engine = new GameEngine(roomCode, timerMs);
+    const turnTimerMs = room.settings.turnTimerSeconds * 1000;
+    const engine = new GameEngine(roomCode, timerMs, turnTimerMs);
     engine.startGame(room.players.map(p => ({ id: p.id, name: p.name })));
 
     this.engines.set(roomCode, engine);

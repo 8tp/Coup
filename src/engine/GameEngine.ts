@@ -10,7 +10,7 @@ import {
   InfluenceLossRequest,
   ExchangeState,
 } from '../shared/types';
-import { ACTION_DEFINITIONS } from '../shared/constants';
+import { ACTION_DEFINITIONS, FORCED_COUP_THRESHOLD, TURN_TIMER_MS } from '../shared/constants';
 import { Game } from './Game';
 import { ActionResolver, ResolverResult, SideEffect } from './ActionResolver';
 
@@ -32,9 +32,12 @@ export class GameEngine {
   private timerHandle: ReturnType<typeof setTimeout> | null = null;
   private blockPassedPlayerIds: Set<string> | null = null;
 
-  constructor(roomCode: string, timerMs?: number) {
+  private turnTimerMs: number;
+
+  constructor(roomCode: string, timerMs?: number, turnTimerMs?: number) {
     this.game = new Game(roomCode);
     this.resolver = new ActionResolver(timerMs);
+    this.turnTimerMs = turnTimerMs ?? TURN_TIMER_MS;
   }
 
   setOnStateChange(cb: StateChangeCallback): void {
@@ -49,6 +52,15 @@ export class GameEngine {
   startGame(playerInfos: Array<{ id: string; name: string }>): void {
     this.game.initialize(playerInfos);
     this.clearTurnState();
+
+    // Set turn timer for the first player's action
+    if (this.turnTimerMs > 0) {
+      this.timerExpiry = Date.now() + this.turnTimerMs;
+      this.timerHandle = setTimeout(() => {
+        this.handleTimerExpiry();
+      }, this.turnTimerMs);
+    }
+
     this.broadcastState();
   }
 
@@ -234,6 +246,51 @@ export class GameEngine {
     } else if (phase === TurnPhase.AwaitingBlockChallenge && this.pendingAction) {
       const result = this.resolver.allPassedBlockChallenge(this.game, this.pendingAction);
       this.applyResult(result);
+    } else if (phase === TurnPhase.AwaitingAction) {
+      this.handleTurnTimeout();
+    } else if (phase === TurnPhase.AwaitingExchange) {
+      this.handleExchangeTimeout();
+    } else if (phase === TurnPhase.AwaitingInfluenceLoss) {
+      this.handleInfluenceLossTimeout();
+    }
+  }
+
+  private handleTurnTimeout(): void {
+    const actor = this.game.currentPlayer;
+    if (!actor || !actor.isAlive) return;
+
+    if (actor.coins >= FORCED_COUP_THRESHOLD) {
+      // Must coup — pick a random alive opponent
+      const targets = this.game.getAlivePlayers().filter(p => p.id !== actor.id);
+      if (targets.length === 0) return;
+      const target = targets[Math.floor(Math.random() * targets.length)];
+      this.handleAction(actor.id, ActionType.Coup, target.id);
+    } else {
+      // Auto-Income
+      this.handleAction(actor.id, ActionType.Income);
+    }
+  }
+
+  private handleExchangeTimeout(): void {
+    if (!this.exchangeState || !this.pendingAction) return;
+    const player = this.game.getPlayer(this.exchangeState.playerId);
+    if (!player) return;
+
+    // Keep first N cards (player's original cards)
+    const keepCount = player.aliveInfluenceCount;
+    const keepIndices = Array.from({ length: keepCount }, (_, i) => i);
+    this.handleChooseExchange(this.exchangeState.playerId, keepIndices);
+  }
+
+  private handleInfluenceLossTimeout(): void {
+    if (!this.influenceLossRequest) return;
+    const player = this.game.getPlayer(this.influenceLossRequest.playerId);
+    if (!player) return;
+
+    // Lose first unrevealed influence
+    const idx = player.influences.findIndex(inf => !inf.revealed);
+    if (idx >= 0) {
+      this.handleChooseInfluenceLoss(this.influenceLossRequest.playerId, idx);
     }
   }
 
@@ -300,6 +357,20 @@ export class GameEngine {
       }
     }
 
+    // Set turn timer for exchange and influence loss phases
+    // (AwaitingAction timer is set by advance_turn side effect and startGame)
+    if (
+      this.turnTimerMs > 0 &&
+      (result.newPhase === TurnPhase.AwaitingExchange ||
+       result.newPhase === TurnPhase.AwaitingInfluenceLoss)
+    ) {
+      this.clearTimer();
+      this.timerExpiry = Date.now() + this.turnTimerMs;
+      this.timerHandle = setTimeout(() => {
+        this.handleTimerExpiry();
+      }, this.turnTimerMs);
+    }
+
     this.broadcastState();
   }
 
@@ -351,6 +422,13 @@ export class GameEngine {
       case 'advance_turn': {
         this.clearTimer();
         this.game.advanceTurn();
+        // Set turn timer for next player's action (if game is still in progress)
+        if (this.turnTimerMs > 0 && this.game.turnPhase === TurnPhase.AwaitingAction) {
+          this.timerExpiry = Date.now() + this.turnTimerMs;
+          this.timerHandle = setTimeout(() => {
+            this.handleTimerExpiry();
+          }, this.turnTimerMs);
+        }
         break;
       }
       case 'set_timer': {

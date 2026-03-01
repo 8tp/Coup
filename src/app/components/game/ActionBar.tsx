@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ActionType, ClientGameState, TurnPhase } from '@/shared/types';
 import { ACTION_DEFINITIONS, FORCED_COUP_THRESHOLD } from '@/shared/constants';
 import { DukeIcon, AssassinIcon, CaptainIcon, AmbassadorIcon, CoinIcon } from '../icons';
+import { Timer } from '../ui/Timer';
 import { getSocket } from '../../hooks/useSocket';
 import { haptic, hapticHeavy } from '../../utils/haptic';
 
@@ -84,6 +85,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
                        selectingTarget === ActionType.Steal ? 'Steal from' : selectingTarget;
     return (
       <div className="prompt-action">
+        <Timer expiresAt={gameState.timerExpiry} />
         <p className="text-center text-white font-bold mb-3">
           {actionName} who?
         </p>
@@ -111,6 +113,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
   if (mustCoup) {
     return (
       <div className="prompt-urgent">
+        <Timer expiresAt={gameState.timerExpiry} />
         <p className="text-center text-red-300 font-bold mb-1">
           You have {me.coins} coins — you must Coup!
         </p>
@@ -137,6 +140,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
 
   return (
     <div className="prompt-action">
+      <Timer expiresAt={gameState.timerExpiry} />
       <div className="grid grid-cols-2 gap-2">
         {actionConfig.map(a => {
           const def = ACTION_DEFINITIONS[a.type];

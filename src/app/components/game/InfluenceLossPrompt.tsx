@@ -2,6 +2,7 @@
 
 import { ClientGameState, TurnPhase } from '@/shared/types';
 import { CardFace } from './CardFace';
+import { Timer } from '../ui/Timer';
 import { getSocket } from '../../hooks/useSocket';
 import { hapticHeavy } from '../../utils/haptic';
 
@@ -55,6 +56,7 @@ export function InfluenceLossPrompt({ gameState }: InfluenceLossPromptProps) {
 
   return (
     <div className="prompt-urgent">
+      <Timer expiresAt={gameState.timerExpiry} />
       <p className="text-center text-red-300 font-bold text-lg mb-1">
         {reasonText}
       </p>

@@ -258,7 +258,7 @@ export default function Home() {
                             {room.playerCount}/{room.maxPlayers} players
                           </span>
                           <span className="text-xs text-gray-600">
-                            {room.settings.actionTimerSeconds}s timer
+                            {room.settings.actionTimerSeconds}s/{room.settings.turnTimerSeconds}s timers
                           </span>
                         </div>
                       </div>

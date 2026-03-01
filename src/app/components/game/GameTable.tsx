@@ -43,6 +43,12 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
   const opponents = gameState.players.filter(p => p.id !== gameState.myId);
   const currentPlayerId = gameState.players[gameState.currentPlayerIndex]?.id;
 
+  // Determine which player should show the timer bar on their seat
+  const timerPlayerId = gameState.influenceLossRequest?.playerId
+    ?? (gameState.turnPhase === 'AwaitingExchange' && gameState.pendingAction?.actorId
+      ? gameState.pendingAction.actorId
+      : currentPlayerId);
+
   return (
     <div className="h-dvh flex flex-col max-w-lg mx-auto px-3 py-3 overflow-hidden" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))', paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
       {/* Header bar */}
@@ -92,7 +98,7 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
               player={p}
               isCurrentTurn={p.id === currentPlayerId}
               isMe={false}
-              timerExpiry={p.id === currentPlayerId ? gameState.timerExpiry : null}
+              timerExpiry={p.id === timerPlayerId ? gameState.timerExpiry : null}
             />
           </div>
         ))}

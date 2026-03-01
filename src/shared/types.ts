@@ -232,6 +232,7 @@ export type ClientRoomPlayer = Omit<RoomPlayer, 'socketId'>;
 // ─── Room Settings ───
 export interface RoomSettings {
   actionTimerSeconds: number;
+  turnTimerSeconds: number;
   isPublic: boolean;
   botMinReactionSeconds: number;
 }
