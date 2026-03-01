@@ -619,6 +619,108 @@ describe('BotBrain', () => {
       expect(blockCount).toBeLessThan(100);
     });
 
+    it('hard bot ALWAYS bluff-blocks Contessa when at 1 influence vs assassination', () => {
+      const game = createGame();
+      game.turnPhase = TurnPhase.AwaitingBlock;
+      setCards(game, 'p2', [Character.Duke, Character.Captain]);
+      // Reveal one card so bot has 1 influence
+      revealCard(game, 'p2', 0);
+      const pendingAction: PendingAction = {
+        type: ActionType.Assassinate,
+        actorId: 'p1',
+        targetId: 'p2',
+        claimedCharacter: Character.Assassin,
+      };
+
+      for (let i = 0; i < 100; i++) {
+        const result = decide(game, 'p2', 'hard', { pendingAction, blockPassedPlayerIds: [] });
+        expect(result!.type).toBe('block');
+        if (result!.type === 'block') {
+          expect(result!.character).toBe(Character.Contessa);
+        }
+      }
+    });
+
+    it('medium bot ALWAYS bluff-blocks Contessa when at 1 influence vs assassination', () => {
+      const game = createGame();
+      game.turnPhase = TurnPhase.AwaitingBlock;
+      setCards(game, 'p2', [Character.Duke, Character.Captain]);
+      revealCard(game, 'p2', 0);
+      const pendingAction: PendingAction = {
+        type: ActionType.Assassinate,
+        actorId: 'p1',
+        targetId: 'p2',
+        claimedCharacter: Character.Assassin,
+      };
+
+      for (let i = 0; i < 100; i++) {
+        const result = decide(game, 'p2', 'medium', { pendingAction, blockPassedPlayerIds: [] });
+        expect(result!.type).toBe('block');
+        if (result!.type === 'block') {
+          expect(result!.character).toBe(Character.Contessa);
+        }
+      }
+    });
+
+    it('hard bot at 1 influence passes challenge to bluff-block Contessa vs assassination', () => {
+      const game = createGame();
+      game.turnPhase = TurnPhase.AwaitingActionChallenge;
+      // Bot has no Contessa and 1 influence
+      setCards(game, 'p2', [Character.Duke, Character.Captain]);
+      revealCard(game, 'p2', 0);
+      const pendingAction: PendingAction = {
+        type: ActionType.Assassinate,
+        actorId: 'p1',
+        targetId: 'p2',
+        claimedCharacter: Character.Assassin,
+      };
+      const cs: ChallengeState = {
+        challengerId: '',
+        challengedPlayerId: 'p1',
+        claimedCharacter: Character.Assassin,
+        passedPlayerIds: ['p1'],
+      };
+
+      // Should always pass challenge (to bluff-block with Contessa in block phase)
+      for (let i = 0; i < 100; i++) {
+        const result = decide(game, 'p2', 'hard', { pendingAction, challengeState: cs });
+        expect(result!.type).toBe('pass_challenge');
+      }
+    });
+
+    it('hard bot at 1 influence challenges assassination when all Assassin copies accounted for', () => {
+      const game = createGame();
+      game.turnPhase = TurnPhase.AwaitingActionChallenge;
+      // Bot holds 1 Assassin + has 1 influence
+      setCards(game, 'p2', [Character.Assassin, Character.Captain]);
+      revealCard(game, 'p2', 1);
+
+      // Reveal 2 more Assassins on other players (1 held + 2 revealed = 3 = all copies)
+      setCards(game, 'p1', [Character.Assassin, Character.Duke]);
+      setCards(game, 'p3', [Character.Assassin, Character.Duke]);
+      revealCard(game, 'p1', 0);
+      revealCard(game, 'p3', 0);
+
+      const pendingAction: PendingAction = {
+        type: ActionType.Assassinate,
+        actorId: 'p1',
+        targetId: 'p2',
+        claimedCharacter: Character.Assassin,
+      };
+      const cs: ChallengeState = {
+        challengerId: '',
+        challengedPlayerId: 'p1',
+        claimedCharacter: Character.Assassin,
+        passedPlayerIds: ['p1'],
+      };
+
+      // Should challenge since all Assassin copies are accounted for
+      for (let i = 0; i < 50; i++) {
+        const result = decide(game, 'p2', 'hard', { pendingAction, challengeState: cs });
+        expect(result!.type).toBe('challenge');
+      }
+    });
+
     it('non-target cannot block assassination', () => {
       const game = createGame();
       game.turnPhase = TurnPhase.AwaitingBlock;
