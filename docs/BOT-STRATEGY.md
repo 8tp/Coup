@@ -12,8 +12,9 @@ This document covers the research, data analysis, and iterative tuning process b
 4. [Building the Simulation Pipeline](#building-the-simulation-pipeline)
 5. [Key Findings: Bots vs Real Winners](#key-findings-bots-vs-real-winners)
 6. [Tuning Iterations](#tuning-iterations)
-7. [Endgame Analysis](#endgame-analysis)
-8. [Final Bot Behavior Summary](#final-bot-behavior-summary)
+7. [Early & Mid Game Analysis](#early--mid-game-analysis)
+8. [Endgame Analysis](#endgame-analysis)
+9. [Final Bot Behavior Summary](#final-bot-behavior-summary)
 
 ---
 
@@ -202,6 +203,85 @@ After running fresh simulations with the tuned bots, endgame analysis revealed t
 
 3. **Contessa over-correction** — setting Contessa base value to 4 (with +2 for assassination threat = 6) made bots hoard Contessa in 1v1 at 32.5% vs treason's 22.3%. Fixed by reducing base to 3 and adding a -1 adjustment in 1v1.
 
+### Round 5: Bluff Persistence & Early/Mid Game Alignment
+
+Analyzing early/mid game patterns against treason revealed two major gaps:
+
+**1. No bluff persistence** — when a bot bluffed a character and wasn't challenged, it had no memory of that successful bluff. On the next turn it would randomly pick a new action, often switching characters or going honest. Treason data showed winners persist with their bluffed character 30-50% of the time (Duke specifically at ~52%). Our bots only persisted 14% of the time.
+
+**2. Action distribution misalignment** — bots stole too much early (28% vs treason's 14%), underused Exchange (13% vs 22%), and underused Income (8% vs 14%).
+
+**Bluff persistence system:**
+- New `getBluffIdentity()` method scans the action log for the bot's own unchallenged character claims (both actions and blocks)
+- Tracks an "established" identity (most recent successful bluff) and a set of "burnt" characters (caught bluffing)
+- `persistBoost` (3.5x) multiplies the weight of actions using the established character
+- `switchPenalty` (0.3x) reduces weight of bluffing a *different* character when an identity exists — only in early/mid game (4+ alive) since endgame requires flexibility
+- Burnt characters are never bluffed again — opponents already know the bot doesn't have them
+
+**1v1 bluff caution adjustment:**
+- `bluffMod` at 1 influence changed from 0.4 to 0.7 in 1v1 — passivity is worse than bluffing when both players are at 1 influence
+
+**Endgame Income/FA rebalancing:**
+- Income weight: 0.5 in 1v1, 1.5 early game, 1 at 3-alive — prevents passive play in endgame
+- 3P1L Foreign Aid boost for non-leaders (weight 2.5) — treason winners use FA at 19% in 3P1L since it gains coins without claiming a character
+- Early game honest Steal reduced from 5 to 3.5 (too dominant vs treason's 14%)
+- Early game honest Exchange boosted from 3 to 4 (treason winners use Exchange at 22%)
+
+**Results after Round 5:**
+
+| Metric | Before | After | Treason |
+|--------|--------|-------|---------|
+| Duke bluff persistence | 31% | 52% | ~52% |
+| Character switch rate | 20% | 8% | 7-11% |
+| 1v1 Tax share | 17% | 24% | 24.5% |
+| 1v1 Income share | 31% | 14% | 11.4% |
+| 3P1L Coup rate | 11% | 12% | 11.3% |
+| 3P1L FA share | 5% | 20% | 18.9% |
+
+---
+
+## Early & Mid Game Analysis
+
+We built a dedicated early/mid game comparison tool (`scripts/analyze-earlymid.ts`) that splits both simulated and treason data into early game (turns 1-5) and mid game (turns 6-15):
+
+### Early Game (Turns 1-5)
+
+| Action | Our Bots | Treason Winners |
+|--------|---------|-----------------|
+| Tax | 37% | 46% |
+| Steal | 24% | 14% |
+| Income | 18% | 14% |
+| Exchange | 18% | 22% |
+| Foreign Aid | 2% | 3% |
+
+Tax is the dominant opener in both datasets. Our bots still steal more than real winners, likely because bot-vs-bot games have different steal/block dynamics. Exchange and Income alignment improved significantly after Round 5.
+
+### Mid Game (Turns 6-15)
+
+| Action | Our Bots | Treason Winners |
+|--------|---------|-----------------|
+| Tax | 28% | 31% |
+| Steal | 22% | 16% |
+| Income | 21% | 15% |
+| Exchange | 12% | 13% |
+| Assassinate | 8% | 11% |
+| Coup | 3% | 10% |
+| Foreign Aid | 1% | 5% |
+
+Mid game shifts toward elimination actions (Assassinate, Coup) in both datasets. The coup rate gap is partly structural — in all-hard-bot games, aggressive play keeps coin counts lower, so fewer bots reach 7 coins compared to human games with mixed skill levels.
+
+### Bluff Persistence in Practice
+
+After implementing the persistence system, Duke bluff persistence rose from 31% to 52% — matching the treason target. The mechanism works by:
+
+1. **Scanning the action log** for the bot's own unchallenged character claims
+2. **Checking current hand** — if the bot doesn't hold the claimed character, it was a bluff
+3. **Boosting future claims** of the same character by 3.5x weight
+4. **Penalizing character switches** by 0.3x weight (early/mid game only)
+5. **Tracking burnt characters** — never re-bluff a character you were caught on
+
+This creates natural "identities" where a bot that successfully bluffs Duke on turn 1 will continue claiming Duke for Tax throughout the game, just like skilled human players do.
+
 ---
 
 ## Endgame Analysis
@@ -212,12 +292,15 @@ We built a dedicated endgame comparison tool (`scripts/analyze-endgame.ts`) that
 
 | Metric | Our Bots (tuned) | Treason Winners |
 |--------|-----------------|-----------------|
-| Steal action share | ~25% | ~22% |
-| Contessa in hand | 22.6% | 22.3% |
-| Income share | ~15% | ~11% |
-| Coup rate | ~12% | ~19% |
+| Tax share | 24% | 24.5% |
+| Steal share | 18% | 15% |
+| Income share | 14% | 11% |
+| Assassinate share | 14% | 11% |
+| Coup rate | 8% | 19% |
+| Cards: Captain | 28% | 22% |
+| Cards: Duke | 18% | 24% |
 
-Captain/Steal dominance in 1v1 is confirmed in both datasets. The 1v1 guaranteed-coup logic (coup when both players have 1 influence) ensures bots don't waste turns when a coup is a guaranteed win.
+Captain/Steal dominance in 1v1 is confirmed in both datasets. Tax alignment improved to near-perfect after the bluff persistence changes. The 1v1 guaranteed-coup logic (coup when both players have 1 influence) ensures bots don't waste turns when a coup is a guaranteed win. The coup rate gap is structural — bot-vs-bot games are more competitive, keeping coin counts lower than mixed-skill human games.
 
 ### 3-Player, 1-Life Each (3P1L)
 
@@ -226,15 +309,22 @@ This is the most strategically interesting endgame scenario. The coin leader fac
 Our bots implement:
 - **Leader with 7+ coins:** Coup immediately (85% of the time) — delay only helps opponents
 - **Leader below 7:** Anti-tempo strategy — Income/Exchange over Tax, let Foreign Aid through to avoid becoming the obvious threat
+- **Non-leaders:** Use Foreign Aid more (weight 2.5) since it gains coins without a character claim — treason winners use FA at 19% in 3P1L
 - **Underdog:** Delay couping to accumulate carefully (70% chance to skip coup even at 7 coins)
+
+| Metric | Our Bots | Treason Winners |
+|--------|---------|-----------------|
+| Coup rate | 12% | 11.3% |
+| Foreign Aid share | 20% | 18.9% |
+| Income share | 21% | 24.4% |
 
 ### Coup Timing
 
 | Coin Count at Coup | Our Bots | Treason Winners |
 |--------------------|---------|-----------------|
-| Exactly 7 | 52% | 44% |
-| 8+ | 32% | 38% |
-| Average coins | 7.7 | 7.8 |
+| Exactly 7 | 43% | 44% |
+| 8 | 33% | 32% |
+| Average coins | 7.9 | 8.1 |
 
 Both datasets show a strong preference for couping at exactly 7 coins rather than accumulating further — sitting above 7 without couping is wasted potential.
 
@@ -264,10 +354,12 @@ In 1v1 at 1 influence, if letting the opponent's action through would give them 
 ### Hard
 - **Weighted action selection** — context-aware weights, not fixed priorities
 - **Card counting** — tracks all revealed cards to calculate challenge probabilities
-- **Bluffs rarely** — Tax at weight 1.5, Steal at 1.0, Assassinate at 1.0 (all multiplied by 0.4 at 1 influence)
+- **Bluff persistence** — tracks "established identity" (a character successfully bluffed without being caught) and strongly prefers re-claiming it (3.5x boost). Penalizes switching to a different bluff character (0.3x) in early/mid game. Burnt characters (caught bluffing) are never re-bluffed
+- **Bluffs rarely** — Tax at weight 1.5, Steal at 1.0, Assassinate at 1.0. bluffMod of 0.4 at 1 influence (0.7 in 1v1 to avoid excessive passivity)
 - **Challenges selectively** — 5% base, scaling up with card counting. 100% when all copies accounted for
 - **Contessa blocks honestly** — 25%/15% bluff rate instead of the original 95%/65%
 - **Dynamic card values** — Captain dominant in 1v1, Duke strongest early, Ambassador valuable for hand improvement, Contessa scales with assassination threat
+- **Endgame-aware weights** — Income weight drops to 0.5 in 1v1 (prevents passivity), FA boosted for non-leaders in 3P1L (2.5 floor), Tax bluff weight 3 in 1v1
 - **3P1L anti-tempo** — coin leader slows down to avoid becoming the target
 - **Desperation challenges** — in 1v1, challenges when letting the action through means certain loss
 - **Demonstrated character tracking** — remembers which opponents have shown which characters through successful blocks and unchallenged claims, avoiding repeatedly blocked actions
@@ -296,4 +388,4 @@ Bot-vs-bot games have a fundamental limitation: bots play against other bots wit
 
 ### Iterative Process
 
-The tuning was not a one-shot process. Each round of changes was validated through simulation, and simulation results revealed secondary effects (like the Assassinate bluff spike after reducing Tax/Steal bluffs) that required additional adjustments. The final parameters represent three rounds of tuning with simulation validation after each.
+The tuning was not a one-shot process. Each round of changes was validated through simulation, and simulation results revealed secondary effects (like the Assassinate bluff spike after reducing Tax/Steal bluffs) that required additional adjustments. The final parameters represent five rounds of tuning with simulation validation after each.
