@@ -120,7 +120,7 @@ export class SocketHandler {
       socket.join('browser');
       socket.emit('browser:list', { rooms: this.roomManager.getPublicRooms() });
       socket.emit('server:stats', {
-        playersOnline: this.io.engine.clientsCount,
+        playersOnline: this.io.sockets.sockets.size,
         gamesInProgress: this.roomManager.getActiveGameCount(),
       });
     });
@@ -491,7 +491,7 @@ export class SocketHandler {
 
   private broadcastServerStats(): void {
     this.io.to('browser').emit('server:stats', {
-      playersOnline: this.io.engine.clientsCount,
+      playersOnline: this.io.sockets.sockets.size,
       gamesInProgress: this.roomManager.getActiveGameCount(),
     });
   }
