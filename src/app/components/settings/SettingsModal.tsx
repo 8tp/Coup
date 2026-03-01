@@ -88,6 +88,31 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           </div>
         </div>
 
+        {/* Feedback links */}
+        <div className="border-t border-gray-700 pt-4">
+          <span className="text-sm text-gray-300 block mb-2">Help & Feedback</span>
+          <div className="flex gap-2">
+            <a
+              href="https://github.com/8tp/Coup/issues/new?template=bug_report.yml"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => haptic()}
+              className="flex-1 py-2 px-3 rounded-lg border border-gray-600 text-sm text-gray-300 hover:border-red-400 hover:text-red-400 transition text-center"
+            >
+              Report Bug
+            </a>
+            <a
+              href="https://github.com/8tp/Coup/issues/new?template=feature_request.yml"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => haptic()}
+              className="flex-1 py-2 px-3 rounded-lg border border-gray-600 text-sm text-gray-300 hover:border-coup-accent hover:text-coup-accent transition text-center"
+            >
+              Send Feedback
+            </a>
+          </div>
+        </div>
+
         {/* Done */}
         <button
           className="btn-secondary w-full"
