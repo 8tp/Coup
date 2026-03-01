@@ -290,7 +290,7 @@ export class ActionResolver {
         actorName: challenger.name,
       });
 
-      // Refund action cost
+      // Refund action cost — per official rules, a successfully challenged action returns the cost
       const def = ACTION_DEFINITIONS[pendingAction.type];
       if (def.cost > 0) {
         sideEffects.push({ type: 'give_coins', playerId: pendingAction.actorId, amount: def.cost });
@@ -497,11 +497,7 @@ export class ActionResolver {
         });
       }
 
-      // Refund action cost since block succeeds
-      const def = ACTION_DEFINITIONS[pendingAction.type];
-      if (def.cost > 0) {
-        sideEffects.push({ type: 'give_coins', playerId: pendingAction.actorId, amount: def.cost });
-      }
+      // No cost refund — per official rules, a counteracted action's cost remains spent
 
       if (challenger.aliveInfluenceCount === 1) {
         const idx = challenger.influences.findIndex(inf => !inf.revealed);
@@ -574,11 +570,7 @@ export class ActionResolver {
       { type: 'log', message: 'Block is not challenged — action is blocked.', eventType: 'block_unchallenged', character: null, actorId: null, actorName: null },
     ];
 
-    // Refund action cost
-    const def = ACTION_DEFINITIONS[pendingAction.type];
-    if (def.cost > 0) {
-      sideEffects.push({ type: 'give_coins', playerId: pendingAction.actorId, amount: def.cost });
-    }
+    // No cost refund — per official rules, a counteracted action's cost remains spent
 
     sideEffects.push({ type: 'advance_turn' });
     return this.resolved(sideEffects);

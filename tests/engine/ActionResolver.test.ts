@@ -258,10 +258,9 @@ describe('ActionResolver', () => {
       expect(isError(result)).toBe(false);
       if (isError(result)) return;
 
-      // Action should be cancelled (pendingAction = null or AwaitingInfluenceLoss for the liar)
-      // Refund cost
+      // Action should be cancelled — cost refunded per official rules (successfully challenged)
       const refund = result.sideEffects.find(
-        e => e.type === 'give_coins' && e.type === 'give_coins' && (e as any).playerId === 'p1',
+        e => e.type === 'give_coins' && (e as any).playerId === 'p1',
       );
       expect(refund).toBeDefined();
 
@@ -655,7 +654,7 @@ describe('ActionResolver', () => {
   // ──────────────────────────────────────────────────
 
   describe('allPassedBlockChallenge()', () => {
-    it('refunds cost and advances turn (block unchallenged)', () => {
+    it('does not refund assassination cost when block succeeds (per official rules)', () => {
       game.getPlayer('p1')!.coins = 5;
       const pendingAction = {
         type: ActionType.Assassinate,
@@ -667,13 +666,11 @@ describe('ActionResolver', () => {
       const result = resolver.allPassedBlockChallenge(game, pendingAction);
       expect(result.newPhase).toBe(TurnPhase.ActionResolved);
 
+      // No refund — per official rules, counteracted actions keep their cost spent
       const refund = result.sideEffects.find(
         e => e.type === 'give_coins' && (e as any).playerId === 'p1',
       );
-      expect(refund).toBeDefined();
-      if (refund && refund.type === 'give_coins') {
-        expect(refund.amount).toBe(3);
-      }
+      expect(refund).toBeUndefined();
 
       const advanceEffect = result.sideEffects.find(e => e.type === 'advance_turn');
       expect(advanceEffect).toBeDefined();
