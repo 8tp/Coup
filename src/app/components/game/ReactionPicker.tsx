@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { REACTIONS } from '@/shared/constants';
 
 interface ReactionPickerProps {
@@ -11,9 +11,21 @@ interface ReactionPickerProps {
 export function ReactionPicker({ onReact, disabled }: ReactionPickerProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+
+  const updatePos = useCallback(() => {
+    if (!buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    setPos({
+      top: rect.bottom + 6,
+      right: window.innerWidth - rect.right,
+    });
+  }, []);
 
   useEffect(() => {
     if (!open) return;
+    updatePos();
     const handler = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
@@ -21,11 +33,12 @@ export function ReactionPicker({ onReact, disabled }: ReactionPickerProps) {
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
+  }, [open, updatePos]);
 
   return (
-    <div className="relative" ref={containerRef}>
+    <div ref={containerRef}>
       <button
+        ref={buttonRef}
         onClick={() => setOpen((o) => !o)}
         disabled={disabled}
         className="w-5 h-5 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition text-xs flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
@@ -33,9 +46,12 @@ export function ReactionPicker({ onReact, disabled }: ReactionPickerProps) {
       >
         😄
       </button>
-      {open && (
-        <div className="fixed inset-x-0 bottom-0 sm:absolute sm:inset-auto sm:top-full sm:right-0 sm:mt-2 z-30 bg-coup-surface border border-gray-600 sm:rounded-xl rounded-t-xl p-3 shadow-xl animate-fade-in">
-          <div className="grid grid-cols-4 gap-2 max-w-sm mx-auto">
+      {open && pos && (
+        <div
+          className="fixed z-50 bg-coup-surface border border-gray-600 rounded-xl p-3 shadow-xl animate-fade-in w-72"
+          style={{ top: pos.top, right: pos.right }}
+        >
+          <div className="grid grid-cols-4 gap-2">
             {REACTIONS.map((r) => (
               <button
                 key={r.id}
@@ -43,11 +59,11 @@ export function ReactionPicker({ onReact, disabled }: ReactionPickerProps) {
                   onReact(r.id);
                   setOpen(false);
                 }}
-                className="flex flex-col items-center gap-1 p-2.5 rounded-xl hover:bg-gray-700/50 active:bg-gray-700/70 transition"
+                className="flex flex-col items-center gap-1 p-2 rounded-xl hover:bg-gray-700/50 active:bg-gray-700/70 transition"
                 title={r.label}
               >
                 <span className="text-2xl">{r.emoji}</span>
-                <span className="text-xs text-gray-400 leading-tight">{r.label}</span>
+                <span className="text-[11px] text-gray-400 leading-tight">{r.label}</span>
               </button>
             ))}
           </div>
