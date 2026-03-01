@@ -20,7 +20,12 @@ export class SocketHandler {
   }
 
   private getSocketIp(socket: TypedSocket): string {
-    // Behind a reverse proxy, use x-forwarded-for; otherwise use the direct address
+    // CF-Connecting-IP is Cloudflare's canonical, non-spoofable client IP header
+    const cfIp = socket.handshake.headers['cf-connecting-ip'];
+    if (cfIp) {
+      return Array.isArray(cfIp) ? cfIp[0] : cfIp;
+    }
+    // Fall back to X-Forwarded-For for other reverse proxies
     const forwarded = socket.handshake.headers['x-forwarded-for'];
     if (forwarded) {
       const first = Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',')[0];
