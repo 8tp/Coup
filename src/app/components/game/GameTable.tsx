@@ -41,7 +41,7 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
   const currentPlayerId = gameState.players[gameState.currentPlayerIndex]?.id;
 
   return (
-    <div className="min-h-screen flex flex-col max-w-lg mx-auto px-3 py-3">
+    <div className="h-dvh flex flex-col max-w-lg mx-auto px-3 py-3 overflow-hidden" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))', paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
       {/* Header bar */}
       <div className="flex items-center justify-between mb-2 text-xs text-gray-500">
         <span>Room: <span className="text-gray-400 font-mono">{gameState.roomCode}</span></span>

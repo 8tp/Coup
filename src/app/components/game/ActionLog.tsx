@@ -40,17 +40,18 @@ function getGroupBorderColor(group: LogEntry[]): string {
 }
 
 export function ActionLog({ log, myName }: ActionLogProps) {
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [log.length]);
 
   const turnGroups = groupByTurn(log);
 
   return (
     <div className="px-3 py-2">
-      <div className="space-y-1.5 overflow-y-auto max-h-28">
+      <div ref={scrollRef} className="space-y-1.5 overflow-y-auto max-h-28">
         {log.length === 0 && (
           <p className="text-xs text-gray-600 italic">Game starting...</p>
         )}
@@ -85,7 +86,7 @@ export function ActionLog({ log, myName }: ActionLogProps) {
             </div>
           );
         })}
-        <div ref={bottomRef} />
+        <div />
       </div>
     </div>
   );

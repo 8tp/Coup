@@ -11,11 +11,12 @@ interface ChatPanelProps {
 }
 
 export function ChatPanel({ messages, myId, onSend }: ChatPanelProps) {
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState('');
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [messages.length]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -28,7 +29,7 @@ export function ChatPanel({ messages, myId, onSend }: ChatPanelProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto space-y-1 px-3 py-2 min-h-0 max-h-28">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-1 px-3 py-2 min-h-0 max-h-28">
         {messages.length === 0 && (
           <p className="text-xs text-gray-600 italic">No messages yet...</p>
         )}
@@ -43,7 +44,7 @@ export function ChatPanel({ messages, myId, onSend }: ChatPanelProps) {
             </div>
           );
         })}
-        <div ref={bottomRef} />
+        <div />
       </div>
       <form onSubmit={handleSubmit} className="flex gap-2 px-3 py-2 border-t border-gray-800">
         <input
