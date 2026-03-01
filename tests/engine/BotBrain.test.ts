@@ -429,6 +429,59 @@ describe('BotBrain', () => {
       }
     });
 
+    it('hard bot challenges much less on early turns (turn 1-2)', () => {
+      const game = createGame();
+      game.turnPhase = TurnPhase.AwaitingActionChallenge;
+      // Bot holds one Duke — normally 40% challenge rate, but early game should dampen to ~12%
+      setCards(game, 'p2', [Character.Duke, Character.Captain]);
+
+      // Turn 1 (early game, 0.3x multiplier)
+      game.turnNumber = 1;
+      let earlyChallenge = 0;
+      for (let i = 0; i < 1000; i++) {
+        const result = decide(game, 'p2', 'hard', {
+          pendingAction: makePendingTax('p1'),
+          challengeState: makeChallengeState('p1'),
+        });
+        if (result?.type === 'challenge') earlyChallenge++;
+      }
+
+      // Turn 10 (late game, 1.0x multiplier)
+      game.turnNumber = 10;
+      let lateChallenge = 0;
+      for (let i = 0; i < 1000; i++) {
+        const result = decide(game, 'p2', 'hard', {
+          pendingAction: makePendingTax('p1'),
+          challengeState: makeChallengeState('p1'),
+        });
+        if (result?.type === 'challenge') lateChallenge++;
+      }
+
+      // Early game should have significantly fewer challenges than late game
+      expect(earlyChallenge).toBeLessThan(lateChallenge);
+      // Early game rate should be roughly 0.3x of late game rate (allow tolerance)
+      expect(earlyChallenge).toBeLessThan(lateChallenge * 0.5);
+    });
+
+    it('hard bot still challenges at 100% when all copies accounted for, even early game', () => {
+      const game = createGame();
+      game.turnPhase = TurnPhase.AwaitingActionChallenge;
+      game.turnNumber = 1; // Early game
+      setCards(game, 'p2', [Character.Duke, Character.Duke]);
+
+      // Reveal 1 more Duke (bot has 2 + 1 revealed = 3 = all copies)
+      setCards(game, 'p3', [Character.Duke, Character.Contessa]);
+      game.getPlayer('p3')!.influences[0].revealed = true;
+
+      for (let i = 0; i < 50; i++) {
+        const result = decide(game, 'p2', 'hard', {
+          pendingAction: makePendingTax('p1'),
+          challengeState: makeChallengeState('p1'),
+        });
+        expect(result!.type).toBe('challenge');
+      }
+    });
+
     it('prefers passing challenge when bot can block with a card it holds', () => {
       const game = createGame();
       game.turnPhase = TurnPhase.AwaitingActionChallenge;

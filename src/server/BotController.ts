@@ -102,35 +102,41 @@ export class BotController {
   private executeDecision(botId: string, decision: BotDecision): void {
     if (this.destroyed) return;
 
+    let error: string | null = null;
     switch (decision.type) {
       case 'action':
-        this.engine.handleAction(botId, decision.action, decision.targetId);
+        error = this.engine.handleAction(botId, decision.action, decision.targetId);
         break;
       case 'challenge':
-        this.engine.handleChallenge(botId);
+        error = this.engine.handleChallenge(botId);
         break;
       case 'pass_challenge':
-        this.engine.handlePassChallenge(botId);
+        error = this.engine.handlePassChallenge(botId);
         break;
       case 'block':
-        this.engine.handleBlock(botId, decision.character);
+        error = this.engine.handleBlock(botId, decision.character);
         break;
       case 'pass_block':
-        this.engine.handlePassBlock(botId);
+        error = this.engine.handlePassBlock(botId);
         break;
       case 'challenge_block':
-        this.engine.handleChallengeBlock(botId);
+        error = this.engine.handleChallengeBlock(botId);
         break;
       case 'pass_challenge_block':
-        this.engine.handlePassChallengeBlock(botId);
+        error = this.engine.handlePassChallengeBlock(botId);
         break;
       case 'choose_influence_loss':
-        this.engine.handleChooseInfluenceLoss(botId, decision.influenceIndex);
+        error = this.engine.handleChooseInfluenceLoss(botId, decision.influenceIndex);
         break;
       case 'choose_exchange':
-        this.engine.handleChooseExchange(botId, decision.keepIndices);
+        error = this.engine.handleChooseExchange(botId, decision.keepIndices);
         break;
     }
-    // After execution, engine triggers broadcastState → onStateChange runs again
+
+    // If engine rejected the decision, re-evaluate (state may have changed)
+    if (error) {
+      this.onStateChange();
+    }
+    // If no error, engine already broadcast → onStateChange called via callback
   }
 }

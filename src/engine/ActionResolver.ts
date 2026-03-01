@@ -412,6 +412,11 @@ export class ActionResolver {
 
     const pendingBlock: PendingBlock = { blockerId, claimedCharacter };
 
+    // Only the original actor can challenge a block — auto-pass everyone else
+    const passedPlayerIds = game.getAlivePlayers()
+      .filter(p => p.id !== pendingAction.actorId)
+      .map(p => p.id);
+
     return {
       newPhase: TurnPhase.AwaitingBlockChallenge,
       pendingAction,
@@ -420,7 +425,7 @@ export class ActionResolver {
         challengerId: '',
         challengedPlayerId: blockerId,
         claimedCharacter,
-        passedPlayerIds: [blockerId], // Blocker can't challenge their own block
+        passedPlayerIds,
       },
       influenceLossRequest: null,
       exchangeState: null,
