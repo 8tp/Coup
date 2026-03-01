@@ -262,6 +262,80 @@ export class BotBrain {
     return demonstrated;
   }
 
+  /**
+   * Determine the bot's established bluff identity — a character it has
+   * successfully claimed (bluffed) without being caught. Treason data shows
+   * real winners persist with their bluffed identity ~30-50% of the time, so
+   * hard bots should strongly prefer re-claiming established characters.
+   *
+   * Also tracks "burnt" characters the bot was caught bluffing — these
+   * should never be bluffed again.
+   */
+  private static getBluffIdentity(
+    game: Game, botId: string, ownedCharacters: Character[],
+  ): { established: Character | null; burnt: Set<Character> } {
+    const log = game.actionLog;
+    let established: Character | null = null;
+    const burnt = new Set<Character>();
+
+    for (let i = 0; i < log.length; i++) {
+      const entry = log[i];
+      if (entry.actorId !== botId) continue;
+
+      // Track action claims (claim_action)
+      if (entry.eventType === 'claim_action' && entry.character) {
+        let wasCaught = false;
+        let unchallenged = false;
+        for (let j = i + 1; j < log.length; j++) {
+          const next = log[j];
+          if (next.eventType === 'challenge_success') {
+            wasCaught = true;
+            break;
+          }
+          if (next.eventType === 'challenge_fail') break; // bot proved honest
+          if (next.eventType === 'action_resolve' || next.eventType === 'block' || next.eventType === 'turn_start') {
+            unchallenged = true;
+            break;
+          }
+        }
+
+        if (wasCaught) {
+          burnt.add(entry.character);
+          if (established === entry.character) established = null;
+        } else if (unchallenged && !ownedCharacters.includes(entry.character)) {
+          established = entry.character;
+        }
+      }
+
+      // Track block claims (block)
+      if (entry.eventType === 'block' && entry.character) {
+        let wasCaught = false;
+        let unchallenged = false;
+        for (let j = i + 1; j < log.length; j++) {
+          const next = log[j];
+          if (next.eventType === 'block_challenge_success') {
+            wasCaught = true;
+            break;
+          }
+          if (next.eventType === 'block_challenge_fail') break;
+          if (next.eventType === 'block_unchallenged' || next.eventType === 'action_resolve' || next.eventType === 'turn_start') {
+            unchallenged = true;
+            break;
+          }
+        }
+
+        if (wasCaught) {
+          burnt.add(entry.character);
+          if (established === entry.character) established = null;
+        } else if (unchallenged && !ownedCharacters.includes(entry.character)) {
+          established = entry.character;
+        }
+      }
+    }
+
+    return { established, burnt };
+  }
+
   /** Weighted random pick from candidates. */
   private static weightedPick(
     candidates: Array<{ action: ActionType; targetId?: string; weight: number }>,
@@ -440,13 +514,16 @@ export class BotBrain {
     candidates: Array<{ action: ActionType; targetId?: string; weight: number }>,
     aliveCount: number,
   ): BotDecision {
-    // Hard: strategic, bluffs high-value claims, avoids bluffing dead characters
+    // Hard: strategic, bluffs selectively, persists with established identities
     const revealed = this.countRevealedCharacters(game);
     const alivePlayers = game.getAlivePlayers();
     const dukeRevealed = revealed.get(Character.Duke) || 0;
 
     // Learn from opponents' demonstrated characters (successful blocks + unchallenged claims)
     const demonstrated = this.getDemonstratedCharacters(game, botId);
+
+    // Bluff persistence: track established identity and burnt characters
+    const { established, burnt } = this.getBluffIdentity(game, botId, ownedCharacters);
 
     // Detect 3P1L endgame (3 players, all with 1 life)
     const is3P1L = aliveCount === 3 && alivePlayers.every(p => p.aliveInfluenceCount === 1);
@@ -463,18 +540,14 @@ export class BotBrain {
 
       if (isLeader && bot.coins < COUP_COST && Math.random() < 0.75) {
         // Leader below 7 — ANTI-TEMPO: slow down coin accumulation
-        // Weighted pick still provides randomness in which slow action is chosen
         candidates.push({ action: ActionType.Income, weight: 5 });
         candidates.push({ action: ActionType.ForeignAid, weight: 2 });
-        // Exchange to try for Captain (best endgame card)
         if (ownedCharacters.includes(Character.Ambassador)) {
           candidates.push({ action: ActionType.Exchange, weight: 6 });
         }
-        // Low weight for high-gain actions
         if (ownedCharacters.includes(Character.Duke) || dukeRevealed < 2) {
           candidates.push({ action: ActionType.Tax, weight: 2 });
         }
-        // "Waste" coins on assassination if we have 3+ coins
         if (bot.coins >= ASSASSINATE_COST) {
           const targetId = this.pickTarget(game, botId, 'hard');
           candidates.push({ action: ActionType.Assassinate, targetId, weight: 3 });
@@ -486,28 +559,50 @@ export class BotBrain {
     }
 
     // Bluff caution: at 1 influence, failed bluff = elimination
-    const bluffMod = bot.aliveInfluenceCount === 1 ? 0.4 : 1.0;
+    // In 1v1, both players are at 1 inf — being passive is worse than bluffing
+    const bluffMod = bot.aliveInfluenceCount === 1
+      ? (aliveCount === 2 ? 0.7 : 0.4)
+      : 1.0;
 
-    // Income: low priority — winners take Income 15%, not 31%.
-    // Reduce in endgame where honest Tax/Steal/Coup are better.
-    const incomeWeight = aliveCount <= 3 ? 0.5 : 1;
+    // Bluff persistence: if the bot has an established bluff identity,
+    // strongly prefer re-claiming it and penalize switching characters.
+    // Treason winners persist with their bluffed character ~30-50% of the time.
+    const persistBoost = 3.5;
+    // Switch penalty only applies in early/mid game (4+ alive) where multiple observers
+    // track consistency. In endgame (2-3 alive), flexibility matters more.
+    const switchPenalty = (established && aliveCount > 3) ? 0.3 : 1.0;
+
+    // Income: useful early, weak in endgame (1 coin/turn falls behind Tax/Steal)
+    // In 1v1, Income is especially bad — passivity lets the opponent reach 7 first
+    const incomeWeight = aliveCount === 2 ? 0.5 : aliveCount > 3 ? 1.5 : 1;
     candidates.push({ action: ActionType.Income, weight: incomeWeight });
-    // Foreign Aid is weak — easily blocked by any Duke claim, especially early
-    const faWeight = aliveCount > 3 ? 0.5 : aliveCount === 2 ? 1.5 : 1;
+    // Foreign Aid: weak early (easily Duke-blocked), but safer in 3P1L (no claim to challenge)
+    let faWeight = aliveCount > 3 ? 0.5 : aliveCount === 2 ? 1.5 : 1;
     // Heavily reduce if any alive opponent has demonstrated Duke (via block or Tax claim)
     const aliveDukeCount = alivePlayers.filter(p =>
       p.id !== botId && demonstrated.get(p.id)?.has(Character.Duke)).length;
     const faDemoMod = aliveDukeCount > 0 ? 0.15 : 1.0;
-    candidates.push({ action: ActionType.ForeignAid, weight: faWeight * faDemoMod });
+    faWeight *= faDemoMod;
+    // In 3P1L, non-leaders boost FA — treason winners use FA at 19% in 3P1L
+    // Applied after faDemoMod since the anti-tempo leader usually lets FA through anyway
+    if (is3P1L) {
+      const sortedByCoins = [...alivePlayers].sort((a, b) => b.coins - a.coins);
+      if (sortedByCoins[0].id !== botId) faWeight = Math.max(faWeight, 2.5);
+    }
+    candidates.push({ action: ActionType.ForeignAid, weight: faWeight });
 
     // Tax (Duke) — consensus best action, especially early game
     const hasDuke = ownedCharacters.includes(Character.Duke);
     if (hasDuke) {
       const weight = aliveCount > 3 ? 7 : 6; // Even stronger early (S-tier opener)
       candidates.push({ action: ActionType.Tax, weight });
-    } else if (dukeRevealed < 2) {
-      // Bluff Duke rarely — winners only bluff Tax ~15% of the time
-      candidates.push({ action: ActionType.Tax, weight: 1.5 * bluffMod });
+    } else if (dukeRevealed < 2 && !burnt.has(Character.Duke)) {
+      // Bluff Duke — boosted if established identity, penalized if switching
+      // In 1v1, Tax bluff is stronger: +3 coins/turn, passivity = death
+      let weight = aliveCount === 2 ? 3 : 1.5;
+      if (established === Character.Duke) weight *= persistBoost;
+      else weight *= switchPenalty;
+      candidates.push({ action: ActionType.Tax, weight: weight * bluffMod });
     }
 
     // Steal (Captain) — 4-coin swing, dominant in 1v1
@@ -525,11 +620,12 @@ export class BotBrain {
       // Reduce weight if all steal targets have demonstrated blocking
       const stealDemoMod = unblockedStealTargets.length > 0 ? 1.0 : 0.25;
       if (hasCaptain) {
-        const weight = aliveCount === 2 ? 8 : 5; // Dominant in 1v1
+        const weight = aliveCount === 2 ? 8 : (aliveCount > 3 ? 3.5 : 5);
         candidates.push({ action: ActionType.Steal, targetId, weight: weight * stealDemoMod });
-      } else if (captainRevealed < 2) {
-        // Bluff Captain rarely — winners only bluff Steal ~9% of the time
-        const weight = aliveCount === 2 ? 2 : 1;
+      } else if (captainRevealed < 2 && !burnt.has(Character.Captain)) {
+        let weight = aliveCount === 2 ? 2 : 1;
+        if (established === Character.Captain) weight *= persistBoost;
+        else weight *= switchPenalty;
         candidates.push({ action: ActionType.Steal, targetId, weight: weight * bluffMod * stealDemoMod });
       }
     }
@@ -544,11 +640,12 @@ export class BotBrain {
       const targetBonus = target && target.aliveInfluenceCount === 1 ? 2 : 0;
       if (hasAssassin) {
         candidates.push({ action: ActionType.Assassinate, targetId, weight: 5 + targetBonus });
-      } else if (assassinRevealed < 2) {
-        // Bluff Assassin very rarely — winners only bluff ~13%, and spending 3 coins
-        // on a bluff that gets challenged is terrible EV.
-        // No targetBonus for bluffs: the 3-coin risk doesn't change with target health.
-        candidates.push({ action: ActionType.Assassinate, targetId, weight: 1 * bluffMod });
+      } else if (assassinRevealed < 2 && !burnt.has(Character.Assassin)) {
+        // No targetBonus for bluffs: the 3-coin risk doesn't change with target health
+        let weight = 1;
+        if (established === Character.Assassin) weight *= persistBoost;
+        else weight *= switchPenalty;
+        candidates.push({ action: ActionType.Assassinate, targetId, weight: weight * bluffMod });
       }
     }
 
@@ -556,13 +653,14 @@ export class BotBrain {
     const hasAmbassador = ownedCharacters.includes(Character.Ambassador);
     const ambassadorRevealed = revealed.get(Character.Ambassador) || 0;
     if (hasAmbassador) {
-      const weight = aliveCount <= 2 ? 1 : 3;
+      const weight = aliveCount <= 2 ? 1 : (aliveCount > 3 ? 4 : 3);
       candidates.push({ action: ActionType.Exchange, weight });
-    } else if (aliveCount > 2 && ambassadorRevealed < 2) {
+    } else if (aliveCount > 2 && ambassadorRevealed < 2 && !burnt.has(Character.Ambassador)) {
       // Bluff Ambassador for hand improvement — near-zero challenge risk
-      // More valuable with a weak hand (no Duke or Captain)
       const hasStrongCard = ownedCharacters.includes(Character.Duke) || ownedCharacters.includes(Character.Captain);
-      const weight = hasStrongCard ? 1 : 2.5;
+      let weight = hasStrongCard ? 0.5 : 1.5;
+      if (established === Character.Ambassador) weight *= persistBoost;
+      else weight *= switchPenalty;
       candidates.push({ action: ActionType.Exchange, weight: weight * bluffMod });
     }
 

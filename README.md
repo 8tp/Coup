@@ -80,11 +80,12 @@ The host can add AI opponents from the lobby. Each bot has a difficulty level:
 | **Medium** | ~20% chance | ~10% base (boosted when holding claimed card or targeted) | 50% targets leader | Static card rankings, endgame-aware coup timing |
 | **Hard** | Selective — tuned to match real winner behavior | Card counting — 100% when all copies revealed | Always targets highest-coin player | See details below |
 
-Bot strategies were tuned by analyzing **689,000+ real games** from the [treason](https://github.com/octachrome/treason) online Coup server, comparing winner-only action patterns against our simulated bot behavior across 3 rounds of iterative tuning. See [Bot Strategy Deep Dive](docs/BOT-STRATEGY.md) for the full methodology.
+Bot strategies were tuned by analyzing **689,000+ real games** from the [treason](https://github.com/octachrome/treason) online Coup server, comparing winner-only action patterns against our simulated bot behavior across 5 rounds of iterative tuning. See [Bot Strategy Deep Dive](docs/BOT-STRATEGY.md) for the full methodology.
 
 **Hard bot strategy:**
 - **Card counting** — tracks publicly revealed cards to calculate challenge probabilities. Challenges at 100% when all copies of a claimed character are accounted for (revealed + held), and scales down with less information
 - **Selective bluffing** — bluffs only ~12% of actions, matching real winner behavior. Bluff probability drops by 60% at 1 influence (elimination risk) and avoids bluffing characters with 2+ copies revealed
+- **Bluff persistence** — establishes a "bluff identity" by tracking unchallenged character claims. Strongly prefers re-claiming the same character (3.5x weight boost) over switching, matching real winner behavior where winners persist with successful bluffs ~30-50% of the time
 - **Weighted action selection** — context-aware weights: Duke/Tax favored early, Captain/Steal dominant in 1v1 (weight 8), assassination preferred over coup against 1-influence targets to save coins
 - **Honest Contessa** — blocks assassination with Contessa only 25%/15% of the time without holding it. Real winners hold the card 96% of the time they block — bluffing Contessa is a losing strategy
 - **Hail-mary challenges** — when targeted at 1 influence, challenges more aggressively since a failed challenge costs what would be lost anyway. In 1v1, always challenges if letting the action through means the opponent reaches 7 coins
