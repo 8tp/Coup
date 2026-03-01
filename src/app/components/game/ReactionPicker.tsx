@@ -34,8 +34,8 @@ export function ReactionPicker({ onReact, disabled }: ReactionPickerProps) {
         😄
       </button>
       {open && (
-        <div className="absolute bottom-full mb-2 right-0 z-30 bg-coup-surface border border-gray-600 rounded-xl p-2 shadow-xl animate-fade-in">
-          <div className="grid grid-cols-4 gap-1 w-52">
+        <div className="fixed inset-x-0 bottom-0 sm:absolute sm:inset-auto sm:bottom-full sm:right-0 sm:mb-2 z-30 bg-coup-surface border border-gray-600 sm:rounded-xl rounded-t-xl p-3 shadow-xl animate-fade-in">
+          <div className="grid grid-cols-4 gap-2 max-w-sm mx-auto">
             {REACTIONS.map((r) => (
               <button
                 key={r.id}
@@ -43,11 +43,11 @@ export function ReactionPicker({ onReact, disabled }: ReactionPickerProps) {
                   onReact(r.id);
                   setOpen(false);
                 }}
-                className="flex flex-col items-center gap-0.5 p-1.5 rounded-lg hover:bg-gray-700/50 transition"
+                className="flex flex-col items-center gap-1 p-2.5 rounded-xl hover:bg-gray-700/50 active:bg-gray-700/70 transition"
                 title={r.label}
               >
-                <span className="text-lg">{r.emoji}</span>
-                <span className="text-[10px] text-gray-400 leading-tight">{r.label}</span>
+                <span className="text-2xl">{r.emoji}</span>
+                <span className="text-xs text-gray-400 leading-tight">{r.label}</span>
               </button>
             ))}
           </div>

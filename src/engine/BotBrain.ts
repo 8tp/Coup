@@ -691,9 +691,10 @@ export class BotBrain {
     challengeState: ChallengeState | null,
   ): BotDecision | null {
     if (!pendingAction || !pendingBlock || !challengeState) return null;
+    // Already passed (pre-passed by ActionResolver or previously acted)? Nothing to do.
+    if (challengeState.passedPlayerIds.includes(botId)) return null;
     // Non-actor bots must actively pass so the phase resolves promptly
     if (pendingAction.actorId !== botId) return { type: 'pass_challenge_block' };
-    if (challengeState.passedPlayerIds.includes(botId)) return null;
 
     if (difficulty === 'easy') {
       // Easy: never challenges blocks
