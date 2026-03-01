@@ -6,6 +6,7 @@ import { useSocket } from './hooks/useSocket';
 import { useGameStore } from './stores/gameStore';
 import { CoupLogo } from './components/icons';
 import { HowToPlay } from './components/home/HowToPlay';
+import { SettingsModal } from './components/settings/SettingsModal';
 import { MAX_PLAYERS } from '@/shared/constants';
 import { haptic } from './utils/haptic';
 
@@ -18,6 +19,7 @@ export default function Home() {
   const [roomCode, setRoomCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [showHowToPlay, setShowHowToPlay] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [isPublic, setIsPublic] = useState(false);
 
   useEffect(() => {
@@ -78,6 +80,18 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden">
       <h1 className="sr-only">Coup Online — Free Multiplayer Bluffing Card Game</h1>
+
+      {/* Settings gear */}
+      <button
+        onClick={() => { haptic(); setShowSettings(true); }}
+        className="absolute top-4 right-4 w-9 h-9 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition flex items-center justify-center z-10"
+        title="Settings"
+      >
+        <svg viewBox="0 0 20 20" fill="currentColor" className="w-4.5 h-4.5">
+          <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+        </svg>
+      </button>
+
       {/* Decorative background pattern */}
       <div
         className="absolute inset-0 opacity-[0.03] pointer-events-none"
@@ -293,6 +307,7 @@ export default function Home() {
       </div>
 
       <HowToPlay open={showHowToPlay} onClose={() => setShowHowToPlay(false)} />
+      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
     </div>
   );
 }

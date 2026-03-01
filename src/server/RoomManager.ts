@@ -247,6 +247,9 @@ export class RoomManager {
     if (room.players.length < MIN_PLAYERS) return { error: `Need at least ${MIN_PLAYERS} players` };
     if (room.gameState) return { error: 'Game already in progress' };
 
+    // Clear previous game's winner so the onStateChange guard can detect new wins
+    room.lastWinnerId = undefined;
+
     const timerMs = room.settings.actionTimerSeconds * 1000;
     const engine = new GameEngine(roomCode, timerMs);
     engine.startGame(room.players.map(p => ({ id: p.id, name: p.name })));
@@ -342,17 +345,9 @@ export class RoomManager {
     const room = this.rooms.get(roomCode);
     if (!room) return null;
 
-    // Record winner before destroying the engine
+    // Destroy engine (wins already incremented at GameOver)
     const engine = this.engines.get(roomCode);
     if (engine) {
-      const winnerId = engine.game.winnerId;
-      if (winnerId) {
-        room.lastWinnerId = winnerId;
-        const winner = room.players.find(p => p.id === winnerId);
-        if (winner) {
-          winner.wins = (winner.wins || 0) + 1;
-        }
-      }
       engine.destroy();
       this.engines.delete(roomCode);
     }

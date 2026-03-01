@@ -299,6 +299,11 @@ export class BotController {
   /**
    * Determine if a log entry matches any emote trigger for a given bot.
    * Returns the array of candidate reaction IDs (chosen by meanness), or null if no match.
+   *
+   * Bluff-aware: for action_resolve/block where the bot is the actor and a
+   * character was claimed, checks whether the bot actually held the card.
+   * Prevents emotes like "Nice bluff!" from always revealing when the bot was
+   * bluffing. ~15% of the time the bot "lies" with its emote to stay unreadable.
    */
   private matchEmoteTrigger(
     bot: BotInfo,
@@ -312,7 +317,24 @@ export class BotController {
 
       const role = this.getBotRole(bot.id, entry, pendingTargetId, challengedPlayerId, challengerId);
       if (role === trigger.botRole) {
-        // Pick reaction pool based on bot's meanness personality
+        // For action_resolve/block where the bot is the actor and claimed a character,
+        // use bluff-aware pools to avoid leaking information through emotes.
+        if (role === 'actor' && (entry.eventType === 'action_resolve' || entry.eventType === 'block') && entry.character) {
+          const player = this.engine.game.getPlayer(bot.id);
+          const wasBluffing = player ? !player.hiddenCharacters.includes(entry.character) : false;
+          // ~15% of the time, pretend the opposite to stay unreadable
+          const shouldLie = Math.random() < 0.15;
+          const actAsBluffer = wasBluffing !== shouldLie;
+          if (actAsBluffer) {
+            // Emote as if bluffing: "nice bluff", "big brain", "sus" — smugly admitting it
+            return ['nice_bluff', 'big_brain', 'lol'];
+          } else {
+            // Emote as if honest: neutral reactions that don't imply a bluff
+            return ['gg', 'lol', 'no_way'];
+          }
+        }
+
+        // Default: pick reaction pool based on bot's meanness personality
         return Math.random() < bot.meanness
           ? trigger.meanReactions
           : trigger.niceReactions;

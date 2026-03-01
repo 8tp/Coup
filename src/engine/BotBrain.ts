@@ -174,12 +174,15 @@ export class BotBrain {
     return value;
   }
 
-  /** Pick a target: hard always targets highest-coin, medium 50%, easy random. */
+  /** Pick a target: hard always targets highest-coin, medium 50%, easy random.
+   *  When forCoup is true, hard/medium bots prefer targets with more lives
+   *  (coup is unchallengeable/unblockable — don't waste it on 1-life targets). */
   private static pickTarget(
     game: Game,
     botId: string,
     difficulty: BotDifficulty,
     candidateIds?: string[],
+    forCoup: boolean = false,
   ): string {
     let candidates = game.getAlivePlayers().filter(p => p.id !== botId);
     if (candidateIds) {
@@ -188,15 +191,23 @@ export class BotBrain {
     if (candidates.length === 0) return '';
 
     if (difficulty === 'hard') {
-      // Always target highest-coin player (especially 7+ for coup threat)
-      candidates.sort((a, b) => b.coins - a.coins);
+      if (forCoup) {
+        // Prefer targets with more lives first, then highest coins as tiebreaker
+        candidates.sort((a, b) => b.aliveInfluenceCount - a.aliveInfluenceCount || b.coins - a.coins);
+      } else {
+        candidates.sort((a, b) => b.coins - a.coins);
+      }
       return candidates[0].id;
     }
 
     if (difficulty === 'medium') {
       // 50% chance to target leader
       if (Math.random() < 0.5) {
-        candidates.sort((a, b) => b.coins - a.coins);
+        if (forCoup) {
+          candidates.sort((a, b) => b.aliveInfluenceCount - a.aliveInfluenceCount || b.coins - a.coins);
+        } else {
+          candidates.sort((a, b) => b.coins - a.coins);
+        }
         return candidates[0].id;
       }
     }
@@ -368,7 +379,7 @@ export class BotBrain {
 
     // Must coup at 10+ coins (all tiers)
     if (bot.coins >= FORCED_COUP_THRESHOLD) {
-      return { type: 'action', action: ActionType.Coup, targetId: this.pickTarget(game, botId, difficulty) };
+      return { type: 'action', action: ActionType.Coup, targetId: this.pickTarget(game, botId, difficulty, undefined, true) };
     }
 
     // Hard bot endgame coup logic
@@ -376,7 +387,7 @@ export class BotBrain {
     if (difficulty === 'hard' && bot.coins >= COUP_COST) {
       // 1v1 with both at 1 influence — coup is a guaranteed win, always take it
       if (aliveCount === 2 && alivePlayers.every(p => p.aliveInfluenceCount === 1)) {
-        return { type: 'action', action: ActionType.Coup, targetId: this.pickTarget(game, botId, 'hard') };
+        return { type: 'action', action: ActionType.Coup, targetId: this.pickTarget(game, botId, 'hard', undefined, true) };
       }
 
       const is3P1L = aliveCount === 3 && alivePlayers.every(p => p.aliveInfluenceCount === 1);
@@ -387,7 +398,7 @@ export class BotBrain {
 
         if (isLeader && Math.random() < 0.85) {
           // Leader should usually coup immediately — delaying gives runner-up time to reach 7
-          return { type: 'action', action: ActionType.Coup, targetId: this.pickTarget(game, botId, 'hard') };
+          return { type: 'action', action: ActionType.Coup, targetId: this.pickTarget(game, botId, 'hard', undefined, true) };
         }
         if (isLast && Math.random() < 0.7) {
           // Underdog: usually delay couping to accumulate carefully
@@ -409,12 +420,12 @@ export class BotBrain {
         }
         // Otherwise coup at high probability
         if (Math.random() < 0.8) {
-          return { type: 'action', action: ActionType.Coup, targetId: this.pickTarget(game, botId, 'hard') };
+          return { type: 'action', action: ActionType.Coup, targetId: this.pickTarget(game, botId, 'hard', undefined, true) };
         }
       } else {
         const coupProb = difficulty === 'medium' ? (aliveCount <= 3 ? 0.8 : 0.65) : 0.4;
         if (Math.random() < coupProb) {
-          return { type: 'action', action: ActionType.Coup, targetId: this.pickTarget(game, botId, difficulty) };
+          return { type: 'action', action: ActionType.Coup, targetId: this.pickTarget(game, botId, difficulty, undefined, true) };
         }
       }
     }
@@ -535,7 +546,7 @@ export class BotBrain {
 
       if (isLeader && bot.coins >= COUP_COST && Math.random() < 0.85) {
         // Leader with 7+ should usually coup — target the runner-up
-        return { type: 'action', action: ActionType.Coup, targetId: this.pickTarget(game, botId, 'hard') };
+        return { type: 'action', action: ActionType.Coup, targetId: this.pickTarget(game, botId, 'hard', undefined, true) };
       }
 
       if (isLeader && bot.coins < COUP_COST && Math.random() < 0.75) {
@@ -558,6 +569,32 @@ export class BotBrain {
       // If bot is the underdog (least coins) — best position, fall through to normal aggressive logic
     }
 
+    // ─── 1v1 Leader/Underdog Strategy ───
+    // In the final 1v1, the leader should play safe toward 7 coins and coup.
+    // The underdog should take desperate risks since safe play from behind = slow loss.
+    let leaderBluffMod = 1.0;
+    let underdogAssassinBonus = 0;
+    let underdogAssassinBluffMult = 1.0;
+    let underdogBluffMult = 1.0;
+    let leaderIncomeBoost = 0;
+    let leaderRealActionBoost = 0;
+    if (aliveCount === 2) {
+      const opponent = alivePlayers.find(p => p.id !== botId)!;
+      const isLeader = bot.coins > opponent.coins ||
+        (bot.coins === opponent.coins && bot.aliveInfluenceCount > opponent.aliveInfluenceCount);
+      if (isLeader) {
+        // Leader: play safe, reduce bluff risk, boost safe coin actions
+        leaderBluffMod = 0.3;
+        leaderIncomeBoost = 2; // Income weight 0.5 -> 2.5
+        leaderRealActionBoost = 3; // Boost real Tax/Steal/Captain weights
+      } else {
+        // Underdog: desperate plays — boost assassination and bluffs
+        underdogAssassinBonus = 3;
+        underdogAssassinBluffMult = 2.5;
+        underdogBluffMult = 1.5;
+      }
+    }
+
     // Bluff caution: at 1 influence, failed bluff = elimination
     // In 1v1, both players are at 1 inf — being passive is worse than bluffing
     const bluffMod = bot.aliveInfluenceCount === 1
@@ -574,7 +611,7 @@ export class BotBrain {
 
     // Income: useful early, weak in endgame (1 coin/turn falls behind Tax/Steal)
     // In 1v1, Income is especially bad — passivity lets the opponent reach 7 first
-    const incomeWeight = aliveCount === 2 ? 0.5 : aliveCount > 3 ? 1.5 : 1;
+    const incomeWeight = (aliveCount === 2 ? 0.5 : aliveCount > 3 ? 1.5 : 1) + leaderIncomeBoost;
     candidates.push({ action: ActionType.Income, weight: incomeWeight });
     // Foreign Aid: weak early (easily Duke-blocked), but safer in 3P1L (no claim to challenge)
     let faWeight = aliveCount > 3 ? 0.5 : aliveCount === 2 ? 1.5 : 1;
@@ -594,7 +631,7 @@ export class BotBrain {
     // Tax (Duke) — consensus best action, especially early game
     const hasDuke = ownedCharacters.includes(Character.Duke);
     if (hasDuke) {
-      const weight = aliveCount > 3 ? 7 : 6; // Even stronger early (S-tier opener)
+      const weight = (aliveCount > 3 ? 7 : 6) + leaderRealActionBoost; // Even stronger early (S-tier opener)
       candidates.push({ action: ActionType.Tax, weight });
     } else if (dukeRevealed < 2 && !burnt.has(Character.Duke)) {
       // Bluff Duke — boosted if established identity, penalized if switching
@@ -602,7 +639,7 @@ export class BotBrain {
       let weight = aliveCount === 2 ? 3 : 1.5;
       if (established === Character.Duke) weight *= persistBoost;
       else weight *= switchPenalty;
-      candidates.push({ action: ActionType.Tax, weight: weight * bluffMod });
+      candidates.push({ action: ActionType.Tax, weight: weight * bluffMod * leaderBluffMod * underdogBluffMult });
     }
 
     // Steal (Captain) — 4-coin swing, dominant in 1v1
@@ -620,13 +657,13 @@ export class BotBrain {
       // Reduce weight if all steal targets have demonstrated blocking
       const stealDemoMod = unblockedStealTargets.length > 0 ? 1.0 : 0.25;
       if (hasCaptain) {
-        const weight = aliveCount === 2 ? 8 : (aliveCount > 3 ? 3.5 : 5);
+        const weight = (aliveCount === 2 ? 8 : (aliveCount > 3 ? 3.5 : 5)) + leaderRealActionBoost;
         candidates.push({ action: ActionType.Steal, targetId, weight: weight * stealDemoMod });
       } else if (captainRevealed < 2 && !burnt.has(Character.Captain)) {
         let weight = aliveCount === 2 ? 2 : 1;
         if (established === Character.Captain) weight *= persistBoost;
         else weight *= switchPenalty;
-        candidates.push({ action: ActionType.Steal, targetId, weight: weight * bluffMod * stealDemoMod });
+        candidates.push({ action: ActionType.Steal, targetId, weight: weight * bluffMod * stealDemoMod * leaderBluffMod * underdogBluffMult });
       }
     }
 
@@ -639,13 +676,13 @@ export class BotBrain {
       // Assassination is more valuable against 1-influence targets
       const targetBonus = target && target.aliveInfluenceCount === 1 ? 2 : 0;
       if (hasAssassin) {
-        candidates.push({ action: ActionType.Assassinate, targetId, weight: 5 + targetBonus });
+        candidates.push({ action: ActionType.Assassinate, targetId, weight: 5 + targetBonus + underdogAssassinBonus });
       } else if (assassinRevealed < 2 && !burnt.has(Character.Assassin)) {
         // No targetBonus for bluffs: the 3-coin risk doesn't change with target health
         let weight = 1;
         if (established === Character.Assassin) weight *= persistBoost;
         else weight *= switchPenalty;
-        candidates.push({ action: ActionType.Assassinate, targetId, weight: weight * bluffMod });
+        candidates.push({ action: ActionType.Assassinate, targetId, weight: weight * bluffMod * leaderBluffMod * underdogAssassinBluffMult });
       }
     }
 
@@ -769,6 +806,16 @@ export class BotBrain {
     // If all copies are accounted for, 100% challenge (guaranteed catch)
     if (accountedFor >= CARDS_PER_CHARACTER) {
       return { type: 'challenge' };
+    }
+
+    // 1v1 underdog desperation: challenge more aggressively when behind
+    if (aliveCount === 2) {
+      const opponent = alivePlayers.find(p => p.id !== botId)!;
+      const isUnderdog = bot.coins < opponent.coins ||
+        (bot.coins === opponent.coins && bot.aliveInfluenceCount < opponent.aliveInfluenceCount);
+      if (isUnderdog && Math.random() < 0.40) {
+        return { type: 'challenge' };
+      }
     }
 
     // Early game: less information available, less reason to challenge
@@ -960,6 +1007,17 @@ export class BotBrain {
 
     if (accountedFor >= CARDS_PER_CHARACTER) {
       return { type: 'challenge_block' };
+    }
+
+    // 1v1 underdog desperation: challenge blocks aggressively — can't let opponent block freely
+    const cbAlivePlayers = game.getAlivePlayers();
+    if (cbAlivePlayers.length === 2) {
+      const opponent = cbAlivePlayers.find(p => p.id !== botId)!;
+      const isUnderdog = bot.coins < opponent.coins ||
+        (bot.coins === opponent.coins && bot.aliveInfluenceCount < opponent.aliveInfluenceCount);
+      if (isUnderdog && Math.random() < 0.45) {
+        return { type: 'challenge_block' };
+      }
     }
 
     if (accountedFor >= 2) {

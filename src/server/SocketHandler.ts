@@ -1,6 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import { ClientToServerEvents, ServerToClientEvents } from '../shared/protocol';
-import { GameState, GameStatus } from '../shared/types';
+import { GameState, GameStatus, TurnPhase } from '../shared/types';
 import { CHAT_MAX_MESSAGE_LENGTH, REACTIONS } from '../shared/constants';
 import { RoomManager } from './RoomManager';
 import { serializeForPlayer } from './StateSerializer';
@@ -269,6 +269,20 @@ export class SocketHandler {
 
       engine.setOnStateChange((state: GameState) => {
         this.broadcastGameState(roomCode, state);
+
+        // Increment win count immediately when game ends
+        if (state.turnPhase === TurnPhase.GameOver && state.winnerId) {
+          const room = this.roomManager.getRoom(roomCode);
+          if (room && !room.lastWinnerId) {
+            const winner = room.players.find(p => p.id === state.winnerId);
+            if (winner) {
+              winner.wins = (winner.wins || 0) + 1;
+            }
+            room.lastWinnerId = state.winnerId;
+            this.broadcastRoomUpdate(roomCode);
+          }
+        }
+
         // Dynamically look up BotController so mid-game additions are picked up
         this.roomManager.getBotController(roomCode)?.onStateChange();
       });

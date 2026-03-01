@@ -43,12 +43,24 @@ function getGroupBorderColor(group: LogEntry[]): string {
 export function ActionLog({ log, myName, turnPhase }: ActionLogProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Scroll to bottom on new entries or phase changes
   useEffect(() => {
     requestAnimationFrame(() => {
       const el = scrollRef.current;
       if (el) el.scrollTop = el.scrollHeight;
     });
   }, [log.length, turnPhase]);
+
+  // Re-scroll when the container resizes (e.g. prompt appears/disappears)
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => {
+      el.scrollTop = el.scrollHeight;
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const turnGroups = groupByTurn(log);
 

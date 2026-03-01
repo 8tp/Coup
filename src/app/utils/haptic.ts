@@ -3,6 +3,15 @@ const supportsHaptic =
     ? false
     : window.matchMedia('(pointer: coarse)').matches;
 
+let _hapticEnabled =
+  typeof window === 'undefined'
+    ? true
+    : localStorage.getItem('coup_haptic_enabled') !== 'false';
+
+export function setHapticEnabled(enabled: boolean): void {
+  _hapticEnabled = enabled;
+}
+
 function _haptic() {
   try {
     if (navigator.vibrate) {
@@ -30,6 +39,7 @@ function _haptic() {
 }
 
 export function haptic(pattern?: number | number[]): void {
+  if (!_hapticEnabled) return;
   if (pattern && navigator.vibrate) {
     navigator.vibrate(pattern);
     return;
@@ -39,6 +49,7 @@ export function haptic(pattern?: number | number[]): void {
 }
 
 export function hapticHeavy(): void {
+  if (!_hapticEnabled) return;
   if (navigator.vibrate) {
     navigator.vibrate([50, 70, 50]);
     return;
