@@ -76,10 +76,20 @@ The host can add AI opponents from the lobby. Each bot has a difficulty level:
 | Difficulty | Bluffing | Challenges | Targeting | Strategy |
 |------------|----------|------------|-----------|----------|
 | **Easy** | Never bluffs | Never challenges | Random | Plays honestly — only uses cards it holds |
-| **Medium** | ~30% chance | ~20% chance | 50% targets leader | Occasional bluffs and challenges |
-| **Hard** | Strategic | Card counting | Always targets leader | Bluffs Contessa vs assassination, avoids bluffing dead characters, prefers Steal in 1v1 |
+| **Medium** | ~30% chance | ~20% base (boosted when holding claimed card or targeted) | 50% targets leader | Static card rankings, 50% bluff-Contessa vs assassination |
+| **Hard** | Weighted by game state, reduced at 1 influence | Card counting — 100% when all copies revealed | Always targets highest-coin player | See details below |
 
-Bots make decisions with realistic delays and follow all the same rules as human players — they never peek at hidden cards. Hard bots use card counting (tracking publicly revealed cards) to make near-certain challenges when all copies of a character are accounted for.
+**Hard bot strategy:**
+- **Card counting** — tracks publicly revealed cards to calculate challenge probabilities. Challenges at 100% when all copies of a claimed character are accounted for (revealed + held), and scales down with less information
+- **Weighted action selection** — uses context-aware weights rather than fixed priorities. Duke/Tax favored early, Captain/Steal dominant in 1v1 (weight 8), assassination preferred over coup against 1-influence targets to save coins
+- **Bluff caution** — reduces bluff probability by 60% when down to 1 influence (elimination risk). Avoids bluffing characters with 2+ copies revealed
+- **Contessa bluff** — always bluffs Contessa vs assassination at 2 influences (95%), reduces to 65% at 1 influence
+- **Hail-mary challenges** — when targeted at 1 influence, challenges more aggressively since a failed challenge costs what would be lost anyway
+- **3P1L endgame** — in 3-player all-1-life scenarios, the coin leader uses anti-tempo strategy (Income/Exchange over Tax, lets Foreign Aid through) to avoid becoming the obvious coup target, while the underdog delays couping to accumulate
+- **Dynamic card values** — context-aware rankings for exchange and influence loss decisions. Captain is highest value in 1v1, Duke strongest early, Ambassador valuable for hand improvement with 3+ players, Contessa value scales with assassination threat
+- **Block challenges** — uses card counting on blocks too, with higher aggression when the blocked action cost coins (e.g., assassination)
+
+Bots make decisions with realistic randomized delays (1.5–3.5s for actions, 0.8–2s for reactions) and follow all the same rules as human players — they never peek at hidden cards or the deck.
 
 ## Game Rules
 
