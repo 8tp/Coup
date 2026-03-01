@@ -1,32 +1,49 @@
 const supportsHaptic =
-  typeof window !== 'undefined' &&
-  window.matchMedia('(pointer: coarse)').matches;
+  typeof window === 'undefined'
+    ? false
+    : window.matchMedia('(pointer: coarse)').matches;
 
-function hasVibrate(): boolean {
-  return typeof navigator !== 'undefined' && 'vibrate' in navigator;
-}
+function _haptic() {
+  try {
+    if (navigator.vibrate) {
+      navigator.vibrate(50);
+      return;
+    }
 
-let iosCheckbox: HTMLInputElement | null = null;
+    if (!supportsHaptic) return;
 
-function iosHapticTrick(): void {
-  if (!iosCheckbox) {
-    iosCheckbox = document.createElement('input');
-    iosCheckbox.type = 'checkbox';
-    iosCheckbox.style.position = 'fixed';
-    iosCheckbox.style.left = '-9999px';
-    iosCheckbox.style.opacity = '0';
-    document.body.appendChild(iosCheckbox);
+    const labelEl = document.createElement('label');
+    labelEl.ariaHidden = 'true';
+    labelEl.style.display = 'none';
+
+    const inputEl = document.createElement('input');
+    inputEl.type = 'checkbox';
+    inputEl.setAttribute('switch', '');
+    labelEl.appendChild(inputEl);
+
+    document.head.appendChild(labelEl);
+    labelEl.click();
+    document.head.removeChild(labelEl);
+  } catch {
+    // do nothing
   }
-  iosCheckbox.checked = !iosCheckbox.checked;
-  iosCheckbox.click();
 }
 
-export function haptic(pattern: number | number[] = 50): void {
-  if (!supportsHaptic) return;
-
-  if (hasVibrate()) {
+export function haptic(pattern?: number | number[]): void {
+  if (pattern && navigator.vibrate) {
     navigator.vibrate(pattern);
-  } else {
-    iosHapticTrick();
+    return;
   }
+
+  _haptic();
+}
+
+export function hapticHeavy(): void {
+  if (navigator.vibrate) {
+    navigator.vibrate([50, 70, 50]);
+    return;
+  }
+
+  _haptic();
+  setTimeout(() => _haptic(), 120);
 }

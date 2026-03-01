@@ -4,7 +4,7 @@ import { ClientGameState, TurnPhase } from '@/shared/types';
 import { ACTION_DEFINITIONS, ACTION_DISPLAY_NAMES } from '@/shared/constants';
 import { Timer } from '../ui/Timer';
 import { getSocket } from '../../hooks/useSocket';
-import { haptic } from '../../utils/haptic';
+import { haptic, hapticHeavy } from '../../utils/haptic';
 
 interface ChallengePromptProps {
   gameState: ClientGameState;
@@ -70,7 +70,7 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
       <div className="flex gap-3 mt-3">
         <button
           className="btn-danger flex-1"
-          onClick={() => { haptic([50, 30, 80]); socket.emit('game:challenge'); }}
+          onClick={() => { hapticHeavy(); socket.emit('game:challenge'); }}
         >
           Challenge!
         </button>

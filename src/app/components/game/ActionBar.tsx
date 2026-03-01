@@ -5,7 +5,7 @@ import { ActionType, ClientGameState, TurnPhase } from '@/shared/types';
 import { ACTION_DEFINITIONS, FORCED_COUP_THRESHOLD } from '@/shared/constants';
 import { DukeIcon, AssassinIcon, CaptainIcon, AmbassadorIcon, CoinIcon } from '../icons';
 import { getSocket } from '../../hooks/useSocket';
-import { haptic } from '../../utils/haptic';
+import { haptic, hapticHeavy } from '../../utils/haptic';
 
 function CoinsIcon({ size = 16 }: { size?: number }) {
   return (
@@ -71,7 +71,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
   };
 
   const handleTargetSelect = (targetId: string) => {
-    haptic([50, 30, 80]);
+    hapticHeavy();
     if (selectingTarget) {
       socket.emit('game:action', { action: selectingTarget, targetId });
       setSelectingTarget(null);
@@ -123,7 +123,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
               key={t.id}
               className="btn-danger w-full"
               onClick={() => {
-                haptic([50, 30, 80]);
+                hapticHeavy();
                 socket.emit('game:action', { action: ActionType.Coup, targetId: t.id });
               }}
             >
