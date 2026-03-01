@@ -1,4 +1,4 @@
-import { ActionType, BotDifficulty, ChallengeRevealEvent, Character, ChatMessage, ClientGameState, PublicRoomInfo, ReactionEvent, RoomPlayer, RoomSettings } from './types';
+import { ActionType, BotDifficulty, ChallengeRevealEvent, Character, ChatMessage, ClientGameState, ClientRoomPlayer, PublicRoomInfo, ReactionEvent, RoomSettings } from './types';
 
 // ─── Client → Server Events ───
 export interface ClientToServerEvents {
@@ -44,7 +44,7 @@ export interface ClientToServerEvents {
 
 // ─── Server → Client Events ───
 export interface ServerToClientEvents {
-  'room:updated': (data: { players: RoomPlayer[]; hostId: string; settings: RoomSettings; lastWinnerId?: string | null }) => void;
+  'room:updated': (data: { players: ClientRoomPlayer[]; hostId: string; settings: RoomSettings; lastWinnerId?: string | null }) => void;
   'room:error': (data: { message: string }) => void;
   'game:state': (state: ClientGameState) => void;
   'game:error': (data: { message: string }) => void;
