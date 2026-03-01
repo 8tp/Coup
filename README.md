@@ -44,6 +44,7 @@ Play Coup with 2–6 friends from any device — no app install, no accounts. Cr
 - **Phase status banner** — always shows what's happening and what you need to do
 - **Urgency-coded prompts** — red for threats (assassination), gold for decisions, gray for waiting
 - **Action log** — scrollable history of every action, challenge, and block
+- **Contextual game over screen** — winners and losers get personalized flavor text based on how they actually played (e.g. "You read them like an open book" for winning via challenges, "That one bluff cost you everything" for getting caught). Up to 4 post-game awards highlight standout moments like Pants on Fire (most bluffs caught), Eagle Eye (best challenge accuracy), Smooth Operator (many claims, never caught), and more
 
 ## Requirements
 
@@ -76,17 +77,20 @@ The host can add AI opponents from the lobby. Each bot has a difficulty level:
 | Difficulty | Bluffing | Challenges | Targeting | Strategy |
 |------------|----------|------------|-----------|----------|
 | **Easy** | Never bluffs | Never challenges | Random | Plays honestly — only uses cards it holds |
-| **Medium** | ~30% chance | ~20% base (boosted when holding claimed card or targeted) | 50% targets leader | Static card rankings, 50% bluff-Contessa vs assassination |
-| **Hard** | Weighted by game state, reduced at 1 influence | Card counting — 100% when all copies revealed | Always targets highest-coin player | See details below |
+| **Medium** | ~20% chance | ~10% base (boosted when holding claimed card or targeted) | 50% targets leader | Static card rankings, endgame-aware coup timing |
+| **Hard** | Selective — tuned to match real winner behavior | Card counting — 100% when all copies revealed | Always targets highest-coin player | See details below |
+
+Bot strategies were tuned by analyzing **689,000+ real games** from the [treason](https://github.com/octachrome/treason) online Coup server, comparing winner-only action patterns against our simulated bot behavior across 3 rounds of iterative tuning. See [Bot Strategy Deep Dive](docs/BOT-STRATEGY.md) for the full methodology.
 
 **Hard bot strategy:**
 - **Card counting** — tracks publicly revealed cards to calculate challenge probabilities. Challenges at 100% when all copies of a claimed character are accounted for (revealed + held), and scales down with less information
-- **Weighted action selection** — uses context-aware weights rather than fixed priorities. Duke/Tax favored early, Captain/Steal dominant in 1v1 (weight 8), assassination preferred over coup against 1-influence targets to save coins
-- **Bluff caution** — reduces bluff probability by 60% when down to 1 influence (elimination risk). Avoids bluffing characters with 2+ copies revealed
-- **Contessa bluff** — always bluffs Contessa vs assassination at 2 influences (95%), reduces to 65% at 1 influence
-- **Hail-mary challenges** — when targeted at 1 influence, challenges more aggressively since a failed challenge costs what would be lost anyway
+- **Selective bluffing** — bluffs only ~12% of actions, matching real winner behavior. Bluff probability drops by 60% at 1 influence (elimination risk) and avoids bluffing characters with 2+ copies revealed
+- **Weighted action selection** — context-aware weights: Duke/Tax favored early, Captain/Steal dominant in 1v1 (weight 8), assassination preferred over coup against 1-influence targets to save coins
+- **Honest Contessa** — blocks assassination with Contessa only 25%/15% of the time without holding it. Real winners hold the card 96% of the time they block — bluffing Contessa is a losing strategy
+- **Hail-mary challenges** — when targeted at 1 influence, challenges more aggressively since a failed challenge costs what would be lost anyway. In 1v1, always challenges if letting the action through means the opponent reaches 7 coins
 - **3P1L endgame** — in 3-player all-1-life scenarios, the coin leader uses anti-tempo strategy (Income/Exchange over Tax, lets Foreign Aid through) to avoid becoming the obvious coup target, while the underdog delays couping to accumulate
 - **Dynamic card values** — context-aware rankings for exchange and influence loss decisions. Captain is highest value in 1v1, Duke strongest early, Ambassador valuable for hand improvement with 3+ players, Contessa value scales with assassination threat
+- **Demonstrated character tracking** — remembers opponents' successful blocks and unchallenged claims to avoid actions that will be blocked again
 - **Block challenges** — uses card counting on blocks too, with higher aggression when the blocked action cost coins (e.g., assassination)
 
 Bots make decisions with realistic randomized delays (1.5–3.5s for actions, 0.8–2s for reactions) and follow all the same rules as human players — they never peek at hidden cards or the deck.
@@ -155,6 +159,7 @@ AwaitingAction
 Coup/
 ├── server.ts                       # Express + Socket.io + Next.js entry point
 ├── docs/                           # Project documentation
+│   ├── BOT-STRATEGY.md             # AI strategy research and tuning methodology
 │   ├── CONTRIBUTING.md             # Contribution guidelines
 │   └── PRD.md                      # Product requirements document
 ├── tests/                          # Test suite

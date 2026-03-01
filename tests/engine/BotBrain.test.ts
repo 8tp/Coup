@@ -364,7 +364,7 @@ describe('BotBrain', () => {
       }
     });
 
-    it('medium bot challenges sometimes (~20%)', () => {
+    it('medium bot challenges sometimes (~10%)', () => {
       const game = createGame();
       game.turnPhase = TurnPhase.AwaitingActionChallenge;
       setCards(game, 'p2', [Character.Contessa, Character.Contessa]);
@@ -377,8 +377,9 @@ describe('BotBrain', () => {
         });
         if (result?.type === 'challenge') challengeCount++;
       }
-      expect(challengeCount).toBeGreaterThan(50);
-      expect(challengeCount).toBeLessThan(300);
+      // 10% base + 15% for holding claimed char = ~25%
+      expect(challengeCount).toBeGreaterThan(30);
+      expect(challengeCount).toBeLessThan(200);
     });
 
     it('hard bot challenges at 100% when all copies revealed', () => {
@@ -574,7 +575,7 @@ describe('BotBrain', () => {
       }
     });
 
-    it('medium bot sometimes bluff-blocks Contessa vs assassination (~50%)', () => {
+    it('medium bot sometimes bluff-blocks Contessa vs assassination (~30%)', () => {
       const game = createGame();
       game.turnPhase = TurnPhase.AwaitingBlock;
       setCards(game, 'p2', [Character.Duke, Character.Duke]); // No Contessa
@@ -590,11 +591,11 @@ describe('BotBrain', () => {
         const result = decide(game, 'p2', 'medium', { pendingAction, blockPassedPlayerIds: [] });
         if (result?.type === 'block') blockCount++;
       }
-      expect(blockCount).toBeGreaterThan(80);
-      expect(blockCount).toBeLessThan(250);
+      expect(blockCount).toBeGreaterThan(40);
+      expect(blockCount).toBeLessThan(180);
     });
 
-    it('hard bot almost always bluff-blocks Contessa vs assassination', () => {
+    it('hard bot occasionally bluff-blocks Contessa vs assassination', () => {
       const game = createGame();
       game.turnPhase = TurnPhase.AwaitingBlock;
       setCards(game, 'p2', [Character.Duke, Character.Duke]); // No Contessa
@@ -613,8 +614,9 @@ describe('BotBrain', () => {
           blockCount++;
         }
       }
-      // With 2 influences, bluffs Contessa ~95% of the time
-      expect(blockCount).toBeGreaterThan(150);
+      // With 2 influences, bluffs Contessa ~25% of the time (tuned down from data analysis)
+      expect(blockCount).toBeGreaterThan(20);
+      expect(blockCount).toBeLessThan(100);
     });
 
     it('non-target cannot block assassination', () => {
@@ -832,11 +834,11 @@ describe('BotBrain', () => {
       const result = decide(game, 'p2', 'medium', { exchangeState });
       expect(result!.type).toBe('choose_exchange');
       if (result!.type === 'choose_exchange') {
-        // All cards: Duke(5)[0], Contessa(1)[1], Captain(3)[2], Assassin(4)[3]
-        // Should keep Duke(0) and Assassin(3)
+        // All cards: Duke(5)[0], Contessa(3)[1], Captain(4)[2], Assassin(3)[3]
+        // Should keep Duke(0) and Captain(2)
         expect(result!.keepIndices).toHaveLength(2);
         expect(result!.keepIndices).toContain(0); // Duke
-        expect(result!.keepIndices).toContain(3); // Assassin
+        expect(result!.keepIndices).toContain(2); // Captain
       }
     });
 

@@ -126,8 +126,9 @@ export class BotBrain {
 
     switch (character) {
       case Character.Captain:
-        // Best endgame card — Steal is a 4-coin swing, dominant in 1v1
-        value = 6;
+        // Strong endgame card — Steal is a 4-coin swing, dominant in 1v1
+        // But winners succeed with any card; don't over-concentrate on Captain
+        value = 5;
         if (aliveCount === 2) value += 2; // Absolute dominance in 1v1
         if (aliveCount === 3) value += 1; // Want Captain for eventual 2P
         break;
@@ -141,25 +142,28 @@ export class BotBrain {
 
       case Character.Assassin:
         // Cheap elimination
-        value = 4;
+        value = 3;
         if (bot.coins < ASSASSINATE_COST) value -= 1; // Less useful without coins
         if (aliveCount === 2) value -= 1; // Weaker in 1v1 vs Captain/Duke
         break;
 
       case Character.Ambassador:
-        // Exchange for better cards + blocks steal — A-tier early for hand improvement
-        value = 2;
-        if (aliveCount > 3) value += 2; // Very valuable early: exchange into Duke/Captain
+        // Exchange for better cards + blocks steal — valuable defensive utility
+        // Winners protect Ambassador (14% sacrifice rate vs our 22%)
+        value = 3;
+        if (aliveCount > 3) value += 2; // Very valuable early: exchange into better cards
         else if (aliveCount > 2 && !bot.hiddenCharacters.includes(Character.Captain)) value += 1;
         if (aliveCount <= 2) value -= 1; // Nearly useless in 1v1 (no offense)
         break;
 
       case Character.Contessa:
-        // Blocks assassination
-        value = 2;
+        // Blocks assassination — winners hold Contessa 20.4% vs our 11.5%
+        // Having real Contessa is far better than bluffing it
+        value = 3;
         // More valuable when opponents have 3+ coins (assassination threat)
         const opponentsWithCoins = alivePlayers.filter(p => p.id !== botId && p.coins >= ASSASSINATE_COST);
         if (opponentsWithCoins.length > 0) value += 2;
+        if (aliveCount === 2) value -= 1; // Less useful in 1v1 (Captain/Duke better)
         break;
     }
 
@@ -334,7 +338,7 @@ export class BotBrain {
           return { type: 'action', action: ActionType.Coup, targetId: this.pickTarget(game, botId, 'hard') };
         }
       } else {
-        const coupProb = difficulty === 'medium' ? 0.65 : 0.4;
+        const coupProb = difficulty === 'medium' ? (aliveCount <= 3 ? 0.8 : 0.65) : 0.4;
         if (Math.random() < coupProb) {
           return { type: 'action', action: ActionType.Coup, targetId: this.pickTarget(game, botId, difficulty) };
         }
@@ -347,7 +351,7 @@ export class BotBrain {
     if (difficulty === 'easy') {
       return this.decideActionEasy(game, botId, bot, ownedCharacters, candidates);
     } else if (difficulty === 'medium') {
-      return this.decideActionMedium(game, botId, bot, ownedCharacters, candidates);
+      return this.decideActionMedium(game, botId, bot, ownedCharacters, candidates, aliveCount);
     } else {
       return this.decideActionHard(game, botId, bot, ownedCharacters, candidates, aliveCount);
     }
@@ -386,16 +390,18 @@ export class BotBrain {
   private static decideActionMedium(
     game: Game, botId: string, bot: any, ownedCharacters: Character[],
     candidates: Array<{ action: ActionType; targetId?: string; weight: number }>,
+    aliveCount: number,
   ): BotDecision {
-    // Medium: slight preference for Tax/Steal, 30% bluff chance
-    candidates.push({ action: ActionType.Income, weight: 1 });
+    // Medium: slight preference for Tax/Steal, 20% bluff chance
+    const incomeWeight = aliveCount <= 3 ? 0.5 : 1;
+    candidates.push({ action: ActionType.Income, weight: incomeWeight });
     candidates.push({ action: ActionType.ForeignAid, weight: 2 });
 
     const hasDuke = ownedCharacters.includes(Character.Duke);
     if (hasDuke) {
       candidates.push({ action: ActionType.Tax, weight: 5 });
-    } else if (Math.random() < 0.3) {
-      candidates.push({ action: ActionType.Tax, weight: 3 });
+    } else if (Math.random() < 0.2) {
+      candidates.push({ action: ActionType.Tax, weight: 2 });
     }
 
     const stealTargets = game.getAlivePlayers().filter(p => p.id !== botId && p.coins > 0);
@@ -404,7 +410,7 @@ export class BotBrain {
       const targetId = this.pickTarget(game, botId, 'medium', stealTargets.map(p => p.id));
       if (hasCaptain) {
         candidates.push({ action: ActionType.Steal, targetId, weight: 4 });
-      } else if (Math.random() < 0.3) {
+      } else if (Math.random() < 0.2) {
         candidates.push({ action: ActionType.Steal, targetId, weight: 2 });
       }
     }
@@ -414,15 +420,15 @@ export class BotBrain {
       const targetId = this.pickTarget(game, botId, 'medium');
       if (hasAssassin) {
         candidates.push({ action: ActionType.Assassinate, targetId, weight: 4 });
-      } else if (Math.random() < 0.3) {
-        candidates.push({ action: ActionType.Assassinate, targetId, weight: 2 });
+      } else if (Math.random() < 0.15) {
+        candidates.push({ action: ActionType.Assassinate, targetId, weight: 1.5 });
       }
     }
 
     const hasAmbassador = ownedCharacters.includes(Character.Ambassador);
     if (hasAmbassador) {
       candidates.push({ action: ActionType.Exchange, weight: 2 });
-    } else if (Math.random() < 0.3) {
+    } else if (Math.random() < 0.25) {
       candidates.push({ action: ActionType.Exchange, weight: 1 });
     }
 
@@ -482,7 +488,10 @@ export class BotBrain {
     // Bluff caution: at 1 influence, failed bluff = elimination
     const bluffMod = bot.aliveInfluenceCount === 1 ? 0.4 : 1.0;
 
-    candidates.push({ action: ActionType.Income, weight: 1 });
+    // Income: low priority — winners take Income 15%, not 31%.
+    // Reduce in endgame where honest Tax/Steal/Coup are better.
+    const incomeWeight = aliveCount <= 3 ? 0.5 : 1;
+    candidates.push({ action: ActionType.Income, weight: incomeWeight });
     // Foreign Aid is weak — easily blocked by any Duke claim, especially early
     const faWeight = aliveCount > 3 ? 0.5 : aliveCount === 2 ? 1.5 : 1;
     // Heavily reduce if any alive opponent has demonstrated Duke (via block or Tax claim)
@@ -497,8 +506,8 @@ export class BotBrain {
       const weight = aliveCount > 3 ? 7 : 6; // Even stronger early (S-tier opener)
       candidates.push({ action: ActionType.Tax, weight });
     } else if (dukeRevealed < 2) {
-      // Safe to bluff Duke if not many revealed — diffuse threat, rarely challenged early
-      candidates.push({ action: ActionType.Tax, weight: 4 * bluffMod });
+      // Bluff Duke rarely — winners only bluff Tax ~15% of the time
+      candidates.push({ action: ActionType.Tax, weight: 1.5 * bluffMod });
     }
 
     // Steal (Captain) — 4-coin swing, dominant in 1v1
@@ -519,7 +528,8 @@ export class BotBrain {
         const weight = aliveCount === 2 ? 8 : 5; // Dominant in 1v1
         candidates.push({ action: ActionType.Steal, targetId, weight: weight * stealDemoMod });
       } else if (captainRevealed < 2) {
-        const weight = aliveCount === 2 ? 5 : 3;
+        // Bluff Captain rarely — winners only bluff Steal ~9% of the time
+        const weight = aliveCount === 2 ? 2 : 1;
         candidates.push({ action: ActionType.Steal, targetId, weight: weight * bluffMod * stealDemoMod });
       }
     }
@@ -535,7 +545,10 @@ export class BotBrain {
       if (hasAssassin) {
         candidates.push({ action: ActionType.Assassinate, targetId, weight: 5 + targetBonus });
       } else if (assassinRevealed < 2) {
-        candidates.push({ action: ActionType.Assassinate, targetId, weight: (3 + targetBonus) * bluffMod });
+        // Bluff Assassin very rarely — winners only bluff ~13%, and spending 3 coins
+        // on a bluff that gets challenged is terrible EV.
+        // No targetBonus for bluffs: the 3-coin risk doesn't change with target health.
+        candidates.push({ action: ActionType.Assassinate, targetId, weight: 1 * bluffMod });
       }
     }
 
@@ -589,15 +602,15 @@ export class BotBrain {
     }
 
     if (difficulty === 'medium') {
-      // Medium: 20% base challenge rate
-      // Never challenge assassination when we have 2 influences (50% avoids)
+      // Medium: 10% base challenge rate
+      // Never challenge assassination when we have 2 influences (too risky)
       if (pendingAction.type === ActionType.Assassinate && pendingAction.targetId === botId) {
-        if (bot.aliveInfluenceCount >= 2 && Math.random() < 0.5) {
+        if (bot.aliveInfluenceCount >= 2) {
           return { type: 'pass_challenge' };
         }
       }
 
-      let challengeProb = 0.20;
+      let challengeProb = 0.10;
       // Boost if bot holds the claimed character
       if (bot.hiddenCharacters.includes(claimedChar)) {
         challengeProb += 0.15;
@@ -671,18 +684,19 @@ export class BotBrain {
 
     // If 2+ copies accounted for, high challenge rate
     if (accountedFor >= 2) {
-      const prob = Math.min(0.7 * cautionMod * earlyGameMod + desperationBoost, 0.85);
+      const prob = Math.min(0.65 * cautionMod * earlyGameMod + desperationBoost, 0.85);
       return Math.random() < prob ? { type: 'challenge' } : { type: 'pass_challenge' };
     }
 
     // If bot holds a copy, moderate challenge rate
+    // Winners challenge less often but succeed 76% — be more selective
     if (botHoldsCount > 0) {
-      const prob = Math.min(0.4 * cautionMod * earlyGameMod + desperationBoost, 0.7);
+      const prob = Math.min(0.3 * cautionMod * earlyGameMod + desperationBoost, 0.6);
       return Math.random() < prob ? { type: 'challenge' } : { type: 'pass_challenge' };
     }
 
-    // Otherwise low challenge rate — but boost if desperate (nothing to lose)
-    const baseProb = 0.1 * cautionMod * earlyGameMod + desperationBoost;
+    // Otherwise very low challenge rate — winners don't speculate
+    const baseProb = 0.05 * cautionMod * earlyGameMod + desperationBoost;
     return Math.random() < baseProb ? { type: 'challenge' } : { type: 'pass_challenge' };
   }
 
@@ -744,14 +758,14 @@ export class BotBrain {
 
         if (difficulty === 'medium') {
           if (isTarget && blockChar === Character.Contessa && pendingAction.type === ActionType.Assassinate) {
-            // 50% bluff Contessa vs assassination
-            if (Math.random() < 0.5) return { type: 'block', character: blockChar };
+            // 30% bluff Contessa vs assassination
+            if (Math.random() < 0.3) return { type: 'block', character: blockChar };
           } else if (isTarget) {
-            // 20% bluff other blocks when targeted
-            if (Math.random() < 0.2) return { type: 'block', character: blockChar };
+            // 12% bluff other blocks when targeted
+            if (Math.random() < 0.12) return { type: 'block', character: blockChar };
           } else {
-            // 10% bluff Duke block on foreign aid
-            if (Math.random() < 0.1) return { type: 'block', character: blockChar };
+            // 5% bluff Duke block on foreign aid
+            if (Math.random() < 0.05) return { type: 'block', character: blockChar };
           }
           continue;
         }
@@ -761,23 +775,22 @@ export class BotBrain {
         const revealedCount = revealed.get(blockChar) || 0;
 
         if (isTarget && blockChar === Character.Contessa && pendingAction.type === ActionType.Assassinate) {
-          // Contessa bluff vs assassination — weakly dominant at 2 influences (always bluff),
-          // but at 1 influence being caught = elimination, so reduce to ~65%
-          const contessaBluffProb = bot.aliveInfluenceCount >= 2 ? 0.95 : 0.65;
+          // Winners bluff Contessa only ~4% of the time — they actually hold it.
+          // Bluff occasionally but not as a default strategy.
+          const contessaBluffProb = bot.aliveInfluenceCount >= 2 ? 0.25 : 0.15;
           if (Math.random() < contessaBluffProb) return { type: 'block', character: blockChar };
           continue;
         }
 
         if (isTarget) {
-          // Bluff block if not too many copies revealed
-          // At 1 influence, be more cautious with bluff blocks
+          // Winners bluff-block ~10% — only bluff when desperate
           if (revealedCount < 2) {
-            const prob = bot.aliveInfluenceCount === 1 ? 0.35 : 0.6;
+            const prob = bot.aliveInfluenceCount === 1 ? 0.10 : 0.15;
             if (Math.random() < prob) return { type: 'block', character: blockChar };
           }
         } else {
-          // Foreign aid Duke block — bluff to establish Duke claim for future Tax
-          if (revealedCount < 2 && Math.random() < 0.3) {
+          // Foreign aid Duke block — rarely bluff (winners bluff Duke blocks ~5%)
+          if (revealedCount < 2 && Math.random() < 0.08) {
             return { type: 'block', character: blockChar };
           }
         }
@@ -813,8 +826,8 @@ export class BotBrain {
     const blockerClaimedChar = pendingBlock.claimedCharacter;
 
     if (difficulty === 'medium') {
-      // Medium: 15% base challenge rate for blocks
-      let challengeProb = 0.15;
+      // Medium: 10% base challenge rate for blocks
+      let challengeProb = 0.10;
       if (bot.hiddenCharacters.includes(blockerClaimedChar)) {
         challengeProb += 0.15;
       }
@@ -845,11 +858,11 @@ export class BotBrain {
 
     // If our action cost coins, more incentive to challenge the block
     const costDef = ACTION_DEFINITIONS[pendingAction.type];
-    if (costDef.cost > 0 && Math.random() < 0.3 * cautionMod) {
+    if (costDef.cost > 0 && Math.random() < 0.15 * cautionMod) {
       return { type: 'challenge_block' };
     }
 
-    return Math.random() < 0.1 * cautionMod ? { type: 'challenge_block' } : { type: 'pass_challenge_block' };
+    return Math.random() < 0.05 * cautionMod ? { type: 'challenge_block' } : { type: 'pass_challenge_block' };
   }
 
   // ─── Influence Loss Decision ───
@@ -876,10 +889,10 @@ export class BotBrain {
       // Medium: static card value ranking (lose lowest)
       const STATIC_VALUE: Record<Character, number> = {
         [Character.Duke]: 5,
-        [Character.Assassin]: 4,
-        [Character.Captain]: 3,
+        [Character.Captain]: 4,
+        [Character.Assassin]: 3,
+        [Character.Contessa]: 3,
         [Character.Ambassador]: 2,
-        [Character.Contessa]: 1,
       };
       unrevealed.sort((a, b) => STATIC_VALUE[a.character] - STATIC_VALUE[b.character]);
       return { type: 'choose_influence_loss', influenceIndex: unrevealed[0].index };
@@ -917,10 +930,10 @@ export class BotBrain {
       // Medium: static card value ranking
       const STATIC_VALUE: Record<Character, number> = {
         [Character.Duke]: 5,
-        [Character.Assassin]: 4,
-        [Character.Captain]: 3,
+        [Character.Captain]: 4,
+        [Character.Assassin]: 3,
+        [Character.Contessa]: 3,
         [Character.Ambassador]: 2,
-        [Character.Contessa]: 1,
       };
       const indexed = allCards.map((char, i) => ({ char, index: i, value: STATIC_VALUE[char] }));
       indexed.sort((a, b) => b.value - a.value);
