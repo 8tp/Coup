@@ -717,6 +717,11 @@ export class BotBrain {
       if (pendingAction.targetId === botId) {
         challengeProb += 0.10;
       }
+      // Bystanders rarely challenge targeted actions (steal/assassinate) — not their fight
+      const medAliveCount = game.getAlivePlayers().length;
+      if (pendingAction.targetId !== undefined && pendingAction.targetId !== botId && medAliveCount > 2) {
+        challengeProb *= 0.25;
+      }
 
       return Math.random() < challengeProb ? { type: 'challenge' } : { type: 'pass_challenge' };
     }
@@ -769,32 +774,39 @@ export class BotBrain {
     // Early game: less information available, less reason to challenge
     const earlyGameMod = game.turnNumber <= 2 ? 0.3 : game.turnNumber <= 4 ? 0.6 : 1.0;
 
+    // Bystander penalty: for targeted actions (steal/assassinate), bystanders have
+    // little incentive to challenge — it doesn't affect them directly.
+    // Treason data: bystanders challenge steal at 2.5% vs targets at 8.2%.
+    // For untargeted actions (tax/exchange), everyone is equally affected so no penalty.
+    const isTargetedAction = pendingAction.targetId !== undefined;
+    const isBystander = isTargetedAction && pendingAction.targetId !== botId && aliveCount > 2;
+
     // At 1 influence, be more cautious with challenges (elimination risk)
     // unless we're the target (desperate = nothing to lose)
-    // In a 1v1 there is no third party, so the non-target penalty doesn't apply
-    const isNonTarget = pendingAction.targetId !== botId && aliveCount > 2;
-    // Non-targets with 1 influence should almost never challenge — risking elimination to help someone else
     const cautionMod = (bot.aliveInfluenceCount === 1)
-      ? (isDesperateTarget ? 1.0 : isNonTarget ? 0.1 : 0.6)
+      ? (isDesperateTarget ? 1.0 : isBystander ? 0.05 : 0.6)
       : 1.0;
+    // Bystanders with 2 influences still shouldn't challenge targeted actions often —
+    // risking a card to stop something that doesn't hurt them
+    const bystanderMod = isBystander ? 0.2 : 1.0;
     // Desperation boost when we're about to lose influence anyway
     const desperationBoost = isDesperateTarget ? 0.15 : 0;
 
     // If 2+ copies accounted for, high challenge rate
     if (accountedFor >= 2) {
-      const prob = Math.min(0.65 * cautionMod * earlyGameMod + desperationBoost, 0.85);
+      const prob = Math.min(0.65 * cautionMod * bystanderMod * earlyGameMod + desperationBoost, 0.85);
       return Math.random() < prob ? { type: 'challenge' } : { type: 'pass_challenge' };
     }
 
     // If bot holds a copy, moderate challenge rate
     // Winners challenge less often but succeed 76% — be more selective
     if (botHoldsCount > 0) {
-      const prob = Math.min(0.3 * cautionMod * earlyGameMod + desperationBoost, 0.6);
+      const prob = Math.min(0.3 * cautionMod * bystanderMod * earlyGameMod + desperationBoost, 0.6);
       return Math.random() < prob ? { type: 'challenge' } : { type: 'pass_challenge' };
     }
 
     // Otherwise very low challenge rate — winners don't speculate
-    const baseProb = 0.05 * cautionMod * earlyGameMod + desperationBoost;
+    const baseProb = 0.05 * cautionMod * bystanderMod * earlyGameMod + desperationBoost;
     return Math.random() < baseProb ? { type: 'challenge' } : { type: 'pass_challenge' };
   }
 

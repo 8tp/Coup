@@ -291,6 +291,31 @@ export class RoomManager {
     return chatMsg;
   }
 
+  addBotChatMessage(roomCode: string, botId: string, botName: string, message: string): ChatMessage | { error: string } {
+    const room = this.rooms.get(roomCode);
+    if (!room) return { error: 'Room not found' };
+
+    const chatMsg: ChatMessage = {
+      id: uuidv4(),
+      playerId: botId,
+      playerName: botName,
+      message,
+      timestamp: Date.now(),
+    };
+
+    let history = this.chatMessages.get(roomCode);
+    if (!history) {
+      history = [];
+      this.chatMessages.set(roomCode, history);
+    }
+    history.push(chatMsg);
+    if (history.length > CHAT_MAX_HISTORY) {
+      history.shift();
+    }
+
+    return chatMsg;
+  }
+
   canSendReaction(playerId: string): boolean {
     const now = Date.now();
     const lastTime = this.lastReactionTime.get(playerId) || 0;
@@ -410,7 +435,7 @@ export class RoomManager {
     // Register with BotController (create one if needed)
     let bc = this.botControllers.get(roomCode);
     if (bc) {
-      bc.addBot(playerId, 'hard');
+      bc.addBot(playerId, 'hard', roomPlayer.name);
     } else {
       bc = new BotController(engine, [roomPlayer]);
       this.botControllers.set(roomCode, bc);
