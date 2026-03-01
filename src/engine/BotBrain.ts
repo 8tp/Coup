@@ -56,6 +56,7 @@ export class BotBrain {
     influenceLossRequest: InfluenceLossRequest | null,
     exchangeState: ExchangeState | null,
     blockPassedPlayerIds: string[],
+    deckMemory?: Map<Character, number>,
   ): BotDecision | null {
     const bot = game.getPlayer(botId);
     if (!bot || !bot.isAlive) return null;
@@ -68,13 +69,13 @@ export class BotBrain {
         return null;
 
       case TurnPhase.AwaitingActionChallenge:
-        return this.decideActionChallenge(game, botId, difficulty, pendingAction, challengeState);
+        return this.decideActionChallenge(game, botId, difficulty, pendingAction, challengeState, deckMemory);
 
       case TurnPhase.AwaitingBlock:
         return this.decideBlock(game, botId, difficulty, pendingAction, blockPassedPlayerIds);
 
       case TurnPhase.AwaitingBlockChallenge:
-        return this.decideBlockChallenge(game, botId, difficulty, pendingAction, pendingBlock, challengeState);
+        return this.decideBlockChallenge(game, botId, difficulty, pendingAction, pendingBlock, challengeState, deckMemory);
 
       case TurnPhase.AwaitingInfluenceLoss:
         if (influenceLossRequest?.playerId === botId) {
@@ -486,6 +487,7 @@ export class BotBrain {
     difficulty: BotDifficulty,
     pendingAction: PendingAction | null,
     challengeState: ChallengeState | null,
+    deckMemory?: Map<Character, number>,
   ): BotDecision | null {
     if (!pendingAction || !challengeState) return null;
     if (pendingAction.actorId === botId) return null;
@@ -535,7 +537,8 @@ export class BotBrain {
     const revealed = this.countRevealedCharacters(game);
     const revealedCount = revealed.get(claimedChar) || 0;
     const botHoldsCount = bot.hiddenCharacters.filter(c => c === claimedChar).length;
-    const accountedFor = revealedCount + botHoldsCount;
+    const knownInDeckCount = deckMemory?.get(claimedChar) || 0;
+    const accountedFor = revealedCount + botHoldsCount + knownInDeckCount;
 
     // Never challenge assassination when we have 2 influences (too risky — can lose both)
     if (pendingAction.type === ActionType.Assassinate && pendingAction.targetId === botId) {
@@ -558,7 +561,11 @@ export class BotBrain {
 
     // At 1 influence, be more cautious with challenges (elimination risk)
     // unless we're the target (desperate = nothing to lose)
-    const cautionMod = (!isDesperateTarget && bot.aliveInfluenceCount === 1) ? 0.6 : 1.0;
+    const isNonTarget = pendingAction.targetId !== botId;
+    // Non-targets with 1 influence should almost never challenge — risking elimination to help someone else
+    const cautionMod = (bot.aliveInfluenceCount === 1)
+      ? (isDesperateTarget ? 1.0 : isNonTarget ? 0.1 : 0.6)
+      : 1.0;
     // Desperation boost when we're about to lose influence anyway
     const desperationBoost = isDesperateTarget ? 0.15 : 0;
 
@@ -689,6 +696,7 @@ export class BotBrain {
     pendingAction: PendingAction | null,
     pendingBlock: PendingBlock | null,
     challengeState: ChallengeState | null,
+    deckMemory?: Map<Character, number>,
   ): BotDecision | null {
     if (!pendingAction || !pendingBlock || !challengeState) return null;
     // Already passed (pre-passed by ActionResolver or previously acted)? Nothing to do.
@@ -721,7 +729,8 @@ export class BotBrain {
     const revealed = this.countRevealedCharacters(game);
     const revealedCount = revealed.get(blockerClaimedChar) || 0;
     const botHoldsCount = bot.hiddenCharacters.filter(c => c === blockerClaimedChar).length;
-    const accountedFor = revealedCount + botHoldsCount;
+    const knownInDeckCount = deckMemory?.get(blockerClaimedChar) || 0;
+    const accountedFor = revealedCount + botHoldsCount + knownInDeckCount;
 
     // At 1 influence, challenging a block is risky (lose = elimination)
     const cautionMod = bot.aliveInfluenceCount === 1 ? 0.7 : 1.0;

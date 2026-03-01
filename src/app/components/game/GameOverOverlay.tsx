@@ -1,33 +1,14 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Character, ClientGameState, ClientInfluence, TurnPhase } from '@/shared/types';
+import { ClientGameState, ClientInfluence, TurnPhase } from '@/shared/types';
 import { useGameStore } from '../../stores/gameStore';
-import { CHARACTER_SVG_ICONS } from '../icons';
 import { computeAwards } from '../../utils/gameStats';
-
-const characterColors: Record<Character, string> = {
-  [Character.Duke]: 'border-purple-500 bg-purple-900/40',
-  [Character.Assassin]: 'border-gray-500 bg-gray-800/40',
-  [Character.Captain]: 'border-blue-500 bg-blue-900/40',
-  [Character.Ambassador]: 'border-green-500 bg-green-900/40',
-  [Character.Contessa]: 'border-red-500 bg-red-900/40',
-};
+import { CardFace } from './CardFace';
 
 function ResultCard({ influence }: { influence: ClientInfluence }) {
   if (!influence.character) return null;
-  const Icon = CHARACTER_SVG_ICONS[influence.character];
-  return (
-    <div className={`w-11 h-16 rounded-lg border-2 flex flex-col items-center justify-center
-      ${characterColors[influence.character]}
-      ${influence.revealed ? 'opacity-40' : ''}`}
-    >
-      <Icon size={18} />
-      <span className="text-[9px] mt-0.5 leading-none font-bold truncate w-full text-center px-0.5">
-        {influence.character}
-      </span>
-    </div>
-  );
+  return <CardFace influence={influence} size="sm" />;
 }
 
 interface GameOverOverlayProps {

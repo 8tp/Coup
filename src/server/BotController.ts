@@ -1,4 +1,4 @@
-import { BotDifficulty, RoomPlayer } from '../shared/types';
+import { BotDifficulty, Character, RoomPlayer } from '../shared/types';
 import {
   BOT_ACTION_DELAY_MIN,
   BOT_ACTION_DELAY_MAX,
@@ -12,6 +12,10 @@ import { BotBrain, BotDecision } from '../engine/BotBrain';
 interface BotInfo {
   id: string;
   difficulty: BotDifficulty;
+  /** Characters the bot knows are in the deck (from its own Ambassador exchanges). */
+  deckMemory: Map<Character, number>;
+  /** How many actionLog entries have been processed for memory invalidation. */
+  lastProcessedLogLength: number;
 }
 
 export class BotController {
@@ -24,7 +28,12 @@ export class BotController {
     this.engine = engine;
     this.bots = botPlayers
       .filter(p => p.isBot)
-      .map(p => ({ id: p.id, difficulty: p.difficulty ?? DEFAULT_BOT_DIFFICULTY }));
+      .map(p => ({
+        id: p.id,
+        difficulty: p.difficulty ?? DEFAULT_BOT_DIFFICULTY,
+        deckMemory: new Map<Character, number>(),
+        lastProcessedLogLength: 0,
+      }));
   }
 
   /**
@@ -33,7 +42,12 @@ export class BotController {
   addBot(playerId: string, difficulty: BotDifficulty): void {
     if (this.destroyed) return;
     if (this.bots.some(b => b.id === playerId)) return;
-    this.bots.push({ id: playerId, difficulty });
+    this.bots.push({
+      id: playerId,
+      difficulty,
+      deckMemory: new Map<Character, number>(),
+      lastProcessedLogLength: 0,
+    });
   }
 
   /**
@@ -49,6 +63,29 @@ export class BotController {
     const game = this.engine.game;
     if (game.status !== 'InProgress') return;
 
+    // Invalidate deck memory when deck-mutating events occur
+    const logLength = game.actionLog.length;
+    for (const bot of this.bots) {
+      if (bot.difficulty !== 'hard' || bot.deckMemory.size === 0) {
+        bot.lastProcessedLogLength = logLength;
+        continue;
+      }
+      for (let i = bot.lastProcessedLogLength; i < logLength; i++) {
+        const entry = game.actionLog[i];
+        // Another player's exchange shuffles cards into the deck
+        if (entry.eventType === 'exchange' && entry.actorId !== bot.id) {
+          bot.deckMemory.clear();
+          break;
+        }
+        // Challenge failure: defender shuffles their card back and draws a replacement
+        if (entry.eventType === 'challenge_fail' || entry.eventType === 'block_challenge_fail') {
+          bot.deckMemory.clear();
+          break;
+        }
+      }
+      bot.lastProcessedLogLength = logLength;
+    }
+
     // Find the first bot that has a decision to make
     for (const bot of this.bots) {
       const state = this.engine.getFullState();
@@ -62,6 +99,7 @@ export class BotController {
         state.influenceLossRequest,
         state.exchangeState,
         state.blockPassedPlayerIds,
+        bot.difficulty === 'hard' ? bot.deckMemory : undefined,
       );
 
       if (decision) {
@@ -128,9 +166,26 @@ export class BotController {
       case 'choose_influence_loss':
         error = this.engine.handleChooseInfluenceLoss(botId, decision.influenceIndex);
         break;
-      case 'choose_exchange':
+      case 'choose_exchange': {
+        const bot = this.bots.find(b => b.id === botId);
+        if (bot && bot.difficulty === 'hard') {
+          const state = this.engine.getFullState();
+          if (state.exchangeState) {
+            const player = this.engine.game.getPlayer(botId);
+            if (player) {
+              const allCards = [...player.hiddenCharacters, ...state.exchangeState.drawnCards];
+              const kept = new Set(decision.keepIndices);
+              const returned = allCards.filter((_, i) => !kept.has(i));
+              bot.deckMemory.clear();
+              for (const card of returned) {
+                bot.deckMemory.set(card, (bot.deckMemory.get(card) || 0) + 1);
+              }
+            }
+          }
+        }
         error = this.engine.handleChooseExchange(botId, decision.keepIndices);
         break;
+      }
     }
 
     // If engine rejected the decision, re-evaluate (state may have changed)
