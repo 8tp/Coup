@@ -44,6 +44,14 @@ const DIFFICULTY_OPTIONS: Array<{
     bgColor: 'bg-red-500/20',
     borderColor: 'border-red-500',
   },
+  {
+    value: 'random',
+    label: 'Random',
+    description: 'Randomly assigned difficulty — keep them guessing',
+    color: 'text-purple-400',
+    bgColor: 'bg-purple-500/20',
+    borderColor: 'border-purple-500',
+  },
 ];
 
 export function AddBotModal({ open, onClose, onAdd, existingNames }: AddBotModalProps) {

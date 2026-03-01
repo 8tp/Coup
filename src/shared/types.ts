@@ -203,7 +203,7 @@ export interface ClientExchangeState {
 }
 
 // ─── Bot Difficulty ───
-export type BotDifficulty = 'easy' | 'medium' | 'hard';
+export type BotDifficulty = 'easy' | 'medium' | 'hard' | 'random';
 
 // ─── Room ───
 export interface Room {

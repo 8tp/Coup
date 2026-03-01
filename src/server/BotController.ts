@@ -9,9 +9,19 @@ import {
 import { GameEngine } from '../engine/GameEngine';
 import { BotBrain, BotDecision } from '../engine/BotBrain';
 
+/** The concrete difficulties BotBrain can handle (excludes 'random'). */
+const CONCRETE_DIFFICULTIES: Array<'easy' | 'medium' | 'hard'> = ['easy', 'medium', 'hard'];
+
+function resolveDifficulty(difficulty: BotDifficulty): 'easy' | 'medium' | 'hard' {
+  if (difficulty === 'random') {
+    return CONCRETE_DIFFICULTIES[Math.floor(Math.random() * CONCRETE_DIFFICULTIES.length)];
+  }
+  return difficulty;
+}
+
 interface BotInfo {
   id: string;
-  difficulty: BotDifficulty;
+  difficulty: 'easy' | 'medium' | 'hard';
   /** Characters the bot knows are in the deck (from its own Ambassador exchanges). */
   deckMemory: Map<Character, number>;
   /** How many actionLog entries have been processed for memory invalidation. */
@@ -30,7 +40,7 @@ export class BotController {
       .filter(p => p.isBot)
       .map(p => ({
         id: p.id,
-        difficulty: p.difficulty ?? DEFAULT_BOT_DIFFICULTY,
+        difficulty: resolveDifficulty(p.difficulty ?? DEFAULT_BOT_DIFFICULTY),
         deckMemory: new Map<Character, number>(),
         lastProcessedLogLength: 0,
       }));
@@ -44,7 +54,7 @@ export class BotController {
     if (this.bots.some(b => b.id === playerId)) return;
     this.bots.push({
       id: playerId,
-      difficulty,
+      difficulty: resolveDifficulty(difficulty),
       deckMemory: new Map<Character, number>(),
       lastProcessedLogLength: 0,
     });

@@ -107,9 +107,10 @@ export default function LobbyPage() {
                         <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
                           p.difficulty === 'easy' ? 'bg-green-600 text-white' :
                           p.difficulty === 'hard' ? 'bg-red-600 text-white' :
+                          p.difficulty === 'random' ? 'bg-purple-600 text-white' :
                           'bg-yellow-600 text-white'
                         }`}>
-                          {p.difficulty.toUpperCase()}
+                          {p.difficulty === 'random' ? '?' : p.difficulty.toUpperCase()}
                         </span>
                       )}
                     </>
