@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { ClientGameState, ClientInfluence, TurnPhase } from '@/shared/types';
 import { useGameStore } from '../../stores/gameStore';
 import { computeAwards, getWinnerFlavorText, getLoserFlavorText } from '../../utils/gameStats';
+import { haptic } from '../../utils/haptic';
 import { CardFace } from './CardFace';
 
 function ResultCard({ influence }: { influence: ClientInfluence }) {
@@ -118,7 +119,7 @@ export function GameOverOverlay({ gameState, isHost, onRematch }: GameOverOverla
         {/* Action */}
         <div className="px-6 pb-6">
           {isHost ? (
-            <button className="btn-primary w-full" onClick={onRematch}>
+            <button className="btn-primary w-full" onClick={() => { haptic(80); onRematch(); }}>
               Play Again
             </button>
           ) : (

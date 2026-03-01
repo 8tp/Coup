@@ -5,6 +5,7 @@ import { Character } from '@/shared/types';
 import { CHARACTER_DESCRIPTIONS } from '@/shared/constants';
 import { CHARACTER_SVG_ICONS } from '../icons';
 import { Modal } from '../ui/Modal';
+import { haptic } from '../../utils/haptic';
 
 const tabs = ['Overview', 'Characters', 'Actions & Rules'] as const;
 type Tab = typeof tabs[number];
@@ -31,7 +32,7 @@ export function HowToPlay({ open, onClose }: HowToPlayProps) {
         <h2 className="text-xl font-bold">How to Play</h2>
         <button
           className="text-gray-500 hover:text-white text-2xl leading-none px-1"
-          onClick={onClose}
+          onClick={() => { haptic(); onClose(); }}
         >
           &times;
         </button>
@@ -44,7 +45,7 @@ export function HowToPlay({ open, onClose }: HowToPlayProps) {
             key={tab}
             className="how-to-play-tab"
             data-active={activeTab === tab ? 'true' : 'false'}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => { haptic(); setActiveTab(tab); }}
           >
             {tab}
           </button>

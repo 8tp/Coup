@@ -3,6 +3,7 @@
 import { ClientGameState, TurnPhase } from '@/shared/types';
 import { Timer } from '../ui/Timer';
 import { getSocket } from '../../hooks/useSocket';
+import { haptic } from '../../utils/haptic';
 
 interface BlockChallengePromptProps {
   gameState: ClientGameState;
@@ -70,13 +71,13 @@ export function BlockChallengePrompt({ gameState }: BlockChallengePromptProps) {
       <div className="flex gap-3 mt-3">
         <button
           className="btn-danger flex-1"
-          onClick={() => socket.emit('game:challenge_block')}
+          onClick={() => { haptic([50, 30, 80]); socket.emit('game:challenge_block'); }}
         >
           Challenge block!
         </button>
         <button
           className="btn-secondary flex-1"
-          onClick={() => socket.emit('game:pass_challenge_block')}
+          onClick={() => { haptic(80); socket.emit('game:pass_challenge_block'); }}
         >
           Accept block
         </button>

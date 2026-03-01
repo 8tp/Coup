@@ -21,6 +21,7 @@ import { ReactionBubble } from './ReactionBubble';
 import { ReactionPicker } from './ReactionPicker';
 import { useSoundEffects } from '../../hooks/useSoundEffects';
 import { useGameStore } from '../../stores/gameStore';
+import { haptic } from '../../utils/haptic';
 
 interface GameTableProps {
   gameState: ClientGameState;
@@ -49,7 +50,7 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
         <div className="flex items-center gap-2.5">
           <span>Deck: {gameState.deckCount}</span>
           <button
-            onClick={() => setMuted(!isMuted)}
+            onClick={() => { haptic(); setMuted(!isMuted); }}
             className="w-8 h-8 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition text-xs flex items-center justify-center"
             title={isMuted ? 'Unmute sounds' : 'Mute sounds'}
           >
@@ -57,7 +58,7 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
           </button>
           <ReactionPicker onReact={onSendReaction} disabled={me ? !me.isAlive : true} />
           <button
-            onClick={() => setShowRules(true)}
+            onClick={() => { haptic(); setShowRules(true); }}
             className="w-8 h-8 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition text-xs font-bold flex items-center justify-center"
             title="How to Play"
           >

@@ -5,6 +5,7 @@ import { ActionType, ClientGameState, TurnPhase } from '@/shared/types';
 import { ACTION_DEFINITIONS, FORCED_COUP_THRESHOLD } from '@/shared/constants';
 import { DukeIcon, AssassinIcon, CaptainIcon, AmbassadorIcon, CoinIcon } from '../icons';
 import { getSocket } from '../../hooks/useSocket';
+import { haptic } from '../../utils/haptic';
 
 function CoinsIcon({ size = 16 }: { size?: number }) {
   return (
@@ -60,6 +61,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
   const targets = gameState.players.filter(p => p.isAlive && p.id !== gameState.myId);
 
   const handleAction = (action: ActionType) => {
+    haptic(80);
     const def = ACTION_DEFINITIONS[action];
     if (def.requiresTarget) {
       setSelectingTarget(action);
@@ -69,6 +71,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
   };
 
   const handleTargetSelect = (targetId: string) => {
+    haptic([50, 30, 80]);
     if (selectingTarget) {
       socket.emit('game:action', { action: selectingTarget, targetId });
       setSelectingTarget(null);
@@ -96,7 +99,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
           ))}
           <button
             className="text-gray-500 text-sm mt-1"
-            onClick={() => setSelectingTarget(null)}
+            onClick={() => { haptic(80); setSelectingTarget(null); }}
           >
             Cancel
           </button>
@@ -120,6 +123,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
               key={t.id}
               className="btn-danger w-full"
               onClick={() => {
+                haptic([50, 30, 80]);
                 socket.emit('game:action', { action: ActionType.Coup, targetId: t.id });
               }}
             >

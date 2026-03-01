@@ -8,6 +8,7 @@ import { MIN_PLAYERS, MAX_PLAYERS, MIN_ACTION_TIMER, MAX_ACTION_TIMER, MIN_BOT_R
 import { GameStatus } from '@/shared/types';
 import { ChatPanel } from '../../components/chat/ChatPanel';
 import { AddBotModal } from '../../components/lobby/AddBotModal';
+import { haptic } from '../../utils/haptic';
 
 export default function LobbyPage() {
   const router = useRouter();
@@ -41,12 +42,14 @@ export default function LobbyPage() {
   }, [gameState, roomCode, router]);
 
   const handleLeave = () => {
+    haptic();
     leaveRoom();
     useGameStore.getState().clearRoom();
     router.push('/');
   };
 
   const copyRoomCode = () => {
+    haptic();
     navigator.clipboard.writeText(roomCode);
   };
 
@@ -135,7 +138,7 @@ export default function LobbyPage() {
                   )}
                   {p.isBot && isHost && (
                     <button
-                      onClick={() => handleRemoveBot(p.id)}
+                      onClick={() => { haptic(); handleRemoveBot(p.id); }}
                       className="text-gray-500 hover:text-red-400 transition text-sm font-bold w-5 h-5 flex items-center justify-center"
                       title="Remove bot"
                     >
@@ -154,7 +157,7 @@ export default function LobbyPage() {
           {isHost && canAddBot && (
             <button
               className="w-full mt-3 py-2 px-3 border border-dashed border-gray-600 rounded-lg text-gray-400 hover:border-coup-accent hover:text-coup-accent transition text-sm"
-              onClick={() => setShowAddBotModal(true)}
+              onClick={() => { haptic(); setShowAddBotModal(true); }}
             >
               + Add Computer Player
             </button>
@@ -175,6 +178,7 @@ export default function LobbyPage() {
                   role="switch"
                   aria-checked={roomSettings.isPublic}
                   onClick={() => {
+                    haptic();
                     updateRoomSettings({ ...roomSettings, isPublic: !roomSettings.isPublic });
                   }}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${roomSettings.isPublic ? 'bg-coup-accent' : 'bg-gray-600'}`}
@@ -263,7 +267,7 @@ export default function LobbyPage() {
             <button
               className="btn-primary w-full"
               disabled={!canStart}
-              onClick={startGame}
+              onClick={() => { haptic(80); startGame(); }}
             >
               {canStart
                 ? `Start Game (${roomPlayers.length} players)`

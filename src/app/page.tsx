@@ -7,6 +7,7 @@ import { useGameStore } from './stores/gameStore';
 import { CoupLogo } from './components/icons';
 import { HowToPlay } from './components/home/HowToPlay';
 import { MAX_PLAYERS } from '@/shared/constants';
+import { haptic } from './utils/haptic';
 
 export default function Home() {
   const router = useRouter();
@@ -27,6 +28,7 @@ export default function Home() {
   }, [subscribeToBrowser, unsubscribeFromBrowser]);
 
   const handleCreate = async () => {
+    haptic(80);
     if (!name.trim()) { setError('Enter your name'); return; }
     setLoading(true);
     try {
@@ -41,6 +43,7 @@ export default function Home() {
   };
 
   const handleJoin = async () => {
+    haptic(80);
     if (!name.trim()) { setError('Enter your name'); return; }
     if (!roomCode.trim()) { setError('Enter room code'); return; }
     setLoading(true);
@@ -56,6 +59,7 @@ export default function Home() {
   };
 
   const handleBrowseJoin = async (code: string) => {
+    haptic(80);
     if (!name.trim()) { setError('Enter your name'); return; }
     setLoading(true);
     try {
@@ -103,13 +107,13 @@ export default function Home() {
 
         {mode === 'idle' && (
           <div className="space-y-4 animate-fade-in">
-            <button className="btn-primary w-full" onClick={() => setMode('create')}>
+            <button className="btn-primary w-full" onClick={() => { haptic(); setMode('create'); }}>
               Create Room
             </button>
-            <button className="btn-secondary w-full" onClick={() => setMode('join')}>
+            <button className="btn-secondary w-full" onClick={() => { haptic(); setMode('join'); }}>
               Join Room
             </button>
-            <button className="btn-secondary w-full" onClick={() => setMode('browse')}>
+            <button className="btn-secondary w-full" onClick={() => { haptic(); setMode('browse'); }}>
               Browse Public Games
             </button>
 
@@ -121,7 +125,7 @@ export default function Home() {
 
             <button
               className="text-gray-400 hover:text-coup-accent text-sm font-medium transition-colors w-full py-2"
-              onClick={() => setShowHowToPlay(true)}
+              onClick={() => { haptic(); setShowHowToPlay(true); }}
             >
               How to Play
             </button>
@@ -144,7 +148,7 @@ export default function Home() {
                 type="button"
                 role="switch"
                 aria-checked={isPublic}
-                onClick={() => setIsPublic(!isPublic)}
+                onClick={() => { haptic(); setIsPublic(!isPublic); }}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isPublic ? 'bg-coup-accent' : 'bg-gray-600'}`}
               >
                 <span
@@ -161,7 +165,7 @@ export default function Home() {
             </button>
             <button
               className="btn-secondary w-full"
-              onClick={() => setMode('idle')}
+              onClick={() => { haptic(); setMode('idle'); }}
             >
               Back
             </button>
@@ -194,7 +198,7 @@ export default function Home() {
             </button>
             <button
               className="btn-secondary w-full"
-              onClick={() => setMode('idle')}
+              onClick={() => { haptic(); setMode('idle'); }}
             >
               Back
             </button>
@@ -259,7 +263,7 @@ export default function Home() {
 
             <button
               className="btn-secondary w-full"
-              onClick={() => setMode('idle')}
+              onClick={() => { haptic(); setMode('idle'); }}
             >
               Back
             </button>

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ClientGameState, TurnPhase, Character } from '@/shared/types';
 import { CHARACTER_SVG_ICONS } from '../icons';
 import { getSocket } from '../../hooks/useSocket';
+import { haptic } from '../../utils/haptic';
 
 const characterColors: Record<Character, string> = {
   [Character.Duke]: 'border-purple-500 bg-purple-900/40',
@@ -37,6 +38,7 @@ export function ExchangeView({ gameState }: ExchangeViewProps) {
   const { availableCards, keepCount } = exchangeState;
 
   const toggleCard = (index: number) => {
+    haptic();
     setSelectedIndices(prev => {
       if (prev.includes(index)) {
         return prev.filter(i => i !== index);
@@ -49,6 +51,7 @@ export function ExchangeView({ gameState }: ExchangeViewProps) {
   };
 
   const handleConfirm = () => {
+    haptic(80);
     socket.emit('game:choose_exchange', { keepIndices: selectedIndices });
   };
 
