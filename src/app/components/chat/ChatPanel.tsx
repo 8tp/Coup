@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { ChatMessage } from '@/shared/types';
 import { CHAT_MAX_MESSAGE_LENGTH } from '@/shared/constants';
+import { haptic } from '../../utils/haptic';
 
 interface ChatPanelProps {
   messages: ChatMessage[];
@@ -23,6 +24,7 @@ export function ChatPanel({ messages, myId, onSend }: ChatPanelProps) {
     e.preventDefault();
     const trimmed = input.trim();
     if (!trimmed) return;
+    haptic();
     onSend(trimmed);
     setInput('');
   };

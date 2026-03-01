@@ -8,6 +8,8 @@ import { MIN_PLAYERS, MAX_PLAYERS, MIN_ACTION_TIMER, MAX_ACTION_TIMER, MIN_BOT_R
 import { GameStatus } from '@/shared/types';
 import { ChatPanel } from '../../components/chat/ChatPanel';
 import { AddBotModal } from '../../components/lobby/AddBotModal';
+import { SettingsModal } from '../../components/settings/SettingsModal';
+import { haptic } from '../../utils/haptic';
 
 export default function LobbyPage() {
   const router = useRouter();
@@ -26,6 +28,7 @@ export default function LobbyPage() {
   } = useGameStore();
 
   const [showAddBotModal, setShowAddBotModal] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   const isHost = playerId === hostId;
   const canStart = roomPlayers.length >= MIN_PLAYERS && roomPlayers.length <= MAX_PLAYERS;
@@ -40,13 +43,25 @@ export default function LobbyPage() {
     }
   }, [gameState, roomCode, router]);
 
+  // Redirect home if rejoin failed (no playerId after timeout)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!useGameStore.getState().playerId) {
+        router.replace('/');
+      }
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [playerId, router]);
+
   const handleLeave = () => {
+    haptic();
     leaveRoom();
     useGameStore.getState().clearRoom();
     router.push('/');
   };
 
   const copyRoomCode = () => {
+    haptic();
     navigator.clipboard.writeText(roomCode);
   };
 
@@ -63,7 +78,18 @@ export default function LobbyPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 relative">
+      {/* Settings gear */}
+      <button
+        onClick={() => { haptic(); setShowSettings(true); }}
+        className="absolute top-4 right-4 w-9 h-9 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition flex items-center justify-center z-10"
+        title="Settings"
+      >
+        <svg viewBox="0 0 20 20" fill="currentColor" className="w-4.5 h-4.5">
+          <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+        </svg>
+      </button>
+
       <div className="max-w-md w-full">
         {/* Room Code */}
         <div className="text-center mb-8">
@@ -135,7 +161,7 @@ export default function LobbyPage() {
                   )}
                   {p.isBot && isHost && (
                     <button
-                      onClick={() => handleRemoveBot(p.id)}
+                      onClick={() => { haptic(); handleRemoveBot(p.id); }}
                       className="text-gray-500 hover:text-red-400 transition text-sm font-bold w-5 h-5 flex items-center justify-center"
                       title="Remove bot"
                     >
@@ -154,7 +180,7 @@ export default function LobbyPage() {
           {isHost && canAddBot && (
             <button
               className="w-full mt-3 py-2 px-3 border border-dashed border-gray-600 rounded-lg text-gray-400 hover:border-coup-accent hover:text-coup-accent transition text-sm"
-              onClick={() => setShowAddBotModal(true)}
+              onClick={() => { haptic(); setShowAddBotModal(true); }}
             >
               + Add Computer Player
             </button>
@@ -175,6 +201,7 @@ export default function LobbyPage() {
                   role="switch"
                   aria-checked={roomSettings.isPublic}
                   onClick={() => {
+                    haptic();
                     updateRoomSettings({ ...roomSettings, isPublic: !roomSettings.isPublic });
                   }}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${roomSettings.isPublic ? 'bg-coup-accent' : 'bg-gray-600'}`}
@@ -263,7 +290,7 @@ export default function LobbyPage() {
             <button
               className="btn-primary w-full"
               disabled={!canStart}
-              onClick={startGame}
+              onClick={() => { haptic(80); startGame(); }}
             >
               {canStart
                 ? `Start Game (${roomPlayers.length} players)`
@@ -295,6 +322,7 @@ export default function LobbyPage() {
         onAdd={handleAddBot}
         existingNames={roomPlayers.map(p => p.name)}
       />
+      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
     </div>
   );
 }

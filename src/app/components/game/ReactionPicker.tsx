@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { REACTIONS } from '@/shared/constants';
+import { haptic } from '../../utils/haptic';
 
 interface ReactionPickerProps {
   onReact: (reactionId: string) => void;
@@ -39,7 +40,7 @@ export function ReactionPicker({ onReact, disabled }: ReactionPickerProps) {
     <div ref={containerRef}>
       <button
         ref={buttonRef}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => { haptic(); setOpen((o) => !o); }}
         disabled={disabled}
         className="w-8 h-8 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition text-xs flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
         title="Send reaction"
@@ -56,6 +57,7 @@ export function ReactionPicker({ onReact, disabled }: ReactionPickerProps) {
               <button
                 key={r.id}
                 onClick={() => {
+                  haptic();
                   onReact(r.id);
                   setOpen(false);
                 }}

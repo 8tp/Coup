@@ -1,0 +1,45 @@
+name: Bug Report
+description: Report a bug or issue
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the bug you encountered.
+      placeholder: e.g. "The game froze when I tried to challenge a steal"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce this?
+      placeholder: |
+        1. Start a game with 3 players
+        2. Player 1 claims Captain to steal
+        3. Player 2 clicks Challenge
+        4. ...
+  - type: dropdown
+    id: device
+    attributes:
+      label: Device
+      options:
+        - Phone (iOS)
+        - Phone (Android)
+        - Tablet
+        - Desktop
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      options:
+        - Safari
+        - Chrome
+        - Firefox
+        - Other
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Screenshots, room code, number of players, etc.

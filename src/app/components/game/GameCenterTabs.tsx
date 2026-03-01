@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { LogEntry, ChatMessage } from '@/shared/types';
 import { ActionLog } from './ActionLog';
 import { ChatPanel } from '../chat/ChatPanel';
+import { haptic } from '../../utils/haptic';
 
 interface GameCenterTabsProps {
   log: LogEntry[];
@@ -36,7 +37,7 @@ export function GameCenterTabs({ log, chatMessages, myId, myName, onSendChat, tu
           className={`flex-1 text-xs py-1.5 font-medium transition ${
             activeTab === 'log' ? 'text-coup-accent border-b border-coup-accent' : 'text-gray-500 hover:text-gray-300'
           }`}
-          onClick={() => setActiveTab('log')}
+          onClick={() => { haptic(); setActiveTab('log'); }}
         >
           Log
         </button>
@@ -44,7 +45,7 @@ export function GameCenterTabs({ log, chatMessages, myId, myName, onSendChat, tu
           className={`flex-1 text-xs py-1.5 font-medium transition relative ${
             activeTab === 'chat' ? 'text-coup-accent border-b border-coup-accent' : 'text-gray-500 hover:text-gray-300'
           }`}
-          onClick={() => setActiveTab('chat')}
+          onClick={() => { haptic(); setActiveTab('chat'); }}
         >
           Chat
           {hasUnread && activeTab !== 'chat' && (

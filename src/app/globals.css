@@ -3,6 +3,9 @@
 @tailwind utilities;
 
 @layer base {
+  html.text-size-large { font-size: 18px; }
+  html.text-size-xl { font-size: 20px; }
+
   body {
     @apply antialiased;
     -webkit-tap-highlight-color: transparent;

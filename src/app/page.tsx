@@ -6,7 +6,9 @@ import { useSocket } from './hooks/useSocket';
 import { useGameStore } from './stores/gameStore';
 import { CoupLogo } from './components/icons';
 import { HowToPlay } from './components/home/HowToPlay';
+import { SettingsModal } from './components/settings/SettingsModal';
 import { MAX_PLAYERS } from '@/shared/constants';
+import { haptic } from './utils/haptic';
 
 export default function Home() {
   const router = useRouter();
@@ -17,6 +19,7 @@ export default function Home() {
   const [roomCode, setRoomCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [showHowToPlay, setShowHowToPlay] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [isPublic, setIsPublic] = useState(false);
 
   useEffect(() => {
@@ -27,6 +30,7 @@ export default function Home() {
   }, [subscribeToBrowser, unsubscribeFromBrowser]);
 
   const handleCreate = async () => {
+    haptic(80);
     if (!name.trim()) { setError('Enter your name'); return; }
     setLoading(true);
     try {
@@ -41,6 +45,7 @@ export default function Home() {
   };
 
   const handleJoin = async () => {
+    haptic(80);
     if (!name.trim()) { setError('Enter your name'); return; }
     if (!roomCode.trim()) { setError('Enter room code'); return; }
     setLoading(true);
@@ -56,6 +61,7 @@ export default function Home() {
   };
 
   const handleBrowseJoin = async (code: string) => {
+    haptic(80);
     if (!name.trim()) { setError('Enter your name'); return; }
     setLoading(true);
     try {
@@ -74,6 +80,18 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden">
       <h1 className="sr-only">Coup Online — Free Multiplayer Bluffing Card Game</h1>
+
+      {/* Settings gear */}
+      <button
+        onClick={() => { haptic(); setShowSettings(true); }}
+        className="absolute top-4 right-4 w-9 h-9 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition flex items-center justify-center z-10"
+        title="Settings"
+      >
+        <svg viewBox="0 0 20 20" fill="currentColor" className="w-4.5 h-4.5">
+          <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+        </svg>
+      </button>
+
       {/* Decorative background pattern */}
       <div
         className="absolute inset-0 opacity-[0.03] pointer-events-none"
@@ -103,13 +121,13 @@ export default function Home() {
 
         {mode === 'idle' && (
           <div className="space-y-4 animate-fade-in">
-            <button className="btn-primary w-full" onClick={() => setMode('create')}>
+            <button className="btn-primary w-full" onClick={() => { haptic(); setMode('create'); }}>
               Create Room
             </button>
-            <button className="btn-secondary w-full" onClick={() => setMode('join')}>
+            <button className="btn-secondary w-full" onClick={() => { haptic(); setMode('join'); }}>
               Join Room
             </button>
-            <button className="btn-secondary w-full" onClick={() => setMode('browse')}>
+            <button className="btn-secondary w-full" onClick={() => { haptic(); setMode('browse'); }}>
               Browse Public Games
             </button>
 
@@ -121,7 +139,7 @@ export default function Home() {
 
             <button
               className="text-gray-400 hover:text-coup-accent text-sm font-medium transition-colors w-full py-2"
-              onClick={() => setShowHowToPlay(true)}
+              onClick={() => { haptic(); setShowHowToPlay(true); }}
             >
               How to Play
             </button>
@@ -144,7 +162,7 @@ export default function Home() {
                 type="button"
                 role="switch"
                 aria-checked={isPublic}
-                onClick={() => setIsPublic(!isPublic)}
+                onClick={() => { haptic(); setIsPublic(!isPublic); }}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isPublic ? 'bg-coup-accent' : 'bg-gray-600'}`}
               >
                 <span
@@ -161,7 +179,7 @@ export default function Home() {
             </button>
             <button
               className="btn-secondary w-full"
-              onClick={() => setMode('idle')}
+              onClick={() => { haptic(); setMode('idle'); }}
             >
               Back
             </button>
@@ -194,7 +212,7 @@ export default function Home() {
             </button>
             <button
               className="btn-secondary w-full"
-              onClick={() => setMode('idle')}
+              onClick={() => { haptic(); setMode('idle'); }}
             >
               Back
             </button>
@@ -259,7 +277,7 @@ export default function Home() {
 
             <button
               className="btn-secondary w-full"
-              onClick={() => setMode('idle')}
+              onClick={() => { haptic(); setMode('idle'); }}
             >
               Back
             </button>
@@ -289,6 +307,7 @@ export default function Home() {
       </div>
 
       <HowToPlay open={showHowToPlay} onClose={() => setShowHowToPlay(false)} />
+      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
     </div>
   );
 }

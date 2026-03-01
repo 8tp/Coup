@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { Modal } from '../ui/Modal';
 import { BotDifficulty } from '@/shared/types';
 import { BOT_NAMES, DEFAULT_BOT_DIFFICULTY } from '@/shared/constants';
+import { haptic } from '../../utils/haptic';
 
 interface AddBotModalProps {
   open: boolean;
@@ -109,7 +110,7 @@ export function AddBotModal({ open, onClose, onAdd, existingNames }: AddBotModal
             />
             <button
               type="button"
-              onClick={pickRandomName}
+              onClick={() => { haptic(); pickRandomName(); }}
               className="btn-secondary text-sm px-3 py-2"
             >
               Random
@@ -125,7 +126,7 @@ export function AddBotModal({ open, onClose, onAdd, existingNames }: AddBotModal
               <button
                 key={opt.value}
                 type="button"
-                onClick={() => setDifficulty(opt.value)}
+                onClick={() => { haptic(); setDifficulty(opt.value); }}
                 className={`w-full text-left px-4 py-3 rounded-lg border-2 transition ${
                   difficulty === opt.value
                     ? `${opt.bgColor} ${opt.borderColor}`
@@ -149,14 +150,14 @@ export function AddBotModal({ open, onClose, onAdd, existingNames }: AddBotModal
         <div className="flex gap-3">
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => { haptic(); onClose(); }}
             className="btn-secondary flex-1"
           >
             Cancel
           </button>
           <button
             type="button"
-            onClick={handleSubmit}
+            onClick={() => { haptic(80); handleSubmit(); }}
             disabled={submitting || !name.trim()}
             className="btn-primary flex-1"
           >

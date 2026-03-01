@@ -3,6 +3,7 @@
 import { ClientGameState, TurnPhase } from '@/shared/types';
 import { CardFace } from './CardFace';
 import { getSocket } from '../../hooks/useSocket';
+import { hapticHeavy } from '../../utils/haptic';
 
 interface InfluenceLossPromptProps {
   gameState: ClientGameState;
@@ -65,7 +66,7 @@ export function InfluenceLossPrompt({ gameState }: InfluenceLossPromptProps) {
           <button
             key={index}
             className="transition-transform hover:scale-110 active:scale-95"
-            onClick={() => socket.emit('game:choose_influence_loss', { influenceIndex: index })}
+            onClick={() => { hapticHeavy(); socket.emit('game:choose_influence_loss', { influenceIndex: index }); }}
           >
             <CardFace influence={inf} size="lg" disablePreview />
           </button>

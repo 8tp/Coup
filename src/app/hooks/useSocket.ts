@@ -60,6 +60,8 @@ export function useSocket() {
           if (!response.success) {
             sessionStorage.removeItem('coup_room');
             sessionStorage.removeItem('coup_player');
+            useGameStore.getState().clearRoom();
+            useGameStore.getState().setGameState(null);
           }
         });
       }

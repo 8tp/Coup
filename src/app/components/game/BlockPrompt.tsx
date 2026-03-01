@@ -5,6 +5,7 @@ import { ACTION_DEFINITIONS, ACTION_DISPLAY_NAMES } from '@/shared/constants';
 import { CHARACTER_SVG_ICONS } from '../icons';
 import { Timer } from '../ui/Timer';
 import { getSocket } from '../../hooks/useSocket';
+import { haptic } from '../../utils/haptic';
 
 interface BlockPromptProps {
   gameState: ClientGameState;
@@ -103,7 +104,7 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
             <button
               key={char}
               className="btn-primary w-full flex items-center justify-center gap-2"
-              onClick={() => socket.emit('game:block', { character: char })}
+              onClick={() => { haptic(80); socket.emit('game:block', { character: char }); }}
             >
               <Icon size={20} />
               Block with {char}
@@ -112,7 +113,7 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
         })}
         <button
           className="btn-secondary w-full"
-          onClick={() => socket.emit('game:pass_block')}
+          onClick={() => { haptic(80); socket.emit('game:pass_block'); }}
         >
           {isAssassination ? 'Don\'t block (lose an influence)' : 'Don\'t block'}
         </button>

@@ -1,0 +1,27 @@
+name: Feedback / Feature Request
+description: Suggest an improvement or share feedback
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What would you like to see?
+      description: Describe your idea or feedback.
+      placeholder: e.g. "It would be cool if bots had custom avatars"
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - Gameplay
+        - UI / Design
+        - Bots / AI
+        - Mobile experience
+        - Other
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Mockups, examples, or additional context.
