@@ -66,13 +66,13 @@ export function ExchangeView({ gameState }: ExchangeViewProps) {
           return (
             <button
               key={i}
+              title={char}
               className={`card-face card-face-lg ${characterColors[char]}
                 ${selectedIndices.includes(i) ? 'ring-2 ring-coup-accent scale-105' : 'opacity-60'}
                 transition-all cursor-pointer hover:scale-105`}
               onClick={() => toggleCard(i)}
             >
-              <Icon size={36} />
-              <span className="card-face-label">{char}</span>
+              <Icon size={48} />
             </button>
           );
         })}

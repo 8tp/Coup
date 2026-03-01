@@ -11,7 +11,7 @@ const characterColors: Record<Character, string> = {
   [Character.Contessa]: 'border-red-500 bg-red-900/40',
 };
 
-const iconPixelSizes = { sm: 20, md: 28, lg: 36 } as const;
+const iconPixelSizes = { sm: 28, md: 36, lg: 48 } as const;
 
 interface CardFaceProps {
   influence: ClientInfluence;
@@ -27,9 +27,8 @@ export function CardFace({ influence, size = 'md', onClick, selected }: CardFace
   if (influence.revealed && influence.character) {
     const Icon = CHARACTER_SVG_ICONS[influence.character];
     return (
-      <div className={`card-face ${sizeClass} ${characterColors[influence.character]} card-face-revealed`}>
+      <div title={influence.character} className={`card-face ${sizeClass} ${characterColors[influence.character]} card-face-revealed`}>
         <Icon size={iconPx} />
-        <span className="card-face-label">{influence.character}</span>
       </div>
     );
   }
@@ -38,13 +37,13 @@ export function CardFace({ influence, size = 'md', onClick, selected }: CardFace
     const Icon = CHARACTER_SVG_ICONS[influence.character];
     return (
       <div
+        title={influence.character}
         className={`card-face ${sizeClass} ${characterColors[influence.character]}
           ${onClick ? 'cursor-pointer hover:scale-105' : ''}
           ${selected ? 'ring-2 ring-coup-accent scale-105' : ''}`}
         onClick={onClick}
       >
         <Icon size={iconPx} />
-        <span className="card-face-label">{influence.character}</span>
       </div>
     );
   }
