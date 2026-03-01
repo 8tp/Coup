@@ -1,7 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
-import { ChallengeRevealEvent, ChatMessage, ClientGameState, PublicRoomInfo, RoomPlayer, RoomSettings } from '@/shared/types';
+import { ChallengeRevealEvent, ChatMessage, ClientGameState, ClientRoomPlayer, PublicRoomInfo, RoomSettings } from '@/shared/types';
 
 interface GameStore {
   // Connection state
@@ -12,11 +12,11 @@ interface GameStore {
   roomCode: string | null;
   playerId: string | null;
   hostId: string | null;
-  roomPlayers: RoomPlayer[];
+  roomPlayers: ClientRoomPlayer[];
   roomSettings: RoomSettings | null;
   lastWinnerId: string | null;
   setRoom: (roomCode: string, playerId: string) => void;
-  setRoomPlayers: (players: RoomPlayer[], hostId: string, settings: RoomSettings, lastWinnerId?: string | null) => void;
+  setRoomPlayers: (players: ClientRoomPlayer[], hostId: string, settings: RoomSettings, lastWinnerId?: string | null) => void;
   clearRoom: () => void;
 
   // Game state
