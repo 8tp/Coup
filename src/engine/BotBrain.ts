@@ -201,6 +201,63 @@ export class BotBrain {
     return candidates[Math.floor(Math.random() * candidates.length)].id;
   }
 
+  /**
+   * Analyze action log to find which alive opponents have demonstrated
+   * having specific characters (via successful blocks or unchallenged claims).
+   * Used by hard bots to avoid repeatedly blocked actions.
+   */
+  private static getDemonstratedCharacters(game: Game, botId: string): Map<string, Set<Character>> {
+    const demonstrated = new Map<string, Set<Character>>();
+    const log = game.actionLog;
+
+    const addDemo = (playerId: string, char: Character) => {
+      if (playerId === botId) return;
+      if (!demonstrated.has(playerId)) demonstrated.set(playerId, new Set());
+      demonstrated.get(playerId)!.add(char);
+    };
+
+    for (let i = 0; i < log.length; i++) {
+      const entry = log[i];
+
+      // Track successful blocks (unchallenged or proven honest)
+      if (entry.eventType === 'block' && entry.actorId && entry.character) {
+        for (let j = i + 1; j < log.length; j++) {
+          const o = log[j];
+          if (o.eventType === 'block_unchallenged' || o.eventType === 'block_challenge_fail') {
+            addDemo(entry.actorId, entry.character);
+            break;
+          }
+          if (o.eventType === 'block_challenge_success') break;
+          if (o.eventType === 'turn_start') break;
+        }
+      }
+
+      // Track unchallenged or proven action claims
+      if (entry.eventType === 'claim_action' && entry.actorId && entry.character) {
+        for (let j = i + 1; j < log.length; j++) {
+          const o = log[j];
+          if (o.eventType === 'challenge_success') break;
+          if (o.eventType === 'challenge_fail') {
+            addDemo(entry.actorId, entry.character);
+            break;
+          }
+          if (o.eventType === 'action_resolve' || o.eventType === 'block' || o.eventType === 'turn_start') {
+            addDemo(entry.actorId, entry.character);
+            break;
+          }
+        }
+      }
+    }
+
+    // Only keep alive players
+    for (const playerId of [...demonstrated.keys()]) {
+      const player = game.getPlayer(playerId);
+      if (!player || !player.isAlive) demonstrated.delete(playerId);
+    }
+
+    return demonstrated;
+  }
+
   /** Weighted random pick from candidates. */
   private static weightedPick(
     candidates: Array<{ action: ActionType; targetId?: string; weight: number }>,
@@ -382,6 +439,9 @@ export class BotBrain {
     const alivePlayers = game.getAlivePlayers();
     const dukeRevealed = revealed.get(Character.Duke) || 0;
 
+    // Learn from opponents' demonstrated characters (successful blocks + unchallenged claims)
+    const demonstrated = this.getDemonstratedCharacters(game, botId);
+
     // Detect 3P1L endgame (3 players, all with 1 life)
     const is3P1L = aliveCount === 3 && alivePlayers.every(p => p.aliveInfluenceCount === 1);
 
@@ -425,7 +485,11 @@ export class BotBrain {
     candidates.push({ action: ActionType.Income, weight: 1 });
     // Foreign Aid is weak — easily blocked by any Duke claim, especially early
     const faWeight = aliveCount > 3 ? 0.5 : aliveCount === 2 ? 1.5 : 1;
-    candidates.push({ action: ActionType.ForeignAid, weight: faWeight });
+    // Heavily reduce if any alive opponent has demonstrated Duke (via block or Tax claim)
+    const aliveDukeCount = alivePlayers.filter(p =>
+      p.id !== botId && demonstrated.get(p.id)?.has(Character.Duke)).length;
+    const faDemoMod = aliveDukeCount > 0 ? 0.15 : 1.0;
+    candidates.push({ action: ActionType.ForeignAid, weight: faWeight * faDemoMod });
 
     // Tax (Duke) — consensus best action, especially early game
     const hasDuke = ownedCharacters.includes(Character.Duke);
@@ -442,13 +506,21 @@ export class BotBrain {
     if (stealTargets.length > 0) {
       const hasCaptain = ownedCharacters.includes(Character.Captain);
       const captainRevealed = revealed.get(Character.Captain) || 0;
-      const targetId = this.pickTarget(game, botId, 'hard', stealTargets.map(p => p.id));
+      // Prefer targets who haven't demonstrated steal-blocking (Captain/Ambassador)
+      const unblockedStealTargets = stealTargets.filter(p => {
+        const demo = demonstrated.get(p.id);
+        return !demo || (!demo.has(Character.Captain) && !demo.has(Character.Ambassador));
+      });
+      const effectiveTargets = unblockedStealTargets.length > 0 ? unblockedStealTargets : stealTargets;
+      const targetId = this.pickTarget(game, botId, 'hard', effectiveTargets.map(p => p.id));
+      // Reduce weight if all steal targets have demonstrated blocking
+      const stealDemoMod = unblockedStealTargets.length > 0 ? 1.0 : 0.25;
       if (hasCaptain) {
         const weight = aliveCount === 2 ? 8 : 5; // Dominant in 1v1
-        candidates.push({ action: ActionType.Steal, targetId, weight });
+        candidates.push({ action: ActionType.Steal, targetId, weight: weight * stealDemoMod });
       } else if (captainRevealed < 2) {
         const weight = aliveCount === 2 ? 5 : 3;
-        candidates.push({ action: ActionType.Steal, targetId, weight: weight * bluffMod });
+        candidates.push({ action: ActionType.Steal, targetId, weight: weight * bluffMod * stealDemoMod });
       }
     }
 

@@ -11,6 +11,7 @@ import {
 } from '../shared/types';
 import {
   ACTION_DEFINITIONS,
+  ACTION_DISPLAY_NAMES,
   CHALLENGE_TIMER_MS,
   BLOCK_TIMER_MS,
   FORCED_COUP_THRESHOLD,
@@ -145,7 +146,7 @@ export class ActionResolver {
       const targetPart = targetName ? ` targeting ${targetName}` : '';
       sideEffects.push({
         type: 'log',
-        message: `${actor.name} claims ${def.claimedCharacter} to ${actionType}${targetPart}.`,
+        message: `${actor.name} claims ${def.claimedCharacter} to ${ACTION_DISPLAY_NAMES[actionType]}${targetPart}.`,
         eventType: 'claim_action',
         character: def.claimedCharacter,
         actorId,
@@ -154,7 +155,7 @@ export class ActionResolver {
     } else {
       sideEffects.push({
         type: 'log',
-        message: `${actor.name} declares ${actionType}.`,
+        message: `${actor.name} declares ${ACTION_DISPLAY_NAMES[actionType]}.`,
         eventType: 'declare_action',
         character: null,
         actorId,
