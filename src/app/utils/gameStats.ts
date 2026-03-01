@@ -303,6 +303,73 @@ function selectAwards(stats: Map<string, PlayerStats>): Award[] {
   return selected;
 }
 
+export function getWinnerFlavorText(gameState: ClientGameState): string {
+  const winnerId = gameState.winnerId;
+  if (!winnerId) return 'Your bluffs were legendary.';
+
+  const playerIds = gameState.players.map(p => p.id);
+  const playerNames = new Map<string, string>();
+  for (const p of gameState.players) {
+    playerNames.set(p.id, p.name);
+  }
+
+  const stats = computePlayerStats(gameState.actionLog, playerIds, playerNames);
+  const w = stats.get(winnerId);
+  if (!w) return 'Your bluffs were legendary.';
+
+  // Pure Income + Coup — no character claims at all
+  if (w.actionsClaimed === 0) {
+    return 'Sometimes honesty is the best strategy.';
+  }
+
+  // Caught bluffing multiple times but still won
+  if (w.timesCaughtBluffing >= 2) {
+    return 'Caught bluffing and still standing. Impressive.';
+  }
+
+  // Caught bluffing once but still won
+  if (w.timesCaughtBluffing === 1) {
+    return "Caught red-handed, and it didn't even matter.";
+  }
+
+  // Great at reading opponents
+  if (w.challengesWon >= 2) {
+    return 'You read them like an open book.';
+  }
+
+  // Proven honest multiple times — truth as a weapon
+  if (w.timesProvenHonest >= 2) {
+    return 'The truth was your greatest weapon.';
+  }
+
+  // Assassination-heavy victory
+  if (w.assassinationsMade >= 2) {
+    return "The Assassin's blade served you well.";
+  }
+
+  // Coup-heavy victory
+  if (w.coupsMade >= 2) {
+    return 'Brute force gets the job done.';
+  }
+
+  // Block-heavy — defensive fortress
+  if (w.blocksMade >= 2) {
+    return 'An impenetrable defense.';
+  }
+
+  // Many claims, never caught — unquestioned authority
+  if (w.actionsClaimed >= 3 && w.timesCaughtBluffing === 0) {
+    return 'Nobody dared question you.';
+  }
+
+  // Quick victory
+  if (gameState.turnNumber <= 6) {
+    return 'Swift and decisive.';
+  }
+
+  return 'Your bluffs were legendary.';
+}
+
 export function computeAwards(gameState: ClientGameState): Award[] {
   if (gameState.turnNumber < 3) return [];
 

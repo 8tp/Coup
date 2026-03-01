@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { ClientGameState, ClientInfluence, TurnPhase } from '@/shared/types';
 import { useGameStore } from '../../stores/gameStore';
-import { computeAwards } from '../../utils/gameStats';
+import { computeAwards, getWinnerFlavorText } from '../../utils/gameStats';
 import { CardFace } from './CardFace';
 
 function ResultCard({ influence }: { influence: ClientInfluence }) {
@@ -20,6 +20,7 @@ interface GameOverOverlayProps {
 export function GameOverOverlay({ gameState, isHost, onRematch }: GameOverOverlayProps) {
   const challengeReveal = useGameStore(s => s.challengeReveal);
   const awards = useMemo(() => computeAwards(gameState), [gameState]);
+  const winnerFlavor = useMemo(() => getWinnerFlavorText(gameState), [gameState]);
 
   // Wait for any challenge reveal animation to finish before showing
   if (gameState.turnPhase !== TurnPhase.GameOver || challengeReveal) return null;
@@ -45,7 +46,7 @@ export function GameOverOverlay({ gameState, isHost, onRematch }: GameOverOverla
             {isMe ? 'You Win!' : `${winner?.name} Wins!`}
           </h1>
           <p className="text-coup-accent text-sm">
-            {isMe ? 'Your bluffs were legendary.' : 'Better luck next time.'}
+            {isMe ? winnerFlavor : 'Better luck next time.'}
           </p>
           <p className="text-gray-500 text-xs mt-1">
             {gameState.turnNumber} turns
