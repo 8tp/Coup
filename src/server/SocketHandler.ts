@@ -263,6 +263,7 @@ export class SocketHandler {
       if (botPlayers.length > 0) {
         const botController = new BotController(engine, botPlayers);
         this.roomManager.setBotController(roomCode, botController);
+        this.wireBotEmoteCallback(roomCode, botController);
       }
 
       engine.setOnStateChange((state: GameState) => {
@@ -491,15 +492,39 @@ export class SocketHandler {
     const replaced = this.roomManager.replaceWithBot(roomCode, playerId);
     if (!replaced) return;
 
+    // Ensure emote callback is wired (BotController may have been newly created)
+    const bc = this.roomManager.getBotController(roomCode);
+    if (bc) {
+      this.wireBotEmoteCallback(roomCode, bc);
+    }
+
     // Broadcast updated room and game state
     this.broadcastRoomUpdate(roomCode);
     const engine = this.roomManager.getEngine(roomCode);
     if (engine) {
       this.broadcastGameState(roomCode, engine.getFullState());
       // Trigger bot evaluation so the new bot acts if it's their turn
-      const bc = this.roomManager.getBotController(roomCode);
       bc?.onStateChange();
     }
+  }
+
+  private wireBotEmoteCallback(roomCode: string, botController: BotController): void {
+    botController.setOnBotEmote((botId, botName, reactionId) => {
+      this.io.to(roomCode).emit('reaction:fired', {
+        playerId: botId,
+        reactionId,
+        timestamp: Date.now(),
+      });
+      const reaction = REACTIONS.find(r => r.id === reactionId);
+      if (reaction) {
+        const chatMsg = this.roomManager.addBotChatMessage(
+          roomCode, botId, botName, `${reaction.emoji} ${reaction.label}`
+        );
+        if (chatMsg && !('error' in chatMsg)) {
+          this.io.to(roomCode).emit('chat:message', chatMsg);
+        }
+      }
+    });
   }
 
   private broadcastRoomUpdate(roomCode: string): void {

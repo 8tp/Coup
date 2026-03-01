@@ -38,6 +38,9 @@ export const BOT_NAMES = [
   'R2-D2', 'HAL 9000', 'WALL-E', 'Terminator', 'GLaDOS',
   'JARVIS', 'Data', 'Cortana', 'Baymax', 'Optimus',
   'Ultron', 'Skynet', 'Bender', 'C-3PO', 'Marvin',
+  'Agent Smith', 'Megatron', 'Robocop', 'TARS', 'Samantha',
+  'EVE', 'Bishop', 'Sonny', 'MU-TH-UR', 'Auto',
+  'Ash', 'Johnny 5', 'GERTY', 'T-1000', 'Dolores',
 ];
 export const DEFAULT_BOT_DIFFICULTY: BotDifficulty = 'medium';
 export const BOT_ACTION_DELAY_MIN = 1500;
@@ -45,6 +48,34 @@ export const BOT_ACTION_DELAY_MAX = 3500;
 export const BOT_REACTION_DELAY_MIN = 800;
 export const BOT_REACTION_DELAY_MAX = 2000;
 export const DISCONNECT_BOT_REPLACE_MS = 60_000;
+
+// ─── Bot Emote Constants ───
+export const BOT_EMOTE_DELAY_MIN = 500;
+export const BOT_EMOTE_DELAY_MAX = 2500;
+export const BOT_EMOTE_COOLDOWN_MS = 8000;
+
+export type BotEmoteRole = 'actor' | 'target' | 'other';
+
+export interface BotEmoteTrigger {
+  eventTypes: LogEventType[];
+  botRole: BotEmoteRole;
+  niceReactions: string[];
+  meanReactions: string[];
+}
+
+export const BOT_EMOTE_TRIGGERS: BotEmoteTrigger[] = [
+  { eventTypes: ['coup'], botRole: 'target', niceReactions: ['rip', 'wow'], meanReactions: ['salty', 'cope'] },
+  { eventTypes: ['assassination'], botRole: 'target', niceReactions: ['wow', 'rip'], meanReactions: ['salty', 'cope'] },
+  { eventTypes: ['challenge_success'], botRole: 'actor', niceReactions: ['lol', 'wow'], meanReactions: ['big_brain', 'eyes'] },
+  { eventTypes: ['challenge_success'], botRole: 'target', niceReactions: ['sweat'], meanReactions: ['cope'] },
+  { eventTypes: ['challenge_fail'], botRole: 'target', niceReactions: ['sweat'], meanReactions: ['cope', 'salty'] },
+  { eventTypes: ['elimination'], botRole: 'other', niceReactions: ['rip'], meanReactions: ['lol', 'cope'] },
+  { eventTypes: ['block'], botRole: 'actor', niceReactions: ['no_way'], meanReactions: ['no_way', 'sus'] },
+  { eventTypes: ['action_resolve'], botRole: 'actor', niceReactions: ['gg', 'nice_bluff'], meanReactions: ['lol', 'big_brain'] },
+  { eventTypes: ['action_resolve'], botRole: 'target', niceReactions: ['wow'], meanReactions: ['salty', 'eyes'] },
+  { eventTypes: ['win'], botRole: 'actor', niceReactions: ['gg'], meanReactions: ['lol', 'big_brain'] },
+  { eventTypes: ['win'], botRole: 'other', niceReactions: ['gg', 'rip'], meanReactions: ['salty', 'cope'] },
+];
 
 // ─── Chat Constants ───
 export const CHAT_MAX_MESSAGE_LENGTH = 200;
