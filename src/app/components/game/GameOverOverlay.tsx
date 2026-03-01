@@ -117,7 +117,7 @@ export function GameOverOverlay({ gameState, isHost, onRematch }: GameOverOverla
                   <span className="text-lg leading-none mt-0.5">{award.emoji}</span>
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-gray-200">{award.title}</p>
-                    <p className="text-xs text-gray-500">{award.playerName} · {award.description}</p>
+                    <p className="text-xs"><span className="text-gray-300 font-medium">{award.playerName}</span><span className="text-gray-500"> · {award.description}</span></p>
                   </div>
                 </div>
               ))}

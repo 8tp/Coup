@@ -548,10 +548,13 @@ export class BotBrain {
     // a failed challenge costs us what we'd lose anyway, so be more aggressive
     const isDesperateTarget = pendingAction.targetId === botId && bot.aliveInfluenceCount === 1;
 
-    // If all copies are accounted for, 100% challenge
+    // If all copies are accounted for, 100% challenge (guaranteed catch)
     if (accountedFor >= CARDS_PER_CHARACTER) {
       return { type: 'challenge' };
     }
+
+    // Early game: less information available, less reason to challenge
+    const earlyGameMod = game.turnNumber <= 2 ? 0.3 : game.turnNumber <= 4 ? 0.6 : 1.0;
 
     // At 1 influence, be more cautious with challenges (elimination risk)
     // unless we're the target (desperate = nothing to lose)
@@ -561,18 +564,18 @@ export class BotBrain {
 
     // If 2+ copies accounted for, high challenge rate
     if (accountedFor >= 2) {
-      const prob = Math.min(0.7 * cautionMod + desperationBoost, 0.85);
+      const prob = Math.min(0.7 * cautionMod * earlyGameMod + desperationBoost, 0.85);
       return Math.random() < prob ? { type: 'challenge' } : { type: 'pass_challenge' };
     }
 
     // If bot holds a copy, moderate challenge rate
     if (botHoldsCount > 0) {
-      const prob = Math.min(0.4 * cautionMod + desperationBoost, 0.7);
+      const prob = Math.min(0.4 * cautionMod * earlyGameMod + desperationBoost, 0.7);
       return Math.random() < prob ? { type: 'challenge' } : { type: 'pass_challenge' };
     }
 
     // Otherwise low challenge rate — but boost if desperate (nothing to lose)
-    const baseProb = 0.1 * cautionMod + desperationBoost;
+    const baseProb = 0.1 * cautionMod * earlyGameMod + desperationBoost;
     return Math.random() < baseProb ? { type: 'challenge' } : { type: 'pass_challenge' };
   }
 
