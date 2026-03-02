@@ -1,3 +1,4 @@
+import { randomInt } from 'crypto';
 import {
   ActionType,
   ChallengeRevealEvent,
@@ -263,7 +264,7 @@ export class GameEngine {
       // Must coup — pick a random alive opponent
       const targets = this.game.getAlivePlayers().filter(p => p.id !== actor.id);
       if (targets.length === 0) return;
-      const target = targets[Math.floor(Math.random() * targets.length)];
+      const target = targets[randomInt(targets.length)];
       this.handleAction(actor.id, ActionType.Coup, target.id);
     } else {
       // Auto-Income
@@ -444,7 +445,7 @@ export class GameEngine {
         break;
       }
       case 'log': {
-        this.game.log(effect.message, effect.eventType, effect.character, effect.actorId, effect.actorName);
+        this.game.log(effect.message, effect.eventType, effect.character, effect.actorId, effect.actorName, effect.targetId);
         break;
       }
       case 'start_exchange': {

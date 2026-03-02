@@ -2,19 +2,19 @@
 
 import { useState, useCallback } from 'react';
 import { Modal } from '../ui/Modal';
-import { BotDifficulty } from '@/shared/types';
-import { BOT_NAMES, DEFAULT_BOT_DIFFICULTY } from '@/shared/constants';
+import { BotPersonality } from '@/shared/types';
+import { BOT_NAMES, DEFAULT_BOT_PERSONALITY } from '@/shared/constants';
 import { haptic } from '../../utils/haptic';
 
 interface AddBotModalProps {
   open: boolean;
   onClose: () => void;
-  onAdd: (name: string, difficulty: BotDifficulty) => Promise<void>;
+  onAdd: (name: string, personality: BotPersonality) => Promise<void>;
   existingNames: string[];
 }
 
-const DIFFICULTY_OPTIONS: Array<{
-  value: BotDifficulty;
+const PERSONALITY_OPTIONS: Array<{
+  value: BotPersonality;
   label: string;
   description: string;
   color: string;
@@ -22,42 +22,66 @@ const DIFFICULTY_OPTIONS: Array<{
   borderColor: string;
 }> = [
   {
-    value: 'easy',
-    label: 'Easy',
-    description: 'Plays honestly, never bluffs or challenges',
-    color: 'text-green-400',
-    bgColor: 'bg-green-500/20',
-    borderColor: 'border-green-500',
+    value: 'random',
+    label: 'Random',
+    description: 'Hidden random personality',
+    color: 'text-purple-400',
+    bgColor: 'bg-purple-500/20',
+    borderColor: 'border-purple-500',
   },
   {
-    value: 'medium',
-    label: 'Medium',
-    description: 'Occasional bluffs and challenges',
-    color: 'text-yellow-400',
-    bgColor: 'bg-yellow-500/20',
-    borderColor: 'border-yellow-500',
-  },
-  {
-    value: 'hard',
-    label: 'Hard',
-    description: 'Strategic play with card counting',
+    value: 'aggressive',
+    label: 'Aggressive',
+    description: 'High bluff rates, offensive actions',
     color: 'text-red-400',
     bgColor: 'bg-red-500/20',
     borderColor: 'border-red-500',
   },
   {
-    value: 'random',
-    label: 'Random',
-    description: 'Randomly assigned difficulty — keep them guessing',
-    color: 'text-purple-400',
-    bgColor: 'bg-purple-500/20',
-    borderColor: 'border-purple-500',
+    value: 'conservative',
+    label: 'Conservative',
+    description: 'Plays honest, rarely bluffs',
+    color: 'text-green-400',
+    bgColor: 'bg-green-500/20',
+    borderColor: 'border-green-500',
+  },
+  {
+    value: 'vengeful',
+    label: 'Vengeful',
+    description: 'Retaliates against attackers',
+    color: 'text-orange-400',
+    bgColor: 'bg-orange-500/20',
+    borderColor: 'border-orange-500',
+  },
+  {
+    value: 'deceptive',
+    label: 'Deceptive',
+    description: 'Constant bluffs, avoids challenges',
+    color: 'text-pink-400',
+    bgColor: 'bg-pink-500/20',
+    borderColor: 'border-pink-500',
+  },
+  {
+    value: 'analytical',
+    label: 'Analytical',
+    description: 'Evidence-based, calculated risks',
+    color: 'text-blue-400',
+    bgColor: 'bg-blue-500/20',
+    borderColor: 'border-blue-500',
+  },
+  {
+    value: 'optimal',
+    label: 'Optimal',
+    description: 'Strategic play with card counting',
+    color: 'text-yellow-400',
+    bgColor: 'bg-yellow-500/20',
+    borderColor: 'border-yellow-500',
   },
 ];
 
 export function AddBotModal({ open, onClose, onAdd, existingNames }: AddBotModalProps) {
   const [name, setName] = useState('');
-  const [difficulty, setDifficulty] = useState<BotDifficulty>(DEFAULT_BOT_DIFFICULTY);
+  const [personality, setPersonality] = useState<BotPersonality>(DEFAULT_BOT_PERSONALITY);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -81,10 +105,10 @@ export function AddBotModal({ open, onClose, onAdd, existingNames }: AddBotModal
     setSubmitting(true);
     setError(null);
     try {
-      await onAdd(trimmed, difficulty);
+      await onAdd(trimmed, personality);
       // Reset and close
       setName('');
-      setDifficulty(DEFAULT_BOT_DIFFICULTY);
+      setPersonality(DEFAULT_BOT_PERSONALITY);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add bot');
@@ -118,22 +142,22 @@ export function AddBotModal({ open, onClose, onAdd, existingNames }: AddBotModal
           </div>
         </div>
 
-        {/* Difficulty Selector */}
+        {/* Personality Selector */}
         <div>
-          <label className="block text-sm text-gray-400 mb-2">Difficulty</label>
+          <label className="block text-sm text-gray-400 mb-2">Personality</label>
           <div className="space-y-2">
-            {DIFFICULTY_OPTIONS.map(opt => (
+            {PERSONALITY_OPTIONS.map(opt => (
               <button
                 key={opt.value}
                 type="button"
-                onClick={() => { haptic(); setDifficulty(opt.value); }}
+                onClick={() => { haptic(); setPersonality(opt.value); }}
                 className={`w-full text-left px-4 py-3 rounded-lg border-2 transition ${
-                  difficulty === opt.value
+                  personality === opt.value
                     ? `${opt.bgColor} ${opt.borderColor}`
                     : 'border-gray-700 hover:border-gray-500'
                 }`}
               >
-                <span className={`font-bold text-sm ${difficulty === opt.value ? opt.color : 'text-gray-300'}`}>
+                <span className={`font-bold text-sm ${personality === opt.value ? opt.color : 'text-gray-300'}`}>
                   {opt.label}
                 </span>
                 <p className="text-xs text-gray-400 mt-0.5">{opt.description}</p>

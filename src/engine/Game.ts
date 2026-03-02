@@ -1,3 +1,4 @@
+import { randomInt } from 'crypto';
 import {
   GameState,
   GameStatus,
@@ -43,7 +44,7 @@ export class Game {
     });
 
     // Randomize starting player
-    this.currentPlayerIndex = Math.floor(Math.random() * this.players.length);
+    this.currentPlayerIndex = randomInt(this.players.length);
     this.turnPhase = TurnPhase.AwaitingAction;
     this.status = GameStatus.InProgress;
     this.turnNumber = 1;
@@ -128,6 +129,7 @@ export class Game {
     character: Character | null = null,
     actorId: string | null = null,
     actorName: string | null = null,
+    targetId?: string | null,
   ): void {
     this.actionLog.push({
       message,
@@ -137,6 +139,7 @@ export class Game {
       turnNumber: this.turnNumber,
       actorId,
       actorName,
+      targetId: targetId ?? null,
     });
   }
 

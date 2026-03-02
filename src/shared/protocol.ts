@@ -1,4 +1,4 @@
-import { ActionType, BotDifficulty, ChallengeRevealEvent, Character, ChatMessage, ClientGameState, ClientRoomPlayer, PublicRoomInfo, ReactionEvent, RoomSettings } from './types';
+import { ActionType, BotPersonality, ChallengeRevealEvent, Character, ChatMessage, ClientGameState, ClientRoomPlayer, PublicRoomInfo, ReactionEvent, RoomSettings } from './types';
 
 // ─── Client → Server Events ───
 export interface ClientToServerEvents {
@@ -28,7 +28,7 @@ export interface ClientToServerEvents {
   'game:rematch': () => void;
 
   // Bots
-  'bot:add': (data: { name: string; difficulty: BotDifficulty }, callback: (response: { success: boolean; botId?: string; error?: string }) => void) => void;
+  'bot:add': (data: { name: string; personality: BotPersonality }, callback: (response: { success: boolean; botId?: string; error?: string }) => void) => void;
   'bot:remove': (data: { botId: string }, callback: (response: { success: boolean; error?: string }) => void) => void;
 
   // Room settings
@@ -39,7 +39,7 @@ export interface ClientToServerEvents {
   'browser:unsubscribe': () => void;
 
   // Reconnection
-  'room:rejoin': (data: { roomCode: string; playerId: string }, callback: (response: RoomResponse) => void) => void;
+  'room:rejoin': (data: { roomCode: string; playerId: string; sessionToken?: string }, callback: (response: RoomResponse) => void) => void;
 }
 
 // ─── Server → Client Events ───
@@ -63,5 +63,6 @@ export interface RoomResponse {
   success: boolean;
   roomCode?: string;
   playerId?: string;
+  sessionToken?: string;
   error?: string;
 }

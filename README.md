@@ -26,7 +26,7 @@ Play Coup with 2–6 friends from any device — no app install, no accounts. Cr
 - **Real-time WebSocket gameplay** — instant action broadcasts via Socket.io
 - **Server-authoritative** — all game logic runs server-side; clients never see hidden cards
 - **Room codes** — 6-character codes for easy sharing, no accounts required
-- **Computer players** — add 1–5 AI opponents with 3 difficulty tiers (Easy, Medium, Hard)
+- **Computer players** — add 1–5 AI opponents with 7 personality types (Aggressive, Conservative, Vengeful, Deceptive, Analytical, Optimal, Random)
 - **Reconnection** — drop and rejoin mid-game without losing your seat
 - **Auto-cleanup** — stale rooms expire after 24 hours
 
@@ -76,27 +76,26 @@ The server starts at [http://localhost:3000](http://localhost:3000). Open it in 
 
 ### Computer Players
 
-The host can add AI opponents from the lobby. Each bot has a difficulty level:
+The host can add AI opponents from the lobby. Each bot has a personality type:
 
-| Difficulty | Bluffing | Challenges | Targeting | Strategy |
-|------------|----------|------------|-----------|----------|
-| **Easy** | Never bluffs | Never challenges | Random | Plays honestly — only uses cards it holds |
-| **Medium** | ~20% chance | ~10% base (boosted when holding claimed card or targeted) | 50% targets leader | Static card rankings, endgame-aware coup timing |
-| **Hard** | Selective — tuned to match real winner behavior | Card counting — 100% when all copies revealed | Always targets highest-coin player | See details below |
+| Personality | Play Style | Bluffing | Challenges | Targeting |
+|-------------|-----------|----------|------------|-----------|
+| **Random** | Hidden random personality | Varies | Varies | Varies |
+| **Aggressive** | Offensive actions, high risk | High bluff rates | Aggressive | Always targets leader |
+| **Conservative** | Safe play, rarely bluffs | Very low | Rarely challenges | Avoids conflict |
+| **Vengeful** | Retaliates against attackers | Moderate | Moderate | Targets last attacker |
+| **Deceptive** | Constant bluffs, avoids scrutiny | Highest across all types | Avoids challenging | Leader-focused |
+| **Analytical** | Evidence-based, calculated | Low-moderate | High with evidence | Strong leader targeting |
+| **Optimal** | Strategic card counting | Selective (~12%) | Card counting-based | Highest-coin player |
 
-Bot strategies were tuned by analyzing **689,000+ real games** from the [treason](https://github.com/octachrome/treason) online Coup server, comparing winner-only action patterns against our simulated bot behavior across 5 rounds of iterative tuning. See [Bot Strategy Deep Dive](docs/BOT-STRATEGY.md) for the full methodology.
+All bots share the same underlying architecture — card counting, bluff persistence, deck memory, endgame tactics — with personality parameters modulating behavior. Strategies were tuned by analyzing **689,000+ real games** from the [treason](https://github.com/octachrome/treason) online Coup server. See [Bot Strategy Deep Dive](docs/BOT-STRATEGY.md) for the full methodology.
 
-**Hard bot strategy:**
-- **Card counting** — tracks publicly revealed cards to calculate challenge probabilities. Challenges at 100% when all copies of a claimed character are accounted for (revealed + held), and scales down with less information
-- **Selective bluffing** — bluffs only ~12% of actions, matching real winner behavior. Bluff probability drops by 60% at 1 influence (elimination risk) and avoids bluffing characters with 2+ copies revealed
-- **Bluff persistence** — establishes a "bluff identity" by tracking unchallenged character claims. Strongly prefers re-claiming the same character (3.5x weight boost) over switching, matching real winner behavior where winners persist with successful bluffs ~30-50% of the time
-- **Weighted action selection** — context-aware weights: Duke/Tax favored early, Captain/Steal dominant in 1v1 (weight 8), assassination preferred over coup against 1-influence targets to save coins
-- **Honest Contessa** — blocks assassination with Contessa only 25%/15% of the time without holding it. Real winners hold the card 96% of the time they block — bluffing Contessa is a losing strategy
-- **Hail-mary challenges** — when targeted at 1 influence, challenges more aggressively since a failed challenge costs what would be lost anyway. In 1v1, always challenges if letting the action through means the opponent reaches 7 coins
-- **3P1L endgame** — in 3-player all-1-life scenarios, the coin leader uses anti-tempo strategy (Income/Exchange over Tax, lets Foreign Aid through) to avoid becoming the obvious coup target, while the underdog delays couping to accumulate
-- **Dynamic card values** — context-aware rankings for exchange and influence loss decisions. Captain is highest value in 1v1, Duke strongest early, Ambassador valuable for hand improvement with 3+ players, Contessa value scales with assassination threat
-- **Demonstrated character tracking** — remembers opponents' successful blocks and unchallenged claims to avoid actions that will be blocked again
-- **Block challenges** — uses card counting on blocks too, with higher aggression when the blocked action cost coins (e.g., assassination)
+**Core bot capabilities (all personalities):**
+- **Card counting** — tracks publicly revealed cards to calculate challenge probabilities
+- **Bluff persistence** — establishes a "bluff identity" by re-claiming the same character (3.5x weight boost)
+- **Dynamic card values** — context-aware rankings for exchange and influence loss decisions
+- **Demonstrated character tracking** — remembers opponents' successful blocks and unchallenged claims
+- **Endgame tactics** — 1v1 Steal preference, 3P1L anti-tempo strategy, hail-mary challenges at 1 influence
 
 Bots make decisions with realistic randomized delays (1.5–3.5s for actions, 0.8–2s for reactions) and follow all the same rules as human players — they never peek at hidden cards or the deck.
 
@@ -179,7 +178,7 @@ Coup/
 │   ├── engine/                     # Pure game logic (no I/O)
 │   │   ├── GameEngine.ts           # Orchestrator: timers, state, broadcasts
 │   │   ├── ActionResolver.ts       # State machine: phase transitions + side effects
-│   │   ├── BotBrain.ts             # AI decision logic: difficulty-tiered choices
+│   │   ├── BotBrain.ts             # AI decision logic: personality-parameterized choices
 │   │   ├── Game.ts                 # Game state: players, deck, turns, treasury
 │   │   ├── Player.ts              # Player model: influences, coins
 │   │   └── Deck.ts                # Card deck: shuffle, draw, return

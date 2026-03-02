@@ -24,12 +24,30 @@ app.prepare().then(() => {
   const server = express();
   const httpServer = createServer(server);
 
+  if (!dev && !process.env.CORS_ORIGIN) {
+    console.warn('WARNING: CORS_ORIGIN is not set in production. Cross-origin requests will be rejected.');
+  }
+
   const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
     cors: {
-      origin: dev ? '*' : (process.env.CORS_ORIGIN || true),
+      origin: dev ? '*' : (process.env.CORS_ORIGIN || false),
     },
     pingInterval: 10000,
     pingTimeout: 5000,
+  });
+
+  server.set('trust proxy', 1);
+
+  // Security headers
+  server.use((_req, res, next) => {
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('X-XSS-Protection', '0');
+    if (!dev) {
+      res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    }
+    next();
   });
 
   const roomManager = new RoomManager();

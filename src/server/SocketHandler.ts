@@ -1,7 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import { ClientToServerEvents, ServerToClientEvents } from '../shared/protocol';
-import { ActionType, GameState, GameStatus, TurnPhase } from '../shared/types';
-import { REACTIONS } from '../shared/constants';
+import { ActionType, BotPersonality, Character, GameState, GameStatus, TurnPhase } from '../shared/types';
+import { REACTIONS, RATE_LIMIT_ROOM_CREATE_MS, RATE_LIMIT_ROOM_JOIN_MS, RATE_LIMIT_GAME_ACTION_MS, RATE_LIMIT_BOT_ADD_MS } from '../shared/constants';
 import { validateName, validateChatMessage } from './ContentFilter';
 import { RoomManager } from './RoomManager';
 import { serializeForPlayer } from './StateSerializer';
@@ -9,15 +9,35 @@ import { BotController } from './BotController';
 
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 
+const VALID_CHARACTERS = new Set(Object.values(Character));
+const VALID_BOT_PERSONALITIES = new Set<string>(['aggressive', 'conservative', 'vengeful', 'deceptive', 'analytical', 'optimal', 'random']);
+
 export class SocketHandler {
   private io: Server<ClientToServerEvents, ServerToClientEvents>;
   private roomManager: RoomManager;
   /** Track connection count per IP for accurate unique player count. */
   private connectionsByIp: Map<string, number> = new Map();
+  /** Per-socket rate limits: socketId -> (eventName -> lastTimestamp) */
+  private socketRateLimits: Map<string, Map<string, number>> = new Map();
 
   constructor(io: Server<ClientToServerEvents, ServerToClientEvents>, roomManager: RoomManager) {
     this.io = io;
     this.roomManager = roomManager;
+  }
+
+  private checkRateLimit(socketId: string, event: string, limitMs: number): boolean {
+    let socketLimits = this.socketRateLimits.get(socketId);
+    if (!socketLimits) {
+      socketLimits = new Map();
+      this.socketRateLimits.set(socketId, socketLimits);
+    }
+    const now = Date.now();
+    const lastTime = socketLimits.get(event) || 0;
+    if (now - lastTime < limitMs) {
+      return false;
+    }
+    socketLimits.set(event, now);
+    return true;
   }
 
   private getSocketIp(socket: TypedSocket): string {
@@ -62,6 +82,11 @@ export class SocketHandler {
     });
 
     socket.on('room:create', (data, callback) => {
+      if (!this.checkRateLimit(socket.id, 'room:create', RATE_LIMIT_ROOM_CREATE_MS)) {
+        callback({ success: false, error: 'Too many requests, please wait' });
+        return;
+      }
+
       const nameResult = validateName(data.playerName);
       if (!nameResult.valid) {
         callback({ success: false, error: nameResult.error });
@@ -75,13 +100,20 @@ export class SocketHandler {
         success: true,
         roomCode: result.room.code,
         playerId: result.playerId,
+        sessionToken: result.sessionToken,
       });
 
+      console.log(`Room ${result.room.code} created by ${nameResult.sanitized}`);
       this.broadcastRoomUpdate(result.room.code);
       this.maybeBroadcastPublicRoomList(result.room);
     });
 
     socket.on('room:join', (data, callback) => {
+      if (!this.checkRateLimit(socket.id, 'room:join', RATE_LIMIT_ROOM_JOIN_MS)) {
+        callback({ success: false, error: 'Too many requests, please wait' });
+        return;
+      }
+
       const nameResult = validateName(data.playerName);
       const code = data.roomCode?.trim().toUpperCase();
       if (!nameResult.valid) {
@@ -101,10 +133,12 @@ export class SocketHandler {
 
       socket.leave('browser');
       socket.join(result.room.code);
+      console.log(`Player ${nameResult.sanitized} joined room ${result.room.code}`);
       callback({
         success: true,
         roomCode: result.room.code,
         playerId: result.playerId,
+        sessionToken: result.sessionToken,
       });
 
       this.broadcastRoomUpdate(result.room.code);
@@ -118,7 +152,7 @@ export class SocketHandler {
         return;
       }
 
-      const result = this.roomManager.rejoinRoom(code, data.playerId, socket.id);
+      const result = this.roomManager.rejoinRoom(code, data.playerId, socket.id, data.sessionToken);
       if ('error' in result) {
         callback({ success: false, error: result.error });
         return;
@@ -129,6 +163,7 @@ export class SocketHandler {
       this.roomManager.touchRoom(code);
 
       socket.join(result.room.code);
+      console.log(`Player ${result.player.name} rejoined room ${result.room.code}`);
       callback({
         success: true,
         roomCode: result.room.code,
@@ -173,6 +208,11 @@ export class SocketHandler {
     // ─── Bots ───
 
     socket.on('bot:add', (data, callback) => {
+      if (!this.checkRateLimit(socket.id, 'bot:add', RATE_LIMIT_BOT_ADD_MS)) {
+        callback({ success: false, error: 'Too many requests, please wait' });
+        return;
+      }
+
       const found = this.roomManager.getPlayerRoom(socket.id);
       if (!found) {
         callback({ success: false, error: 'Not in a room' });
@@ -183,13 +223,18 @@ export class SocketHandler {
         return;
       }
 
+      if (!VALID_BOT_PERSONALITIES.has(data.personality)) {
+        callback({ success: false, error: 'Invalid bot personality' });
+        return;
+      }
+
       const nameResult = validateName(data.name);
       if (!nameResult.valid) {
         callback({ success: false, error: nameResult.error });
         return;
       }
 
-      const result = this.roomManager.addBot(found.room.code, nameResult.sanitized, data.difficulty);
+      const result = this.roomManager.addBot(found.room.code, nameResult.sanitized, data.personality);
       if ('error' in result) {
         callback({ success: false, error: result.error });
         return;
@@ -265,6 +310,7 @@ export class SocketHandler {
 
       const engine = result;
       const roomCode = found.room.code;
+      console.log(`Game started in room ${roomCode} with ${found.room.players.length} players`);
 
       // Create BotController if there are bots in the room
       const botPlayers = found.room.players.filter(p => p.isBot);
@@ -285,6 +331,7 @@ export class SocketHandler {
             const winner = room.players.find(p => p.id === state.winnerId);
             if (winner) {
               winner.wins = (winner.wins || 0) + 1;
+              console.log(`Game finished in room ${roomCode} — winner: ${winner.name}`);
             }
             room.lastWinnerId = state.winnerId;
             this.broadcastRoomUpdate(roomCode);
@@ -385,6 +432,7 @@ export class SocketHandler {
         return;
       }
 
+      console.log(`Rematch initiated in room ${found.room.code}`);
       const room = this.roomManager.resetToLobby(found.room.code);
       if (!room) return;
 
@@ -397,6 +445,11 @@ export class SocketHandler {
     // ─── Game Actions ───
 
     socket.on('game:action', (data) => {
+      if (!this.checkRateLimit(socket.id, 'game:action', RATE_LIMIT_GAME_ACTION_MS)) {
+        socket.emit('game:error', { message: 'Too many requests, please wait' });
+        return;
+      }
+
       const ctx = this.getGameContext(socket);
       if (!ctx) return;
 
@@ -405,11 +458,21 @@ export class SocketHandler {
         return;
       }
 
+      if (data.targetId !== undefined && typeof data.targetId !== 'string') {
+        socket.emit('game:error', { message: 'Invalid target' });
+        return;
+      }
+
       const error = ctx.engine.handleAction(ctx.player.id, data.action, data.targetId);
       if (error) socket.emit('game:error', { message: error });
     });
 
     socket.on('game:challenge', () => {
+      if (!this.checkRateLimit(socket.id, 'game:action', RATE_LIMIT_GAME_ACTION_MS)) {
+        socket.emit('game:error', { message: 'Too many requests, please wait' });
+        return;
+      }
+
       const ctx = this.getGameContext(socket);
       if (!ctx) return;
 
@@ -418,6 +481,11 @@ export class SocketHandler {
     });
 
     socket.on('game:pass_challenge', () => {
+      if (!this.checkRateLimit(socket.id, 'game:action', RATE_LIMIT_GAME_ACTION_MS)) {
+        socket.emit('game:error', { message: 'Too many requests, please wait' });
+        return;
+      }
+
       const ctx = this.getGameContext(socket);
       if (!ctx) return;
 
@@ -426,14 +494,29 @@ export class SocketHandler {
     });
 
     socket.on('game:block', (data) => {
+      if (!this.checkRateLimit(socket.id, 'game:action', RATE_LIMIT_GAME_ACTION_MS)) {
+        socket.emit('game:error', { message: 'Too many requests, please wait' });
+        return;
+      }
+
       const ctx = this.getGameContext(socket);
       if (!ctx) return;
+
+      if (!VALID_CHARACTERS.has(data.character)) {
+        socket.emit('game:error', { message: 'Invalid character' });
+        return;
+      }
 
       const error = ctx.engine.handleBlock(ctx.player.id, data.character);
       if (error) socket.emit('game:error', { message: error });
     });
 
     socket.on('game:pass_block', () => {
+      if (!this.checkRateLimit(socket.id, 'game:action', RATE_LIMIT_GAME_ACTION_MS)) {
+        socket.emit('game:error', { message: 'Too many requests, please wait' });
+        return;
+      }
+
       const ctx = this.getGameContext(socket);
       if (!ctx) return;
 
@@ -442,6 +525,11 @@ export class SocketHandler {
     });
 
     socket.on('game:challenge_block', () => {
+      if (!this.checkRateLimit(socket.id, 'game:action', RATE_LIMIT_GAME_ACTION_MS)) {
+        socket.emit('game:error', { message: 'Too many requests, please wait' });
+        return;
+      }
+
       const ctx = this.getGameContext(socket);
       if (!ctx) return;
 
@@ -450,6 +538,11 @@ export class SocketHandler {
     });
 
     socket.on('game:pass_challenge_block', () => {
+      if (!this.checkRateLimit(socket.id, 'game:action', RATE_LIMIT_GAME_ACTION_MS)) {
+        socket.emit('game:error', { message: 'Too many requests, please wait' });
+        return;
+      }
+
       const ctx = this.getGameContext(socket);
       if (!ctx) return;
 
@@ -458,10 +551,15 @@ export class SocketHandler {
     });
 
     socket.on('game:choose_influence_loss', (data) => {
+      if (!this.checkRateLimit(socket.id, 'game:action', RATE_LIMIT_GAME_ACTION_MS)) {
+        socket.emit('game:error', { message: 'Too many requests, please wait' });
+        return;
+      }
+
       const ctx = this.getGameContext(socket);
       if (!ctx) return;
 
-      if (typeof data.influenceIndex !== 'number') {
+      if (data.influenceIndex !== 0 && data.influenceIndex !== 1) {
         socket.emit('game:error', { message: 'Invalid influence index' });
         return;
       }
@@ -485,6 +583,7 @@ export class SocketHandler {
 
     socket.on('disconnect', () => {
       this.untrackConnection(socket);
+      this.socketRateLimits.delete(socket.id);
       this.handleDisconnect(socket);
     });
   }

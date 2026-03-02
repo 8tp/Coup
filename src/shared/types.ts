@@ -146,6 +146,8 @@ export interface LogEntry {
   turnNumber: number;
   actorId: string | null;
   actorName: string | null;
+  /** The player targeted by this action (steal, assassinate, coup), if any. */
+  targetId?: string | null;
 }
 
 // ─── Client-visible state (what gets sent to each player) ───
@@ -202,8 +204,39 @@ export interface ClientExchangeState {
   keepCount: number;
 }
 
-// ─── Bot Difficulty ───
-export type BotDifficulty = 'easy' | 'medium' | 'hard' | 'random';
+// ─── Bot Personality ───
+export type BotPersonality = 'aggressive' | 'conservative' | 'vengeful' | 'deceptive' | 'analytical' | 'optimal' | 'random';
+
+export interface PersonalityParams {
+  name: Exclude<BotPersonality, 'random'>;
+
+  // Bluff rates (probability of bluffing when bot does NOT hold the card)
+  bluffRateTax: number;
+  bluffRateSteal: number;
+  bluffRateAssassinate: number;
+  bluffRateExchange: number;
+  bluffRateContessa: number;       // Contessa block bluff when targeted by assassination
+  bluffRateOtherBlock: number;     // Other block bluffs (Duke FA block, Captain/Amb steal block)
+
+  // Challenge rates
+  challengeRateBase: number;       // Base probability of challenging an action claim
+  challengeRateWithEvidence: number; // Boost when bot holds a copy of the claimed character
+  challengeRateBlock: number;      // Rate of challenging opponent's block claim
+
+  // Action weight modifiers (multiplied onto the base weight for each action)
+  actionWeightIncome: number;
+  actionWeightForeignAid: number;
+  actionWeightSteal: number;
+  actionWeightAssassinate: number;
+
+  // Targeting
+  leaderBias: number;              // 0-1, probability of targeting the coin leader
+  revengeWeight: number;           // 0-1, weight given to revenge targeting vs leader targeting
+
+  // Card valuation
+  cardValueSpread: number;         // >1 steepens card ranking, <1 flattens it (1.0 = same as optimal)
+  bluffPersistenceModifier: number; // Multiplier on bluff persistence boost (1.0 = same as optimal's 3.5)
+}
 
 // ─── Room ───
 export interface Room {
@@ -222,9 +255,11 @@ export interface RoomPlayer {
   socketId: string;
   connected: boolean;
   isBot?: boolean;
-  difficulty?: BotDifficulty;
+  personality?: BotPersonality;
   replacedByBot?: boolean;
   wins?: number;
+  /** Server-only session token for rejoin authentication (never serialized to clients) */
+  sessionToken?: string;
 }
 
 export type ClientRoomPlayer = Omit<RoomPlayer, 'socketId'>;

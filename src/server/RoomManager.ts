@@ -1,5 +1,6 @@
+import { randomInt, randomBytes } from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
-import { BotDifficulty, ChatMessage, GameStatus, PublicRoomInfo, Room, RoomPlayer, RoomSettings } from '../shared/types';
+import { BotPersonality, ChatMessage, GameStatus, PublicRoomInfo, Room, RoomPlayer, RoomSettings } from '../shared/types';
 import { CHAT_MAX_HISTORY, CHAT_MAX_MESSAGE_LENGTH, CHAT_RATE_LIMIT_MS, DEFAULT_ROOM_SETTINGS, DISCONNECT_BOT_REPLACE_MS, INACTIVE_ROOM_CLEANUP_MS, MAX_ACTION_TIMER, MAX_BOT_REACTION_SECONDS, MAX_PLAYERS, MAX_TURN_TIMER, MIN_ACTION_TIMER, MIN_BOT_REACTION_SECONDS, MIN_PLAYERS, MIN_TURN_TIMER, PUBLIC_ROOM_LIST_MAX, REACTION_RATE_LIMIT_MS } from '../shared/constants';
 import { GameEngine } from '../engine/GameEngine';
 import { BotController } from './BotController';
@@ -28,7 +29,7 @@ export class RoomManager {
     do {
       code = '';
       for (let i = 0; i < 6; i++) {
-        code += chars[Math.floor(Math.random() * chars.length)];
+        code += chars[randomInt(chars.length)];
       }
     } while (this.rooms.has(code));
     return code;
@@ -38,9 +39,10 @@ export class RoomManager {
     this.lastHumanActivityAt.set(roomCode.toUpperCase(), Date.now());
   }
 
-  createRoom(playerName: string, socketId: string, isPublic?: boolean): { room: Room; playerId: string } {
+  createRoom(playerName: string, socketId: string, isPublic?: boolean): { room: Room; playerId: string; sessionToken: string } {
     const code = this.generateRoomCode();
     const playerId = uuidv4();
+    const sessionToken = randomBytes(32).toString('hex');
 
     const room: Room = {
       code,
@@ -51,6 +53,7 @@ export class RoomManager {
           name: playerName,
           socketId,
           connected: true,
+          sessionToken,
         },
       ],
       gameState: null,
@@ -60,14 +63,14 @@ export class RoomManager {
 
     this.rooms.set(code, room);
     this.lastHumanActivityAt.set(code, Date.now());
-    return { room, playerId };
+    return { room, playerId, sessionToken };
   }
 
   joinRoom(
     roomCode: string,
     playerName: string,
     socketId: string,
-  ): { room: Room; playerId: string } | { error: string } {
+  ): { room: Room; playerId: string; sessionToken: string } | { error: string } {
     const room = this.rooms.get(roomCode.toUpperCase());
     if (!room) return { error: 'Room not found' };
     if (room.gameState) return { error: 'Game already in progress' };
@@ -79,21 +82,23 @@ export class RoomManager {
     }
 
     const playerId = uuidv4();
+    const sessionToken = randomBytes(32).toString('hex');
     room.players.push({
       id: playerId,
       name: playerName,
       socketId,
       connected: true,
+      sessionToken,
     });
 
     this.lastHumanActivityAt.set(roomCode.toUpperCase(), Date.now());
-    return { room, playerId };
+    return { room, playerId, sessionToken };
   }
 
   addBot(
     roomCode: string,
     name: string,
-    difficulty: BotDifficulty,
+    personality: BotPersonality,
   ): { botId: string } | { error: string } {
     const room = this.rooms.get(roomCode.toUpperCase());
     if (!room) return { error: 'Room not found' };
@@ -111,7 +116,7 @@ export class RoomManager {
       socketId: '',
       connected: true,
       isBot: true,
-      difficulty,
+      personality,
     });
 
     return { botId };
@@ -142,12 +147,18 @@ export class RoomManager {
     roomCode: string,
     playerId: string,
     socketId: string,
+    sessionToken?: string,
   ): { room: Room; player: RoomPlayer } | { error: string } {
     const room = this.rooms.get(roomCode.toUpperCase());
     if (!room) return { error: 'Room not found' };
 
     const player = room.players.find(p => p.id === playerId);
     if (!player) return { error: 'Player not found in room' };
+
+    // Validate session token if the player has one stored
+    if (player.sessionToken && player.sessionToken !== sessionToken) {
+      return { error: 'Invalid session token' };
+    }
 
     if (player.replacedByBot) {
       return { error: 'You have been replaced by a bot due to inactivity' };
@@ -447,14 +458,14 @@ export class RoomManager {
 
     // Convert to bot
     roomPlayer.isBot = true;
-    roomPlayer.difficulty = 'hard';
+    roomPlayer.personality = 'optimal';
     roomPlayer.replacedByBot = true;
     roomPlayer.connected = true; // Bots are always "connected"
 
     // Register with BotController (create one if needed)
     let bc = this.botControllers.get(roomCode);
     if (bc) {
-      bc.addBot(playerId, 'hard', roomPlayer.name);
+      bc.addBot(playerId, 'optimal', roomPlayer.name);
     } else {
       const botMinReactionMs = (room.settings.botMinReactionSeconds ?? 2) * 1000;
       bc = new BotController(engine, [roomPlayer], botMinReactionMs);
