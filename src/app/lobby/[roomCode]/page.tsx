@@ -45,8 +45,15 @@ export default function LobbyPage() {
     }
   }, [gameState, roomCode, router]);
 
-  // Redirect home if rejoin failed (no playerId after timeout)
+  // Redirect home if no session for this room (QR scan / direct link) or rejoin failed
   useEffect(() => {
+    // New user (e.g. QR code scan) — no session for this room, redirect immediately
+    const storedRoom = sessionStorage.getItem('coup_room');
+    if (storedRoom !== roomCode) {
+      router.replace(`/?join=${roomCode}`);
+      return;
+    }
+    // Existing user reconnecting — wait for rejoin socket callback
     const timer = setTimeout(() => {
       if (!useGameStore.getState().playerId) {
         router.replace(`/?join=${roomCode}`);

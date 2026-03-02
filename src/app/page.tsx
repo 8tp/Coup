@@ -41,6 +41,12 @@ function HomeContent() {
     };
   }, [subscribeToBrowser, unsubscribeFromBrowser]);
 
+  useEffect(() => {
+    if (!error) return;
+    const timer = setTimeout(() => setError(null), 3000);
+    return () => clearTimeout(timer);
+  }, [error, setError]);
+
   const handleCreate = async () => {
     haptic(80);
     if (!name.trim()) { setError('Enter your name'); return; }
