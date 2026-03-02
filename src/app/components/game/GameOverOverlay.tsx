@@ -129,7 +129,7 @@ export function GameOverOverlay({ gameState, isHost, onRematch }: GameOverOverla
           {showLog && (
             <div className="mt-2 max-h-60 overflow-y-auto bg-coup-bg/60 rounded-xl border border-gray-800">
               <ActionLog
-                log={gameState.log}
+                log={gameState.actionLog}
                 myName={gameState.players.find(p => p.id === gameState.myId)?.name ?? ''}
                 turnPhase={gameState.turnPhase}
               />
