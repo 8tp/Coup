@@ -91,7 +91,7 @@ Not every turn visits every phase. Income resolves immediately. Coup skips to In
 | `src/engine/Game.ts` | Game model: players, deck, turn order, treasury, action log |
 | `src/engine/Player.ts` | Player model: influences, coins, hasCharacter, revealInfluence |
 | `src/engine/Deck.ts` | Card deck: shuffle (Fisher-Yates), draw, return, reset |
-| `src/engine/BotBrain.ts` | Pure AI decision logic: difficulty-tiered (easy/medium/hard/random) action/challenge/block choices with card counting and bluff persistence |
+| `src/engine/BotBrain.ts` | Pure AI decision logic: personality-parameterized action/challenge/block choices with card counting, bluff persistence, and deck memory |
 | `src/server/RoomManager.ts` | Room lifecycle: create, join, rejoin, leave, cleanup (24h TTL), chat storage, rematch reset, bot management |
 | `src/server/SocketHandler.ts` | Socket.io event routing: validates context, delegates to engine |
 | `src/server/StateSerializer.ts` | Per-player state filtering before sending to clients |
@@ -110,7 +110,7 @@ Not every turn visits every phase. Income resolves immediately. Coup skips to In
 | `src/app/components/game/ReactionPicker.tsx` | Emoji reaction selector (12 reactions) |
 | `src/app/components/game/ReactionBubble.tsx` | Displays active reaction above a player seat |
 | `src/app/components/settings/SettingsModal.tsx` | Settings: sound, haptic feedback, text size, bug report/feedback links |
-| `src/app/components/lobby/AddBotModal.tsx` | Modal with name input + difficulty selector (Easy/Medium/Hard/Random) for adding bots |
+| `src/app/components/lobby/AddBotModal.tsx` | Modal with name input + personality selector (7 personality buttons) for adding bots |
 
 ---
 
@@ -135,23 +135,28 @@ Room-scoped chat works in both lobby and in-game. Messages are stored server-sid
 
 ### Computer Players (Bots)
 
-The host can add 1–5 AI players from the lobby via `bot:add`. Each bot has a difficulty level (`BotDifficulty = 'easy' | 'medium' | 'hard' | 'random'`):
+The host can add 1–5 AI players from the lobby via `bot:add`. Each bot has a personality (`BotPersonality = 'aggressive' | 'conservative' | 'vengeful' | 'deceptive' | 'analytical' | 'optimal' | 'random'`):
 
-- **Easy** — Plays honestly (only uses actions it has cards for), never bluffs or challenges, random targeting, random exchange/influence loss choices
-- **Medium** — Selective bluffs (~20%), challenges (~10% base, boosted when holding claimed card or targeted), 30% bluff-Contessa vs assassination, static card value ranking for exchanges/influence loss, 50% chance to target leader
-- **Hard** — Strategic card counting (challenges at 100% when all copies of a character are revealed), selective bluffing (~12% overall, tuned to match real winner data), bluff persistence (3.5x boost for re-claiming established identity), honest Contessa (25%/15% bluff rate), never challenges assassination with 2 influences, always targets highest-coin player, uses `dynamicCardValue()` for context-aware card ranking, prefers Steal in 1v1, 3P1L anti-tempo strategy
-- **Random** — Randomly assigns Easy, Medium, or Hard at game start (difficulty hidden in lobby with `?` badge)
+- **Aggressive** — High bluff rates, offensive actions, always targets leader, aggressive challenges
+- **Conservative** — Very low bluff rates, prefers safe actions (Income/Foreign Aid), rarely challenges
+- **Vengeful** — Retaliates against recent attackers (revenge targeting scans last ~20 log entries), moderate bluff rates
+- **Deceptive** — Highest bluff rates across all action types, avoids challenging (doesn't want others to challenge either), high bluff persistence
+- **Analytical** — Low-moderate bluffs, high evidence-based challenge rates, strong leader targeting, steeper card value ranking
+- **Optimal** — Strategic card counting, selective bluffing, bluff persistence, always targets highest-coin player, uses `dynamicCardValue()` for context-aware card ranking, prefers Steal in 1v1, endgame tactics
+- **Random** — Picks one of the 6 concrete personalities at game start (hidden from player)
 
-The default difficulty is `'medium'` (defined as `DEFAULT_BOT_DIFFICULTY` in constants). The lobby UI presents four color-coded buttons: Easy (green), Medium (yellow), Hard (red), Random (purple).
+All bots use the same underlying architecture: card counting, bluff persistence, deck memory, and endgame tactics. The personality parameters (defined in `BOT_PERSONALITIES` in constants.ts, typed as `PersonalityParams` in types.ts) modulate behavior with ~18 behavioral parameters.
+
+The default personality is `'random'` (defined as `DEFAULT_BOT_PERSONALITY` in constants). The lobby UI presents 7 color-coded personality buttons: Random (purple), Aggressive (red), Conservative (green), Vengeful (orange), Deceptive (pink), Analytical (blue), Optimal (yellow).
 
 Bots are server-side only — they use the same `GameEngine` methods as human players but decisions are made by `BotBrain` (pure logic, no I/O) and scheduled by `BotController` (timing layer with randomized delays: 1.5–3.5s for actions, 0.8–2s for reactions). Only one bot acts at a time; each action triggers a state change which cascades to the next bot.
 
 Key behaviors:
-- Bots never peek at opponents' hidden cards or the deck (hard bots only use publicly revealed card information for card counting)
+- Bots never peek at opponents' hidden cards or the deck (they only use publicly revealed card information for card counting)
 - When targeted by an action the bot can block with a card it holds (e.g., Contessa vs Assassination), it passes the challenge phase and blocks instead
-- Bots survive rematch (`resetToLobby` preserves them with difficulty preserved), but a bot can never become host
+- Bots survive rematch (`resetToLobby` preserves them with personality preserved), but a bot can never become host
 - State broadcasts skip bots (no socket to send to)
-- Difficulty badges are shown next to the BOT badge in the lobby player list (color-coded: green/yellow/red/purple)
+- Personality badges are shown next to the BOT badge in the lobby player list (color-coded per personality). Random bots show "RANDOM" in the lobby (the resolved personality is hidden)
 - Bots fire emoji reactions via personality-driven emote system: each bot has `emotiveness` (0–1) and `meanness` (0–1) traits that determine reaction frequency and tone (nice vs mean reactions). Emotes are context-aware (triggered by game events like eliminations, challenges, blocks) and bluff-safe (~15% chance to skip reactions that could leak information about hidden cards)
 
 ### Rematch Flow

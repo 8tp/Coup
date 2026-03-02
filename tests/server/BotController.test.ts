@@ -25,7 +25,7 @@ function createEngineWithBots(): { engine: GameEngine; botPlayers: RoomPlayer[] 
       socketId: '',
       connected: true,
       isBot: true,
-      difficulty: 'medium' as const,
+      personality: 'optimal' as const,
     },
   ];
   const allPlayers = [
@@ -324,11 +324,11 @@ describe('BotController', () => {
       const botPlayers: RoomPlayer[] = [
         {
           id: 'bot1', name: 'Bot1', socketId: '', connected: true,
-          isBot: true, difficulty: 'medium',
+          isBot: true, personality: 'optimal',
         },
         {
           id: 'bot2', name: 'Bot2', socketId: '', connected: true,
-          isBot: true, difficulty: 'medium',
+          isBot: true, personality: 'optimal',
         },
       ];
       engine.startGame([
@@ -351,6 +351,114 @@ describe('BotController', () => {
       // Only one bot should have acted
       expect(handleActionSpy).toHaveBeenCalledTimes(1);
       expect(handleActionSpy.mock.calls[0][0]).toBe('bot1');
+
+      controller.destroy();
+    });
+  });
+
+  // ─── Personality Bot Tests ───
+
+  describe('personality bots', () => {
+    function createPersonalityBotEngine(): { engine: GameEngine; botPlayers: RoomPlayer[] } {
+      const engine = new GameEngine('HTEST');
+      const botPlayers: RoomPlayer[] = [
+        {
+          id: 'hbot1',
+          name: 'PersonalityBot',
+          socketId: '',
+          connected: true,
+          isBot: true,
+          personality: 'random' as const,
+        },
+      ];
+      const allPlayers = [
+        { id: 'human1', name: 'Alice' },
+        { id: 'hbot1', name: 'PersonalityBot' },
+      ];
+      engine.startGame(allPlayers);
+      return { engine, botPlayers };
+    }
+
+    it('random personality bot gets a personality assigned', () => {
+      const { engine, botPlayers } = createPersonalityBotEngine();
+      const controller = new BotController(engine, botPlayers);
+
+      engine.game.currentPlayerIndex = engine.game.players.findIndex(p => p.id === 'hbot1');
+      engine.game.turnPhase = TurnPhase.AwaitingAction;
+
+      const handleActionSpy = vi.spyOn(engine, 'handleAction');
+      controller.onStateChange();
+      vi.advanceTimersByTime(BOT_ACTION_DELAY_MAX + 100);
+
+      expect(handleActionSpy).toHaveBeenCalled();
+      controller.destroy();
+    });
+
+    it('bot with specific personality type', () => {
+      const engine = new GameEngine('HTEST2');
+      const botPlayers: RoomPlayer[] = [
+        {
+          id: 'hbot2',
+          name: 'AggressiveBot',
+          socketId: '',
+          connected: true,
+          isBot: true,
+          personality: 'aggressive' as const,
+        },
+      ];
+      const allPlayers = [
+        { id: 'human1', name: 'Alice' },
+        { id: 'hbot2', name: 'AggressiveBot' },
+      ];
+      engine.startGame(allPlayers);
+
+      const controller = new BotController(engine, botPlayers);
+      engine.game.currentPlayerIndex = engine.game.players.findIndex(p => p.id === 'hbot2');
+      engine.game.turnPhase = TurnPhase.AwaitingAction;
+
+      const handleActionSpy = vi.spyOn(engine, 'handleAction');
+      controller.onStateChange();
+      vi.advanceTimersByTime(BOT_ACTION_DELAY_MAX + 100);
+
+      expect(handleActionSpy).toHaveBeenCalled();
+      controller.destroy();
+    });
+
+    it('deck memory works for personality bots', () => {
+      const { engine, botPlayers } = createPersonalityBotEngine();
+      const controller = new BotController(engine, botPlayers);
+
+      // Simulate deck memory invalidation - add an exchange log entry from another player
+      engine.game.actionLog.push({
+        message: 'Alice exchanges',
+        timestamp: Date.now(),
+        eventType: 'exchange',
+        character: null,
+        turnNumber: 1,
+        actorId: 'human1',
+        actorName: 'Alice',
+      });
+
+      // This should not throw
+      engine.game.currentPlayerIndex = engine.game.players.findIndex(p => p.id === 'hbot1');
+      engine.game.turnPhase = TurnPhase.AwaitingAction;
+      controller.onStateChange();
+
+      controller.destroy();
+    });
+
+    it('addBot assigns personality', () => {
+      const { engine, botPlayers } = createPersonalityBotEngine();
+      const controller = new BotController(engine, botPlayers);
+
+      // Add a new bot mid-game
+      controller.addBot('newbot1', 'aggressive', 'NewBot');
+
+      engine.game.currentPlayerIndex = engine.game.players.findIndex(p => p.id === 'hbot1');
+      engine.game.turnPhase = TurnPhase.AwaitingAction;
+
+      controller.onStateChange();
+      vi.advanceTimersByTime(BOT_ACTION_DELAY_MAX + 100);
 
       controller.destroy();
     });

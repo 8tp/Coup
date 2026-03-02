@@ -71,8 +71,8 @@ export default function LobbyPage() {
     }
   };
 
-  const handleAddBot = async (name: string, difficulty: import('@/shared/types').BotDifficulty) => {
-    await addBot(name, difficulty);
+  const handleAddBot = async (name: string, personality: import('@/shared/types').BotPersonality) => {
+    await addBot(name, personality);
   };
 
   const handleRemoveBot = async (botId: string) => {
@@ -157,14 +157,17 @@ export default function LobbyPage() {
                       <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full font-bold">
                         BOT
                       </span>
-                      {p.difficulty && (
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
-                          p.difficulty === 'easy' ? 'bg-green-600 text-white' :
-                          p.difficulty === 'hard' ? 'bg-red-600 text-white' :
-                          p.difficulty === 'random' ? 'bg-purple-600 text-white' :
-                          'bg-yellow-600 text-white'
+                      {p.personality && (
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-bold text-white ${
+                          p.personality === 'aggressive' ? 'bg-red-600' :
+                          p.personality === 'conservative' ? 'bg-green-600' :
+                          p.personality === 'vengeful' ? 'bg-orange-600' :
+                          p.personality === 'deceptive' ? 'bg-pink-600' :
+                          p.personality === 'analytical' ? 'bg-blue-600' :
+                          p.personality === 'optimal' ? 'bg-yellow-600' :
+                          'bg-purple-600'
                         }`}>
-                          {p.difficulty === 'random' ? '?' : p.difficulty.toUpperCase()}
+                          {p.personality.toUpperCase()}
                         </span>
                       )}
                     </>

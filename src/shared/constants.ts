@@ -1,4 +1,4 @@
-import { ActionType, BotDifficulty, Character, LogEventType, RoomSettings } from './types';
+import { ActionType, BotPersonality, Character, PersonalityParams, LogEventType, RoomSettings } from './types';
 
 // ─── Action Display Names ───
 export const ACTION_DISPLAY_NAMES: Record<ActionType, string> = {
@@ -48,7 +48,7 @@ export const BOT_NAMES = [
   'EVE', 'Bishop', 'Sonny', 'MU-TH-UR', 'Auto',
   'Ash', 'Johnny 5', 'GERTY', 'T-1000', 'Dolores',
 ];
-export const DEFAULT_BOT_DIFFICULTY: BotDifficulty = 'medium';
+export const DEFAULT_BOT_PERSONALITY: BotPersonality = 'random';
 export const BOT_ACTION_DELAY_MIN = 1500;
 export const BOT_ACTION_DELAY_MAX = 3500;
 export const BOT_REACTION_DELAY_MIN = 800;
@@ -242,4 +242,157 @@ export const CHARACTER_ICONS: Record<Character, string> = {
   [Character.Captain]: '🛡️',
   [Character.Ambassador]: '📜',
   [Character.Contessa]: '💃',
+};
+
+// ─── Bot Personality Archetypes ───
+
+/** Concrete personality types (excludes 'random' which resolves at runtime). */
+export const BOT_PERSONALITY_TYPES: Exclude<BotPersonality, 'random'>[] = [
+  'aggressive', 'conservative', 'vengeful', 'deceptive', 'analytical', 'optimal',
+];
+
+/**
+ * Personality parameter profiles. The first 5 are calibrated from Treason game
+ * dataset analysis. K-means clustering (k=5) on 35,809 human player-game
+ * profiles from 19,871 five-player original Coup games identified 5 behavioral
+ * archetypes. 'optimal' is a hand-tuned strategic profile based on winner data.
+ *
+ * Action bluff rates, challenge rates, action weights, leader bias, and revenge
+ * weight are directly derived from cluster centroids. Contessa/block bluff rates
+ * use scaled estimates (real data shows ~0% because the risk is too high, but
+ * some floor is needed for interesting gameplay). Card value spread and bluff
+ * persistence are derived from challenge success rate and overall bluff tendency.
+ */
+export const BOT_PERSONALITIES: Record<Exclude<BotPersonality, 'random'>, PersonalityParams> = {
+  aggressive: {
+    name: 'aggressive',
+    // Cluster 0 (22.4%): High steal bluffs, highest aggression, highest challenge rate
+    bluffRateTax: 0.35,
+    bluffRateSteal: 0.97,
+    bluffRateAssassinate: 0.31,
+    bluffRateExchange: 0.00,
+    bluffRateContessa: 0.15,
+    bluffRateOtherBlock: 0.08,
+    challengeRateBase: 0.12,
+    challengeRateWithEvidence: 0.30,
+    challengeRateBlock: 0.14,
+    actionWeightIncome: 0.76,
+    actionWeightForeignAid: 0.84,
+    actionWeightSteal: 1.54,
+    actionWeightAssassinate: 1.63,
+    leaderBias: 0.34,
+    revengeWeight: 0.16,
+    cardValueSpread: 0.97,
+    bluffPersistenceModifier: 3.14,
+  },
+
+  conservative: {
+    name: 'conservative',
+    // Cluster 1 (23.2%): Lowest bluffs overall, highest safe actions, most honest
+    bluffRateTax: 0.65,
+    bluffRateSteal: 0.01,
+    bluffRateAssassinate: 0.01,
+    bluffRateExchange: 0.01,
+    bluffRateContessa: 0.04,
+    bluffRateOtherBlock: 0.04,
+    challengeRateBase: 0.08,
+    challengeRateWithEvidence: 0.21,
+    challengeRateBlock: 0.10,
+    actionWeightIncome: 0.85,
+    actionWeightForeignAid: 0.89,
+    actionWeightSteal: 1.06,
+    actionWeightAssassinate: 1.03,
+    leaderBias: 0.39,
+    revengeWeight: 0.15,
+    cardValueSpread: 0.92,
+    bluffPersistenceModifier: 1.81,
+  },
+
+  vengeful: {
+    name: 'vengeful',
+    // Cluster 3 (16.9%): High assassin bluffs, highest revenge rate, high safe actions
+    bluffRateTax: 0.47,
+    bluffRateSteal: 0.01,
+    bluffRateAssassinate: 0.98,
+    bluffRateExchange: 0.01,
+    bluffRateContessa: 0.10,
+    bluffRateOtherBlock: 0.06,
+    challengeRateBase: 0.11,
+    challengeRateWithEvidence: 0.28,
+    challengeRateBlock: 0.14,
+    actionWeightIncome: 1.03,
+    actionWeightForeignAid: 0.98,
+    actionWeightSteal: 1.20,
+    actionWeightAssassinate: 1.20,
+    leaderBias: 0.32,
+    revengeWeight: 0.75,
+    cardValueSpread: 0.98,
+    bluffPersistenceModifier: 1.47,
+  },
+
+  deceptive: {
+    name: 'deceptive',
+    // Cluster 2 (14.1%): Bluffs everything (steal+exchange+tax), lowest safe actions
+    bluffRateTax: 0.36,
+    bluffRateSteal: 0.97,
+    bluffRateAssassinate: 0.27,
+    bluffRateExchange: 0.98,
+    bluffRateContessa: 0.20,
+    bluffRateOtherBlock: 0.12,
+    challengeRateBase: 0.10,
+    challengeRateWithEvidence: 0.25,
+    challengeRateBlock: 0.12,
+    actionWeightIncome: 0.70,
+    actionWeightForeignAid: 0.81,
+    actionWeightSteal: 1.37,
+    actionWeightAssassinate: 1.41,
+    leaderBias: 0.33,
+    revengeWeight: 0.18,
+    cardValueSpread: 0.97,
+    bluffPersistenceModifier: 3.15,
+  },
+
+  analytical: {
+    name: 'analytical',
+    // Cluster 4 (23.4%): High exchange bluffs, high leader targeting, calculated resource-gathering
+    bluffRateTax: 0.57,
+    bluffRateSteal: 0.01,
+    bluffRateAssassinate: 0.34,
+    bluffRateExchange: 1.00,
+    bluffRateContessa: 0.06,
+    bluffRateOtherBlock: 0.05,
+    challengeRateBase: 0.09,
+    challengeRateWithEvidence: 0.22,
+    challengeRateBlock: 0.11,
+    actionWeightIncome: 0.81,
+    actionWeightForeignAid: 0.86,
+    actionWeightSteal: 1.04,
+    actionWeightAssassinate: 1.00,
+    leaderBias: 0.37,
+    revengeWeight: 0.17,
+    cardValueSpread: 0.95,
+    bluffPersistenceModifier: 1.65,
+  },
+
+  optimal: {
+    name: 'optimal',
+    // Hand-tuned strategic profile based on winner data analysis
+    bluffRateTax: 0.90,
+    bluffRateSteal: 0.60,
+    bluffRateAssassinate: 0.50,
+    bluffRateExchange: 0.50,
+    bluffRateContessa: 0.25,
+    bluffRateOtherBlock: 0.15,
+    challengeRateBase: 0.05,
+    challengeRateWithEvidence: 0.30,
+    challengeRateBlock: 0.05,
+    actionWeightIncome: 1.0,
+    actionWeightForeignAid: 1.0,
+    actionWeightSteal: 1.0,
+    actionWeightAssassinate: 1.0,
+    leaderBias: 1.0,
+    revengeWeight: 0.0,
+    cardValueSpread: 1.0,
+    bluffPersistenceModifier: 1.0,
+  },
 };

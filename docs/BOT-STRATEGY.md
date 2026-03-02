@@ -20,7 +20,7 @@ This document covers the research, data analysis, and iterative tuning process b
 
 ## Starting Point
 
-The initial bot implementation used reasonable-sounding heuristics: bluff frequently to keep opponents guessing, challenge aggressively, always bluff Contessa when assassinated (since there's "nothing to lose"). The three difficulty tiers (Easy, Medium, Hard) were differentiated by whether they bluffed at all, how often they challenged, and whether they used card counting.
+The initial bot implementation used reasonable-sounding heuristics: bluff frequently to keep opponents guessing, challenge aggressively, always bluff Contessa when assassinated (since there's "nothing to lose"). The early personality types were differentiated by whether they bluffed at all, how often they challenged, and whether they used card counting.
 
 This produced bots that were functional but felt "off" — they bluffed too much, challenged too aggressively, and made strategically questionable decisions in the endgame. The question was: how should a *good* Coup player actually behave?
 
@@ -88,7 +88,7 @@ To compare our bots against real players, we built a headless simulation system 
 The simulation script (`scripts/simulate.ts`) supports configurable parameters:
 
 ```bash
-npm run simulate -- --games 50 --players 5 --difficulty hard
+npm run simulate -- --games 50 --players 5 --personality optimal
 ```
 
 Each run produces per-game result lines and a summary table with win rates, action distributions, challenge success rates, and average game length.
@@ -106,7 +106,7 @@ Every bot decision is captured as a `DecisionRecord` with:
 
 ## Key Findings: Bots vs Real Winners
 
-The comparison between our initial hard bots and treason winners revealed significant gaps:
+The comparison between our initial optimal bots and treason winners revealed significant gaps:
 
 ### Bluffing: Way Too Much
 
@@ -121,7 +121,7 @@ Our bots were bluffing 3x more than real winners. Winners play honestly the vast
 
 ### Contessa: The Biggest Surprise
 
-Our hard bots were configured to "almost always" bluff Contessa when assassinated (95% at 2 influences, 65% at 1). The data showed:
+Our optimal bots were configured to "almost always" bluff Contessa when assassinated (95% at 2 influences, 65% at 1). The data showed:
 
 | Metric | Our Bots | Treason Winners |
 |--------|---------|-----------------|
@@ -159,17 +159,17 @@ Based on these findings, we made several rounds of adjustments:
 
 ### Round 1: Reduce Bluffing Across the Board
 
-**Hard bot action bluff weights:**
+**Optimal bot action bluff weights:**
 - Tax bluff: `4` → `1.5` (multiplied by bluffMod at 1 influence)
 - Steal bluff: `3` → `1.0` (1v1: `5` → `2.0`)
 - Assassinate bluff: `3` → `1.0`
 
-**Hard bot bluff-block rates:**
+**Optimal bot bluff-block rates:**
 - Contessa vs assassination: `95%/65%` → `25%/15%`
 - General target block: `60%/35%` → `15%/10%`
 - Duke Foreign Aid block: `30%` → `8%`
 
-**Medium bot bluffs:**
+**Conservative bot bluffs (for reference):**
 - Action bluff gates: `30%` → `20%`
 - Contessa bluff: `50%` → `30%`
 - Target block bluff: `20%` → `12%`
@@ -186,12 +186,12 @@ Updated `dynamicCardValue()` to match winner card holding patterns:
 ### Round 3: Challenge Selectivity
 
 Reduced challenge rates to match the "selective but accurate" pattern of real winners:
-- Hard bot base challenge: `0.10` → `0.05`
-- Hard bot 1-copy-held: `0.40` → `0.30`
-- Hard bot block challenge base: `0.10` → `0.05`
-- Hard bot block challenge cost incentive: `0.30` → `0.15`
-- Medium bot action challenge base: `20%` → `10%`
-- Medium bot block challenge base: `15%` → `10%`
+- Optimal bot base challenge: `0.10` → `0.05`
+- Optimal bot 1-copy-held: `0.40` → `0.30`
+- Optimal bot block challenge base: `0.10` → `0.05`
+- Optimal bot block challenge cost incentive: `0.30` → `0.15`
+- Conservative bot action challenge base: `20%` → `10%`
+- Conservative bot block challenge base: `15%` → `10%`
 
 ### Round 4: Endgame Fixes (Discovered via Simulation)
 
@@ -268,7 +268,7 @@ Tax is the dominant opener in both datasets. Our bots still steal more than real
 | Coup | 3% | 10% |
 | Foreign Aid | 1% | 5% |
 
-Mid game shifts toward elimination actions (Assassinate, Coup) in both datasets. The coup rate gap is partly structural — in all-hard-bot games, aggressive play keeps coin counts lower, so fewer bots reach 7 coins compared to human games with mixed skill levels.
+Mid game shifts toward elimination actions (Assassinate, Coup) in both datasets. The coup rate gap is partly structural — in all-optimal-bot games, aggressive play keeps coin counts lower, so fewer bots reach 7 coins compared to human games with mixed skill levels.
 
 ### Bluff Persistence in Practice
 
@@ -336,22 +336,38 @@ In 1v1 at 1 influence, if letting the opponent's action through would give them 
 
 ## Final Bot Behavior Summary
 
-### Easy
-- Plays honestly — only uses actions for cards it holds
-- Never bluffs or challenges
-- Random targeting and card choices
-- Designed to lose gracefully and be forgiving for new players
-
-### Medium
-- **Bluffs selectively** — 20% chance for Tax/Steal, 15% for Assassinate, 25% for Exchange
-- **Challenges at 10% base** — boosted when holding the claimed card (+15%) or targeted (+10%)
-- **Never challenges assassination with 2 influences** — too risky
-- **Bluff-blocks occasionally** — 30% Contessa vs assassination, 12% other target blocks
+### Conservative
+- **Bluffs selectively** — low bluff rates, prefers safe actions (Income/Foreign Aid)
+- **Challenges rarely** — low base challenge rate, boosted when holding the claimed card
+- **Bluff-blocks occasionally** — low Contessa bluff rate, minimal other target block bluffs
 - **Static card rankings** — Duke > Captain > Assassin = Contessa > Ambassador
-- **Endgame awareness** — increased coup probability (80% vs 65%) and reduced Income weight when 3 or fewer players remain
-- 50% chance to target the coin leader
+- **Endgame awareness** — increased coup probability and reduced Income weight when 3 or fewer players remain
+- Low chance to target the coin leader
 
-### Hard
+### Aggressive
+- **High bluff rates** — frequently bluffs offensive actions (Tax, Steal, Assassinate)
+- **Challenges aggressively** — high base challenge rate, always targets leader
+- **Offensive focus** — prefers elimination actions over economy
+- Uses card counting and bluff persistence infrastructure from Optimal
+
+### Vengeful
+- **Retaliates against attackers** — revenge targeting scans recent log entries for actions taken against this bot
+- **Moderate bluff rates** — balanced between Conservative and Aggressive
+- Uses card counting and bluff persistence infrastructure from Optimal
+
+### Deceptive
+- **Highest bluff rates** — bluffs across all action types more than any other personality
+- **Avoids challenging** — doesn't want to encourage a culture of challenging
+- **High bluff persistence** — strongly commits to established bluff identities
+- Uses card counting infrastructure from Optimal
+
+### Analytical
+- **Low-moderate bluffs** — slightly above Conservative but well below Aggressive
+- **High evidence-based challenge rates** — challenges when card counting provides strong evidence
+- **Strong leader targeting** — steeper card value ranking, always targets highest-coin player
+- Uses card counting and bluff persistence infrastructure from Optimal
+
+### Optimal
 - **Weighted action selection** — context-aware weights, not fixed priorities
 - **Card counting** — tracks all revealed cards to calculate challenge probabilities
 - **Bluff persistence** — tracks "established identity" (a character successfully bluffed without being caught) and strongly prefers re-claiming it (3.5x boost). Penalizes switching to a different bluff character (0.3x) in early/mid game. Burnt characters (caught bluffing) are never re-bluffed

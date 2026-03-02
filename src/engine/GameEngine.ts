@@ -444,7 +444,7 @@ export class GameEngine {
         break;
       }
       case 'log': {
-        this.game.log(effect.message, effect.eventType, effect.character, effect.actorId, effect.actorName);
+        this.game.log(effect.message, effect.eventType, effect.character, effect.actorId, effect.actorName, effect.targetId);
         break;
       }
       case 'start_exchange': {

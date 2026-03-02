@@ -1,13 +1,14 @@
 import {
   ActionType,
-  BotDifficulty,
   Character,
+  PersonalityParams,
   TurnPhase,
   PendingAction,
   PendingBlock,
   ChallengeState,
   InfluenceLossRequest,
   ExchangeState,
+  LogEntry,
 } from '../shared/types';
 import {
   ACTION_DEFINITIONS,
@@ -35,10 +36,8 @@ export type BotDecision =
  * BotBrain — Pure decision logic for AI players.
  * No I/O, no timers. Only reads the bot's own cards and publicly revealed cards.
  *
- * Difficulty tiers:
- * - Easy: Plays honestly, never bluffs or challenges
- * - Medium: Occasional bluffs and challenges
- * - Hard: Strategic play with card counting
+ * All bots use a personality-parameterized system with card counting,
+ * bluff persistence, and demonstrated character tracking.
  */
 export class BotBrain {
 
@@ -49,7 +48,7 @@ export class BotBrain {
   static decide(
     game: Game,
     botId: string,
-    difficulty: BotDifficulty,
+    personality: PersonalityParams,
     pendingAction: PendingAction | null,
     pendingBlock: PendingBlock | null,
     challengeState: ChallengeState | null,
@@ -64,28 +63,28 @@ export class BotBrain {
     switch (game.turnPhase) {
       case TurnPhase.AwaitingAction:
         if (game.currentPlayer.id === botId) {
-          return this.decideAction(game, botId, difficulty);
+          return this.decideAction(game, botId, personality);
         }
         return null;
 
       case TurnPhase.AwaitingActionChallenge:
-        return this.decideActionChallenge(game, botId, difficulty, pendingAction, challengeState, deckMemory);
+        return this.decideActionChallenge(game, botId, personality, pendingAction, challengeState, deckMemory);
 
       case TurnPhase.AwaitingBlock:
-        return this.decideBlock(game, botId, difficulty, pendingAction, blockPassedPlayerIds);
+        return this.decideBlock(game, botId, personality, pendingAction, blockPassedPlayerIds);
 
       case TurnPhase.AwaitingBlockChallenge:
-        return this.decideBlockChallenge(game, botId, difficulty, pendingAction, pendingBlock, challengeState, deckMemory);
+        return this.decideBlockChallenge(game, botId, personality, pendingAction, pendingBlock, challengeState, deckMemory);
 
       case TurnPhase.AwaitingInfluenceLoss:
         if (influenceLossRequest?.playerId === botId) {
-          return this.decideInfluenceLoss(game, botId, difficulty);
+          return this.decideInfluenceLoss(game, botId, personality);
         }
         return null;
 
       case TurnPhase.AwaitingExchange:
         if (exchangeState?.playerId === botId) {
-          return this.decideExchange(game, botId, difficulty, exchangeState);
+          return this.decideExchange(game, botId, personality, exchangeState);
         }
         return null;
 
@@ -113,7 +112,7 @@ export class BotBrain {
   }
 
   /**
-   * Context-aware card ranking. Factors in game state for hard bots.
+   * Context-aware card ranking. Factors in game state.
    * Higher value = more valuable to keep.
    */
   static dynamicCardValue(character: Character, game: Game, botId: string): number {
@@ -127,60 +126,68 @@ export class BotBrain {
     switch (character) {
       case Character.Captain:
         // Strong endgame card — Steal is a 4-coin swing, dominant in 1v1
-        // But winners succeed with any card; don't over-concentrate on Captain
         value = 5;
-        if (aliveCount === 2) value += 2; // Absolute dominance in 1v1
-        if (aliveCount === 3) value += 1; // Want Captain for eventual 2P
+        if (aliveCount === 2) value += 2;
+        if (aliveCount === 3) value += 1;
         break;
 
       case Character.Duke:
         // Tax is strong, especially early game
         value = 5;
-        if (aliveCount > 3) value += 1; // Safe income source early
-        if (aliveCount === 2) value -= 1; // Captain beats Duke in 1v1
+        if (aliveCount > 3) value += 1;
+        if (aliveCount === 2) value -= 1;
         break;
 
       case Character.Assassin:
         // Cheap elimination
         value = 3;
-        if (bot.coins < ASSASSINATE_COST) value -= 1; // Less useful without coins
-        if (aliveCount === 2) value -= 1; // Weaker in 1v1 vs Captain/Duke
+        if (bot.coins < ASSASSINATE_COST) value -= 1;
+        if (aliveCount === 2) value -= 1;
         break;
 
       case Character.Ambassador:
-        // Exchange for better cards + blocks steal — valuable defensive utility
-        // Winners protect Ambassador (14% sacrifice rate vs our 22%)
+        // Exchange for better cards + blocks steal
         value = 3;
-        if (aliveCount > 3) value += 2; // Very valuable early: exchange into better cards
+        if (aliveCount > 3) value += 2;
         else if (aliveCount > 2 && !bot.hiddenCharacters.includes(Character.Captain)) value += 1;
-        if (aliveCount <= 2) value -= 1; // Nearly useless in 1v1 (no offense)
+        if (aliveCount <= 2) value -= 1;
         break;
 
       case Character.Contessa:
-        // Blocks assassination — winners hold Contessa 20.4% vs our 11.5%
-        // Having real Contessa is far better than bluffing it
+        // Blocks assassination
         value = 3;
-        // More valuable when opponents have 3+ coins (assassination threat)
         const opponentsWithCoins = alivePlayers.filter(p => p.id !== botId && p.coins >= ASSASSINATE_COST);
         if (opponentsWithCoins.length > 0) value += 2;
-        if (aliveCount === 2) value -= 1; // Less useful in 1v1 (Captain/Duke better)
+        if (aliveCount === 2) value -= 1;
         break;
     }
 
-    // Reduce value if most copies are revealed (harder to bluff with)
+    // Reduce value if most copies are revealed
     const revealedCount = revealed.get(character) || 0;
     if (revealedCount >= 2) value -= 1;
 
     return value;
   }
 
-  /** Pick a target: hard always targets highest-coin, medium 50%, easy random.
-   *  When forCoup is true, hard/medium bots prefer targets with more lives
-   *  (coup is unchallengeable/unblockable — don't waste it on 1-life targets). */
+  /**
+   * Dynamic card value with personality spread modifier.
+   * spread > 1 steepens differences (analytical/aggressive prefer specific cards).
+   * spread < 1 flattens (conservative less opinionated about cards).
+   */
+  static dynamicCardValueWithSpread(character: Character, game: Game, botId: string, spread: number): number {
+    const baseValue = this.dynamicCardValue(character, game, botId);
+    const mean = 4;
+    return mean + (baseValue - mean) * spread;
+  }
+
+  /**
+   * Pick a target with personality-driven composite scoring.
+   * Blends leader bias, revenge weight, and randomness.
+   */
   private static pickTarget(
     game: Game,
     botId: string,
-    difficulty: BotDifficulty,
+    personality: PersonalityParams,
     candidateIds?: string[],
     forCoup: boolean = false,
   ): string {
@@ -189,37 +196,41 @@ export class BotBrain {
       candidates = candidates.filter(p => candidateIds.includes(p.id));
     }
     if (candidates.length === 0) return '';
+    if (candidates.length === 1) return candidates[0].id;
 
-    if (difficulty === 'hard') {
+    const revengeScores = this.getRevengeScores(game, botId);
+    const maxCoins = Math.max(...candidates.map(p => p.coins));
+
+    // Score each candidate
+    const scored = candidates.map(p => {
+      let score = 1.0; // base randomness
+
+      // Leader bias: prefer high-coin players
+      const leaderScore = maxCoins > 0 ? p.coins / maxCoins : 0;
+      score += leaderScore * personality.leaderBias * 3;
+
+      // Revenge weight: prefer recent attackers
+      const revenge = revengeScores.get(p.id) || 0;
+      score += revenge * personality.revengeWeight * 4;
+
+      // For coups, prefer targets with more lives
       if (forCoup) {
-        // Prefer targets with more lives first, then highest coins as tiebreaker
-        candidates.sort((a, b) => b.aliveInfluenceCount - a.aliveInfluenceCount || b.coins - a.coins);
-      } else {
-        candidates.sort((a, b) => b.coins - a.coins);
+        score += p.aliveInfluenceCount * 0.5;
       }
-      return candidates[0].id;
-    }
 
-    if (difficulty === 'medium') {
-      // 50% chance to target leader
-      if (Math.random() < 0.5) {
-        if (forCoup) {
-          candidates.sort((a, b) => b.aliveInfluenceCount - a.aliveInfluenceCount || b.coins - a.coins);
-        } else {
-          candidates.sort((a, b) => b.coins - a.coins);
-        }
-        return candidates[0].id;
-      }
-    }
+      // Small random jitter
+      score += Math.random() * 0.5;
 
-    // Easy or random fallback
-    return candidates[Math.floor(Math.random() * candidates.length)].id;
+      return { id: p.id, score };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+    return scored[0].id;
   }
 
   /**
    * Analyze action log to find which alive opponents have demonstrated
    * having specific characters (via successful blocks or unchallenged claims).
-   * Used by hard bots to avoid repeatedly blocked actions.
    */
   private static getDemonstratedCharacters(game: Game, botId: string): Map<string, Set<Character>> {
     const demonstrated = new Map<string, Set<Character>>();
@@ -275,12 +286,9 @@ export class BotBrain {
 
   /**
    * Determine the bot's established bluff identity — a character it has
-   * successfully claimed (bluffed) without being caught. Treason data shows
-   * real winners persist with their bluffed identity ~30-50% of the time, so
-   * hard bots should strongly prefer re-claiming established characters.
+   * successfully claimed (bluffed) without being caught.
    *
-   * Also tracks "burnt" characters the bot was caught bluffing — these
-   * should never be bluffed again.
+   * Also tracks "burnt" characters the bot was caught bluffing.
    */
   private static getBluffIdentity(
     game: Game, botId: string, ownedCharacters: Character[],
@@ -303,7 +311,7 @@ export class BotBrain {
             wasCaught = true;
             break;
           }
-          if (next.eventType === 'challenge_fail') break; // bot proved honest
+          if (next.eventType === 'challenge_fail') break;
           if (next.eventType === 'action_resolve' || next.eventType === 'block' || next.eventType === 'turn_start') {
             unchallenged = true;
             break;
@@ -370,24 +378,69 @@ export class BotBrain {
     return { type: 'action', action: last.action, targetId: last.targetId };
   }
 
+  /**
+   * Scan the last ~20 action log entries for attacks against this bot.
+   * Returns a map of attacker ID → revenge score, weighted by recency.
+   */
+  static getRevengeScores(game: Game, botId: string): Map<string, number> {
+    const scores = new Map<string, number>();
+    const log = game.actionLog;
+    const start = Math.max(0, log.length - 20);
+
+    for (let i = start; i < log.length; i++) {
+      const entry = log[i];
+      if (!entry.actorId || entry.actorId === botId) continue;
+
+      let isHostile = false;
+
+      // Targeted actions against us
+      if (entry.targetId === botId) {
+        const isTargetedAction =
+          entry.eventType === 'claim_action' ||
+          entry.eventType === 'declare_action' ||
+          entry.eventType === 'action_resolve' ||
+          entry.eventType === 'assassination' ||
+          entry.eventType === 'coup';
+        if (isTargetedAction) isHostile = true;
+      }
+
+      // Successful challenges against us
+      if (entry.targetId === botId &&
+          (entry.eventType === 'challenge_success' || entry.eventType === 'block_challenge_success')) {
+        isHostile = true;
+      }
+
+      if (isHostile) {
+        const recency = (i - start) / Math.max(1, log.length - start - 1);
+        const weight = 0.25 + 0.75 * recency;
+        const current = scores.get(entry.actorId) || 0;
+        scores.set(entry.actorId, current + weight);
+      }
+    }
+
+    return scores;
+  }
+
   // ─── Action Selection ───
 
-  private static decideAction(game: Game, botId: string, difficulty: BotDifficulty): BotDecision {
+  private static decideAction(
+    game: Game, botId: string, personality: PersonalityParams,
+  ): BotDecision {
     const bot = game.getPlayer(botId)!;
     const alivePlayers = game.getAlivePlayers();
     const aliveCount = alivePlayers.length;
 
-    // Must coup at 10+ coins (all tiers)
+    // Must coup at 10+ coins
     if (bot.coins >= FORCED_COUP_THRESHOLD) {
-      return { type: 'action', action: ActionType.Coup, targetId: this.pickTarget(game, botId, difficulty, undefined, true) };
+      return { type: 'action', action: ActionType.Coup, targetId: this.pickTarget(game, botId, personality, undefined, true) };
     }
 
-    // Hard bot endgame coup logic
+    // Endgame coup logic
     let skip3P1LCoup = false;
-    if (difficulty === 'hard' && bot.coins >= COUP_COST) {
-      // 1v1 with both at 1 influence — coup is a guaranteed win, always take it
+    if (bot.coins >= COUP_COST) {
+      // 1v1 with both at 1 influence — coup is a guaranteed win
       if (aliveCount === 2 && alivePlayers.every(p => p.aliveInfluenceCount === 1)) {
-        return { type: 'action', action: ActionType.Coup, targetId: this.pickTarget(game, botId, 'hard', undefined, true) };
+        return { type: 'action', action: ActionType.Coup, targetId: this.pickTarget(game, botId, personality, undefined, true) };
       }
 
       const is3P1L = aliveCount === 3 && alivePlayers.every(p => p.aliveInfluenceCount === 1);
@@ -395,159 +448,43 @@ export class BotBrain {
         const sortedByCoins = [...alivePlayers].sort((a, b) => b.coins - a.coins);
         const isLeader = sortedByCoins[0].id === botId;
         const isLast = sortedByCoins[sortedByCoins.length - 1].id === botId;
-
         if (isLeader && Math.random() < 0.85) {
-          // Leader should usually coup immediately — delaying gives runner-up time to reach 7
-          return { type: 'action', action: ActionType.Coup, targetId: this.pickTarget(game, botId, 'hard', undefined, true) };
+          return { type: 'action', action: ActionType.Coup, targetId: this.pickTarget(game, botId, personality, undefined, true) };
         }
         if (isLast && Math.random() < 0.7) {
-          // Underdog: usually delay couping to accumulate carefully
           skip3P1LCoup = true;
         }
       }
     }
 
-    // Can afford coup — consider it based on difficulty
+    // Consider coup if affordable
     if (bot.coins >= COUP_COST && !skip3P1LCoup) {
-      if (difficulty === 'hard') {
-        // Consider assassination over coup: 3 coins vs 7, more resource-efficient
-        const ownedChars = bot.hiddenCharacters;
-        const target = game.getPlayer(this.pickTarget(game, botId, 'hard'));
-        const hasAssassin = ownedChars.includes(Character.Assassin);
-        if (hasAssassin && target && target.aliveInfluenceCount === 1 && Math.random() < 0.5) {
-          // Assassinate instead — save 4 coins, equally lethal vs 1-inf target
-          return { type: 'action', action: ActionType.Assassinate, targetId: target.id };
-        }
-        // Otherwise coup at high probability
-        if (Math.random() < 0.8) {
-          return { type: 'action', action: ActionType.Coup, targetId: this.pickTarget(game, botId, 'hard', undefined, true) };
-        }
-      } else {
-        const coupProb = difficulty === 'medium' ? (aliveCount <= 3 ? 0.8 : 0.65) : 0.4;
-        if (Math.random() < coupProb) {
-          return { type: 'action', action: ActionType.Coup, targetId: this.pickTarget(game, botId, difficulty, undefined, true) };
-        }
+      const ownedChars = bot.hiddenCharacters;
+      const target = game.getPlayer(this.pickTarget(game, botId, personality));
+      const hasAssassin = ownedChars.includes(Character.Assassin);
+      if (hasAssassin && target && target.aliveInfluenceCount === 1 && Math.random() < 0.5) {
+        return { type: 'action', action: ActionType.Assassinate, targetId: target.id };
+      }
+      if (Math.random() < 0.8) {
+        return { type: 'action', action: ActionType.Coup, targetId: this.pickTarget(game, botId, personality, undefined, true) };
       }
     }
 
     const ownedCharacters = bot.hiddenCharacters;
     const candidates: Array<{ action: ActionType; targetId?: string; weight: number }> = [];
 
-    if (difficulty === 'easy') {
-      return this.decideActionEasy(game, botId, bot, ownedCharacters, candidates);
-    } else if (difficulty === 'medium') {
-      return this.decideActionMedium(game, botId, bot, ownedCharacters, candidates, aliveCount);
-    } else {
-      return this.decideActionHard(game, botId, bot, ownedCharacters, candidates, aliveCount);
-    }
-  }
-
-  private static decideActionEasy(
-    game: Game, botId: string, bot: any, ownedCharacters: Character[],
-    candidates: Array<{ action: ActionType; targetId?: string; weight: number }>,
-  ): BotDecision {
-    // Easy: never bluffs, only plays actions it has cards for
-    candidates.push({ action: ActionType.Income, weight: 2 });
-    candidates.push({ action: ActionType.ForeignAid, weight: 2 });
-
-    if (ownedCharacters.includes(Character.Duke)) {
-      candidates.push({ action: ActionType.Tax, weight: 3 });
-    }
-
-    const stealTargets = game.getAlivePlayers().filter(p => p.id !== botId && p.coins > 0);
-    if (ownedCharacters.includes(Character.Captain) && stealTargets.length > 0) {
-      const targetId = this.pickTarget(game, botId, 'easy', stealTargets.map(p => p.id));
-      candidates.push({ action: ActionType.Steal, targetId, weight: 3 });
-    }
-
-    if (bot.coins >= ASSASSINATE_COST && ownedCharacters.includes(Character.Assassin)) {
-      const targetId = this.pickTarget(game, botId, 'easy');
-      candidates.push({ action: ActionType.Assassinate, targetId, weight: 3 });
-    }
-
-    if (ownedCharacters.includes(Character.Ambassador)) {
-      candidates.push({ action: ActionType.Exchange, weight: 2 });
-    }
-
-    return this.weightedPick(candidates);
-  }
-
-  private static decideActionMedium(
-    game: Game, botId: string, bot: any, ownedCharacters: Character[],
-    candidates: Array<{ action: ActionType; targetId?: string; weight: number }>,
-    aliveCount: number,
-  ): BotDecision {
-    // Medium: slight preference for Tax/Steal, 20% bluff chance
-    const incomeWeight = aliveCount <= 3 ? 0.5 : 1;
-    candidates.push({ action: ActionType.Income, weight: incomeWeight });
-    candidates.push({ action: ActionType.ForeignAid, weight: 2 });
-
-    const hasDuke = ownedCharacters.includes(Character.Duke);
-    if (hasDuke) {
-      candidates.push({ action: ActionType.Tax, weight: 5 });
-    } else if (Math.random() < 0.2) {
-      candidates.push({ action: ActionType.Tax, weight: 2 });
-    }
-
-    const stealTargets = game.getAlivePlayers().filter(p => p.id !== botId && p.coins > 0);
-    if (stealTargets.length > 0) {
-      const hasCaptain = ownedCharacters.includes(Character.Captain);
-      const targetId = this.pickTarget(game, botId, 'medium', stealTargets.map(p => p.id));
-      if (hasCaptain) {
-        candidates.push({ action: ActionType.Steal, targetId, weight: 4 });
-      } else if (Math.random() < 0.2) {
-        candidates.push({ action: ActionType.Steal, targetId, weight: 2 });
-      }
-    }
-
-    if (bot.coins >= ASSASSINATE_COST) {
-      const hasAssassin = ownedCharacters.includes(Character.Assassin);
-      const targetId = this.pickTarget(game, botId, 'medium');
-      if (hasAssassin) {
-        candidates.push({ action: ActionType.Assassinate, targetId, weight: 4 });
-      } else if (Math.random() < 0.15) {
-        candidates.push({ action: ActionType.Assassinate, targetId, weight: 1.5 });
-      }
-    }
-
-    const hasAmbassador = ownedCharacters.includes(Character.Ambassador);
-    if (hasAmbassador) {
-      candidates.push({ action: ActionType.Exchange, weight: 2 });
-    } else if (Math.random() < 0.25) {
-      candidates.push({ action: ActionType.Exchange, weight: 1 });
-    }
-
-    return this.weightedPick(candidates);
-  }
-
-  private static decideActionHard(
-    game: Game, botId: string, bot: any, ownedCharacters: Character[],
-    candidates: Array<{ action: ActionType; targetId?: string; weight: number }>,
-    aliveCount: number,
-  ): BotDecision {
-    // Hard: strategic, bluffs selectively, persists with established identities
+    // Card counting, bluff persistence, demonstrated chars
     const revealed = this.countRevealedCharacters(game);
-    const alivePlayers = game.getAlivePlayers();
-    const dukeRevealed = revealed.get(Character.Duke) || 0;
-
-    // Learn from opponents' demonstrated characters (successful blocks + unchallenged claims)
     const demonstrated = this.getDemonstratedCharacters(game, botId);
-
-    // Bluff persistence: track established identity and burnt characters
     const { established, burnt } = this.getBluffIdentity(game, botId, ownedCharacters);
 
-    // Detect 3P1L endgame (3 players, all with 1 life)
+    // Detect 3P1L endgame
     const is3P1L = aliveCount === 3 && alivePlayers.every(p => p.aliveInfluenceCount === 1);
 
     if (is3P1L) {
       const sortedByCoins = [...alivePlayers].sort((a, b) => b.coins - a.coins);
       const isLeader = sortedByCoins[0].id === botId;
-      const isLast = sortedByCoins[sortedByCoins.length - 1].id === botId;
-
-      if (isLeader && bot.coins >= COUP_COST && Math.random() < 0.85) {
-        // Leader with 7+ should usually coup — target the runner-up
-        return { type: 'action', action: ActionType.Coup, targetId: this.pickTarget(game, botId, 'hard', undefined, true) };
-      }
+      const dukeRevealed = revealed.get(Character.Duke) || 0;
 
       if (isLeader && bot.coins < COUP_COST && Math.random() < 0.75) {
         // Leader below 7 — ANTI-TEMPO: slow down coin accumulation
@@ -560,18 +497,15 @@ export class BotBrain {
           candidates.push({ action: ActionType.Tax, weight: 2 });
         }
         if (bot.coins >= ASSASSINATE_COST) {
-          const targetId = this.pickTarget(game, botId, 'hard');
+          const targetId = this.pickTarget(game, botId, personality);
           candidates.push({ action: ActionType.Assassinate, targetId, weight: 3 });
         }
         return this.weightedPick(candidates);
       }
-
-      // If bot is the underdog (least coins) — best position, fall through to normal aggressive logic
     }
 
     // ─── 1v1 Leader/Underdog Strategy ───
-    // In the final 1v1, the leader should play safe toward 7 coins and coup.
-    // The underdog should take desperate risks since safe play from behind = slow loss.
+    // Activated fully when personality.leaderBias >= 0.8, scaled for others
     let leaderBluffMod = 1.0;
     let underdogAssassinBonus = 0;
     let underdogAssassinBluffMult = 1.0;
@@ -582,84 +516,74 @@ export class BotBrain {
       const opponent = alivePlayers.find(p => p.id !== botId)!;
       const isLeader = bot.coins > opponent.coins ||
         (bot.coins === opponent.coins && bot.aliveInfluenceCount > opponent.aliveInfluenceCount);
+      // Scale factor: full activation at leaderBias >= 0.8, partial below
+      const scale = Math.min(personality.leaderBias / 0.8, 1.0);
       if (isLeader) {
-        // Leader: play safe, reduce bluff risk, boost safe coin actions
-        leaderBluffMod = 0.3;
-        leaderIncomeBoost = 2; // Income weight 0.5 -> 2.5
-        leaderRealActionBoost = 3; // Boost real Tax/Steal/Captain weights
+        leaderBluffMod = 1.0 - 0.7 * scale; // 0.3 at full activation
+        leaderIncomeBoost = 2 * scale;
+        leaderRealActionBoost = 3 * scale;
       } else {
-        // Underdog: desperate plays — boost assassination and bluffs
-        underdogAssassinBonus = 3;
-        underdogAssassinBluffMult = 2.5;
-        underdogBluffMult = 1.5;
+        underdogAssassinBonus = 3 * scale;
+        underdogAssassinBluffMult = 1.0 + 1.5 * scale; // 2.5 at full
+        underdogBluffMult = 1.0 + 0.5 * scale; // 1.5 at full
       }
     }
 
-    // Bluff caution: at 1 influence, failed bluff = elimination
-    // In 1v1, both players are at 1 inf — being passive is worse than bluffing
+    // Bluff caution at 1 influence
     const bluffMod = bot.aliveInfluenceCount === 1
       ? (aliveCount === 2 ? 0.7 : 0.4)
       : 1.0;
 
-    // Bluff persistence: if the bot has an established bluff identity,
-    // strongly prefer re-claiming it and penalize switching characters.
-    // Treason winners persist with their bluffed character ~30-50% of the time.
-    const persistBoost = 3.5;
-    // Switch penalty only applies in early/mid game (4+ alive) where multiple observers
-    // track consistency. In endgame (2-3 alive), flexibility matters more.
+    // Bluff persistence with personality modifier
+    const persistBoost = 3.5 * personality.bluffPersistenceModifier;
     const switchPenalty = (established && aliveCount > 3) ? 0.3 : 1.0;
 
-    // Income: useful early, weak in endgame (1 coin/turn falls behind Tax/Steal)
-    // In 1v1, Income is especially bad — passivity lets the opponent reach 7 first
-    const incomeWeight = (aliveCount === 2 ? 0.5 : aliveCount > 3 ? 1.5 : 1) + leaderIncomeBoost;
+    // Income
+    const incomeWeight = ((aliveCount === 2 ? 0.5 : aliveCount > 3 ? 1.5 : 1) + leaderIncomeBoost) * personality.actionWeightIncome;
     candidates.push({ action: ActionType.Income, weight: incomeWeight });
-    // Foreign Aid: weak early (easily Duke-blocked), but safer in 3P1L (no claim to challenge)
-    let faWeight = aliveCount > 3 ? 0.5 : aliveCount === 2 ? 1.5 : 1;
-    // Heavily reduce if any alive opponent has demonstrated Duke (via block or Tax claim)
+
+    // Foreign Aid
+    let faWeight = (aliveCount > 3 ? 0.5 : aliveCount === 2 ? 1.5 : 1) * personality.actionWeightForeignAid;
     const aliveDukeCount = alivePlayers.filter(p =>
       p.id !== botId && demonstrated.get(p.id)?.has(Character.Duke)).length;
-    const faDemoMod = aliveDukeCount > 0 ? 0.15 : 1.0;
-    faWeight *= faDemoMod;
-    // In 3P1L, non-leaders boost FA — treason winners use FA at 19% in 3P1L
-    // Applied after faDemoMod since the anti-tempo leader usually lets FA through anyway
+    if (aliveDukeCount > 0) faWeight *= 0.15;
+    // In 3P1L, non-leaders boost FA
     if (is3P1L) {
       const sortedByCoins = [...alivePlayers].sort((a, b) => b.coins - a.coins);
       if (sortedByCoins[0].id !== botId) faWeight = Math.max(faWeight, 2.5);
     }
     candidates.push({ action: ActionType.ForeignAid, weight: faWeight });
 
-    // Tax (Duke) — consensus best action, especially early game
+    // Tax (Duke)
     const hasDuke = ownedCharacters.includes(Character.Duke);
+    const dukeRevealed = revealed.get(Character.Duke) || 0;
     if (hasDuke) {
-      const weight = (aliveCount > 3 ? 7 : 6) + leaderRealActionBoost; // Even stronger early (S-tier opener)
+      const weight = (aliveCount > 3 ? 7 : 6) + leaderRealActionBoost;
       candidates.push({ action: ActionType.Tax, weight });
-    } else if (dukeRevealed < 2 && !burnt.has(Character.Duke)) {
-      // Bluff Duke — boosted if established identity, penalized if switching
-      // In 1v1, Tax bluff is stronger: +3 coins/turn, passivity = death
+    } else if (dukeRevealed < 2 && !burnt.has(Character.Duke) && Math.random() < personality.bluffRateTax) {
       let weight = aliveCount === 2 ? 3 : 1.5;
       if (established === Character.Duke) weight *= persistBoost;
       else weight *= switchPenalty;
       candidates.push({ action: ActionType.Tax, weight: weight * bluffMod * leaderBluffMod * underdogBluffMult });
     }
 
-    // Steal (Captain) — 4-coin swing, dominant in 1v1
+    // Steal (Captain)
     const stealTargets = alivePlayers.filter(p => p.id !== botId && p.coins > 0);
     if (stealTargets.length > 0) {
       const hasCaptain = ownedCharacters.includes(Character.Captain);
       const captainRevealed = revealed.get(Character.Captain) || 0;
-      // Prefer targets who haven't demonstrated steal-blocking (Captain/Ambassador)
-      const unblockedStealTargets = stealTargets.filter(p => {
+      const unblockedTargets = stealTargets.filter(p => {
         const demo = demonstrated.get(p.id);
         return !demo || (!demo.has(Character.Captain) && !demo.has(Character.Ambassador));
       });
-      const effectiveTargets = unblockedStealTargets.length > 0 ? unblockedStealTargets : stealTargets;
-      const targetId = this.pickTarget(game, botId, 'hard', effectiveTargets.map(p => p.id));
-      // Reduce weight if all steal targets have demonstrated blocking
-      const stealDemoMod = unblockedStealTargets.length > 0 ? 1.0 : 0.25;
+      const effectiveTargets = unblockedTargets.length > 0 ? unblockedTargets : stealTargets;
+      const targetId = this.pickTarget(game, botId, personality, effectiveTargets.map(p => p.id));
+      const stealDemoMod = unblockedTargets.length > 0 ? 1.0 : 0.25;
+
       if (hasCaptain) {
-        const weight = (aliveCount === 2 ? 8 : (aliveCount > 3 ? 3.5 : 5)) + leaderRealActionBoost;
+        const weight = ((aliveCount === 2 ? 8 : (aliveCount > 3 ? 3.5 : 5)) + leaderRealActionBoost) * personality.actionWeightSteal;
         candidates.push({ action: ActionType.Steal, targetId, weight: weight * stealDemoMod });
-      } else if (captainRevealed < 2 && !burnt.has(Character.Captain)) {
+      } else if (captainRevealed < 2 && !burnt.has(Character.Captain) && Math.random() < personality.bluffRateSteal) {
         let weight = aliveCount === 2 ? 2 : 1;
         if (established === Character.Captain) weight *= persistBoost;
         else weight *= switchPenalty;
@@ -667,18 +591,17 @@ export class BotBrain {
       }
     }
 
-    // Assassinate — prioritize targets with 1 influence (they can't afford to challenge)
+    // Assassinate
     if (bot.coins >= ASSASSINATE_COST) {
       const hasAssassin = ownedCharacters.includes(Character.Assassin);
       const assassinRevealed = revealed.get(Character.Assassin) || 0;
-      const targetId = this.pickTarget(game, botId, 'hard');
+      const targetId = this.pickTarget(game, botId, personality);
       const target = game.getPlayer(targetId);
-      // Assassination is more valuable against 1-influence targets
       const targetBonus = target && target.aliveInfluenceCount === 1 ? 2 : 0;
+
       if (hasAssassin) {
-        candidates.push({ action: ActionType.Assassinate, targetId, weight: 5 + targetBonus + underdogAssassinBonus });
-      } else if (assassinRevealed < 2 && !burnt.has(Character.Assassin)) {
-        // No targetBonus for bluffs: the 3-coin risk doesn't change with target health
+        candidates.push({ action: ActionType.Assassinate, targetId, weight: (5 + targetBonus + underdogAssassinBonus) * personality.actionWeightAssassinate });
+      } else if (assassinRevealed < 2 && !burnt.has(Character.Assassin) && Math.random() < personality.bluffRateAssassinate) {
         let weight = 1;
         if (established === Character.Assassin) weight *= persistBoost;
         else weight *= switchPenalty;
@@ -686,14 +609,13 @@ export class BotBrain {
       }
     }
 
-    // Exchange (Ambassador) — safest bluff in the game, almost never challenged
+    // Exchange (Ambassador)
     const hasAmbassador = ownedCharacters.includes(Character.Ambassador);
     const ambassadorRevealed = revealed.get(Character.Ambassador) || 0;
     if (hasAmbassador) {
       const weight = aliveCount <= 2 ? 1 : (aliveCount > 3 ? 4 : 3);
       candidates.push({ action: ActionType.Exchange, weight });
-    } else if (aliveCount > 2 && ambassadorRevealed < 2 && !burnt.has(Character.Ambassador)) {
-      // Bluff Ambassador for hand improvement — near-zero challenge risk
+    } else if (aliveCount > 2 && ambassadorRevealed < 2 && !burnt.has(Character.Ambassador) && Math.random() < personality.bluffRateExchange) {
       const hasStrongCard = ownedCharacters.includes(Character.Duke) || ownedCharacters.includes(Character.Captain);
       let weight = hasStrongCard ? 0.5 : 1.5;
       if (established === Character.Ambassador) weight *= persistBoost;
@@ -709,7 +631,7 @@ export class BotBrain {
   private static decideActionChallenge(
     game: Game,
     botId: string,
-    difficulty: BotDifficulty,
+    personality: PersonalityParams,
     pendingAction: PendingAction | null,
     challengeState: ChallengeState | null,
     deckMemory?: Map<Character, number>,
@@ -722,170 +644,80 @@ export class BotBrain {
     const claimedChar = pendingAction.claimedCharacter;
     if (!claimedChar) return { type: 'pass_challenge' };
 
-    // If bot can block this action with a card it actually holds, prefer passing to block instead
+    // If bot can block this action with a card it holds, prefer passing to block
     const def = ACTION_DEFINITIONS[pendingAction.type];
     if (pendingAction.targetId === botId && def.blockedBy.length > 0) {
       const canBlock = def.blockedBy.some(c => bot.hiddenCharacters.includes(c));
-      if (canBlock) {
-        return { type: 'pass_challenge' };
-      }
+      if (canBlock) return { type: 'pass_challenge' };
     }
 
-    // Hard/medium bot at 1 influence being assassinated without Contessa:
-    // prefer passing challenge to bluff-block Contessa in block phase,
-    // unless card counting gives a guaranteed catch or Contessa bluff isn't viable.
-    // Challenging risks instant death if wrong; bluff-blocking Contessa gives
-    // a chance to survive if the opponent doesn't call the bluff.
+    // Assassination survival logic
     if (pendingAction.type === ActionType.Assassinate && pendingAction.targetId === botId
-        && bot.aliveInfluenceCount === 1 && (difficulty === 'hard' || difficulty === 'medium')) {
+        && bot.aliveInfluenceCount === 1) {
       const revealed = this.countRevealedCharacters(game);
       const revealedCount = revealed.get(claimedChar) || 0;
       const botHoldsCount = bot.hiddenCharacters.filter(c => c === claimedChar).length;
-      const accountedFor = revealedCount + botHoldsCount;
-      // Only challenge if all copies are accounted for (guaranteed catch)
-      if (accountedFor >= CARDS_PER_CHARACTER) {
-        return { type: 'challenge' };
-      }
-      // Check if Contessa bluff is viable — if all Contessas are revealed,
-      // bluff-blocking is guaranteed to be caught, so challenge the Assassin instead
+      if (revealedCount + botHoldsCount >= CARDS_PER_CHARACTER) return { type: 'challenge' };
       const revealedContessas = revealed.get(Character.Contessa) || 0;
-      if (revealedContessas >= CARDS_PER_CHARACTER) {
-        return { type: 'challenge' };
-      }
-      // Hard bot: if 2+ Contessas revealed, bluff is very risky — prefer challenging
-      if (difficulty === 'hard' && revealedContessas >= 2) {
-        if (Math.random() < 0.7) {
-          return { type: 'challenge' };
-        }
-      }
-      // Otherwise pass — will bluff-block with Contessa in the block phase
+      if (revealedContessas >= CARDS_PER_CHARACTER) return { type: 'challenge' };
+      if (revealedContessas >= 2 && Math.random() < 0.7) return { type: 'challenge' };
       return { type: 'pass_challenge' };
     }
 
-    if (difficulty === 'easy') {
-      // Easy: never challenges
-      return { type: 'pass_challenge' };
-    }
-
-    if (difficulty === 'medium') {
-      // Medium: 10% base challenge rate
-      // Never challenge assassination when we have 2 influences (too risky)
-      if (pendingAction.type === ActionType.Assassinate && pendingAction.targetId === botId) {
-        if (bot.aliveInfluenceCount >= 2) {
-          return { type: 'pass_challenge' };
-        }
-      }
-
-      let challengeProb = 0.10;
-      // Boost if bot holds the claimed character
-      if (bot.hiddenCharacters.includes(claimedChar)) {
-        challengeProb += 0.15;
-      }
-      // Boost if targeted
-      if (pendingAction.targetId === botId) {
-        challengeProb += 0.10;
-      }
-      // Bystanders rarely challenge targeted actions (steal/assassinate) — not their fight
-      const medAliveCount = game.getAlivePlayers().length;
-      if (pendingAction.targetId !== undefined && pendingAction.targetId !== botId && medAliveCount > 2) {
-        challengeProb *= 0.25;
-      }
-
-      return Math.random() < challengeProb ? { type: 'challenge' } : { type: 'pass_challenge' };
-    }
-
-    // Hard: card-counting challenges
+    // Card counting
     const revealed = this.countRevealedCharacters(game);
     const revealedCount = revealed.get(claimedChar) || 0;
     const botHoldsCount = bot.hiddenCharacters.filter(c => c === claimedChar).length;
     const knownInDeckCount = deckMemory?.get(claimedChar) || 0;
     const accountedFor = revealedCount + botHoldsCount + knownInDeckCount;
 
-    // Never challenge assassination when we have 2 influences (too risky — can lose both)
-    if (pendingAction.type === ActionType.Assassinate && pendingAction.targetId === botId) {
-      if (bot.aliveInfluenceCount >= 2) {
-        return { type: 'pass_challenge' };
-      }
+    // Never challenge assassination with 2 influences
+    if (pendingAction.type === ActionType.Assassinate && pendingAction.targetId === botId && bot.aliveInfluenceCount >= 2) {
+      return { type: 'pass_challenge' };
     }
 
-    // "Hail Mary" challenge — if we're the target and down to 1 influence,
-    // a failed challenge costs us what we'd lose anyway, so be more aggressive
-    const isDesperateTarget = pendingAction.targetId === botId && bot.aliveInfluenceCount === 1;
-
+    // 1v1 endgame desperation
     const alivePlayers = game.getAlivePlayers();
     const aliveCount = alivePlayers.length;
-
-    // 1v1 endgame desperation: if letting this action through means the opponent
-    // reaches 7+ coins (guaranteed coup win) and we can't win on our next turn,
-    // challenging is our only chance to survive
     if (aliveCount === 2 && bot.aliveInfluenceCount === 1) {
       const opponent = alivePlayers.find(p => p.id !== botId)!;
       let opponentCoinsAfter = opponent.coins;
       if (pendingAction.type === ActionType.Tax) opponentCoinsAfter += 3;
       else if (pendingAction.type === ActionType.Steal) opponentCoinsAfter += Math.min(2, bot.coins);
-
-      const opponentCanCoupNext = opponentCoinsAfter >= COUP_COST;
-      const canCoupNext = bot.coins >= COUP_COST;
-      const canAssassinateNext = bot.coins >= ASSASSINATE_COST;
-      const canWinNext = canCoupNext || canAssassinateNext;
-
-      if (opponentCanCoupNext && !canWinNext) {
+      if (opponentCoinsAfter >= COUP_COST && bot.coins < COUP_COST && bot.coins < ASSASSINATE_COST) {
         return { type: 'challenge' };
       }
     }
 
-    // If all copies are accounted for, 100% challenge (guaranteed catch)
-    if (accountedFor >= CARDS_PER_CHARACTER) {
-      return { type: 'challenge' };
-    }
+    // Guaranteed catch
+    if (accountedFor >= CARDS_PER_CHARACTER) return { type: 'challenge' };
 
-    // 1v1 underdog desperation: challenge more aggressively when behind
+    // 1v1 underdog desperation
     if (aliveCount === 2) {
       const opponent = alivePlayers.find(p => p.id !== botId)!;
       const isUnderdog = bot.coins < opponent.coins ||
         (bot.coins === opponent.coins && bot.aliveInfluenceCount < opponent.aliveInfluenceCount);
-      if (isUnderdog && Math.random() < 0.40) {
-        return { type: 'challenge' };
-      }
+      if (isUnderdog && Math.random() < 0.40) return { type: 'challenge' };
     }
 
-    // Early game: less information available, less reason to challenge
-    const earlyGameMod = game.turnNumber <= 2 ? 0.3 : game.turnNumber <= 4 ? 0.6 : 1.0;
-
-    // Bystander penalty: for targeted actions (steal/assassinate), bystanders have
-    // little incentive to challenge — it doesn't affect them directly.
-    // Treason data: bystanders challenge steal at 2.5% vs targets at 8.2%.
-    // For untargeted actions (tax/exchange), everyone is equally affected so no penalty.
+    // Personality-driven challenge rates
     const isTargetedAction = pendingAction.targetId !== undefined;
     const isBystander = isTargetedAction && pendingAction.targetId !== botId && aliveCount > 2;
-
-    // At 1 influence, be more cautious with challenges (elimination risk)
-    // unless we're the target (desperate = nothing to lose)
-    const cautionMod = (bot.aliveInfluenceCount === 1)
-      ? (isDesperateTarget ? 1.0 : isBystander ? 0.05 : 0.6)
-      : 1.0;
-    // Bystanders with 2 influences still shouldn't challenge targeted actions often —
-    // risking a card to stop something that doesn't hurt them
     const bystanderMod = isBystander ? 0.2 : 1.0;
-    // Desperation boost when we're about to lose influence anyway
-    const desperationBoost = isDesperateTarget ? 0.15 : 0;
+    const earlyGameMod = game.turnNumber <= 2 ? 0.3 : game.turnNumber <= 4 ? 0.6 : 1.0;
 
-    // If 2+ copies accounted for, high challenge rate
-    if (accountedFor >= 2) {
-      const prob = Math.min(0.65 * cautionMod * bystanderMod * earlyGameMod + desperationBoost, 0.85);
-      return Math.random() < prob ? { type: 'challenge' } : { type: 'pass_challenge' };
+    let challengeProb = personality.challengeRateBase;
+    if (botHoldsCount > 0) challengeProb = personality.challengeRateWithEvidence;
+    if (accountedFor >= 2) challengeProb = Math.min(challengeProb + 0.25, 0.65);
+
+    challengeProb *= bystanderMod * earlyGameMod;
+
+    // Caution at 1 influence
+    if (bot.aliveInfluenceCount === 1 && pendingAction.targetId !== botId) {
+      challengeProb *= 0.5;
     }
 
-    // If bot holds a copy, moderate challenge rate
-    // Winners challenge less often but succeed 76% — be more selective
-    if (botHoldsCount > 0) {
-      const prob = Math.min(0.3 * cautionMod * bystanderMod * earlyGameMod + desperationBoost, 0.6);
-      return Math.random() < prob ? { type: 'challenge' } : { type: 'pass_challenge' };
-    }
-
-    // Otherwise very low challenge rate — winners don't speculate
-    const baseProb = 0.05 * cautionMod * bystanderMod * earlyGameMod + desperationBoost;
-    return Math.random() < baseProb ? { type: 'challenge' } : { type: 'pass_challenge' };
+    return Math.random() < challengeProb ? { type: 'challenge' } : { type: 'pass_challenge' };
   }
 
   // ─── Block Decision ───
@@ -893,7 +725,7 @@ export class BotBrain {
   private static decideBlock(
     game: Game,
     botId: string,
-    difficulty: BotDifficulty,
+    personality: PersonalityParams,
     pendingAction: PendingAction | null,
     blockPassedPlayerIds: string[],
   ): BotDecision | null {
@@ -907,20 +739,17 @@ export class BotBrain {
     const def = ACTION_DEFINITIONS[pendingAction.type];
     if (def.blockedBy.length === 0) return { type: 'pass_block' };
 
-    // Only the target can block targeted actions (Steal, Assassinate)
     const isTarget = pendingAction.targetId === botId;
     if (pendingAction.targetId && !isTarget) return { type: 'pass_block' };
 
-    // Hard bot 3P1L anti-tempo: leader usually lets Foreign Aid through to distribute leader burden
-    if (difficulty === 'hard' && pendingAction.type === ActionType.ForeignAid) {
+    // 3P1L anti-tempo for Foreign Aid
+    if (pendingAction.type === ActionType.ForeignAid) {
       const alivePlayers = game.getAlivePlayers();
       const aliveCount = alivePlayers.length;
       const is3P1L = aliveCount === 3 && alivePlayers.every(p => p.aliveInfluenceCount === 1);
       if (is3P1L) {
         const sortedByCoins = [...alivePlayers].sort((a, b) => b.coins - a.coins);
-        if (sortedByCoins[0].id === botId && Math.random() < 0.7) {
-          return { type: 'pass_block' };
-        }
+        if (sortedByCoins[0].id === botId && Math.random() < 0.7) return { type: 'pass_block' };
       }
     }
 
@@ -928,71 +757,26 @@ export class BotBrain {
       const hasCard = bot.hiddenCharacters.includes(blockChar);
 
       if (hasCard) {
-        // All tiers: always block when holding the card and targeted
         if (isTarget) return { type: 'block', character: blockChar };
-        // Hard bots: almost always block Foreign Aid with Duke (it's free)
-        if (difficulty === 'hard') {
-          if (Math.random() < 0.9) return { type: 'block', character: blockChar };
-        } else {
-          // Easy/Medium: block Foreign Aid with some probability
-          if (Math.random() < 0.6) return { type: 'block', character: blockChar };
-        }
+        if (Math.random() < 0.9) return { type: 'block', character: blockChar };
       } else {
-        // Bluff blocking
-        if (difficulty === 'easy') {
-          // Easy: never bluff-blocks
-          continue;
-        }
-
-        // Never bluff a character when all copies are publicly revealed — guaranteed to be caught
+        // Bluff blocking with personality rates
         const revealed = this.countRevealedCharacters(game);
         const revealedCount = revealed.get(blockChar) || 0;
         if (revealedCount >= CARDS_PER_CHARACTER) continue;
 
-        if (difficulty === 'medium') {
-          if (isTarget && blockChar === Character.Contessa && pendingAction.type === ActionType.Assassinate) {
-            if (bot.aliveInfluenceCount === 1) {
-              // Bluff Contessa — it's our only chance to survive
-              // (all-revealed case already handled by general guard above)
-              return { type: 'block', character: blockChar };
-            }
-            // With 2 influences, 30% bluff Contessa vs assassination
-            if (Math.random() < 0.3) return { type: 'block', character: blockChar };
-          } else if (isTarget) {
-            // 12% bluff other blocks when targeted
-            if (Math.random() < 0.12) return { type: 'block', character: blockChar };
-          } else {
-            // 5% bluff Duke block on foreign aid
-            if (Math.random() < 0.05) return { type: 'block', character: blockChar };
-          }
-          continue;
-        }
-
-        // Hard: strategic bluff blocking
         if (isTarget && blockChar === Character.Contessa && pendingAction.type === ActionType.Assassinate) {
           if (bot.aliveInfluenceCount === 1) {
-            // Bluff Contessa — opponent may not challenge
-            // (all-revealed case already handled by general guard above)
+            // Always bluff Contessa when about to die
             return { type: 'block', character: blockChar };
           }
-          // With 2 influences, bluff occasionally but not as a default strategy.
-          // Winners bluff Contessa only ~4% of the time — they actually hold it.
-          if (Math.random() < 0.25) return { type: 'block', character: blockChar };
+          if (Math.random() < personality.bluffRateContessa) return { type: 'block', character: blockChar };
           continue;
         }
 
-        if (isTarget) {
-          // Winners bluff-block ~10% — only bluff when desperate
-          if (revealedCount < 2) {
-            const prob = bot.aliveInfluenceCount === 1 ? 0.10 : 0.15;
-            if (Math.random() < prob) return { type: 'block', character: blockChar };
-          }
-        } else {
-          // Foreign aid Duke block — rarely bluff (winners bluff Duke blocks ~5%)
-          if (revealedCount < 2 && Math.random() < 0.08) {
-            return { type: 'block', character: blockChar };
-          }
-        }
+        // Other block bluffs
+        const bluffRate = isTarget ? personality.bluffRateOtherBlock : personality.bluffRateOtherBlock * 0.5;
+        if (Math.random() < bluffRate) return { type: 'block', character: blockChar };
       }
     }
 
@@ -1004,83 +788,57 @@ export class BotBrain {
   private static decideBlockChallenge(
     game: Game,
     botId: string,
-    difficulty: BotDifficulty,
+    personality: PersonalityParams,
     pendingAction: PendingAction | null,
     pendingBlock: PendingBlock | null,
     challengeState: ChallengeState | null,
     deckMemory?: Map<Character, number>,
   ): BotDecision | null {
     if (!pendingAction || !pendingBlock || !challengeState) return null;
-    // Already passed (pre-passed by ActionResolver or previously acted)? Nothing to do.
     if (challengeState.passedPlayerIds.includes(botId)) return null;
-    // Non-actor bots must actively pass so the phase resolves promptly
     if (pendingAction.actorId !== botId) return { type: 'pass_challenge_block' };
-
-    if (difficulty === 'easy') {
-      // Easy: never challenges blocks
-      return { type: 'pass_challenge_block' };
-    }
 
     const bot = game.getPlayer(botId)!;
     const blockerClaimedChar = pendingBlock.claimedCharacter;
 
-    if (difficulty === 'medium') {
-      // Medium: 10% base challenge rate for blocks
-      let challengeProb = 0.10;
-      if (bot.hiddenCharacters.includes(blockerClaimedChar)) {
-        challengeProb += 0.15;
-      }
-      const costDef = ACTION_DEFINITIONS[pendingAction.type];
-      if (costDef.cost > 0) {
-        challengeProb += 0.1;
-      }
-      return Math.random() < challengeProb ? { type: 'challenge_block' } : { type: 'pass_challenge_block' };
-    }
-
-    // Hard: card-counting
+    // Card counting
     const revealed = this.countRevealedCharacters(game);
     const revealedCount = revealed.get(blockerClaimedChar) || 0;
     const botHoldsCount = bot.hiddenCharacters.filter(c => c === blockerClaimedChar).length;
     const knownInDeckCount = deckMemory?.get(blockerClaimedChar) || 0;
     const accountedFor = revealedCount + botHoldsCount + knownInDeckCount;
 
-    // At 1 influence, challenging a block is risky (lose = elimination)
-    const cautionMod = bot.aliveInfluenceCount === 1 ? 0.7 : 1.0;
+    // Guaranteed catch
+    if (accountedFor >= CARDS_PER_CHARACTER) return { type: 'challenge_block' };
 
-    if (accountedFor >= CARDS_PER_CHARACTER) {
-      return { type: 'challenge_block' };
-    }
-
-    // 1v1 underdog desperation: challenge blocks aggressively — can't let opponent block freely
-    const cbAlivePlayers = game.getAlivePlayers();
-    if (cbAlivePlayers.length === 2) {
-      const opponent = cbAlivePlayers.find(p => p.id !== botId)!;
+    // 1v1 underdog desperation
+    const alivePlayers = game.getAlivePlayers();
+    if (alivePlayers.length === 2) {
+      const opponent = alivePlayers.find(p => p.id !== botId)!;
       const isUnderdog = bot.coins < opponent.coins ||
         (bot.coins === opponent.coins && bot.aliveInfluenceCount < opponent.aliveInfluenceCount);
-      if (isUnderdog && Math.random() < 0.45) {
-        return { type: 'challenge_block' };
-      }
+      if (isUnderdog && Math.random() < 0.45) return { type: 'challenge_block' };
     }
 
-    if (accountedFor >= 2) {
-      return Math.random() < 0.6 * cautionMod ? { type: 'challenge_block' } : { type: 'pass_challenge_block' };
-    }
+    // Personality-driven block challenge rate
+    let challengeProb = personality.challengeRateBlock;
+    if (botHoldsCount > 0) challengeProb += 0.15;
+    if (accountedFor >= 2) challengeProb = Math.min(challengeProb + 0.25, 0.6);
+    if (bot.aliveInfluenceCount === 1) challengeProb *= 0.7;
 
-    // If our action cost coins, more incentive to challenge the block
+    // Extra incentive if our action cost coins
     const costDef = ACTION_DEFINITIONS[pendingAction.type];
-    if (costDef.cost > 0 && Math.random() < 0.15 * cautionMod) {
-      return { type: 'challenge_block' };
-    }
+    if (costDef.cost > 0) challengeProb += 0.05;
 
-    return Math.random() < 0.05 * cautionMod ? { type: 'challenge_block' } : { type: 'pass_challenge_block' };
+    return Math.random() < challengeProb ? { type: 'challenge_block' } : { type: 'pass_challenge_block' };
   }
 
   // ─── Influence Loss Decision ───
 
-  private static decideInfluenceLoss(game: Game, botId: string, difficulty: BotDifficulty): BotDecision {
+  private static decideInfluenceLoss(
+    game: Game, botId: string, personality: PersonalityParams,
+  ): BotDecision {
     const bot = game.getPlayer(botId)!;
-
-    // Find unrevealed influences
     const unrevealed = bot.influences
       .map((inf, i) => ({ character: inf.character, index: i }))
       .filter(x => !bot.influences[x.index].revealed);
@@ -1089,28 +847,10 @@ export class BotBrain {
       return { type: 'choose_influence_loss', influenceIndex: unrevealed[0].index };
     }
 
-    if (difficulty === 'easy') {
-      // Easy: random
-      const pick = unrevealed[Math.floor(Math.random() * unrevealed.length)];
-      return { type: 'choose_influence_loss', influenceIndex: pick.index };
-    }
-
-    if (difficulty === 'medium') {
-      // Medium: static card value ranking (lose lowest)
-      const STATIC_VALUE: Record<Character, number> = {
-        [Character.Duke]: 5,
-        [Character.Captain]: 4,
-        [Character.Assassin]: 3,
-        [Character.Contessa]: 3,
-        [Character.Ambassador]: 2,
-      };
-      unrevealed.sort((a, b) => STATIC_VALUE[a.character] - STATIC_VALUE[b.character]);
-      return { type: 'choose_influence_loss', influenceIndex: unrevealed[0].index };
-    }
-
-    // Hard: dynamic card value (context-aware)
+    // Dynamic card value with personality spread
     unrevealed.sort((a, b) =>
-      this.dynamicCardValue(a.character, game, botId) - this.dynamicCardValue(b.character, game, botId)
+      this.dynamicCardValueWithSpread(a.character, game, botId, personality.cardValueSpread) -
+      this.dynamicCardValueWithSpread(b.character, game, botId, personality.cardValueSpread)
     );
     return { type: 'choose_influence_loss', influenceIndex: unrevealed[0].index };
   }
@@ -1118,43 +858,17 @@ export class BotBrain {
   // ─── Exchange Decision ───
 
   private static decideExchange(
-    game: Game, botId: string, difficulty: BotDifficulty, exchangeState: ExchangeState,
+    game: Game, botId: string, personality: PersonalityParams, exchangeState: ExchangeState,
   ): BotDecision {
     const bot = game.getPlayer(botId)!;
     const currentCards = bot.hiddenCharacters;
     const allCards = [...currentCards, ...exchangeState.drawnCards];
     const keepCount = bot.aliveInfluenceCount;
 
-    if (difficulty === 'easy') {
-      // Easy: random selection
-      const indices = allCards.map((_, i) => i);
-      // Shuffle
-      for (let i = indices.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [indices[i], indices[j]] = [indices[j], indices[i]];
-      }
-      return { type: 'choose_exchange', keepIndices: indices.slice(0, keepCount) };
-    }
-
-    if (difficulty === 'medium') {
-      // Medium: static card value ranking
-      const STATIC_VALUE: Record<Character, number> = {
-        [Character.Duke]: 5,
-        [Character.Captain]: 4,
-        [Character.Assassin]: 3,
-        [Character.Contessa]: 3,
-        [Character.Ambassador]: 2,
-      };
-      const indexed = allCards.map((char, i) => ({ char, index: i, value: STATIC_VALUE[char] }));
-      indexed.sort((a, b) => b.value - a.value);
-      return { type: 'choose_exchange', keepIndices: indexed.slice(0, keepCount).map(x => x.index) };
-    }
-
-    // Hard: dynamic card value
     const indexed = allCards.map((char, i) => ({
       char,
       index: i,
-      value: this.dynamicCardValue(char, game, botId),
+      value: this.dynamicCardValueWithSpread(char, game, botId, personality.cardValueSpread),
     }));
     indexed.sort((a, b) => b.value - a.value);
     return { type: 'choose_exchange', keepIndices: indexed.slice(0, keepCount).map(x => x.index) };

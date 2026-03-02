@@ -35,7 +35,7 @@ export type SideEffect =
   | { type: 'advance_turn' }
   | { type: 'set_timer'; durationMs: number }
   | { type: 'clear_timer' }
-  | { type: 'log'; message: string; eventType: LogEventType; character: Character | null; actorId: string | null; actorName: string | null }
+  | { type: 'log'; message: string; eventType: LogEventType; character: Character | null; actorId: string | null; actorName: string | null; targetId?: string | null }
   | { type: 'start_exchange'; playerId: string; drawnCards: Character[] }
   | { type: 'win_check' }
   | { type: 'challenge_reveal'; challengerName: string; challengedName: string; character: Character; wasGenuine: boolean };
@@ -127,7 +127,7 @@ export class ActionResolver {
     }
 
     if (actionType === ActionType.Coup) {
-      sideEffects.push({ type: 'log', message: `${actor.name} launches a Coup against ${game.getPlayer(targetId!)?.name}.`, eventType: 'coup', character: null, actorId, actorName: actor.name });
+      sideEffects.push({ type: 'log', message: `${actor.name} launches a Coup against ${game.getPlayer(targetId!)?.name}.`, eventType: 'coup', character: null, actorId, actorName: actor.name, targetId });
       // Target must lose influence
       return {
         newPhase: TurnPhase.AwaitingInfluenceLoss,
@@ -151,6 +151,7 @@ export class ActionResolver {
         character: def.claimedCharacter,
         actorId,
         actorName: actor.name,
+        targetId: targetId || null,
       });
     } else {
       sideEffects.push({
@@ -160,6 +161,7 @@ export class ActionResolver {
         character: null,
         actorId,
         actorName: actor.name,
+        targetId: targetId || null,
       });
     }
 
@@ -290,6 +292,7 @@ export class ActionResolver {
         character: claimedChar,
         actorId: challengerId,
         actorName: challenger.name,
+        targetId: challenged.id,
       });
 
       // Refund action cost — per official rules, a successfully challenged action returns the cost
@@ -539,6 +542,7 @@ export class ActionResolver {
         character: claimedChar,
         actorId: challengerId,
         actorName: challenger.name,
+        targetId: blocker.id,
       });
 
       if (blocker.aliveInfluenceCount === 1) {
@@ -781,6 +785,7 @@ export class ActionResolver {
           character: Character.Captain,
           actorId: actor.id,
           actorName: actor.name,
+          targetId: target.id,
         });
         sideEffects.push({ type: 'advance_turn' });
         return this.resolved(sideEffects);
@@ -797,7 +802,7 @@ export class ActionResolver {
         if (target.aliveInfluenceCount === 1) {
           const idx = target.influences.findIndex(inf => !inf.revealed);
           sideEffects.push({ type: 'reveal_influence', playerId: target.id, influenceIndex: idx });
-          sideEffects.push({ type: 'log', message: `${target.name} loses an influence to assassination.`, eventType: 'assassination', character: Character.Assassin, actorId: actor.id, actorName: actor.name });
+          sideEffects.push({ type: 'log', message: `${target.name} loses an influence to assassination.`, eventType: 'assassination', character: Character.Assassin, actorId: actor.id, actorName: actor.name, targetId: target.id });
           sideEffects.push({ type: 'eliminate_check', playerId: target.id });
           sideEffects.push({ type: 'win_check' });
           sideEffects.push({ type: 'advance_turn' });
@@ -805,7 +810,7 @@ export class ActionResolver {
         }
 
         // Target chooses which influence to lose
-        sideEffects.push({ type: 'log', message: `${target.name} must lose an influence to assassination.`, eventType: 'assassination', character: Character.Assassin, actorId: actor.id, actorName: actor.name });
+        sideEffects.push({ type: 'log', message: `${target.name} must lose an influence to assassination.`, eventType: 'assassination', character: Character.Assassin, actorId: actor.id, actorName: actor.name, targetId: target.id });
         return {
           newPhase: TurnPhase.AwaitingInfluenceLoss,
           pendingAction,

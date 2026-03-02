@@ -4,8 +4,9 @@ import { Game } from '@/engine/Game';
 import { Player } from '@/engine/Player';
 import {
   ActionType,
-  BotDifficulty,
+  BotPersonality,
   Character,
+  PersonalityParams,
   TurnPhase,
   PendingAction,
   PendingBlock,
@@ -13,6 +14,7 @@ import {
   InfluenceLossRequest,
   ExchangeState,
 } from '@/shared/types';
+import { BOT_PERSONALITIES } from '@/shared/constants';
 
 // ─── Helpers ───
 
@@ -42,7 +44,7 @@ function revealCard(game: Game, playerId: string, index: number): void {
 function decide(
   game: Game,
   botId: string,
-  difficulty: BotDifficulty,
+  personality: PersonalityParams,
   overrides?: {
     pendingAction?: PendingAction | null;
     pendingBlock?: PendingBlock | null;
@@ -55,7 +57,7 @@ function decide(
   return BotBrain.decide(
     game,
     botId,
-    difficulty,
+    personality,
     overrides?.pendingAction ?? null,
     overrides?.pendingBlock ?? null,
     overrides?.challengeState ?? null,
@@ -74,21 +76,21 @@ describe('BotBrain', () => {
       bot.influences[0].revealed = true;
       bot.influences[1].revealed = true;
 
-      const result = decide(game, 'p2', 'medium');
+      const result = decide(game, 'p2', BOT_PERSONALITIES.optimal);
       expect(result).toBeNull();
     });
 
     it('returns null when bot is not the current player in AwaitingAction', () => {
       const game = createGame();
       game.currentPlayerIndex = 0; // p1's turn
-      const result = decide(game, 'p2', 'medium');
+      const result = decide(game, 'p2', BOT_PERSONALITIES.optimal);
       expect(result).toBeNull();
     });
 
     it('returns an action when bot is the current player in AwaitingAction', () => {
       const game = createGame();
       game.currentPlayerIndex = 1; // p2's turn (bot)
-      const result = decide(game, 'p2', 'medium');
+      const result = decide(game, 'p2', BOT_PERSONALITIES.optimal);
       expect(result).not.toBeNull();
       expect(result!.type).toBe('action');
     });
@@ -96,29 +98,29 @@ describe('BotBrain', () => {
     it('returns null for GameOver phase', () => {
       const game = createGame();
       game.turnPhase = TurnPhase.GameOver;
-      const result = decide(game, 'p2', 'medium');
+      const result = decide(game, 'p2', BOT_PERSONALITIES.optimal);
       expect(result).toBeNull();
     });
 
     it('returns null for ActionResolved phase', () => {
       const game = createGame();
       game.turnPhase = TurnPhase.ActionResolved;
-      const result = decide(game, 'p2', 'medium');
+      const result = decide(game, 'p2', BOT_PERSONALITIES.optimal);
       expect(result).toBeNull();
     });
   });
 
-  // ─── Action Selection: All tiers ───
+  // ─── Action Selection: All personalities ───
 
-  describe('decideAction() — all tiers', () => {
-    it('must coup at 10+ coins (all tiers)', () => {
-      for (const diff of ['easy', 'medium', 'hard'] as BotDifficulty[]) {
+  describe('decideAction() — all personalities', () => {
+    it('must coup at 10+ coins (all personalities)', () => {
+      for (const pName of ['aggressive', 'conservative', 'optimal'] as const) {
         const game = createGame();
         game.currentPlayerIndex = 1;
         game.getPlayer('p2')!.coins = 10;
         setCards(game, 'p2', [Character.Duke, Character.Captain]);
 
-        const result = decide(game, 'p2', diff);
+        const result = decide(game, 'p2', BOT_PERSONALITIES[pName]);
         expect(result).not.toBeNull();
         expect(result!.type).toBe('action');
         if (result!.type === 'action') {
@@ -134,8 +136,8 @@ describe('BotBrain', () => {
       game.currentPlayerIndex = 1;
 
       for (let i = 0; i < 50; i++) {
-        for (const diff of ['easy', 'medium', 'hard'] as BotDifficulty[]) {
-          const result = decide(game, 'p2', diff);
+        for (const pName of ['aggressive', 'conservative', 'optimal'] as const) {
+          const result = decide(game, 'p2', BOT_PERSONALITIES[pName]);
           expect(result).not.toBeNull();
           expect(result!.type).toBe('action');
           if (result!.type === 'action') {
@@ -152,8 +154,8 @@ describe('BotBrain', () => {
       setCards(game, 'p2', [Character.Assassin, Character.Assassin]);
 
       for (let i = 0; i < 100; i++) {
-        for (const diff of ['easy', 'medium', 'hard'] as BotDifficulty[]) {
-          const result = decide(game, 'p2', diff);
+        for (const pName of ['aggressive', 'conservative', 'optimal'] as const) {
+          const result = decide(game, 'p2', BOT_PERSONALITIES[pName]);
           if (result?.type === 'action') {
             expect(result.action).not.toBe(ActionType.Assassinate);
           }
@@ -167,8 +169,8 @@ describe('BotBrain', () => {
       game.getPlayer('p2')!.coins = 10;
 
       for (let i = 0; i < 100; i++) {
-        for (const diff of ['easy', 'medium', 'hard'] as BotDifficulty[]) {
-          const result = decide(game, 'p2', diff);
+        for (const pName of ['aggressive', 'conservative', 'optimal'] as const) {
+          const result = decide(game, 'p2', BOT_PERSONALITIES[pName]);
           if (result?.type === 'action' && result.targetId) {
             expect(result.targetId).not.toBe('p2');
           }
@@ -177,67 +179,9 @@ describe('BotBrain', () => {
     });
   });
 
-  // ─── Easy Bot Actions ───
+  // ─── Optimal Bot Actions ───
 
-  describe('decideAction() — easy', () => {
-    it('never bluffs actions it does not have cards for', () => {
-      const game = createGame();
-      game.currentPlayerIndex = 1;
-      setCards(game, 'p2', [Character.Contessa, Character.Contessa]);
-      game.getPlayer('p2')!.coins = 2;
-
-      for (let i = 0; i < 200; i++) {
-        const result = decide(game, 'p2', 'easy');
-        if (result?.type === 'action') {
-          // Contessa has no action, so should only pick Income or ForeignAid
-          expect([ActionType.Income, ActionType.ForeignAid]).toContain(result.action);
-        }
-      }
-    });
-
-    it('plays Tax when has Duke', () => {
-      const game = createGame();
-      game.currentPlayerIndex = 1;
-      setCards(game, 'p2', [Character.Duke, Character.Contessa]);
-
-      let taxCount = 0;
-      for (let i = 0; i < 200; i++) {
-        const result = decide(game, 'p2', 'easy');
-        if (result?.type === 'action' && result.action === ActionType.Tax) {
-          taxCount++;
-        }
-      }
-      expect(taxCount).toBeGreaterThan(30);
-    });
-  });
-
-  // ─── Medium Bot Actions ───
-
-  describe('decideAction() — medium', () => {
-    it('sometimes bluffs actions (~30% chance)', () => {
-      const game = createGame();
-      game.currentPlayerIndex = 1;
-      setCards(game, 'p2', [Character.Contessa, Character.Contessa]);
-      game.getPlayer('p2')!.coins = 2;
-
-      let bluffCount = 0;
-      for (let i = 0; i < 300; i++) {
-        const result = decide(game, 'p2', 'medium');
-        if (result?.type === 'action') {
-          if ([ActionType.Tax, ActionType.Steal, ActionType.Exchange].includes(result.action)) {
-            bluffCount++;
-          }
-        }
-      }
-      // Should bluff sometimes but not always
-      expect(bluffCount).toBeGreaterThan(10);
-      expect(bluffCount).toBeLessThan(280);
-    });
-  });
-
-  // ─── Hard Bot Actions ───
-
-  describe('decideAction() — hard', () => {
+  describe('decideAction() — optimal', () => {
     it('prefers Tax and Steal when it has those cards', () => {
       const game = createGame();
       game.currentPlayerIndex = 1;
@@ -247,7 +191,7 @@ describe('BotBrain', () => {
 
       let taxOrStealCount = 0;
       for (let i = 0; i < 200; i++) {
-        const result = decide(game, 'p2', 'hard');
+        const result = decide(game, 'p2', BOT_PERSONALITIES.optimal);
         if (result?.type === 'action' && [ActionType.Tax, ActionType.Steal].includes(result.action)) {
           taxOrStealCount++;
         }
@@ -264,12 +208,12 @@ describe('BotBrain', () => {
 
       let targettedP3 = 0;
       for (let i = 0; i < 100; i++) {
-        const result = decide(game, 'p2', 'hard');
+        const result = decide(game, 'p2', BOT_PERSONALITIES.optimal);
         if (result?.type === 'action' && result.action === ActionType.Coup) {
           if (result.targetId === 'p3') targettedP3++;
         }
       }
-      // Hard bot should always target p3 (most coins)
+      // Optimal bot should always target p3 (most coins)
       expect(targettedP3).toBeGreaterThan(70);
     });
 
@@ -282,7 +226,7 @@ describe('BotBrain', () => {
 
       let stealCount = 0;
       for (let i = 0; i < 200; i++) {
-        const result = decide(game, 'p2', 'hard');
+        const result = decide(game, 'p2', BOT_PERSONALITIES.optimal);
         if (result?.type === 'action' && result.action === ActionType.Steal) {
           stealCount++;
         }
@@ -301,9 +245,9 @@ describe('BotBrain', () => {
       game.getPlayer('p1')!.influences[0].revealed = true;
       game.getPlayer('p1')!.influences[1].revealed = true;
 
-      // Hard bot should not bluff Tax (Duke) since 2 Dukes are revealed
+      // Should not bluff Tax (Duke) since 2 Dukes are revealed
       for (let i = 0; i < 100; i++) {
-        const result = decide(game, 'p2', 'hard');
+        const result = decide(game, 'p2', BOT_PERSONALITIES.optimal);
         if (result?.type === 'action') {
           expect(result.action).not.toBe(ActionType.Tax);
         }
@@ -330,7 +274,7 @@ describe('BotBrain', () => {
     it('returns null when bot is the actor', () => {
       const game = createGame();
       game.turnPhase = TurnPhase.AwaitingActionChallenge;
-      const result = decide(game, 'p1', 'hard', {
+      const result = decide(game, 'p1', BOT_PERSONALITIES.optimal, {
         pendingAction: makePendingTax('p1'),
         challengeState: makeChallengeState('p1'),
       });
@@ -342,47 +286,14 @@ describe('BotBrain', () => {
       game.turnPhase = TurnPhase.AwaitingActionChallenge;
       const cs = makeChallengeState('p1');
       cs.passedPlayerIds.push('p2');
-      const result = decide(game, 'p2', 'hard', {
+      const result = decide(game, 'p2', BOT_PERSONALITIES.optimal, {
         pendingAction: makePendingTax('p1'),
         challengeState: cs,
       });
       expect(result).toBeNull();
     });
 
-    it('easy bot never challenges', () => {
-      const game = createGame();
-      game.turnPhase = TurnPhase.AwaitingActionChallenge;
-      setCards(game, 'p2', [Character.Duke, Character.Duke]); // Bot holds both Dukes!
-
-      for (let i = 0; i < 100; i++) {
-        const result = decide(game, 'p2', 'easy', {
-          pendingAction: makePendingTax('p1'),
-          challengeState: makeChallengeState('p1'),
-        });
-        expect(result).not.toBeNull();
-        expect(result!.type).toBe('pass_challenge');
-      }
-    });
-
-    it('medium bot challenges sometimes (~10%)', () => {
-      const game = createGame();
-      game.turnPhase = TurnPhase.AwaitingActionChallenge;
-      setCards(game, 'p2', [Character.Contessa, Character.Contessa]);
-
-      let challengeCount = 0;
-      for (let i = 0; i < 500; i++) {
-        const result = decide(game, 'p2', 'medium', {
-          pendingAction: makePendingTax('p1'),
-          challengeState: makeChallengeState('p1'),
-        });
-        if (result?.type === 'challenge') challengeCount++;
-      }
-      // 10% base + 15% for holding claimed char = ~25%
-      expect(challengeCount).toBeGreaterThan(30);
-      expect(challengeCount).toBeLessThan(200);
-    });
-
-    it('hard bot challenges at 100% when all copies revealed', () => {
+    it('challenges at 100% when all copies revealed', () => {
       const game = createGame();
       game.turnPhase = TurnPhase.AwaitingActionChallenge;
       setCards(game, 'p2', [Character.Contessa, Character.Contessa]);
@@ -395,7 +306,7 @@ describe('BotBrain', () => {
       game.getPlayer('p3')!.influences[0].revealed = true;
 
       for (let i = 0; i < 50; i++) {
-        const result = decide(game, 'p2', 'hard', {
+        const result = decide(game, 'p2', BOT_PERSONALITIES.optimal, {
           pendingAction: makePendingTax('p1'),
           challengeState: makeChallengeState('p1'),
         });
@@ -403,7 +314,7 @@ describe('BotBrain', () => {
       }
     });
 
-    it('hard bot never challenges assassination when it has 2 influences', () => {
+    it('never challenges assassination when it has 2 influences', () => {
       const game = createGame();
       game.turnPhase = TurnPhase.AwaitingActionChallenge;
       setCards(game, 'p2', [Character.Duke, Character.Captain]); // 2 alive influences
@@ -422,7 +333,7 @@ describe('BotBrain', () => {
       };
 
       for (let i = 0; i < 100; i++) {
-        const result = decide(game, 'p2', 'hard', {
+        const result = decide(game, 'p2', BOT_PERSONALITIES.optimal, {
           pendingAction,
           challengeState: cs,
         });
@@ -430,17 +341,17 @@ describe('BotBrain', () => {
       }
     });
 
-    it('hard bot challenges much less on early turns (turn 1-2)', () => {
+    it('challenges much less on early turns (turn 1-2)', () => {
       const game = createGame();
       game.turnPhase = TurnPhase.AwaitingActionChallenge;
-      // Bot holds one Duke — normally 40% challenge rate, but early game should dampen to ~12%
+      // Bot holds one Duke — normally boosted challenge rate, but early game should dampen
       setCards(game, 'p2', [Character.Duke, Character.Captain]);
 
       // Turn 1 (early game, 0.3x multiplier)
       game.turnNumber = 1;
       let earlyChallenge = 0;
       for (let i = 0; i < 1000; i++) {
-        const result = decide(game, 'p2', 'hard', {
+        const result = decide(game, 'p2', BOT_PERSONALITIES.optimal, {
           pendingAction: makePendingTax('p1'),
           challengeState: makeChallengeState('p1'),
         });
@@ -451,7 +362,7 @@ describe('BotBrain', () => {
       game.turnNumber = 10;
       let lateChallenge = 0;
       for (let i = 0; i < 1000; i++) {
-        const result = decide(game, 'p2', 'hard', {
+        const result = decide(game, 'p2', BOT_PERSONALITIES.optimal, {
           pendingAction: makePendingTax('p1'),
           challengeState: makeChallengeState('p1'),
         });
@@ -464,7 +375,7 @@ describe('BotBrain', () => {
       expect(earlyChallenge).toBeLessThan(lateChallenge * 0.5);
     });
 
-    it('hard bot still challenges at 100% when all copies accounted for, even early game', () => {
+    it('still challenges at 100% when all copies accounted for, even early game', () => {
       const game = createGame();
       game.turnPhase = TurnPhase.AwaitingActionChallenge;
       game.turnNumber = 1; // Early game
@@ -475,7 +386,7 @@ describe('BotBrain', () => {
       game.getPlayer('p3')!.influences[0].revealed = true;
 
       for (let i = 0; i < 50; i++) {
-        const result = decide(game, 'p2', 'hard', {
+        const result = decide(game, 'p2', BOT_PERSONALITIES.optimal, {
           pendingAction: makePendingTax('p1'),
           challengeState: makeChallengeState('p1'),
         });
@@ -501,7 +412,7 @@ describe('BotBrain', () => {
       };
 
       for (let i = 0; i < 100; i++) {
-        const result = decide(game, 'p2', 'hard', {
+        const result = decide(game, 'p2', BOT_PERSONALITIES.optimal, {
           pendingAction,
           challengeState: cs,
         });
@@ -520,7 +431,7 @@ describe('BotBrain', () => {
         type: ActionType.ForeignAid,
         actorId: 'p2',
       };
-      const result = decide(game, 'p2', 'medium', { pendingAction, blockPassedPlayerIds: [] });
+      const result = decide(game, 'p2', BOT_PERSONALITIES.optimal, { pendingAction, blockPassedPlayerIds: [] });
       expect(result).toBeNull();
     });
 
@@ -532,12 +443,12 @@ describe('BotBrain', () => {
         actorId: 'p1',
         claimedCharacter: Character.Duke,
       };
-      const result = decide(game, 'p2', 'medium', { pendingAction, blockPassedPlayerIds: [] });
+      const result = decide(game, 'p2', BOT_PERSONALITIES.optimal, { pendingAction, blockPassedPlayerIds: [] });
       expect(result!.type).toBe('pass_block');
     });
 
-    it('all tiers always block when holding the right card and targeted', () => {
-      for (const diff of ['easy', 'medium', 'hard'] as BotDifficulty[]) {
+    it('always blocks when holding the right card and targeted (all personalities)', () => {
+      for (const pName of ['aggressive', 'conservative', 'optimal'] as const) {
         const game = createGame();
         game.turnPhase = TurnPhase.AwaitingBlock;
         setCards(game, 'p2', [Character.Contessa, Character.Captain]);
@@ -549,7 +460,7 @@ describe('BotBrain', () => {
         };
 
         for (let i = 0; i < 20; i++) {
-          const result = decide(game, 'p2', diff, { pendingAction, blockPassedPlayerIds: [] });
+          const result = decide(game, 'p2', BOT_PERSONALITIES[pName], { pendingAction, blockPassedPlayerIds: [] });
           expect(result!.type).toBe('block');
           if (result!.type === 'block') {
             expect(result!.character).toBe(Character.Contessa);
@@ -558,44 +469,7 @@ describe('BotBrain', () => {
       }
     });
 
-    it('easy bot never bluff-blocks', () => {
-      const game = createGame();
-      game.turnPhase = TurnPhase.AwaitingBlock;
-      setCards(game, 'p2', [Character.Duke, Character.Duke]); // No Contessa
-      const pendingAction: PendingAction = {
-        type: ActionType.Assassinate,
-        actorId: 'p1',
-        targetId: 'p2',
-        claimedCharacter: Character.Assassin,
-      };
-
-      for (let i = 0; i < 100; i++) {
-        const result = decide(game, 'p2', 'easy', { pendingAction, blockPassedPlayerIds: [] });
-        expect(result!.type).toBe('pass_block');
-      }
-    });
-
-    it('medium bot sometimes bluff-blocks Contessa vs assassination (~30%)', () => {
-      const game = createGame();
-      game.turnPhase = TurnPhase.AwaitingBlock;
-      setCards(game, 'p2', [Character.Duke, Character.Duke]); // No Contessa
-      const pendingAction: PendingAction = {
-        type: ActionType.Assassinate,
-        actorId: 'p1',
-        targetId: 'p2',
-        claimedCharacter: Character.Assassin,
-      };
-
-      let blockCount = 0;
-      for (let i = 0; i < 300; i++) {
-        const result = decide(game, 'p2', 'medium', { pendingAction, blockPassedPlayerIds: [] });
-        if (result?.type === 'block') blockCount++;
-      }
-      expect(blockCount).toBeGreaterThan(40);
-      expect(blockCount).toBeLessThan(180);
-    });
-
-    it('hard bot occasionally bluff-blocks Contessa vs assassination', () => {
+    it('optimal bot occasionally bluff-blocks Contessa vs assassination', () => {
       const game = createGame();
       game.turnPhase = TurnPhase.AwaitingBlock;
       setCards(game, 'p2', [Character.Duke, Character.Duke]); // No Contessa
@@ -608,18 +482,18 @@ describe('BotBrain', () => {
 
       let blockCount = 0;
       for (let i = 0; i < 200; i++) {
-        const result = decide(game, 'p2', 'hard', { pendingAction, blockPassedPlayerIds: [] });
+        const result = decide(game, 'p2', BOT_PERSONALITIES.optimal, { pendingAction, blockPassedPlayerIds: [] });
         if (result?.type === 'block') {
           expect(result!.character).toBe(Character.Contessa);
           blockCount++;
         }
       }
-      // With 2 influences, bluffs Contessa ~25% of the time (tuned down from data analysis)
+      // With 2 influences, bluffs Contessa ~25% of the time
       expect(blockCount).toBeGreaterThan(20);
       expect(blockCount).toBeLessThan(100);
     });
 
-    it('hard bot does NOT bluff Contessa when all 3 Contessas are revealed', () => {
+    it('does NOT bluff Contessa when all 3 Contessas are revealed', () => {
       const game = createGame();
       game.turnPhase = TurnPhase.AwaitingBlock;
       setCards(game, 'p2', [Character.Duke, Character.Captain]);
@@ -640,38 +514,12 @@ describe('BotBrain', () => {
       };
 
       for (let i = 0; i < 100; i++) {
-        const result = decide(game, 'p2', 'hard', { pendingAction, blockPassedPlayerIds: [] });
+        const result = decide(game, 'p2', BOT_PERSONALITIES.optimal, { pendingAction, blockPassedPlayerIds: [] });
         expect(result!.type).toBe('pass_block');
       }
     });
 
-    it('medium bot does NOT bluff Contessa when all 3 Contessas are revealed', () => {
-      const game = createGame();
-      game.turnPhase = TurnPhase.AwaitingBlock;
-      setCards(game, 'p2', [Character.Duke, Character.Captain]);
-      revealCard(game, 'p2', 0); // 1 influence
-
-      // Reveal all 3 Contessas on other players
-      setCards(game, 'p1', [Character.Contessa, Character.Contessa]);
-      revealCard(game, 'p1', 0);
-      revealCard(game, 'p1', 1);
-      setCards(game, 'p3', [Character.Contessa, Character.Duke]);
-      revealCard(game, 'p3', 0);
-
-      const pendingAction: PendingAction = {
-        type: ActionType.Assassinate,
-        actorId: 'p1',
-        targetId: 'p2',
-        claimedCharacter: Character.Assassin,
-      };
-
-      for (let i = 0; i < 100; i++) {
-        const result = decide(game, 'p2', 'medium', { pendingAction, blockPassedPlayerIds: [] });
-        expect(result!.type).toBe('pass_block');
-      }
-    });
-
-    it('hard bot bluff-blocks Contessa when at 1 influence vs assassination (no Contessas revealed)', () => {
+    it('bluff-blocks Contessa when at 1 influence vs assassination (no Contessas revealed)', () => {
       const game = createGame();
       game.turnPhase = TurnPhase.AwaitingBlock;
       setCards(game, 'p2', [Character.Duke, Character.Captain]);
@@ -685,7 +533,7 @@ describe('BotBrain', () => {
       };
 
       for (let i = 0; i < 100; i++) {
-        const result = decide(game, 'p2', 'hard', { pendingAction, blockPassedPlayerIds: [] });
+        const result = decide(game, 'p2', BOT_PERSONALITIES.optimal, { pendingAction, blockPassedPlayerIds: [] });
         expect(result!.type).toBe('block');
         if (result!.type === 'block') {
           expect(result!.character).toBe(Character.Contessa);
@@ -693,28 +541,7 @@ describe('BotBrain', () => {
       }
     });
 
-    it('medium bot bluff-blocks Contessa when at 1 influence vs assassination (no Contessas revealed)', () => {
-      const game = createGame();
-      game.turnPhase = TurnPhase.AwaitingBlock;
-      setCards(game, 'p2', [Character.Duke, Character.Captain]);
-      revealCard(game, 'p2', 0);
-      const pendingAction: PendingAction = {
-        type: ActionType.Assassinate,
-        actorId: 'p1',
-        targetId: 'p2',
-        claimedCharacter: Character.Assassin,
-      };
-
-      for (let i = 0; i < 100; i++) {
-        const result = decide(game, 'p2', 'medium', { pendingAction, blockPassedPlayerIds: [] });
-        expect(result!.type).toBe('block');
-        if (result!.type === 'block') {
-          expect(result!.character).toBe(Character.Contessa);
-        }
-      }
-    });
-
-    it('hard bot at 1 influence passes challenge to bluff-block Contessa vs assassination', () => {
+    it('at 1 influence passes challenge to bluff-block Contessa vs assassination', () => {
       const game = createGame();
       game.turnPhase = TurnPhase.AwaitingActionChallenge;
       // Bot has no Contessa and 1 influence
@@ -735,12 +562,12 @@ describe('BotBrain', () => {
 
       // Should always pass challenge (to bluff-block with Contessa in block phase)
       for (let i = 0; i < 100; i++) {
-        const result = decide(game, 'p2', 'hard', { pendingAction, challengeState: cs });
+        const result = decide(game, 'p2', BOT_PERSONALITIES.optimal, { pendingAction, challengeState: cs });
         expect(result!.type).toBe('pass_challenge');
       }
     });
 
-    it('hard bot at 1 influence challenges assassination when all Contessas are revealed (bluff not viable)', () => {
+    it('at 1 influence challenges assassination when all Contessas are revealed (bluff not viable)', () => {
       const game = createGame();
       game.turnPhase = TurnPhase.AwaitingActionChallenge;
       setCards(game, 'p2', [Character.Duke, Character.Captain]);
@@ -768,45 +595,12 @@ describe('BotBrain', () => {
 
       // Should always challenge since Contessa bluff would be caught
       for (let i = 0; i < 100; i++) {
-        const result = decide(game, 'p2', 'hard', { pendingAction, challengeState: cs });
+        const result = decide(game, 'p2', BOT_PERSONALITIES.optimal, { pendingAction, challengeState: cs });
         expect(result!.type).toBe('challenge');
       }
     });
 
-    it('medium bot at 1 influence challenges assassination when all Contessas are revealed (bluff not viable)', () => {
-      const game = createGame();
-      game.turnPhase = TurnPhase.AwaitingActionChallenge;
-      setCards(game, 'p2', [Character.Duke, Character.Captain]);
-      revealCard(game, 'p2', 0); // 1 influence
-
-      // Reveal all 3 Contessas
-      setCards(game, 'p1', [Character.Contessa, Character.Contessa]);
-      revealCard(game, 'p1', 0);
-      revealCard(game, 'p1', 1);
-      setCards(game, 'p3', [Character.Contessa, Character.Duke]);
-      revealCard(game, 'p3', 0);
-
-      const pendingAction: PendingAction = {
-        type: ActionType.Assassinate,
-        actorId: 'p1',
-        targetId: 'p2',
-        claimedCharacter: Character.Assassin,
-      };
-      const cs: ChallengeState = {
-        challengerId: '',
-        challengedPlayerId: 'p1',
-        claimedCharacter: Character.Assassin,
-        passedPlayerIds: ['p1'],
-      };
-
-      // Should always challenge since Contessa bluff would be caught
-      for (let i = 0; i < 100; i++) {
-        const result = decide(game, 'p2', 'medium', { pendingAction, challengeState: cs });
-        expect(result!.type).toBe('challenge');
-      }
-    });
-
-    it('hard bot at 1 influence prefers challenging assassination when 2 Contessas revealed', () => {
+    it('at 1 influence prefers challenging assassination when 2 Contessas revealed', () => {
       const game = createGame();
       game.turnPhase = TurnPhase.AwaitingActionChallenge;
       setCards(game, 'p2', [Character.Duke, Character.Captain]);
@@ -830,10 +624,10 @@ describe('BotBrain', () => {
         passedPlayerIds: ['p1'],
       };
 
-      // Hard bot should challenge ~70% of the time when 2 Contessas revealed
+      // Should challenge ~70% of the time when 2 Contessas revealed
       let challengeCount = 0;
       for (let i = 0; i < 500; i++) {
-        const result = decide(game, 'p2', 'hard', { pendingAction, challengeState: cs });
+        const result = decide(game, 'p2', BOT_PERSONALITIES.optimal, { pendingAction, challengeState: cs });
         if (result!.type === 'challenge') challengeCount++;
       }
       // ~70% challenge rate, allow tolerance
@@ -841,7 +635,7 @@ describe('BotBrain', () => {
       expect(challengeCount).toBeLessThan(450);
     });
 
-    it('hard bot at 1 influence challenges assassination when all Assassin copies accounted for', () => {
+    it('at 1 influence challenges assassination when all Assassin copies accounted for', () => {
       const game = createGame();
       game.turnPhase = TurnPhase.AwaitingActionChallenge;
       // Bot holds 1 Assassin + has 1 influence
@@ -869,7 +663,7 @@ describe('BotBrain', () => {
 
       // Should challenge since all Assassin copies are accounted for
       for (let i = 0; i < 50; i++) {
-        const result = decide(game, 'p2', 'hard', { pendingAction, challengeState: cs });
+        const result = decide(game, 'p2', BOT_PERSONALITIES.optimal, { pendingAction, challengeState: cs });
         expect(result!.type).toBe('challenge');
       }
     });
@@ -885,7 +679,7 @@ describe('BotBrain', () => {
         claimedCharacter: Character.Assassin,
       };
 
-      const result = decide(game, 'p3', 'hard', { pendingAction, blockPassedPlayerIds: [] });
+      const result = decide(game, 'p3', BOT_PERSONALITIES.optimal, { pendingAction, blockPassedPlayerIds: [] });
       expect(result!.type).toBe('pass_block');
     });
 
@@ -913,40 +707,7 @@ describe('BotBrain', () => {
       passedPlayerIds: ['p1'],
     });
 
-    it('easy bot never challenges blocks', () => {
-      const game = createGame();
-      game.turnPhase = TurnPhase.AwaitingBlockChallenge;
-      setCards(game, 'p2', [Character.Captain, Character.Captain]);
-
-      for (let i = 0; i < 50; i++) {
-        const result = decide(game, 'p2', 'easy', {
-          pendingAction: makePendingSteal(),
-          pendingBlock: makePendingBlock(),
-          challengeState: makeBlockChallengeState(),
-        });
-        expect(result!.type).toBe('pass_challenge_block');
-      }
-    });
-
-    it('medium bot sometimes challenges blocks', () => {
-      const game = createGame();
-      game.turnPhase = TurnPhase.AwaitingBlockChallenge;
-      setCards(game, 'p2', [Character.Contessa, Character.Contessa]);
-
-      let challengeCount = 0;
-      for (let i = 0; i < 500; i++) {
-        const result = decide(game, 'p2', 'medium', {
-          pendingAction: makePendingSteal(),
-          pendingBlock: makePendingBlock(),
-          challengeState: makeBlockChallengeState(),
-        });
-        if (result?.type === 'challenge_block') challengeCount++;
-      }
-      expect(challengeCount).toBeGreaterThan(30);
-      expect(challengeCount).toBeLessThan(300);
-    });
-
-    it('hard bot challenges block when all copies revealed', () => {
+    it('challenges block when all copies revealed', () => {
       const game = createGame();
       game.turnPhase = TurnPhase.AwaitingBlockChallenge;
       setCards(game, 'p2', [Character.Captain, Character.Contessa]);
@@ -957,7 +718,7 @@ describe('BotBrain', () => {
       game.getPlayer('p3')!.influences[1].revealed = true;
 
       for (let i = 0; i < 50; i++) {
-        const result = decide(game, 'p2', 'hard', {
+        const result = decide(game, 'p2', BOT_PERSONALITIES.optimal, {
           pendingAction: makePendingSteal(),
           pendingBlock: makePendingBlock(),
           challengeState: makeBlockChallengeState(),
@@ -979,60 +740,25 @@ describe('BotBrain', () => {
         { character: Character.Captain, revealed: false },
       ];
 
-      for (const diff of ['easy', 'medium', 'hard'] as BotDifficulty[]) {
-        const result = decide(game, 'p2', diff, {
-          influenceLossRequest: { playerId: 'p2', reason: 'coup' },
-        });
-        expect(result!.type).toBe('choose_influence_loss');
-        if (result!.type === 'choose_influence_loss') {
-          expect(result!.influenceIndex).toBe(1);
-        }
-      }
-    });
-
-    it('easy bot picks randomly (both cards get chosen across many runs)', () => {
-      const game = createGame();
-      game.turnPhase = TurnPhase.AwaitingInfluenceLoss;
-      setCards(game, 'p2', [Character.Duke, Character.Contessa]);
-
-      const indices = new Set<number>();
-      for (let i = 0; i < 100; i++) {
-        const result = decide(game, 'p2', 'easy', {
-          influenceLossRequest: { playerId: 'p2', reason: 'coup' },
-        });
-        if (result!.type === 'choose_influence_loss') {
-          indices.add(result!.influenceIndex);
-        }
-      }
-      // Random should pick both indices across many runs
-      expect(indices.size).toBe(2);
-    });
-
-    it('medium bot loses static lowest-value card', () => {
-      const game = createGame();
-      game.turnPhase = TurnPhase.AwaitingInfluenceLoss;
-      // Duke (5) vs Contessa (1) — should lose Contessa
-      setCards(game, 'p2', [Character.Duke, Character.Contessa]);
-
-      const result = decide(game, 'p2', 'medium', {
+      const result = decide(game, 'p2', BOT_PERSONALITIES.optimal, {
         influenceLossRequest: { playerId: 'p2', reason: 'coup' },
       });
       expect(result!.type).toBe('choose_influence_loss');
       if (result!.type === 'choose_influence_loss') {
-        expect(result!.influenceIndex).toBe(1); // Contessa
+        expect(result!.influenceIndex).toBe(1);
       }
     });
 
-    it('hard bot uses dynamic card value (keeps Contessa when opponents have 3+ coins)', () => {
+    it('uses dynamic card value (keeps Contessa when opponents have 3+ coins)', () => {
       const game = createGame();
       game.turnPhase = TurnPhase.AwaitingInfluenceLoss;
-      // Contessa vs Ambassador — normally Contessa (2) ≈ Ambassador (2)
+      // Contessa vs Ambassador — normally Contessa (2) ~ Ambassador (2)
       // But if opponents have 3+ coins, Contessa value rises
       setCards(game, 'p2', [Character.Contessa, Character.Ambassador]);
       game.getPlayer('p1')!.coins = 5; // Assassination threat
       game.getPlayer('p3')!.coins = 4;
 
-      const result = decide(game, 'p2', 'hard', {
+      const result = decide(game, 'p2', BOT_PERSONALITIES.optimal, {
         influenceLossRequest: { playerId: 'p2', reason: 'coup' },
       });
       expect(result!.type).toBe('choose_influence_loss');
@@ -1045,7 +771,7 @@ describe('BotBrain', () => {
     it('returns null when influence loss is for a different player', () => {
       const game = createGame();
       game.turnPhase = TurnPhase.AwaitingInfluenceLoss;
-      const result = decide(game, 'p2', 'medium', {
+      const result = decide(game, 'p2', BOT_PERSONALITIES.optimal, {
         influenceLossRequest: { playerId: 'p1', reason: 'coup' },
       });
       expect(result).toBeNull();
@@ -1055,50 +781,7 @@ describe('BotBrain', () => {
   // ─── Exchange Decisions ───
 
   describe('decideExchange()', () => {
-    it('easy bot picks random cards', () => {
-      const game = createGame();
-      game.turnPhase = TurnPhase.AwaitingExchange;
-      setCards(game, 'p2', [Character.Contessa, Character.Ambassador]);
-
-      const exchangeState: ExchangeState = {
-        playerId: 'p2',
-        drawnCards: [Character.Duke, Character.Assassin],
-      };
-
-      // Over many runs, random picks should vary
-      const picks = new Set<string>();
-      for (let i = 0; i < 100; i++) {
-        const result = decide(game, 'p2', 'easy', { exchangeState });
-        if (result!.type === 'choose_exchange') {
-          picks.add(JSON.stringify(result!.keepIndices.sort()));
-        }
-      }
-      // Should have multiple different picks
-      expect(picks.size).toBeGreaterThan(1);
-    });
-
-    it('medium bot keeps highest static-value cards', () => {
-      const game = createGame();
-      game.turnPhase = TurnPhase.AwaitingExchange;
-      setCards(game, 'p2', [Character.Duke, Character.Contessa]);
-
-      const exchangeState: ExchangeState = {
-        playerId: 'p2',
-        drawnCards: [Character.Captain, Character.Assassin],
-      };
-
-      const result = decide(game, 'p2', 'medium', { exchangeState });
-      expect(result!.type).toBe('choose_exchange');
-      if (result!.type === 'choose_exchange') {
-        // All cards: Duke(5)[0], Contessa(3)[1], Captain(4)[2], Assassin(3)[3]
-        // Should keep Duke(0) and Captain(2)
-        expect(result!.keepIndices).toHaveLength(2);
-        expect(result!.keepIndices).toContain(0); // Duke
-        expect(result!.keepIndices).toContain(2); // Captain
-      }
-    });
-
-    it('hard bot uses dynamicCardValue for optimal hand', () => {
+    it('uses dynamicCardValue for optimal hand', () => {
       const game = createGame();
       game.turnPhase = TurnPhase.AwaitingExchange;
       setCards(game, 'p2', [Character.Duke, Character.Ambassador]);
@@ -1108,7 +791,7 @@ describe('BotBrain', () => {
         drawnCards: [Character.Captain, Character.Contessa],
       };
 
-      const result = decide(game, 'p2', 'hard', { exchangeState });
+      const result = decide(game, 'p2', BOT_PERSONALITIES.optimal, { exchangeState });
       expect(result!.type).toBe('choose_exchange');
       if (result!.type === 'choose_exchange') {
         expect(result!.keepIndices).toHaveLength(2);
@@ -1132,18 +815,20 @@ describe('BotBrain', () => {
         drawnCards: [Character.Duke, Character.Captain],
       };
 
-      const result = decide(game, 'p2', 'medium', { exchangeState });
+      const result = decide(game, 'p2', BOT_PERSONALITIES.optimal, { exchangeState });
       expect(result!.type).toBe('choose_exchange');
       if (result!.type === 'choose_exchange') {
         expect(result!.keepIndices).toHaveLength(1);
-        expect(result!.keepIndices).toContain(1); // Duke
+        // allCards = [Ambassador(0), Duke(1), Captain(2)]
+        // Captain has highest dynamic value in 3-player game
+        expect([1, 2]).toContain(result!.keepIndices[0]); // Duke or Captain (both high value)
       }
     });
 
     it('returns null when exchange is for a different player', () => {
       const game = createGame();
       game.turnPhase = TurnPhase.AwaitingExchange;
-      const result = decide(game, 'p2', 'medium', {
+      const result = decide(game, 'p2', BOT_PERSONALITIES.optimal, {
         exchangeState: { playerId: 'p1', drawnCards: [Character.Duke] },
       });
       expect(result).toBeNull();
@@ -1193,27 +878,256 @@ describe('BotBrain', () => {
     });
   });
 
-  // ─── Target Selection ───
+  // ═══════════════════════════════════════════════════════════
+  // ─── Personality Differentiation Tests ─────────────────────
+  // ═══════════════════════════════════════════════════════════
 
-  describe('pickTarget() via action decisions', () => {
-    it('easy bot targets randomly', () => {
+  describe('Personality differentiation', () => {
+
+    it('aggressive personality bluffs Steal more than conservative over many trials', () => {
       const game = createGame();
       game.currentPlayerIndex = 1;
-      game.getPlayer('p2')!.coins = 10;
-      game.getPlayer('p1')!.coins = 2;
-      game.getPlayer('p3')!.coins = 8;
+      // Give bot cards that DON'T include Captain — forces Steal to be a bluff
+      setCards(game, 'p2', [Character.Contessa, Character.Ambassador]);
+      game.getPlayer('p2')!.coins = 2;
 
-      let targettedP1 = 0;
-      let targettedP3 = 0;
-      for (let i = 0; i < 200; i++) {
-        const result = decide(game, 'p2', 'easy');
-        if (result?.type === 'action' && result.action === ActionType.Coup) {
-          if (result.targetId === 'p1') targettedP1++;
-          if (result.targetId === 'p3') targettedP3++;
+      let aggressiveStealBluffs = 0;
+      let conservativeStealBluffs = 0;
+      const trials = 500;
+
+      for (let i = 0; i < trials; i++) {
+        const aggResult = decide(game, 'p2', BOT_PERSONALITIES.aggressive);
+        if (aggResult?.type === 'action' && aggResult.action === ActionType.Steal) aggressiveStealBluffs++;
+
+        const conResult = decide(game, 'p2', BOT_PERSONALITIES.conservative);
+        if (conResult?.type === 'action' && conResult.action === ActionType.Steal) conservativeStealBluffs++;
+      }
+
+      // Aggressive should bluff Steal far more often (97% vs 1% bluff rate)
+      expect(aggressiveStealBluffs).toBeGreaterThan(conservativeStealBluffs);
+    });
+
+    it('deceptive personality has highest bluff rate across action types', () => {
+      const game = createGame();
+      game.currentPlayerIndex = 1;
+      setCards(game, 'p2', [Character.Contessa, Character.Contessa]);
+      game.getPlayer('p2')!.coins = 4;
+      game.getPlayer('p1')!.coins = 3;
+      game.getPlayer('p3')!.coins = 3;
+
+      const bluffCounts: Record<string, number> = {};
+      const trials = 500;
+
+      for (const pName of ['aggressive', 'conservative', 'deceptive', 'analytical'] as const) {
+        let bluffs = 0;
+        for (let i = 0; i < trials; i++) {
+          const result = decide(game, 'p2', BOT_PERSONALITIES[pName]);
+          if (result?.type === 'action') {
+            const claimable = [ActionType.Tax, ActionType.Steal, ActionType.Assassinate, ActionType.Exchange];
+            if (claimable.includes(result.action)) bluffs++;
+          }
+        }
+        bluffCounts[pName] = bluffs;
+      }
+
+      // Deceptive should bluff more than conservative and analytical
+      expect(bluffCounts.deceptive).toBeGreaterThan(bluffCounts.conservative);
+      expect(bluffCounts.deceptive).toBeGreaterThan(bluffCounts.analytical);
+    });
+
+    it('conservative personality prefers safe actions (Income/ForeignAid)', () => {
+      const game = createGame();
+      game.currentPlayerIndex = 1;
+      setCards(game, 'p2', [Character.Contessa, Character.Ambassador]);
+      game.getPlayer('p2')!.coins = 2;
+
+      let safeActions = 0;
+      const trials = 300;
+
+      for (let i = 0; i < trials; i++) {
+        const result = decide(game, 'p2', BOT_PERSONALITIES.conservative);
+        if (result?.type === 'action' &&
+            (result.action === ActionType.Income || result.action === ActionType.ForeignAid || result.action === ActionType.Exchange)) {
+          safeActions++;
         }
       }
-      expect(targettedP1).toBeGreaterThan(10);
-      expect(targettedP3).toBeGreaterThan(10);
+
+      // Conservative should pick safe actions most of the time
+      expect(safeActions / trials).toBeGreaterThan(0.5);
+    });
+
+    it('challenge rates differ between aggressive and conservative', () => {
+      const game = createGame(3);
+      game.currentPlayerIndex = 0;
+      game.turnPhase = TurnPhase.AwaitingActionChallenge;
+      setCards(game, 'p2', [Character.Duke, Character.Captain]);
+
+      const pendingAction: PendingAction = {
+        type: ActionType.Tax,
+        actorId: 'p1',
+        claimedCharacter: Character.Duke,
+      };
+      const challengeState: ChallengeState = {
+        challengerId: '',
+        challengedPlayerId: 'p1',
+        claimedCharacter: Character.Duke,
+        passedPlayerIds: [],
+      };
+
+      let aggChallenges = 0;
+      let conChallenges = 0;
+      const trials = 500;
+
+      for (let i = 0; i < trials; i++) {
+        const aggResult = decide(game, 'p2', BOT_PERSONALITIES.aggressive, {
+          pendingAction, challengeState,
+        });
+        if (aggResult?.type === 'challenge') aggChallenges++;
+
+        const conResult = decide(game, 'p2', BOT_PERSONALITIES.conservative, {
+          pendingAction, challengeState,
+        });
+        if (conResult?.type === 'challenge') conChallenges++;
+      }
+
+      // Aggressive should challenge more than conservative
+      expect(aggChallenges).toBeGreaterThan(conChallenges);
+    });
+
+    it('Contessa bluff rate varies by personality', () => {
+      const game = createGame();
+      game.currentPlayerIndex = 0;
+      game.turnPhase = TurnPhase.AwaitingBlock;
+      // Bot doesn't have Contessa — any block would be a bluff
+      setCards(game, 'p2', [Character.Duke, Character.Captain]);
+
+      const pendingAction: PendingAction = {
+        type: ActionType.Assassinate,
+        actorId: 'p1',
+        targetId: 'p2',
+        claimedCharacter: Character.Assassin,
+      };
+
+      let deceptiveBlocks = 0;
+      let analyticalBlocks = 0;
+      const trials = 500;
+
+      for (let i = 0; i < trials; i++) {
+        const decResult = decide(game, 'p2', BOT_PERSONALITIES.deceptive, {
+          pendingAction, blockPassedPlayerIds: [],
+        });
+        if (decResult?.type === 'block') deceptiveBlocks++;
+
+        const anaResult = decide(game, 'p2', BOT_PERSONALITIES.analytical, {
+          pendingAction, blockPassedPlayerIds: [],
+        });
+        if (anaResult?.type === 'block') analyticalBlocks++;
+      }
+
+      // Deceptive should bluff Contessa more than analytical
+      expect(deceptiveBlocks).toBeGreaterThan(analyticalBlocks);
+    });
+
+    it('card value spread produces different ordering with extreme spreads', () => {
+      const game = createGame();
+
+      // With normal spread (1.0), Duke and Captain should be top-valued
+      const normalDuke = BotBrain.dynamicCardValueWithSpread(Character.Duke, game, 'p1', 1.0);
+      const normalAmb = BotBrain.dynamicCardValueWithSpread(Character.Ambassador, game, 'p1', 1.0);
+      expect(normalDuke).toBeGreaterThan(normalAmb);
+
+      // With very flat spread (0.1), values should be nearly equal
+      const flatDuke = BotBrain.dynamicCardValueWithSpread(Character.Duke, game, 'p1', 0.1);
+      const flatAmb = BotBrain.dynamicCardValueWithSpread(Character.Ambassador, game, 'p1', 0.1);
+      const flatDiff = Math.abs(flatDuke - flatAmb);
+      const normalDiff = Math.abs(normalDuke - normalAmb);
+      expect(flatDiff).toBeLessThan(normalDiff);
+    });
+
+    it('revenge targeting gives weight to recent attackers for vengeful personality', () => {
+      const game = createGame(4);
+      game.currentPlayerIndex = 1;
+      setCards(game, 'p2', [Character.Captain, Character.Duke]);
+      game.getPlayer('p2')!.coins = 10; // Force coup
+
+      // p1 attacked p2 via steal and assassination, p3 successfully challenged p2's bluff
+      game.actionLog.push(
+        { message: 'Alice steals from Bot1', timestamp: 1, eventType: 'action_resolve', character: Character.Captain, turnNumber: 1, actorId: 'p1', actorName: 'Alice', targetId: 'p2' },
+        { message: 'Alice assassinates Bot1', timestamp: 2, eventType: 'assassination', character: Character.Assassin, turnNumber: 2, actorId: 'p1', actorName: 'Alice', targetId: 'p2' },
+        { message: 'Carol catches Bot1 bluffing', timestamp: 3, eventType: 'challenge_success', character: Character.Duke, turnNumber: 3, actorId: 'p3', actorName: 'Carol', targetId: 'p2' },
+      );
+
+      // Set p1 with low coins and p3/p4 with high coins
+      game.getPlayer('p1')!.coins = 2;
+      game.getPlayer('p3')!.coins = 8;
+      game.getPlayer('p4')!.coins = 6;
+
+      // Vengeful should target p1 and p3 more (revenge) despite p4 having more coins
+      let targetP1 = 0;
+      let targetP3 = 0;
+      let targetP4 = 0;
+      const trials = 300;
+
+      for (let i = 0; i < trials; i++) {
+        const result = decide(game, 'p2', BOT_PERSONALITIES.vengeful);
+        if (result?.type === 'action' && result.action === ActionType.Coup) {
+          if (result.targetId === 'p1') targetP1++;
+          if (result.targetId === 'p3') targetP3++;
+          if (result.targetId === 'p4') targetP4++;
+        }
+      }
+
+      // p1 (steal+assassinate) and p3 (successful challenge) should both
+      // be targeted more than p4 who never acted against the bot
+      expect(targetP1).toBeGreaterThan(targetP4);
+      expect(targetP3).toBeGreaterThan(targetP4);
+    });
+
+    it('all six personality archetypes produce valid decisions', () => {
+      for (const pName of ['aggressive', 'conservative', 'vengeful', 'deceptive', 'analytical', 'optimal'] as const) {
+        const game = createGame();
+        game.currentPlayerIndex = 1;
+        setCards(game, 'p2', [Character.Duke, Character.Captain]);
+
+        const result = decide(game, 'p2', BOT_PERSONALITIES[pName]);
+        expect(result).not.toBeNull();
+        expect(result!.type).toBe('action');
+      }
+    });
+
+    it('influence loss uses personality card value spread', () => {
+      const game = createGame();
+      game.turnPhase = TurnPhase.AwaitingInfluenceLoss;
+      // Give bot two cards with different values
+      setCards(game, 'p2', [Character.Duke, Character.Ambassador]);
+
+      const req: InfluenceLossRequest = { playerId: 'p2', reason: 'coup' };
+
+      // With high spread, should consistently sacrifice the lower-valued card
+      // With low spread, choices should be more mixed
+      let highSpreadAmbLoss = 0;
+      let lowSpreadAmbLoss = 0;
+      const highSpread: PersonalityParams = { ...BOT_PERSONALITIES.analytical, cardValueSpread: 2.0 };
+      const lowSpread: PersonalityParams = { ...BOT_PERSONALITIES.conservative, cardValueSpread: 0.3 };
+      const trials = 200;
+
+      for (let i = 0; i < trials; i++) {
+        const highResult = decide(game, 'p2', highSpread, { influenceLossRequest: req });
+        if (highResult?.type === 'choose_influence_loss') {
+          const lost = game.getPlayer('p2')!.influences[highResult.influenceIndex].character;
+          if (lost === Character.Ambassador) highSpreadAmbLoss++;
+        }
+
+        const lowResult = decide(game, 'p2', lowSpread, { influenceLossRequest: req });
+        if (lowResult?.type === 'choose_influence_loss') {
+          const lost = game.getPlayer('p2')!.influences[lowResult.influenceIndex].character;
+          if (lost === Character.Ambassador) lowSpreadAmbLoss++;
+        }
+      }
+
+      // High spread should more consistently sacrifice Ambassador
+      // (Duke is more valuable, spread amplifies the difference)
+      expect(highSpreadAmbLoss).toBeGreaterThanOrEqual(lowSpreadAmbLoss * 0.8);
     });
   });
 });

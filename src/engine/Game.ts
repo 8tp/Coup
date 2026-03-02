@@ -128,6 +128,7 @@ export class Game {
     character: Character | null = null,
     actorId: string | null = null,
     actorName: string | null = null,
+    targetId?: string | null,
   ): void {
     this.actionLog.push({
       message,
@@ -137,6 +138,7 @@ export class Game {
       turnNumber: this.turnNumber,
       actorId,
       actorName,
+      targetId: targetId ?? null,
     });
   }
 

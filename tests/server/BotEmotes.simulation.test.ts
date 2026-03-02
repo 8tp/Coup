@@ -16,7 +16,7 @@ interface EmoteRecord {
   fakeTime: number;
 }
 
-interface BotPersonality {
+interface BotPersonalityInfo {
   id: string;
   name: string;
   emotiveness: number;
@@ -28,7 +28,7 @@ interface SimResult {
   winner: string | null;
   turnCount: number;
   logEntries: Array<{ eventType: string; message: string }>;
-  personalities: BotPersonality[];
+  personalities: BotPersonalityInfo[];
 }
 
 function createAllBotGame(numBots: number): {
@@ -41,12 +41,12 @@ function createAllBotGame(numBots: number): {
   const playerInfos: Array<{ id: string; name: string }> = [];
   const botPlayers: RoomPlayer[] = [];
 
-  const difficulties: Array<'easy' | 'medium' | 'hard'> = ['easy', 'medium', 'hard'];
+  const personalities: Array<'aggressive' | 'conservative' | 'optimal'> = ['aggressive', 'conservative', 'optimal'];
 
   for (let i = 0; i < numBots; i++) {
     const id = `bot${i + 1}`;
     const name = `Bot-${i + 1}`;
-    const difficulty = difficulties[i % 3];
+    const personality = personalities[i % 3];
     playerInfos.push({ id, name });
     botPlayers.push({
       id,
@@ -54,7 +54,7 @@ function createAllBotGame(numBots: number): {
       socketId: '',
       connected: true,
       isBot: true,
-      difficulty,
+      personality,
     });
   }
 
@@ -69,7 +69,7 @@ function createAllBotGame(numBots: number): {
   return { engine, botController, botPlayers };
 }
 
-function getPersonalities(bc: BotController): BotPersonality[] {
+function getPersonalities(bc: BotController): BotPersonalityInfo[] {
   const bots = (bc as unknown as { bots: Array<{ id: string; name: string; emotiveness: number; meanness: number }> }).bots;
   return bots.map(b => ({ id: b.id, name: b.name, emotiveness: b.emotiveness, meanness: b.meanness }));
 }
@@ -350,9 +350,9 @@ describe('Bot Emote Simulation', () => {
       engine.startGame(playerInfos);
 
       const botPlayers: RoomPlayer[] = [
-        { id: 'nice', name: 'NiceBot', socketId: '', connected: true, isBot: true, difficulty: 'medium' },
-        { id: 'mean', name: 'MeanBot', socketId: '', connected: true, isBot: true, difficulty: 'medium' },
-        { id: 'fill', name: 'Filler', socketId: '', connected: true, isBot: true, difficulty: 'medium' },
+        { id: 'nice', name: 'NiceBot', socketId: '', connected: true, isBot: true, personality: 'optimal' },
+        { id: 'mean', name: 'MeanBot', socketId: '', connected: true, isBot: true, personality: 'optimal' },
+        { id: 'fill', name: 'Filler', socketId: '', connected: true, isBot: true, personality: 'optimal' },
       ];
 
       const bc = new BotController(engine, botPlayers);

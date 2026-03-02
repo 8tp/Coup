@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { BotDifficulty, ChatMessage, GameStatus, PublicRoomInfo, Room, RoomPlayer, RoomSettings } from '../shared/types';
+import { BotPersonality, ChatMessage, GameStatus, PublicRoomInfo, Room, RoomPlayer, RoomSettings } from '../shared/types';
 import { CHAT_MAX_HISTORY, CHAT_MAX_MESSAGE_LENGTH, CHAT_RATE_LIMIT_MS, DEFAULT_ROOM_SETTINGS, DISCONNECT_BOT_REPLACE_MS, INACTIVE_ROOM_CLEANUP_MS, MAX_ACTION_TIMER, MAX_BOT_REACTION_SECONDS, MAX_PLAYERS, MAX_TURN_TIMER, MIN_ACTION_TIMER, MIN_BOT_REACTION_SECONDS, MIN_PLAYERS, MIN_TURN_TIMER, PUBLIC_ROOM_LIST_MAX, REACTION_RATE_LIMIT_MS } from '../shared/constants';
 import { GameEngine } from '../engine/GameEngine';
 import { BotController } from './BotController';
@@ -93,7 +93,7 @@ export class RoomManager {
   addBot(
     roomCode: string,
     name: string,
-    difficulty: BotDifficulty,
+    personality: BotPersonality,
   ): { botId: string } | { error: string } {
     const room = this.rooms.get(roomCode.toUpperCase());
     if (!room) return { error: 'Room not found' };
@@ -111,7 +111,7 @@ export class RoomManager {
       socketId: '',
       connected: true,
       isBot: true,
-      difficulty,
+      personality,
     });
 
     return { botId };
@@ -447,14 +447,14 @@ export class RoomManager {
 
     // Convert to bot
     roomPlayer.isBot = true;
-    roomPlayer.difficulty = 'hard';
+    roomPlayer.personality = 'optimal';
     roomPlayer.replacedByBot = true;
     roomPlayer.connected = true; // Bots are always "connected"
 
     // Register with BotController (create one if needed)
     let bc = this.botControllers.get(roomCode);
     if (bc) {
-      bc.addBot(playerId, 'hard', roomPlayer.name);
+      bc.addBot(playerId, 'optimal', roomPlayer.name);
     } else {
       const botMinReactionMs = (room.settings.botMinReactionSeconds ?? 2) * 1000;
       bc = new BotController(engine, [roomPlayer], botMinReactionMs);

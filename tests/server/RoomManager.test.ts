@@ -239,7 +239,7 @@ describe('RoomManager', () => {
   describe('addBot()', () => {
     it('adds a bot to the room', () => {
       const { room } = manager.createRoom('Alice', 'socket1');
-      const result = manager.addBot(room.code, 'Bot1', 'medium');
+      const result = manager.addBot(room.code, 'Bot1', 'random');
       expect('error' in result).toBe(false);
       if ('error' in result) return;
 
@@ -248,13 +248,13 @@ describe('RoomManager', () => {
       expect(updated.players).toHaveLength(2);
       expect(updated.players[1].isBot).toBe(true);
       expect(updated.players[1].name).toBe('Bot1');
-      expect(updated.players[1].difficulty).toBe('medium');
+      expect(updated.players[1].personality).toBe('random');
       expect(updated.players[1].socketId).toBe('');
       expect(updated.players[1].connected).toBe(true);
     });
 
     it('rejects if room not found', () => {
-      const result = manager.addBot('ZZZZZZ', 'Bot1', 'medium');
+      const result = manager.addBot('ZZZZZZ', 'Bot1', 'random');
       expect('error' in result).toBe(true);
       if ('error' in result) {
         expect(result.error).toContain('not found');
@@ -263,10 +263,10 @@ describe('RoomManager', () => {
 
     it('rejects if game already in progress', () => {
       const { room } = manager.createRoom('Alice', 'socket1');
-      manager.addBot(room.code, 'Bot1', 'medium');
+      manager.addBot(room.code, 'Bot1', 'random');
       manager.startGame(room.code);
 
-      const result = manager.addBot(room.code, 'Bot2', 'medium');
+      const result = manager.addBot(room.code, 'Bot2', 'random');
       expect('error' in result).toBe(true);
       if ('error' in result) {
         expect(result.error).toContain('in progress');
@@ -276,9 +276,9 @@ describe('RoomManager', () => {
     it('rejects if room is full', () => {
       const { room } = manager.createRoom('P1', 's1');
       for (let i = 2; i <= 6; i++) {
-        manager.addBot(room.code, `Bot${i}`, 'medium');
+        manager.addBot(room.code, `Bot${i}`, 'random');
       }
-      const result = manager.addBot(room.code, 'Bot7', 'medium');
+      const result = manager.addBot(room.code, 'Bot7', 'random');
       expect('error' in result).toBe(true);
       if ('error' in result) {
         expect(result.error).toContain('full');
@@ -287,7 +287,7 @@ describe('RoomManager', () => {
 
     it('rejects duplicate names (case-insensitive)', () => {
       const { room } = manager.createRoom('Alice', 'socket1');
-      const result = manager.addBot(room.code, 'alice', 'medium');
+      const result = manager.addBot(room.code, 'alice', 'random');
       expect('error' in result).toBe(true);
       if ('error' in result) {
         expect(result.error).toContain('Name already taken');
@@ -298,7 +298,7 @@ describe('RoomManager', () => {
   describe('removeBot()', () => {
     it('removes a bot from the room', () => {
       const { room } = manager.createRoom('Alice', 'socket1');
-      const addResult = manager.addBot(room.code, 'Bot1', 'medium');
+      const addResult = manager.addBot(room.code, 'Bot1', 'random');
       if ('error' in addResult) return;
 
       const result = manager.removeBot(room.code, addResult.botId);
@@ -316,7 +316,7 @@ describe('RoomManager', () => {
 
     it('rejects if game already in progress', () => {
       const { room } = manager.createRoom('Alice', 'socket1');
-      const addResult = manager.addBot(room.code, 'Bot1', 'medium');
+      const addResult = manager.addBot(room.code, 'Bot1', 'random');
       if ('error' in addResult) return;
       manager.startGame(room.code);
 
@@ -346,7 +346,7 @@ describe('RoomManager', () => {
   describe('bot lifecycle in leaveRoom()', () => {
     it('assigns host to human player when host leaves (skips bots)', () => {
       const { room, playerId } = manager.createRoom('Alice', 'socket1');
-      manager.addBot(room.code, 'Bot1', 'medium');
+      manager.addBot(room.code, 'Bot1', 'random');
       const joinResult = manager.joinRoom(room.code, 'Bob', 'socket2');
       if ('error' in joinResult) return;
 
@@ -357,8 +357,8 @@ describe('RoomManager', () => {
 
     it('deletes room if only bots remain after host leaves', () => {
       const { room, playerId } = manager.createRoom('Alice', 'socket1');
-      manager.addBot(room.code, 'Bot1', 'medium');
-      manager.addBot(room.code, 'Bot2', 'medium');
+      manager.addBot(room.code, 'Bot1', 'random');
+      manager.addBot(room.code, 'Bot2', 'random');
 
       const result = manager.leaveRoom(room.code, playerId);
       expect(result).toBeNull();
@@ -369,7 +369,7 @@ describe('RoomManager', () => {
   describe('resetToLobby()', () => {
     it('preserves bots across rematch', () => {
       const { room } = manager.createRoom('Alice', 'socket1');
-      manager.addBot(room.code, 'Bot1', 'medium');
+      manager.addBot(room.code, 'Bot1', 'random');
       manager.startGame(room.code);
 
       const reset = manager.resetToLobby(room.code);
@@ -383,7 +383,7 @@ describe('RoomManager', () => {
     it('removes disconnected humans but keeps bots', () => {
       const { room } = manager.createRoom('Alice', 'socket1');
       manager.joinRoom(room.code, 'Bob', 'socket2');
-      manager.addBot(room.code, 'Bot1', 'medium');
+      manager.addBot(room.code, 'Bot1', 'random');
       manager.startGame(room.code);
 
       // Mark Bob as disconnected
@@ -401,7 +401,7 @@ describe('RoomManager', () => {
     it('reassigns host to human when current host is disconnected', () => {
       const { room, playerId } = manager.createRoom('Alice', 'socket1');
       manager.joinRoom(room.code, 'Bob', 'socket2');
-      manager.addBot(room.code, 'Bot1', 'medium');
+      manager.addBot(room.code, 'Bot1', 'random');
       manager.startGame(room.code);
 
       // Mark Alice (host) as disconnected
@@ -417,7 +417,7 @@ describe('RoomManager', () => {
 
     it('deletes room if only bots remain after rematch', () => {
       const { room } = manager.createRoom('Alice', 'socket1');
-      manager.addBot(room.code, 'Bot1', 'medium');
+      manager.addBot(room.code, 'Bot1', 'random');
       manager.startGame(room.code);
 
       // Mark Alice as disconnected
@@ -431,7 +431,7 @@ describe('RoomManager', () => {
 
     it('clears game state on reset', () => {
       const { room } = manager.createRoom('Alice', 'socket1');
-      manager.addBot(room.code, 'Bot1', 'medium');
+      manager.addBot(room.code, 'Bot1', 'random');
       manager.startGame(room.code);
 
       expect(manager.getEngine(room.code)).toBeDefined();
@@ -446,7 +446,7 @@ describe('RoomManager', () => {
   describe('startGame() with bots', () => {
     it('starts game with human + bot players', () => {
       const { room } = manager.createRoom('Alice', 'socket1');
-      manager.addBot(room.code, 'Bot1', 'medium');
+      manager.addBot(room.code, 'Bot1', 'random');
 
       const result = manager.startGame(room.code);
       expect('error' in result).toBe(false);
@@ -458,7 +458,7 @@ describe('RoomManager', () => {
 
     it('bot counts toward minimum player requirement', () => {
       const { room } = manager.createRoom('Alice', 'socket1');
-      manager.addBot(room.code, 'Bot1', 'medium');
+      manager.addBot(room.code, 'Bot1', 'random');
 
       // 1 human + 1 bot = 2 players, meets MIN_PLAYERS
       const result = manager.startGame(room.code);
@@ -749,7 +749,7 @@ describe('RoomManager', () => {
   describe('inactive room cleanup', () => {
     it('cleans up rooms with game engine but no connected humans after inactivity', () => {
       const { room } = manager.createRoom('Alice', 'socket1');
-      manager.addBot(room.code, 'Bot1', 'medium');
+      manager.addBot(room.code, 'Bot1', 'random');
       manager.startGame(room.code);
 
       // Mark Alice as disconnected (simulates all humans leaving)
@@ -772,7 +772,7 @@ describe('RoomManager', () => {
 
     it('does NOT clean up rooms with connected humans even after inactivity', () => {
       const { room } = manager.createRoom('Alice', 'socket1');
-      manager.addBot(room.code, 'Bot1', 'medium');
+      manager.addBot(room.code, 'Bot1', 'random');
       manager.startGame(room.code);
 
       // Alice is still connected
@@ -788,7 +788,7 @@ describe('RoomManager', () => {
 
     it('touchRoom resets the inactivity timer', () => {
       const { room } = manager.createRoom('Alice', 'socket1');
-      manager.addBot(room.code, 'Bot1', 'medium');
+      manager.addBot(room.code, 'Bot1', 'random');
       manager.startGame(room.code);
 
       // Mark Alice as bot-replaced (no connected humans)
@@ -818,7 +818,7 @@ describe('RoomManager', () => {
 
     it('does NOT clean up rooms without game engines', () => {
       const { room } = manager.createRoom('Alice', 'socket1');
-      manager.addBot(room.code, 'Bot1', 'medium');
+      manager.addBot(room.code, 'Bot1', 'random');
       // No game started — no engine
 
       // Advance well past cleanup threshold
@@ -864,7 +864,7 @@ describe('RoomManager', () => {
 
     it('deletes room when last human leaves finished game with only bots', () => {
       const { room, playerId } = manager.createRoom('Alice', 'socket1');
-      manager.addBot(room.code, 'Bot1', 'medium');
+      manager.addBot(room.code, 'Bot1', 'random');
       manager.startGame(room.code);
 
       // Simulate game finishing

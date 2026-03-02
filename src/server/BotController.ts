@@ -1,4 +1,4 @@
-import { BotDifficulty, Character, LogEntry, RoomPlayer } from '../shared/types';
+import { BotPersonality, Character, PersonalityParams, LogEntry, RoomPlayer } from '../shared/types';
 import {
   BOT_ACTION_DELAY_MIN,
   BOT_ACTION_DELAY_MAX,
@@ -8,28 +8,29 @@ import {
   BOT_EMOTE_DELAY_MAX,
   BOT_EMOTE_COOLDOWN_MS,
   BOT_EMOTE_TRIGGERS,
-  DEFAULT_BOT_DIFFICULTY,
+  DEFAULT_BOT_PERSONALITY,
   DEFAULT_BOT_MIN_REACTION_SECONDS,
+  BOT_PERSONALITIES,
+  BOT_PERSONALITY_TYPES,
 } from '../shared/constants';
 import { GameEngine } from '../engine/GameEngine';
 import { BotBrain, BotDecision } from '../engine/BotBrain';
 
 export type BotEmoteCallback = (botId: string, botName: string, reactionId: string) => void;
 
-/** The concrete difficulties BotBrain can handle (excludes 'random'). */
-const CONCRETE_DIFFICULTIES: Array<'easy' | 'medium' | 'hard'> = ['easy', 'medium', 'hard'];
-
-function resolveDifficulty(difficulty: BotDifficulty): 'easy' | 'medium' | 'hard' {
-  if (difficulty === 'random') {
-    return CONCRETE_DIFFICULTIES[Math.floor(Math.random() * CONCRETE_DIFFICULTIES.length)];
+function resolvePersonality(personalityType: BotPersonality): PersonalityParams {
+  if (personalityType === 'random') {
+    const chosen = BOT_PERSONALITY_TYPES[Math.floor(Math.random() * BOT_PERSONALITY_TYPES.length)];
+    return BOT_PERSONALITIES[chosen];
   }
-  return difficulty;
+  return BOT_PERSONALITIES[personalityType];
 }
 
 interface BotInfo {
   id: string;
   name: string;
-  difficulty: 'easy' | 'medium' | 'hard';
+  personalityType: BotPersonality;
+  personality: PersonalityParams;
   /** Characters the bot knows are in the deck (from its own Ambassador exchanges). */
   deckMemory: Map<Character, number>;
   /** How many actionLog entries have been processed for memory invalidation. */
@@ -58,17 +59,21 @@ export class BotController {
     this.botMinReactionMs = botMinReactionMs ?? (DEFAULT_BOT_MIN_REACTION_SECONDS * 1000);
     this.bots = botPlayers
       .filter(p => p.isBot)
-      .map(p => ({
-        id: p.id,
-        name: p.name,
-        difficulty: resolveDifficulty(p.difficulty ?? DEFAULT_BOT_DIFFICULTY),
-        deckMemory: new Map<Character, number>(),
-        lastProcessedLogLength: 0,
-        emotiveness: Math.random(),
-        meanness: Math.random(),
-        lastEmoteLogLength: 0,
-        lastEmoteTime: 0,
-      }));
+      .map(p => {
+        const personalityType = p.personality ?? DEFAULT_BOT_PERSONALITY;
+        return {
+          id: p.id,
+          name: p.name,
+          personalityType,
+          personality: resolvePersonality(personalityType),
+          deckMemory: new Map<Character, number>(),
+          lastProcessedLogLength: 0,
+          emotiveness: Math.random(),
+          meanness: Math.random(),
+          lastEmoteLogLength: 0,
+          lastEmoteTime: 0,
+        };
+      });
   }
 
   setOnBotEmote(cb: BotEmoteCallback): void {
@@ -78,13 +83,14 @@ export class BotController {
   /**
    * Register a new bot mid-game (e.g., when a disconnected player is replaced).
    */
-  addBot(playerId: string, difficulty: BotDifficulty, name?: string): void {
+  addBot(playerId: string, personality: BotPersonality, name?: string): void {
     if (this.destroyed) return;
     if (this.bots.some(b => b.id === playerId)) return;
     this.bots.push({
       id: playerId,
       name: name ?? 'Bot',
-      difficulty: resolveDifficulty(difficulty),
+      personalityType: personality,
+      personality: resolvePersonality(personality),
       deckMemory: new Map<Character, number>(),
       lastProcessedLogLength: 0,
       emotiveness: Math.random(),
@@ -110,7 +116,7 @@ export class BotController {
     // Invalidate deck memory when deck-mutating events occur
     const logLength = game.actionLog.length;
     for (const bot of this.bots) {
-      if (bot.difficulty !== 'hard' || bot.deckMemory.size === 0) {
+      if (bot.deckMemory.size === 0) {
         bot.lastProcessedLogLength = logLength;
         continue;
       }
@@ -139,14 +145,14 @@ export class BotController {
       const decision = BotBrain.decide(
         game,
         bot.id,
-        bot.difficulty,
+        bot.personality,
         state.pendingAction,
         state.pendingBlock,
         state.challengeState,
         state.influenceLossRequest,
         state.exchangeState,
         state.blockPassedPlayerIds,
-        bot.difficulty === 'hard' ? bot.deckMemory : undefined,
+        bot.deckMemory,
       );
 
       if (decision) {
@@ -222,7 +228,7 @@ export class BotController {
         break;
       case 'choose_exchange': {
         const bot = this.bots.find(b => b.id === botId);
-        if (bot && bot.difficulty === 'hard') {
+        if (bot) {
           const state = this.engine.getFullState();
           if (state.exchangeState) {
             const player = this.engine.game.getPlayer(botId);
@@ -299,11 +305,6 @@ export class BotController {
   /**
    * Determine if a log entry matches any emote trigger for a given bot.
    * Returns the array of candidate reaction IDs (chosen by meanness), or null if no match.
-   *
-   * Bluff-aware: for action_resolve/block where the bot is the actor and a
-   * character was claimed, checks whether the bot actually held the card.
-   * Prevents emotes like "Nice bluff!" from always revealing when the bot was
-   * bluffing. ~15% of the time the bot "lies" with its emote to stay unreadable.
    */
   private matchEmoteTrigger(
     bot: BotInfo,
@@ -317,24 +318,19 @@ export class BotController {
 
       const role = this.getBotRole(bot.id, entry, pendingTargetId, challengedPlayerId, challengerId);
       if (role === trigger.botRole) {
-        // For action_resolve/block where the bot is the actor and claimed a character,
-        // use bluff-aware pools to avoid leaking information through emotes.
+        // Bluff-aware emotes for action_resolve/block where the bot is the actor
         if (role === 'actor' && (entry.eventType === 'action_resolve' || entry.eventType === 'block') && entry.character) {
           const player = this.engine.game.getPlayer(bot.id);
           const wasBluffing = player ? !player.hiddenCharacters.includes(entry.character) : false;
-          // ~15% of the time, pretend the opposite to stay unreadable
           const shouldLie = Math.random() < 0.15;
           const actAsBluffer = wasBluffing !== shouldLie;
           if (actAsBluffer) {
-            // Emote as if bluffing: "nice bluff", "big brain", "sus" — smugly admitting it
             return ['nice_bluff', 'big_brain', 'lol'];
           } else {
-            // Emote as if honest: neutral reactions that don't imply a bluff
             return ['gg', 'lol', 'no_way'];
           }
         }
 
-        // Default: pick reaction pool based on bot's meanness personality
         return Math.random() < bot.meanness
           ? trigger.meanReactions
           : trigger.niceReactions;
@@ -354,42 +350,35 @@ export class BotController {
     challengerId: string | null,
   ): 'actor' | 'target' | 'other' {
     switch (entry.eventType) {
-      // actorId IS the victim for these events
       case 'elimination':
       case 'influence_loss':
         if (entry.actorId === botId) return 'target';
         return 'other';
 
-      // actorId = challenger who caught the bluff
       case 'challenge_success':
         if (entry.actorId === botId) return 'actor';
         if (challengedPlayerId === botId) return 'target';
         return 'other';
 
-      // actorId = challenged player who proved innocence; failed challenger is the "target"
       case 'challenge_fail':
         if (challengerId === botId) return 'target';
         if (entry.actorId === botId) return 'actor';
         return 'other';
 
-      // actorId = blocker
       case 'block':
         if (entry.actorId === botId) return 'actor';
         return 'other';
 
-      // actorId = winner
       case 'win':
         if (entry.actorId === botId) return 'actor';
         return 'other';
 
-      // actorId = attacker; target from pendingAction
       case 'coup':
       case 'assassination':
         if (entry.actorId === botId) return 'actor';
         if (pendingTargetId === botId) return 'target';
         return 'other';
 
-      // actorId = acting player; target from pendingAction
       case 'action_resolve':
         if (entry.actorId === botId) return 'actor';
         if (pendingTargetId === botId) return 'target';
