@@ -1,10 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ClientGameState, ClientInfluence, TurnPhase } from '@/shared/types';
 import { useGameStore } from '../../stores/gameStore';
 import { computeAwards, getWinnerFlavorText, getLoserFlavorText } from '../../utils/gameStats';
 import { haptic } from '../../utils/haptic';
+import { useStatsStore } from '../../stores/statsStore';
 import { CardFace } from './CardFace';
 import { ActionLog } from './ActionLog';
 
@@ -23,9 +24,18 @@ export function GameOverOverlay({ gameState, isHost, onRematch }: GameOverOverla
   const [showLog, setShowLog] = useState(false);
   const challengeReveal = useGameStore(s => s.challengeReveal);
   const roomPlayers = useGameStore(s => s.roomPlayers);
+  const recordGame = useStatsStore(s => s.recordGame);
+  const [statsRecorded, setStatsRecorded] = useState(false);
   const awards = useMemo(() => computeAwards(gameState), [gameState]);
   const winnerFlavor = useMemo(() => getWinnerFlavorText(gameState), [gameState]);
   const loserFlavor = useMemo(() => getLoserFlavorText(gameState), [gameState]);
+
+  useEffect(() => {
+    if (gameState.turnPhase === TurnPhase.GameOver && !challengeReveal && !statsRecorded) {
+      recordGame(gameState);
+      setStatsRecorded(true);
+    }
+  }, [gameState, challengeReveal, statsRecorded, recordGame]);
 
   // Wait for any challenge reveal animation to finish before showing
   if (gameState.turnPhase !== TurnPhase.GameOver || challengeReveal) return null;

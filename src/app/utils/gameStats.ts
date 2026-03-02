@@ -1,6 +1,6 @@
 import { LogEntry, ClientGameState } from '@/shared/types';
 
-interface PlayerStats {
+export interface PlayerStats {
   playerId: string;
   playerName: string;
   challengesMade: number;
@@ -22,7 +22,7 @@ export interface Award {
   description: string;
 }
 
-function computePlayerStats(log: LogEntry[], playerIds: string[], playerNames: Map<string, string>): Map<string, PlayerStats> {
+export function computePlayerStats(log: LogEntry[], playerIds: string[], playerNames: Map<string, string>): Map<string, PlayerStats> {
   const stats = new Map<string, PlayerStats>();
 
   for (const id of playerIds) {
