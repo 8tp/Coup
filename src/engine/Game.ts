@@ -130,8 +130,9 @@ export class Game {
     actorId: string | null = null,
     actorName: string | null = null,
     targetId?: string | null,
+    wasBluff?: boolean,
   ): void {
-    this.actionLog.push({
+    const entry: LogEntry = {
       message,
       timestamp: Date.now(),
       eventType,
@@ -140,7 +141,11 @@ export class Game {
       actorId,
       actorName,
       targetId: targetId ?? null,
-    });
+    };
+    if (wasBluff !== undefined) {
+      entry.wasBluff = wasBluff;
+    }
+    this.actionLog.push(entry);
   }
 
   /** Serialize the full game state */

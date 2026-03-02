@@ -99,16 +99,27 @@ function HomeContent() {
     <div className="min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden">
       <h1 className="sr-only">Coup Online — Free Multiplayer Bluffing Card Game</h1>
 
-      {/* Settings gear */}
-      <button
-        onClick={() => { haptic(); setShowSettings(true); }}
-        className="absolute top-4 right-4 w-9 h-9 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition flex items-center justify-center z-10"
-        title="Settings"
-      >
-        <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-          <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
-        </svg>
-      </button>
+      {/* Top-right icon buttons */}
+      <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+        <button
+          onClick={() => { haptic(); setShowStats(true); }}
+          className="w-9 h-9 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition flex items-center justify-center"
+          title="My Stats"
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+            <path d="M2 3a1 1 0 011-1h1a1 1 0 011 1v14a1 1 0 01-1 1H3a1 1 0 01-1-1V3zm5 2a1 1 0 011-1h1a1 1 0 011 1v12a1 1 0 01-1 1H8a1 1 0 01-1-1V5zm5-4a1 1 0 011-1h1a1 1 0 011 1v16a1 1 0 01-1 1h-1a1 1 0 01-1-1V1z" />
+          </svg>
+        </button>
+        <button
+          onClick={() => { haptic(); setShowSettings(true); }}
+          className="w-9 h-9 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition flex items-center justify-center"
+          title="Settings"
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+            <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+          </svg>
+        </button>
+      </div>
 
       {/* Decorative background pattern */}
       <div
@@ -147,9 +158,6 @@ function HomeContent() {
             </button>
             <button className="btn-secondary w-full" onClick={() => { haptic(); setMode('browse'); }}>
               Browse Public Games
-            </button>
-            <button className="btn-secondary w-full" onClick={() => { haptic(); setShowStats(true); }}>
-              My Stats
             </button>
 
             <div className="flex items-center gap-3 my-2">

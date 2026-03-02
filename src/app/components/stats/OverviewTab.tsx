@@ -52,7 +52,7 @@ export function OverviewTab({ lifetime }: OverviewTabProps) {
       <StatCard label="Games Played" value={lifetime.gamesPlayed} />
       <StatCard label="Games Won" value={lifetime.gamesWon} />
       <StatCard label="Win Rate" value={winRate} />
-      <StatCard label="Win Streak" value={`${lifetime.currentWinStreak} (best: ${lifetime.bestWinStreak})`} />
+      <StatCard label="Win Streak" value={`${lifetime.currentWinStreak} (Best: ${lifetime.bestWinStreak})`} />
       <StatCard label="Challenges Made" value={lifetime.challengesMade} />
       <StatCard label="Challenges Won" value={`${lifetime.challengesWon} (${challengeAccuracy})`} />
       <StatCard label="Blocks Made" value={lifetime.blocksMade} />

@@ -35,7 +35,7 @@ export type SideEffect =
   | { type: 'advance_turn' }
   | { type: 'set_timer'; durationMs: number }
   | { type: 'clear_timer' }
-  | { type: 'log'; message: string; eventType: LogEventType; character: Character | null; actorId: string | null; actorName: string | null; targetId?: string | null }
+  | { type: 'log'; message: string; eventType: LogEventType; character: Character | null; actorId: string | null; actorName: string | null; targetId?: string | null; wasBluff?: boolean }
   | { type: 'start_exchange'; playerId: string; drawnCards: Character[] }
   | { type: 'win_check' }
   | { type: 'challenge_reveal'; challengerName: string; challengedName: string; character: Character; wasGenuine: boolean };
@@ -152,6 +152,7 @@ export class ActionResolver {
         actorId,
         actorName: actor.name,
         targetId: targetId || null,
+        wasBluff: !actor.hasCharacter(def.claimedCharacter),
       });
     } else {
       sideEffects.push({
@@ -412,7 +413,7 @@ export class ActionResolver {
 
     const sideEffects: SideEffect[] = [
       { type: 'clear_timer' },
-      { type: 'log', message: `${blocker.name} blocks with ${claimedCharacter}!`, eventType: 'block', character: claimedCharacter, actorId: blockerId, actorName: blocker.name },
+      { type: 'log', message: `${blocker.name} blocks with ${claimedCharacter}!`, eventType: 'block', character: claimedCharacter, actorId: blockerId, actorName: blocker.name, wasBluff: !blocker.hasCharacter(claimedCharacter) },
       { type: 'set_timer', durationMs: this.timerMs },
     ];
 

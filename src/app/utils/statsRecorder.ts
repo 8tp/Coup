@@ -111,7 +111,7 @@ export function recordGameResult(
   const won = gameState.winnerId === myId;
   const myTurns = countMyTurns(gameState, myId);
   const myActionCounts = countMyActions(gameState, myId);
-  const successfulBluffs = Math.max(0, myStats.actionsClaimed - myStats.timesCaughtBluffing);
+  const successfulBluffs = Math.max(0, myStats.actualBluffs - myStats.timesCaughtBluffing);
 
   // Build history entry
   const historyEntry: GameHistoryEntry = {

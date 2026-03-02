@@ -29,7 +29,9 @@ export function serializeForPlayer(state: GameState, playerId: string, roomPlaye
     influenceLossRequest: state.influenceLossRequest,
     exchangeState: serializeExchangeState(state, playerId),
     blockPassedPlayerIds: state.blockPassedPlayerIds || [],
-    actionLog: state.actionLog,
+    actionLog: isGameOver
+      ? state.actionLog
+      : state.actionLog.map(({ wasBluff, ...entry }) => entry),
     timerExpiry: state.timerExpiry,
     winnerId: state.winnerId,
     turnNumber: state.turnNumber,

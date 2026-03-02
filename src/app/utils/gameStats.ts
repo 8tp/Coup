@@ -12,6 +12,7 @@ export interface PlayerStats {
   coupsMade: number;
   assassinationsMade: number;
   actionsClaimed: number;
+  actualBluffs: number;
   eliminationOrder: number; // 0 = not eliminated, 1 = first out, etc.
 }
 
@@ -38,6 +39,7 @@ export function computePlayerStats(log: LogEntry[], playerIds: string[], playerN
       coupsMade: 0,
       assassinationsMade: 0,
       actionsClaimed: 0,
+      actualBluffs: 0,
       eliminationOrder: 0,
     });
   }
@@ -54,6 +56,7 @@ export function computePlayerStats(log: LogEntry[], playerIds: string[], playerN
     switch (entry.eventType) {
       case 'claim_action':
         s.actionsClaimed++;
+        if (entry.wasBluff) s.actualBluffs++;
         break;
       case 'challenge':
       case 'block_challenge':
@@ -102,6 +105,7 @@ export function computePlayerStats(log: LogEntry[], playerIds: string[], playerN
         break;
       case 'block':
         s.blocksMade++;
+        if (entry.wasBluff) s.actualBluffs++;
         break;
       case 'coup':
         s.coupsMade++;

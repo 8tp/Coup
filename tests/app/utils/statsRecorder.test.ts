@@ -4,16 +4,22 @@ import { ClientGameState, TurnPhase, GameStatus, ActionType, Character, LogEntry
 import { StoredPlayerStats } from '@/app/types/stats';
 
 function makeLog(entries: Partial<LogEntry>[]): LogEntry[] {
-  return entries.map((e, i) => ({
-    message: e.message ?? '',
-    timestamp: e.timestamp ?? 1000 + i,
-    eventType: e.eventType ?? 'game_start',
-    character: e.character ?? null,
-    turnNumber: e.turnNumber ?? 1,
-    actorId: e.actorId ?? null,
-    actorName: e.actorName ?? null,
-    targetId: e.targetId ?? null,
-  }));
+  return entries.map((e, i) => {
+    const entry: LogEntry = {
+      message: e.message ?? '',
+      timestamp: e.timestamp ?? 1000 + i,
+      eventType: e.eventType ?? 'game_start',
+      character: e.character ?? null,
+      turnNumber: e.turnNumber ?? 1,
+      actorId: e.actorId ?? null,
+      actorName: e.actorName ?? null,
+      targetId: e.targetId ?? null,
+    };
+    if (e.wasBluff !== undefined) {
+      entry.wasBluff = e.wasBluff;
+    }
+    return entry;
+  });
 }
 
 function makeGameState(overrides: Partial<ClientGameState> = {}): ClientGameState {
@@ -252,15 +258,15 @@ describe('recordGameResult', () => {
     expect(stats.lifetime.gamesPlayed).toBe(55);
   });
 
-  it('tracks successful bluffs', () => {
+  it('tracks successful bluffs using wasBluff field', () => {
     const empty = createEmptyStats('dev1');
     const gs = makeGameState({
       actionLog: makeLog([
         { eventType: 'game_start' },
-        // p1 claims Duke (Tax) 3 times, caught once
-        { eventType: 'claim_action', actorId: 'p1', character: Character.Duke },
-        { eventType: 'claim_action', actorId: 'p1', character: Character.Duke },
-        { eventType: 'claim_action', actorId: 'p1', character: Character.Duke },
+        // p1 bluffs Duke (Tax) 2 times, truthful once, caught once
+        { eventType: 'claim_action', actorId: 'p1', character: Character.Duke, wasBluff: true },
+        { eventType: 'claim_action', actorId: 'p1', character: Character.Duke, wasBluff: true },
+        { eventType: 'claim_action', actorId: 'p1', character: Character.Duke, wasBluff: false },
         { eventType: 'challenge', actorId: 'p2' },
         { eventType: 'challenge_success', actorId: 'p2' },
         { eventType: 'win', actorId: 'p1' },
@@ -268,9 +274,28 @@ describe('recordGameResult', () => {
     });
 
     const result = recordGameResult(empty, gs);
-    // actionsClaimed = 3, timesCaughtBluffing = 1, so successfulBluffs = 2
-    expect(result.lifetime.successfulBluffs).toBe(2);
+    // actualBluffs = 2, timesCaughtBluffing = 1, so successfulBluffs = 1
+    expect(result.lifetime.successfulBluffs).toBe(1);
     expect(result.lifetime.timesCaughtBluffing).toBe(1);
+  });
+
+  it('does not count truthful claims as bluffs', () => {
+    const empty = createEmptyStats('dev1');
+    const gs = makeGameState({
+      actionLog: makeLog([
+        { eventType: 'game_start' },
+        // p1 truthfully claims Duke (Tax) 3 times
+        { eventType: 'claim_action', actorId: 'p1', character: Character.Duke, wasBluff: false },
+        { eventType: 'claim_action', actorId: 'p1', character: Character.Duke, wasBluff: false },
+        { eventType: 'claim_action', actorId: 'p1', character: Character.Duke, wasBluff: false },
+        { eventType: 'win', actorId: 'p1' },
+      ]),
+    });
+
+    const result = recordGameResult(empty, gs);
+    // All claims truthful, no bluffs
+    expect(result.lifetime.successfulBluffs).toBe(0);
+    expect(result.lifetime.timesCaughtBluffing).toBe(0);
   });
 
   it('ignores non-GameOver state', () => {
