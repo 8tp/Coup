@@ -735,6 +735,98 @@ describe('BotBrain', () => {
       const result = decide(game, 'p3', 'hard', { pendingAction, blockPassedPlayerIds: [] });
       expect(result!.type).toBe('pass_block');
     });
+
+    it('hard bot NEVER bluff-blocks Contessa when all 3 Contessas are revealed', () => {
+      const game = createGame();
+      game.turnPhase = TurnPhase.AwaitingBlock;
+      // Bot has no Contessa, 1 influence
+      setCards(game, 'p2', [Character.Duke, Character.Captain]);
+      revealCard(game, 'p2', 0);
+
+      // Reveal all 3 Contessas on other players
+      setCards(game, 'p1', [Character.Contessa, Character.Contessa]);
+      revealCard(game, 'p1', 0);
+      revealCard(game, 'p1', 1);
+      setCards(game, 'p3', [Character.Contessa, Character.Duke]);
+      revealCard(game, 'p3', 0);
+
+      const pendingAction: PendingAction = {
+        type: ActionType.Assassinate,
+        actorId: 'p1',
+        targetId: 'p2',
+        claimedCharacter: Character.Assassin,
+      };
+
+      // Should NEVER try to block with Contessa — all copies are visible
+      for (let i = 0; i < 100; i++) {
+        const result = decide(game, 'p2', 'hard', { pendingAction, blockPassedPlayerIds: [] });
+        expect(result!.type).toBe('pass_block');
+      }
+    });
+
+    it('medium bot NEVER bluff-blocks Contessa when all 3 Contessas are revealed', () => {
+      const game = createGame();
+      game.turnPhase = TurnPhase.AwaitingBlock;
+      setCards(game, 'p2', [Character.Duke, Character.Captain]);
+      revealCard(game, 'p2', 0);
+
+      // Reveal all 3 Contessas
+      setCards(game, 'p1', [Character.Contessa, Character.Contessa]);
+      revealCard(game, 'p1', 0);
+      revealCard(game, 'p1', 1);
+      setCards(game, 'p3', [Character.Contessa, Character.Duke]);
+      revealCard(game, 'p3', 0);
+
+      const pendingAction: PendingAction = {
+        type: ActionType.Assassinate,
+        actorId: 'p1',
+        targetId: 'p2',
+        claimedCharacter: Character.Assassin,
+      };
+
+      for (let i = 0; i < 100; i++) {
+        const result = decide(game, 'p2', 'medium', { pendingAction, blockPassedPlayerIds: [] });
+        expect(result!.type).toBe('pass_block');
+      }
+    });
+
+    it('hard bot does NOT pass challenge to bluff-block when all Contessas are revealed', () => {
+      const game = createGame();
+      game.turnPhase = TurnPhase.AwaitingActionChallenge;
+      // Bot has no Contessa, 1 influence
+      setCards(game, 'p2', [Character.Duke, Character.Captain]);
+      revealCard(game, 'p2', 0);
+
+      // Reveal all 3 Contessas
+      setCards(game, 'p1', [Character.Contessa, Character.Contessa]);
+      revealCard(game, 'p1', 0);
+      revealCard(game, 'p1', 1);
+      setCards(game, 'p3', [Character.Contessa, Character.Duke]);
+      revealCard(game, 'p3', 0);
+
+      const pendingAction: PendingAction = {
+        type: ActionType.Assassinate,
+        actorId: 'p1',
+        targetId: 'p2',
+        claimedCharacter: Character.Assassin,
+      };
+      const cs: ChallengeState = {
+        challengerId: '',
+        challengedPlayerId: 'p1',
+        claimedCharacter: Character.Assassin,
+        passedPlayerIds: ['p1'],
+      };
+
+      // Should NOT always pass_challenge — should sometimes challenge instead
+      // (since bluff-blocking Contessa is impossible)
+      let challengeCount = 0;
+      for (let i = 0; i < 200; i++) {
+        const result = decide(game, 'p2', 'hard', { pendingAction, challengeState: cs });
+        if (result!.type === 'challenge') challengeCount++;
+      }
+      // With normal challenge logic, hard bot should challenge at least sometimes
+      expect(challengeCount).toBeGreaterThan(0);
+    });
   });
 
   // ─── Block Challenge Decisions ───

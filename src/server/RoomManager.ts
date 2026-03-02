@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { BotDifficulty, ChatMessage, GameStatus, PublicRoomInfo, Room, RoomPlayer, RoomSettings } from '../shared/types';
-import { CHAT_MAX_HISTORY, CHAT_MAX_MESSAGE_LENGTH, CHAT_RATE_LIMIT_MS, DEFAULT_ROOM_SETTINGS, DISCONNECT_BOT_REPLACE_MS, MAX_ACTION_TIMER, MAX_BOT_REACTION_SECONDS, MAX_PLAYERS, MAX_TURN_TIMER, MIN_ACTION_TIMER, MIN_BOT_REACTION_SECONDS, MIN_PLAYERS, MIN_TURN_TIMER, PUBLIC_ROOM_LIST_MAX, REACTION_RATE_LIMIT_MS } from '../shared/constants';
+import { CHAT_MAX_HISTORY, CHAT_MAX_MESSAGE_LENGTH, CHAT_RATE_LIMIT_MS, DEFAULT_ROOM_SETTINGS, DISCONNECT_BOT_REPLACE_MS, INACTIVE_ROOM_CLEANUP_MS, MAX_ACTION_TIMER, MAX_BOT_REACTION_SECONDS, MAX_PLAYERS, MAX_TURN_TIMER, MIN_ACTION_TIMER, MIN_BOT_REACTION_SECONDS, MIN_PLAYERS, MIN_TURN_TIMER, PUBLIC_ROOM_LIST_MAX, REACTION_RATE_LIMIT_MS } from '../shared/constants';
 import { GameEngine } from '../engine/GameEngine';
 import { BotController } from './BotController';
 
@@ -13,6 +13,7 @@ export class RoomManager {
   private chatMessages: Map<string, ChatMessage[]> = new Map();
   private lastChatTime: Map<string, number> = new Map();
   private lastReactionTime: Map<string, number> = new Map();
+  private lastHumanActivityAt: Map<string, number> = new Map();
   private disconnectTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private cleanupInterval: ReturnType<typeof setInterval>;
 
@@ -31,6 +32,10 @@ export class RoomManager {
       }
     } while (this.rooms.has(code));
     return code;
+  }
+
+  touchRoom(roomCode: string): void {
+    this.lastHumanActivityAt.set(roomCode.toUpperCase(), Date.now());
   }
 
   createRoom(playerName: string, socketId: string, isPublic?: boolean): { room: Room; playerId: string } {
@@ -54,6 +59,7 @@ export class RoomManager {
     };
 
     this.rooms.set(code, room);
+    this.lastHumanActivityAt.set(code, Date.now());
     return { room, playerId };
   }
 
@@ -80,6 +86,7 @@ export class RoomManager {
       connected: true,
     });
 
+    this.lastHumanActivityAt.set(roomCode.toUpperCase(), Date.now());
     return { room, playerId };
   }
 
@@ -156,22 +163,24 @@ export class RoomManager {
     const room = this.rooms.get(roomCode);
     if (!room) return null;
 
-    // If game is in progress, mark as disconnected instead of removing
+    // If game is actively in progress, mark as disconnected instead of removing
     if (room.gameState) {
-      const player = room.players.find(p => p.id === playerId);
-      if (player) player.connected = false;
-      return room;
+      const engine = this.engines.get(roomCode);
+      if (engine && engine.game.status === GameStatus.InProgress) {
+        const player = room.players.find(p => p.id === playerId);
+        if (player) player.connected = false;
+        return room;
+      }
     }
 
+    // Lobby or finished game: remove the player entirely
     room.players = room.players.filter(p => p.id !== playerId);
     this.lastChatTime.delete(playerId);
     this.lastReactionTime.delete(playerId);
 
     // If room is empty, delete it
     if (room.players.length === 0) {
-      this.rooms.delete(roomCode);
-      this.engines.delete(roomCode);
-      this.chatMessages.delete(roomCode);
+      this.deleteRoom(roomCode);
       return null;
     }
 
@@ -182,11 +191,7 @@ export class RoomManager {
         room.hostId = humanPlayer.id;
       } else {
         // All remaining are bots — delete the room
-        this.rooms.delete(roomCode);
-        this.engines.delete(roomCode);
-        this.chatMessages.delete(roomCode);
-        const bc = this.botControllers.get(roomCode);
-        if (bc) { bc.destroy(); this.botControllers.delete(roomCode); }
+        this.deleteRoom(roomCode);
         return null;
       }
     }
@@ -375,8 +380,7 @@ export class RoomManager {
 
     // If room is empty after filtering, delete it
     if (room.players.length === 0) {
-      this.rooms.delete(roomCode);
-      this.chatMessages.delete(roomCode);
+      this.deleteRoom(roomCode);
       return null;
     }
 
@@ -387,8 +391,7 @@ export class RoomManager {
         room.hostId = humanPlayer.id;
       } else {
         // Only bots remain — delete room
-        this.rooms.delete(roomCode);
-        this.chatMessages.delete(roomCode);
+        this.deleteRoom(roomCode);
         return null;
       }
     }
@@ -494,17 +497,44 @@ export class RoomManager {
     }
   }
 
+  private deleteRoom(roomCode: string): void {
+    this.clearDisconnectTimersForRoom(roomCode);
+    const room = this.rooms.get(roomCode);
+    if (room) this.cleanRateLimitsForRoom(room);
+
+    const engine = this.engines.get(roomCode);
+    if (engine) engine.destroy();
+    this.engines.delete(roomCode);
+
+    const bc = this.botControllers.get(roomCode);
+    if (bc) bc.destroy();
+    this.botControllers.delete(roomCode);
+
+    this.rooms.delete(roomCode);
+    this.chatMessages.delete(roomCode);
+    this.lastHumanActivityAt.delete(roomCode);
+  }
+
   private cleanup(): void {
     const now = Date.now();
     for (const [code, room] of this.rooms.entries()) {
+      // 24h TTL for all rooms
       if (now - room.createdAt > ROOM_TTL_MS) {
-        this.clearDisconnectTimersForRoom(code);
-        this.cleanRateLimitsForRoom(room);
-        this.rooms.delete(code);
-        this.engines.delete(code);
-        this.chatMessages.delete(code);
-        const bc = this.botControllers.get(code);
-        if (bc) { bc.destroy(); this.botControllers.delete(code); }
+        this.deleteRoom(code);
+        continue;
+      }
+
+      // Clean up rooms with games but no connected human players and no
+      // human activity for INACTIVE_ROOM_CLEANUP_MS (120s)
+      const engine = this.engines.get(code);
+      if (engine) {
+        const hasConnectedHuman = room.players.some(p => !p.isBot && p.connected);
+        if (!hasConnectedHuman) {
+          const lastActivity = this.lastHumanActivityAt.get(code) ?? room.createdAt;
+          if (now - lastActivity > INACTIVE_ROOM_CLEANUP_MS) {
+            this.deleteRoom(code);
+          }
+        }
       }
     }
   }
@@ -515,5 +545,6 @@ export class RoomManager {
       clearTimeout(timer);
     }
     this.disconnectTimers.clear();
+    this.lastHumanActivityAt.clear();
   }
 }

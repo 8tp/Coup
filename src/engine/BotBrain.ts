@@ -746,8 +746,14 @@ export class BotBrain {
       if (accountedFor >= CARDS_PER_CHARACTER) {
         return { type: 'challenge' };
       }
-      // Otherwise pass — will bluff-block with Contessa in the block phase
-      return { type: 'pass_challenge' };
+      // If all Contessas are revealed, bluff-blocking is impossible —
+      // fall through to normal challenge logic instead of skipping to block phase
+      const contessaRevealed = revealed.get(Character.Contessa) || 0;
+      if (contessaRevealed < CARDS_PER_CHARACTER) {
+        // Bluff-blocking Contessa is still viable — pass to block phase
+        return { type: 'pass_challenge' };
+      }
+      // Fall through to normal challenge evaluation below
     }
 
     if (difficulty === 'easy') {
@@ -932,6 +938,11 @@ export class BotBrain {
           continue;
         }
 
+        // Never bluff a character when all copies are publicly revealed — guaranteed to be caught
+        const revealed = this.countRevealedCharacters(game);
+        const revealedCount = revealed.get(blockChar) || 0;
+        if (revealedCount >= CARDS_PER_CHARACTER) continue;
+
         if (difficulty === 'medium') {
           if (isTarget && blockChar === Character.Contessa && pendingAction.type === ActionType.Assassinate) {
             // At 1 influence, not blocking = guaranteed death. Always bluff Contessa.
@@ -951,9 +962,6 @@ export class BotBrain {
         }
 
         // Hard: strategic bluff blocking
-        const revealed = this.countRevealedCharacters(game);
-        const revealedCount = revealed.get(blockChar) || 0;
-
         if (isTarget && blockChar === Character.Contessa && pendingAction.type === ActionType.Assassinate) {
           // At 1 influence, not blocking = guaranteed death. Always bluff Contessa.
           // The opponent may not challenge, giving us a chance to survive.

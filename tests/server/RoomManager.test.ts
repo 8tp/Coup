@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { RoomManager } from '@/server/RoomManager';
-import { DEFAULT_ROOM_SETTINGS, MIN_ACTION_TIMER, MAX_ACTION_TIMER, PUBLIC_ROOM_LIST_MAX, MAX_PLAYERS } from '@/shared/constants';
-import { ActionType, TurnPhase } from '@/shared/types';
+import { DEFAULT_ROOM_SETTINGS, MIN_ACTION_TIMER, MAX_ACTION_TIMER, PUBLIC_ROOM_LIST_MAX, MAX_PLAYERS, INACTIVE_ROOM_CLEANUP_MS } from '@/shared/constants';
+import { ActionType, GameStatus, TurnPhase } from '@/shared/types';
 
 describe('RoomManager', () => {
   let manager: RoomManager;
@@ -741,6 +741,156 @@ describe('RoomManager', () => {
       const reset = manager.resetToLobby(room.code);
       expect(reset).not.toBeNull();
       expect(reset!.settings.isPublic).toBe(true);
+    });
+  });
+
+  // ─── Inactive Room Cleanup ───
+
+  describe('inactive room cleanup', () => {
+    it('cleans up rooms with game engine but no connected humans after inactivity', () => {
+      const { room } = manager.createRoom('Alice', 'socket1');
+      manager.addBot(room.code, 'Bot1', 'medium');
+      manager.startGame(room.code);
+
+      // Mark Alice as disconnected (simulates all humans leaving)
+      const alice = room.players.find(p => !p.isBot)!;
+      alice.connected = false;
+      alice.isBot = true; // Simulate bot replacement
+      alice.replacedByBot = true;
+
+      expect(manager.getEngine(room.code)).toBeDefined();
+      expect(manager.getActiveGameCount()).toBe(1);
+
+      // Advance past INACTIVE_ROOM_CLEANUP_MS + cleanup interval
+      vi.advanceTimersByTime(INACTIVE_ROOM_CLEANUP_MS + 60_000);
+
+      // Room and engine should be cleaned up
+      expect(manager.getRoom(room.code)).toBeUndefined();
+      expect(manager.getEngine(room.code)).toBeUndefined();
+      expect(manager.getActiveGameCount()).toBe(0);
+    });
+
+    it('does NOT clean up rooms with connected humans even after inactivity', () => {
+      const { room } = manager.createRoom('Alice', 'socket1');
+      manager.addBot(room.code, 'Bot1', 'medium');
+      manager.startGame(room.code);
+
+      // Alice is still connected
+      expect(room.players.find(p => !p.isBot)!.connected).toBe(true);
+
+      // Advance past cleanup threshold
+      vi.advanceTimersByTime(INACTIVE_ROOM_CLEANUP_MS + 60_000);
+
+      // Room should still exist because Alice is connected
+      expect(manager.getRoom(room.code)).toBeDefined();
+      expect(manager.getEngine(room.code)).toBeDefined();
+    });
+
+    it('touchRoom resets the inactivity timer', () => {
+      const { room } = manager.createRoom('Alice', 'socket1');
+      manager.addBot(room.code, 'Bot1', 'medium');
+      manager.startGame(room.code);
+
+      // Mark Alice as bot-replaced (no connected humans)
+      const alice = room.players.find(p => !p.isBot)!;
+      alice.connected = false;
+      alice.isBot = true;
+      alice.replacedByBot = true;
+
+      // Advance 100s (less than 120s threshold)
+      vi.advanceTimersByTime(100_000);
+
+      // Touch the room (simulates human activity)
+      manager.touchRoom(room.code);
+
+      // Advance another 60s + cleanup interval (total 160s from touch, but only 60s since touch)
+      vi.advanceTimersByTime(60_000 + 60_000);
+
+      // Room should still exist because touchRoom reset the timer
+      expect(manager.getRoom(room.code)).toBeDefined();
+
+      // Now advance past 120s from the touch
+      vi.advanceTimersByTime(60_000);
+
+      // Now it should be cleaned up
+      expect(manager.getRoom(room.code)).toBeUndefined();
+    });
+
+    it('does NOT clean up rooms without game engines', () => {
+      const { room } = manager.createRoom('Alice', 'socket1');
+      manager.addBot(room.code, 'Bot1', 'medium');
+      // No game started — no engine
+
+      // Advance well past cleanup threshold
+      vi.advanceTimersByTime(INACTIVE_ROOM_CLEANUP_MS + 60_000);
+
+      // Room should still exist (no engine → not subject to inactive cleanup)
+      expect(manager.getRoom(room.code)).toBeDefined();
+    });
+  });
+
+  // ─── Finished Game Disconnect ───
+
+  describe('leaveRoom() during finished game', () => {
+    it('removes player from room when game is finished (not in progress)', () => {
+      const { room, playerId } = manager.createRoom('Alice', 'socket1');
+      manager.joinRoom(room.code, 'Bob', 'socket2');
+      manager.startGame(room.code);
+
+      // Simulate game finishing
+      const engine = manager.getEngine(room.code)!;
+      (engine.game as any).status = GameStatus.Finished;
+
+      const updated = manager.leaveRoom(room.code, playerId);
+      expect(updated).not.toBeNull();
+      // Alice should be removed, not just marked disconnected
+      expect(updated!.players.find(p => p.id === playerId)).toBeUndefined();
+      expect(updated!.players).toHaveLength(1);
+      expect(updated!.players[0].name).toBe('Bob');
+    });
+
+    it('still marks player as disconnected during in-progress game', () => {
+      const { room, playerId } = manager.createRoom('Alice', 'socket1');
+      manager.joinRoom(room.code, 'Bob', 'socket2');
+      manager.startGame(room.code);
+
+      // Game is InProgress by default after startGame
+      const updated = manager.leaveRoom(room.code, playerId);
+      expect(updated).not.toBeNull();
+      const alice = updated!.players.find(p => p.id === playerId);
+      expect(alice).toBeDefined();
+      expect(alice!.connected).toBe(false);
+    });
+
+    it('deletes room when last human leaves finished game with only bots', () => {
+      const { room, playerId } = manager.createRoom('Alice', 'socket1');
+      manager.addBot(room.code, 'Bot1', 'medium');
+      manager.startGame(room.code);
+
+      // Simulate game finishing
+      const engine = manager.getEngine(room.code)!;
+      (engine.game as any).status = GameStatus.Finished;
+
+      const result = manager.leaveRoom(room.code, playerId);
+      // Only bots remain → room deleted
+      expect(result).toBeNull();
+      expect(manager.getRoom(room.code)).toBeUndefined();
+      expect(manager.getEngine(room.code)).toBeUndefined();
+    });
+
+    it('reassigns host when host leaves finished game', () => {
+      const { room, playerId } = manager.createRoom('Alice', 'socket1');
+      const bobResult = manager.joinRoom(room.code, 'Bob', 'socket2');
+      if ('error' in bobResult) return;
+      manager.startGame(room.code);
+
+      // Simulate game finishing
+      const engine = manager.getEngine(room.code)!;
+      (engine.game as any).status = GameStatus.Finished;
+
+      const updated = manager.leaveRoom(room.code, playerId);
+      expect(updated).not.toBeNull();
+      expect(updated!.hostId).toBe(bobResult.playerId);
     });
   });
 });

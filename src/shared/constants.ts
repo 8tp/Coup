@@ -54,6 +54,7 @@ export const BOT_ACTION_DELAY_MAX = 3500;
 export const BOT_REACTION_DELAY_MIN = 800;
 export const BOT_REACTION_DELAY_MAX = 2000;
 export const DISCONNECT_BOT_REPLACE_MS = 60_000;
+export const INACTIVE_ROOM_CLEANUP_MS = 120_000; // 120s — rooms with no human activity are cleaned up
 
 // ─── Bot Emote Constants ───
 export const BOT_EMOTE_DELAY_MIN = 500;

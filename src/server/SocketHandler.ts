@@ -126,6 +126,7 @@ export class SocketHandler {
 
       // Cancel disconnect timer on successful rejoin
       this.roomManager.cancelDisconnectTimer(code, data.playerId);
+      this.roomManager.touchRoom(code);
 
       socket.join(result.room.code);
       callback({
@@ -306,6 +307,7 @@ export class SocketHandler {
     socket.on('chat:send', (data) => {
       const found = this.roomManager.getPlayerRoom(socket.id);
       if (!found) return;
+      this.roomManager.touchRoom(found.room.code);
 
       const msgResult = validateChatMessage(data.message);
       if (!msgResult.valid) {
@@ -333,6 +335,7 @@ export class SocketHandler {
       const found = this.roomManager.getPlayerRoom(socket.id);
       if (!found) return;
       if (found.player.isBot) return;
+      this.roomManager.touchRoom(found.room.code);
 
       const reactionId = data.reactionId;
       const reaction = REACTIONS.find(r => r.id === reactionId);
@@ -497,6 +500,11 @@ export class SocketHandler {
     if (!engine) {
       socket.emit('game:error', { message: 'No game in progress' });
       return null;
+    }
+
+    // Track human activity for inactive room cleanup
+    if (!found.player.isBot) {
+      this.roomManager.touchRoom(found.room.code);
     }
 
     return { room: found.room, player: found.player, engine };
