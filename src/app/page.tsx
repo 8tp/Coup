@@ -7,6 +7,7 @@ import { useGameStore } from './stores/gameStore';
 import { CoupLogo } from './components/icons';
 import { HowToPlay } from './components/home/HowToPlay';
 import { SettingsModal } from './components/settings/SettingsModal';
+import { StatsModal } from './components/stats/StatsModal';
 import { MAX_PLAYERS } from '@/shared/constants';
 import { haptic } from './utils/haptic';
 
@@ -30,6 +31,7 @@ function HomeContent() {
   const [loading, setLoading] = useState(false);
   const [showHowToPlay, setShowHowToPlay] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showStats, setShowStats] = useState(false);
   const [isPublic, setIsPublic] = useState(false);
 
   useEffect(() => {
@@ -139,6 +141,9 @@ function HomeContent() {
             </button>
             <button className="btn-secondary w-full" onClick={() => { haptic(); setMode('browse'); }}>
               Browse Public Games
+            </button>
+            <button className="btn-secondary w-full" onClick={() => { haptic(); setShowStats(true); }}>
+              My Stats
             </button>
 
             <div className="flex items-center gap-3 my-2">
@@ -318,6 +323,7 @@ function HomeContent() {
 
       <HowToPlay open={showHowToPlay} onClose={() => setShowHowToPlay(false)} />
       <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
+      <StatsModal open={showStats} onClose={() => setShowStats(false)} />
     </div>
   );
 }
