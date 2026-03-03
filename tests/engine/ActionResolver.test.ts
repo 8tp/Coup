@@ -523,7 +523,28 @@ describe('ActionResolver', () => {
       expect(replaceEffect).toBeDefined();
     });
 
-    it('only the original actor can challenge a block', () => {
+    it('any non-blocker player can challenge a block', () => {
+      setCards(game, 'p2', [Character.Captain, Character.Assassin]); // no Duke — bluffing
+      const declareResult = resolver.declareAction(game, 'p1', ActionType.ForeignAid);
+      if (isError(declareResult)) return;
+
+      game.turnPhase = TurnPhase.AwaitingBlock;
+      const blockResult = resolver.block(game, 'p2', Character.Duke, declareResult.pendingAction!);
+      if (isError(blockResult)) return;
+
+      game.turnPhase = TurnPhase.AwaitingBlockChallenge;
+      // p3 (a bystander, not the actor) can challenge
+      const result = resolver.challengeBlock(
+        game,
+        'p3',
+        declareResult.pendingAction!,
+        blockResult.pendingBlock!,
+        blockResult.challengeState!,
+      );
+      expect(isError(result)).toBe(false);
+    });
+
+    it('blocker cannot challenge their own block', () => {
       setCards(game, 'p2', [Character.Duke, Character.Assassin]);
       const declareResult = resolver.declareAction(game, 'p1', ActionType.ForeignAid);
       if (isError(declareResult)) return;
@@ -535,14 +556,14 @@ describe('ActionResolver', () => {
       game.turnPhase = TurnPhase.AwaitingBlockChallenge;
       const result = resolver.challengeBlock(
         game,
-        'p3', // not the actor
+        'p2', // the blocker
         declareResult.pendingAction!,
         blockResult.pendingBlock!,
         blockResult.challengeState!,
       );
       expect(isError(result)).toBe(true);
       if (isError(result)) {
-        expect(result.error).toContain('Only the original actor');
+        expect(result.error).toContain('Cannot challenge your own block');
       }
     });
   });

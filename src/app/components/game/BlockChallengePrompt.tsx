@@ -22,27 +22,13 @@ export function BlockChallengePrompt({ gameState }: BlockChallengePromptProps) {
 
   const blocker = gameState.players.find(p => p.id === pendingBlock.blockerId);
 
-  // Only the original actor can challenge a block
-  if (myId !== pendingAction?.actorId) {
-    // Blocker's own view
-    if (myId === pendingBlock.blockerId) {
-      return (
-        <div className="prompt-info">
-          <p className="text-center text-gray-300 text-sm">
-            You claimed <span className="text-coup-accent font-bold">{pendingBlock.claimedCharacter}</span> to block.
-            Waiting to see if they challenge...
-          </p>
-          <Timer expiresAt={gameState.timerExpiry} />
-        </div>
-      );
-    }
-
+  // Blocker sees waiting message (can't challenge own block)
+  if (myId === pendingBlock.blockerId) {
     return (
       <div className="prompt-info">
-        <p className="text-center text-gray-400 text-sm">
-          <span className="font-bold">{blocker?.name}</span> blocks with{' '}
-          <span className="text-coup-accent font-bold">{pendingBlock.claimedCharacter}</span>.
-          Waiting for {gameState.players.find(p => p.id === pendingAction?.actorId)?.name} to respond...
+        <p className="text-center text-gray-300 text-sm">
+          You claimed <span className="text-coup-accent font-bold">{pendingBlock.claimedCharacter}</span> to block.
+          Waiting to see if anyone challenges...
         </p>
         <Timer expiresAt={gameState.timerExpiry} />
       </div>
@@ -53,16 +39,19 @@ export function BlockChallengePrompt({ gameState }: BlockChallengePromptProps) {
   if (challengeState.passedPlayerIds.includes(myId)) {
     return (
       <div className="prompt-info">
-        <p className="text-center text-gray-400 text-sm">You accepted the block.</p>
+        <p className="text-center text-gray-400 text-sm">
+          You accepted the block. Waiting for others...
+        </p>
+        <Timer expiresAt={gameState.timerExpiry} />
       </div>
     );
   }
 
-  // Actor can challenge the block
+  // All other alive players can challenge or accept the block
   return (
     <div className="prompt-action">
       <p className="text-center text-white font-bold mb-1">
-        {blocker?.name} claims <span className="text-coup-accent">{pendingBlock.claimedCharacter}</span> to block your {pendingAction?.type}
+        {blocker?.name} claims <span className="text-coup-accent">{pendingBlock.claimedCharacter}</span> to block{pendingAction ? ` the ${pendingAction.type}` : ''}
       </p>
       <p className="text-center text-gray-400 text-xs mb-2">
         Think they&apos;re bluffing the block? Challenge them!

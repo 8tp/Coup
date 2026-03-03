@@ -419,9 +419,9 @@ export class ActionResolver {
 
     const pendingBlock: PendingBlock = { blockerId, claimedCharacter };
 
-    // Only the original actor can challenge a block — auto-pass everyone else
+    // Only the blocker cannot challenge their own block — everyone else can
     const passedPlayerIds = game.getAlivePlayers()
-      .filter(p => p.id !== pendingAction.actorId)
+      .filter(p => p.id === blockerId)
       .map(p => p.id);
 
     return {
@@ -463,8 +463,8 @@ export class ActionResolver {
   ): ResolverResult | { error: string } {
     const challenger = game.getPlayer(challengerId);
     if (!challenger || !challenger.isAlive) return { error: 'Invalid challenger' };
-    // Only the actor of the original action can challenge the block
-    if (challengerId !== pendingAction.actorId) return { error: 'Only the original actor can challenge a block' };
+    // The blocker cannot challenge their own block
+    if (challengerId === pendingBlock.blockerId) return { error: 'Cannot challenge your own block' };
 
     const blocker = game.getPlayer(pendingBlock.blockerId)!;
     const claimedChar = pendingBlock.claimedCharacter;

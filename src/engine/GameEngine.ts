@@ -194,8 +194,7 @@ export class GameEngine {
     if (this.challengeState.passedPlayerIds.includes(playerId)) return 'Already passed';
     this.challengeState.passedPlayerIds.push(playerId);
 
-    // For block challenges, only the original actor can challenge
-    // But we allow all alive players to pass for simplicity
+    // Any alive player (except the blocker) can challenge a block
     const alivePlayers = this.game.getAlivePlayers();
     const allPassed = alivePlayers.every(p => this.challengeState!.passedPlayerIds.includes(p.id));
 

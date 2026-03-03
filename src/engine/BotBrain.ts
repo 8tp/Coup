@@ -796,7 +796,6 @@ export class BotBrain {
   ): BotDecision | null {
     if (!pendingAction || !pendingBlock || !challengeState) return null;
     if (challengeState.passedPlayerIds.includes(botId)) return null;
-    if (pendingAction.actorId !== botId) return { type: 'pass_challenge_block' };
 
     const bot = game.getPlayer(botId)!;
     const blockerClaimedChar = pendingBlock.claimedCharacter;
