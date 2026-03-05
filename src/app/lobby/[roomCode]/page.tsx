@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSocket } from '../../hooks/useSocket';
 import { useGameStore } from '../../stores/gameStore';
@@ -28,6 +28,7 @@ export default function LobbyPage() {
     error,
   } = useGameStore();
 
+  const leavingRef = useRef(false);
   const [showAddBotModal, setShowAddBotModal] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -47,6 +48,7 @@ export default function LobbyPage() {
 
   // Redirect home if no session for this room (QR scan / direct link) or rejoin failed
   useEffect(() => {
+    if (leavingRef.current) return;
     // New user (e.g. QR code scan) — no session for this room, redirect immediately
     const storedRoom = sessionStorage.getItem('coup_room');
     if (storedRoom !== roomCode) {
@@ -55,7 +57,7 @@ export default function LobbyPage() {
     }
     // Existing user reconnecting — wait for rejoin socket callback
     const timer = setTimeout(() => {
-      if (!useGameStore.getState().playerId) {
+      if (!leavingRef.current && !useGameStore.getState().playerId) {
         router.replace(`/?join=${roomCode}`);
       }
     }, 2000);
@@ -64,6 +66,7 @@ export default function LobbyPage() {
 
   const handleLeave = () => {
     haptic();
+    leavingRef.current = true;
     leaveRoom();
     useGameStore.getState().clearRoom();
     router.push('/');

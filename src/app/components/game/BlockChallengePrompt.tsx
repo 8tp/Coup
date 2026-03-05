@@ -62,13 +62,13 @@ export function BlockChallengePrompt({ gameState }: BlockChallengePromptProps) {
           className="btn-danger flex-1"
           onClick={() => { hapticHeavy(); socket.emit('game:challenge_block'); }}
         >
-          Challenge block!
+          Challenge!
         </button>
         <button
           className="btn-secondary flex-1"
           onClick={() => { haptic(80); socket.emit('game:pass_challenge_block'); }}
         >
-          Accept block
+          Let it go
         </button>
       </div>
     </div>
