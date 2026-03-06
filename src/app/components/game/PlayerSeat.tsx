@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ClientPlayerState } from '@/shared/types';
+import { ClientPlayerState, Faction } from '@/shared/types';
 import { CardFace } from './CardFace';
 import { CoinIcon } from '../icons';
 
@@ -106,6 +106,15 @@ export function PlayerSeat({
           {player.isBot && (
             <span className="shrink-0 text-[10px] bg-blue-600 text-white px-1 py-px rounded font-bold leading-tight">
               BOT
+            </span>
+          )}
+          {player.faction && (
+            <span className={`shrink-0 text-[10px] px-1 py-px rounded font-bold leading-tight ${
+              player.faction === Faction.Loyalist
+                ? 'bg-blue-500/30 text-blue-300'
+                : 'bg-red-500/30 text-red-300'
+            }`}>
+              {player.faction === Faction.Loyalist ? 'L' : 'R'}
             </span>
           )}
         </div>

@@ -153,6 +153,7 @@ export class BotController {
         state.exchangeState,
         state.blockPassedPlayerIds,
         bot.deckMemory,
+        state.examineState ?? undefined,
       );
 
       if (decision) {
@@ -187,7 +188,9 @@ export class BotController {
     // Active phases (choosing an action, exchange, influence loss) use longer delays
     const isActive = decision.type === 'action'
       || decision.type === 'choose_exchange'
-      || decision.type === 'choose_influence_loss';
+      || decision.type === 'choose_influence_loss'
+      || decision.type === 'examine_decision'
+      || decision.type === 'convert';
 
     const configMin = isActive ? BOT_ACTION_DELAY_MIN : BOT_REACTION_DELAY_MIN;
     const effectiveMin = Math.max(configMin, this.botMinReactionMs);
@@ -225,6 +228,12 @@ export class BotController {
         break;
       case 'choose_influence_loss':
         error = this.engine.handleChooseInfluenceLoss(botId, decision.influenceIndex);
+        break;
+      case 'examine_decision':
+        error = this.engine.handleExamineDecision(botId, decision.forceSwap);
+        break;
+      case 'convert':
+        error = this.engine.handleConvert(botId, decision.targetId);
         break;
       case 'choose_exchange': {
         const bot = this.bots.find(b => b.id === botId);

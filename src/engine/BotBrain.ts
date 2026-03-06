@@ -1,6 +1,7 @@
 import {
   ActionType,
   Character,
+  ExamineState,
   PersonalityParams,
   TurnPhase,
   PendingAction,
@@ -30,7 +31,9 @@ export type BotDecision =
   | { type: 'challenge_block' }
   | { type: 'pass_challenge_block' }
   | { type: 'choose_influence_loss'; influenceIndex: number }
-  | { type: 'choose_exchange'; keepIndices: number[] };
+  | { type: 'choose_exchange'; keepIndices: number[] }
+  | { type: 'examine_decision'; forceSwap: boolean }
+  | { type: 'convert'; targetId?: string };
 
 /**
  * BotBrain — Pure decision logic for AI players.
@@ -56,6 +59,7 @@ export class BotBrain {
     exchangeState: ExchangeState | null,
     blockPassedPlayerIds: string[],
     deckMemory?: Map<Character, number>,
+    examineState?: ExamineState | null,
   ): BotDecision | null {
     const bot = game.getPlayer(botId);
     if (!bot || !bot.isAlive) return null;
@@ -85,6 +89,12 @@ export class BotBrain {
       case TurnPhase.AwaitingExchange:
         if (exchangeState?.playerId === botId) {
           return this.decideExchange(game, botId, personality, exchangeState);
+        }
+        return null;
+
+      case TurnPhase.AwaitingExamineDecision:
+        if (examineState?.examinerId === botId) {
+          return this.decideExamine(game, botId, personality, examineState);
         }
         return null;
 
@@ -194,6 +204,14 @@ export class BotBrain {
     let candidates = game.getAlivePlayers().filter(p => p.id !== botId);
     if (candidateIds) {
       candidates = candidates.filter(p => candidateIds.includes(p.id));
+    }
+    // Faction restriction: can't target same faction (unless all same faction)
+    if (game.gameMode === 'Reformation' && !game.allSameFaction()) {
+      const bot = game.getPlayer(botId);
+      const factionFiltered = candidates.filter(p => p.faction !== bot?.faction);
+      if (factionFiltered.length > 0) {
+        candidates = factionFiltered;
+      }
     }
     if (candidates.length === 0) return '';
     if (candidates.length === 1) return candidates[0].id;
@@ -609,18 +627,56 @@ export class BotBrain {
       }
     }
 
-    // Exchange (Ambassador)
+    // Exchange (Ambassador or Inquisitor)
     const hasAmbassador = ownedCharacters.includes(Character.Ambassador);
-    const ambassadorRevealed = revealed.get(Character.Ambassador) || 0;
-    if (hasAmbassador) {
+    const hasInquisitor = ownedCharacters.includes(Character.Inquisitor);
+    const hasExchangeChar = hasAmbassador || hasInquisitor;
+    const exchangeChar = hasInquisitor ? Character.Inquisitor : Character.Ambassador;
+    const exchangeRevealed = revealed.get(exchangeChar) || 0;
+    if (hasExchangeChar) {
       const weight = aliveCount <= 2 ? 1 : (aliveCount > 3 ? 4 : 3);
       candidates.push({ action: ActionType.Exchange, weight });
-    } else if (aliveCount > 2 && ambassadorRevealed < 2 && !burnt.has(Character.Ambassador) && Math.random() < personality.bluffRateExchange) {
+    } else if (aliveCount > 2 && exchangeRevealed < 2 && !burnt.has(exchangeChar) && Math.random() < personality.bluffRateExchange) {
       const hasStrongCard = ownedCharacters.includes(Character.Duke) || ownedCharacters.includes(Character.Captain);
       let weight = hasStrongCard ? 0.5 : 1.5;
-      if (established === Character.Ambassador) weight *= persistBoost;
+      if (established === exchangeChar) weight *= persistBoost;
       else weight *= switchPenalty;
       candidates.push({ action: ActionType.Exchange, weight: weight * bluffMod });
+    }
+
+    // ─── Reformation-specific actions ───
+    if (game.gameMode === 'Reformation') {
+      // Embezzle: take from treasury reserve if it has coins and bot doesn't have Duke (or willing to bluff)
+      if (game.treasuryReserve >= 3) {
+        const hasDukeForEmbezzle = ownedCharacters.includes(Character.Duke);
+        if (!hasDukeForEmbezzle) {
+          // Truthful embezzle — safe if not challenged
+          candidates.push({ action: ActionType.Embezzle, weight: game.treasuryReserve >= 5 ? 4 : 2 });
+        } else if (Math.random() < personality.bluffRateTax * 0.5) {
+          // Bluff embezzle (claim no Duke but actually have it) — risky
+          candidates.push({ action: ActionType.Embezzle, weight: 0.5 * bluffMod });
+        }
+      }
+
+      // Convert: consider when stuck with only same-faction targets
+      if (!game.allSameFaction()) {
+        const factionTargets = alivePlayers.filter(p => p.id !== botId && p.faction !== bot.faction);
+        if (factionTargets.length === 0 && bot.coins >= 1) {
+          // No valid targets — must convert to unlock targeting
+          candidates.push({ action: ActionType.Convert, weight: 5 });
+        } else if (bot.coins >= 2 && Math.random() < 0.15) {
+          // Occasionally convert an opponent for strategic reasons
+          candidates.push({ action: ActionType.Convert, weight: 0.5 });
+        }
+      }
+
+      // Examine (Inquisitor only)
+      if (hasInquisitor) {
+        const examineTarget = this.pickTarget(game, botId, personality);
+        if (examineTarget) {
+          candidates.push({ action: ActionType.Examine, targetId: examineTarget, weight: aliveCount > 2 ? 3 : 1.5 });
+        }
+      }
     }
 
     return this.weightedPick(candidates);
@@ -871,5 +927,17 @@ export class BotBrain {
     }));
     indexed.sort((a, b) => b.value - a.value);
     return { type: 'choose_exchange', keepIndices: indexed.slice(0, keepCount).map(x => x.index) };
+  }
+
+  // ─── Examine Decision (Inquisitor) ───
+
+  private static decideExamine(
+    game: Game, botId: string, personality: PersonalityParams, examineState: ExamineState,
+  ): BotDecision {
+    const revealedCard = examineState.revealedCard;
+    // Force swap if the card is strong (Captain, Duke — cards that are threatening to the bot)
+    const strongCards = [Character.Captain, Character.Duke, Character.Assassin];
+    const forceSwap = strongCards.includes(revealedCard);
+    return { type: 'examine_decision', forceSwap };
   }
 }

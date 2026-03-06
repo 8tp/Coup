@@ -71,6 +71,17 @@ export function PhaseStatus({ gameState }: PhaseStatusProps) {
       break;
     }
 
+    case TurnPhase.AwaitingExamineDecision: {
+      const examiner = gameState.players.find(p => p.id === pendingAction?.actorId);
+      if (myId === pendingAction?.actorId) {
+        text = 'Examine — Force swap or return the card?';
+        color = 'bg-teal-900/40 text-teal-300 border border-teal-600/50';
+      } else {
+        text = `${examiner?.name} is examining a card...`;
+      }
+      break;
+    }
+
     case TurnPhase.AwaitingExchange:
       if (gameState.exchangeState) {
         text = 'Choose which cards to keep';

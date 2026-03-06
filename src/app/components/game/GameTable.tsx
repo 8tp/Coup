@@ -11,6 +11,7 @@ import { BlockPrompt } from './BlockPrompt';
 import { BlockChallengePrompt } from './BlockChallengePrompt';
 import { InfluenceLossPrompt } from './InfluenceLossPrompt';
 import { ExchangeView } from './ExchangeView';
+import { ExaminePrompt } from './ExaminePrompt';
 import { GameCenterTabs } from './GameCenterTabs';
 import { GameOverOverlay } from './GameOverOverlay';
 import { ChallengeRevealOverlay } from './ChallengeRevealOverlay';
@@ -56,6 +57,9 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
         <span>Room: <span className="text-gray-400 font-mono">{gameState.roomCode}</span></span>
         <span>Turn {gameState.turnNumber}</span>
         <div className="flex items-center gap-2.5">
+          {gameState.treasuryReserve > 0 && (
+            <span className="text-coup-gold">Reserve: {gameState.treasuryReserve}</span>
+          )}
           <span>Deck: {gameState.deckCount}</span>
           <button
             onClick={() => { haptic(); setMuted(!isMuted); }}
@@ -123,6 +127,7 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
           <BlockChallengePrompt gameState={gameState} />
           <InfluenceLossPrompt gameState={gameState} />
           <ExchangeView gameState={gameState} />
+          <ExaminePrompt gameState={gameState} />
           <WaitingView gameState={gameState} />
         </div>
       </div>
@@ -133,7 +138,16 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
           <ReactionBubble playerId={me.id} />
         <div className={`card-container !px-3 !py-2.5 ${!me.isAlive ? 'opacity-50' : 'border-coup-accent/30'}`}>
           <div className="flex items-center justify-between mb-1">
-            <span className="font-bold text-coup-accent text-sm">Your Hand</span>
+            <span className="font-bold text-coup-accent text-sm flex items-center gap-1.5">
+              Your Hand
+              {me.faction && (
+                <span className={`text-[10px] px-1 py-px rounded font-bold leading-tight ${
+                  me.faction === 'Loyalist' ? 'bg-blue-500/30 text-blue-300' : 'bg-red-500/30 text-red-300'
+                }`}>
+                  {me.faction}
+                </span>
+              )}
+            </span>
             <span className="flex items-center gap-1 text-coup-gold font-bold text-sm">
               <CoinIcon size={16} />
               {me.coins}
