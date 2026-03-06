@@ -11,6 +11,40 @@ import {
 } from '../shared/types';
 
 /**
+ * Converts full server-side game state into a spectator view.
+ * Hides all unrevealed cards, no exchange/examine info, no myId.
+ */
+export function serializeForSpectator(state: GameState, spectatorId: string, roomPlayers?: RoomPlayer[]): ClientGameState {
+  const isGameOver = state.turnPhase === TurnPhase.GameOver;
+  return {
+    roomCode: state.roomCode,
+    status: state.status,
+    players: state.players.map(p => serializePlayer(p, '__spectator__', roomPlayers, isGameOver)),
+    currentPlayerIndex: state.currentPlayerIndex,
+    turnPhase: state.turnPhase,
+    deckCount: state.deck.length,
+    treasury: state.treasury,
+    pendingAction: state.pendingAction,
+    pendingBlock: state.pendingBlock,
+    challengeState: state.challengeState ? serializeChallengeState(state.challengeState) : null,
+    influenceLossRequest: state.influenceLossRequest,
+    exchangeState: null, // Spectators never see exchange details
+    examineState: null, // Spectators never see examine details
+    blockPassedPlayerIds: state.blockPassedPlayerIds || [],
+    actionLog: isGameOver
+      ? state.actionLog
+      : state.actionLog.map(({ wasBluff, ...entry }) => entry),
+    timerExpiry: state.timerExpiry,
+    winnerId: state.winnerId,
+    turnNumber: state.turnNumber,
+    myId: spectatorId, // Use spectator's ID so they never match a player
+    gameMode: state.gameMode,
+    useInquisitor: state.useInquisitor,
+    treasuryReserve: state.treasuryReserve,
+  };
+}
+
+/**
  * Converts full server-side game state into a per-player client view.
  * Hides other players' unrevealed cards and restricts exchange info.
  */

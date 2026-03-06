@@ -32,17 +32,20 @@ interface GameTableProps {
   onSendReaction: (reactionId: string) => void;
   isHost: boolean;
   onRematch: () => void;
+  isSpectator?: boolean;
+  onStopSpectating?: () => void;
 }
 
-export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction, isHost, onRematch }: GameTableProps) {
+export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction, isHost, onRematch, isSpectator, onStopSpectating }: GameTableProps) {
   useSoundEffects();
   const isMuted = useGameStore(s => s.isMuted);
   const setMuted = useGameStore(s => s.setMuted);
   const reconnecting = useGameStore(s => s.reconnecting);
+  const spectators = useGameStore(s => s.spectators);
   const [showRules, setShowRules] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const me = gameState.players.find(p => p.id === gameState.myId);
-  const opponents = gameState.players.filter(p => p.id !== gameState.myId);
+  const me = isSpectator ? undefined : gameState.players.find(p => p.id === gameState.myId);
+  const opponents = isSpectator ? gameState.players : gameState.players.filter(p => p.id !== gameState.myId);
   const currentPlayerId = gameState.players[gameState.currentPlayerIndex]?.id;
 
   // Determine which player should show the timer bar on their seat
@@ -56,7 +59,12 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
       {/* Header bar */}
       <div className="flex items-center justify-between mb-2 text-xs text-gray-500">
         <span>Room: <span className="text-gray-400 font-mono">{gameState.roomCode}</span></span>
-        <span>Turn {gameState.turnNumber}</span>
+        <span className="flex items-center gap-2">
+          Turn {gameState.turnNumber}
+          {spectators.length > 0 && (
+            <span className="text-purple-400">{spectators.length} watching</span>
+          )}
+        </span>
         <div className="flex items-center gap-2.5">
           <span>Deck: {gameState.deckCount}</span>
           <button
@@ -75,7 +83,7 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
               <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
             </svg>
           </button>
-          <ReactionPicker onReact={onSendReaction} disabled={me ? !me.isAlive : true} />
+          <ReactionPicker onReact={onSendReaction} disabled={isSpectator || (me ? !me.isAlive : true)} />
           <button
             onClick={() => { haptic(); setShowRules(true); }}
             className="w-8 h-8 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition text-xs font-bold flex items-center justify-center"
@@ -85,6 +93,21 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
           </button>
         </div>
       </div>
+
+      {/* Spectator banner */}
+      {isSpectator && (
+        <div className="bg-purple-900/60 border border-purple-600 text-purple-200 text-xs text-center py-1.5 px-3 rounded-lg mb-2 flex items-center justify-between">
+          <span>Spectating</span>
+          {onStopSpectating && (
+            <button
+              onClick={() => { haptic(); onStopSpectating(); }}
+              className="text-purple-300 hover:text-white transition text-xs font-medium"
+            >
+              Leave
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Reconnecting banner */}
       {reconnecting && (
@@ -124,17 +147,19 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
           turnPhase={gameState.turnPhase}
         />
 
-        {/* Interactive prompts - only one shows at a time */}
-        <div className="flex flex-col gap-2">
-          <ActionBar gameState={gameState} />
-          <ChallengePrompt gameState={gameState} />
-          <BlockPrompt gameState={gameState} />
-          <BlockChallengePrompt gameState={gameState} />
-          <InfluenceLossPrompt gameState={gameState} />
-          <ExchangeView gameState={gameState} />
-          <ExaminePrompt gameState={gameState} />
-          <WaitingView gameState={gameState} />
-        </div>
+        {/* Interactive prompts - only one shows at a time (hidden for spectators) */}
+        {!isSpectator && (
+          <div className="flex flex-col gap-2">
+            <ActionBar gameState={gameState} />
+            <ChallengePrompt gameState={gameState} />
+            <BlockPrompt gameState={gameState} />
+            <BlockChallengePrompt gameState={gameState} />
+            <InfluenceLossPrompt gameState={gameState} />
+            <ExchangeView gameState={gameState} />
+            <ExaminePrompt gameState={gameState} />
+            <WaitingView gameState={gameState} />
+          </div>
+        )}
       </div>
 
       {/* My hand - pinned to bottom */}
@@ -173,7 +198,7 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
         </div>
       )}
 
-      <GameOverOverlay gameState={gameState} isHost={isHost} onRematch={onRematch} />
+      <GameOverOverlay gameState={gameState} isHost={isHost && !isSpectator} onRematch={onRematch} isSpectator={isSpectator} />
       <ChallengeRevealOverlay />
       <HowToPlay open={showRules} onClose={() => setShowRules(false)} />
       <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />

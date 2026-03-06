@@ -432,6 +432,44 @@ export function getLoserFlavorText(gameState: ClientGameState): string {
   return 'Better luck next time.';
 }
 
+export interface BluffSummaryEntry {
+  playerId: string;
+  playerName: string;
+  totalClaims: number;
+  bluffs: number;
+  caughtBluffing: number;
+  unchallengedBluffs: number;
+}
+
+export function computeBluffSummary(gameState: ClientGameState): BluffSummaryEntry[] {
+  const playerIds = gameState.players.map(p => p.id);
+  const playerNames = new Map<string, string>();
+  for (const p of gameState.players) {
+    playerNames.set(p.id, p.id === gameState.myId ? 'You' : p.name);
+  }
+
+  const stats = computePlayerStats(gameState.actionLog, playerIds, playerNames);
+  const entries: BluffSummaryEntry[] = [];
+
+  for (const s of stats.values()) {
+    // Only include players who made at least one claim (includes block claims)
+    const totalClaims = s.actionsClaimed + s.blocksMade;
+    if (totalClaims === 0) continue;
+    entries.push({
+      playerId: s.playerId,
+      playerName: s.playerName,
+      totalClaims,
+      bluffs: s.actualBluffs,
+      caughtBluffing: s.timesCaughtBluffing,
+      unchallengedBluffs: s.actualBluffs - s.timesCaughtBluffing,
+    });
+  }
+
+  // Sort by bluff count descending, then by total claims
+  entries.sort((a, b) => b.bluffs - a.bluffs || b.totalClaims - a.totalClaims);
+  return entries;
+}
+
 export function computeAwards(gameState: ClientGameState): Award[] {
   if (gameState.turnNumber < 3) return [];
 

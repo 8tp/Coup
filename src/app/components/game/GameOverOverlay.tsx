@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ClientGameState, ClientInfluence, TurnPhase } from '@/shared/types';
 import { useGameStore } from '../../stores/gameStore';
-import { computeAwards, getWinnerFlavorText, getLoserFlavorText } from '../../utils/gameStats';
+import { computeAwards, computeBluffSummary, getWinnerFlavorText, getLoserFlavorText } from '../../utils/gameStats';
 import { haptic } from '../../utils/haptic';
 import { useStatsStore } from '../../stores/statsStore';
 import { CardFace } from './CardFace';
@@ -18,30 +18,33 @@ interface GameOverOverlayProps {
   gameState: ClientGameState;
   isHost: boolean;
   onRematch: () => void;
+  isSpectator?: boolean;
 }
 
-export function GameOverOverlay({ gameState, isHost, onRematch }: GameOverOverlayProps) {
+export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator }: GameOverOverlayProps) {
   const [showLog, setShowLog] = useState(false);
   const challengeReveal = useGameStore(s => s.challengeReveal);
   const roomPlayers = useGameStore(s => s.roomPlayers);
   const recordGame = useStatsStore(s => s.recordGame);
   const [statsRecorded, setStatsRecorded] = useState(false);
   const awards = useMemo(() => computeAwards(gameState), [gameState]);
+  const bluffSummary = useMemo(() => computeBluffSummary(gameState), [gameState]);
   const winnerFlavor = useMemo(() => getWinnerFlavorText(gameState), [gameState]);
   const loserFlavor = useMemo(() => getLoserFlavorText(gameState), [gameState]);
+  const totalBluffs = useMemo(() => bluffSummary.reduce((sum, e) => sum + e.bluffs, 0), [bluffSummary]);
 
   useEffect(() => {
-    if (gameState.turnPhase === TurnPhase.GameOver && !challengeReveal && !statsRecorded) {
+    if (gameState.turnPhase === TurnPhase.GameOver && !challengeReveal && !statsRecorded && !isSpectator) {
       recordGame(gameState);
       setStatsRecorded(true);
     }
-  }, [gameState, challengeReveal, statsRecorded, recordGame]);
+  }, [gameState, challengeReveal, statsRecorded, recordGame, isSpectator]);
 
   // Wait for any challenge reveal animation to finish before showing
   if (gameState.turnPhase !== TurnPhase.GameOver || challengeReveal) return null;
 
   const winner = gameState.players.find(p => p.id === gameState.winnerId);
-  const isMe = winner?.id === gameState.myId;
+  const isMe = !isSpectator && winner?.id === gameState.myId;
 
   // Sort: winner first, then alive, then eliminated
   const sortedPlayers = [...gameState.players].sort((a, b) => {
@@ -128,13 +131,61 @@ export function GameOverOverlay({ gameState, isHost, onRematch }: GameOverOverla
           </div>
         )}
 
+        {/* Truth Reveal */}
+        {totalBluffs > 0 && (
+          <div className="px-4 pb-4">
+            <p className="text-center text-xs text-gray-500 uppercase tracking-wider mb-2">Truth Reveal</p>
+            <div className="bg-coup-bg/60 rounded-xl border border-gray-800 divide-y divide-gray-800">
+              {bluffSummary.map(entry => {
+                const bluffRate = entry.totalClaims > 0 ? Math.round((entry.bluffs / entry.totalClaims) * 100) : 0;
+                return (
+                  <div key={entry.playerId} className="px-3 py-2.5 flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-200 truncate">{entry.playerName}</p>
+                      <p className="text-xs text-gray-500">
+                        {entry.totalClaims} claim{entry.totalClaims !== 1 ? 's' : ''}
+                        {entry.bluffs > 0 && (
+                          <span className="text-red-400"> · {entry.bluffs} bluff{entry.bluffs !== 1 ? 's' : ''}</span>
+                        )}
+                        {entry.bluffs === 0 && (
+                          <span className="text-green-400"> · all honest</span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-none">
+                      {entry.bluffs > 0 ? (
+                        <>
+                          {entry.unchallengedBluffs > 0 && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
+                              {entry.unchallengedBluffs} got away
+                            </span>
+                          )}
+                          {entry.caughtBluffing > 0 && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                              {entry.caughtBluffing} caught
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-400/80 border border-green-500/20">
+                          {bluffRate}% bluff
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Game Log */}
         <div className="px-4 pb-4">
           <button
             className="w-full text-xs text-gray-400 hover:text-gray-200 transition-colors py-1"
             onClick={() => setShowLog(v => !v)}
           >
-            {showLog ? 'Hide Log' : 'Show Log'}
+            {showLog ? 'Hide Log' : 'Show Full Log'}
           </button>
           {showLog && (
             <div className="mt-2 max-h-60 overflow-y-auto bg-coup-bg/60 rounded-xl border border-gray-800">
@@ -149,7 +200,11 @@ export function GameOverOverlay({ gameState, isHost, onRematch }: GameOverOverla
 
         {/* Action */}
         <div className="px-6 pb-6">
-          {isHost ? (
+          {isSpectator ? (
+            <p className="text-purple-400 text-sm text-center">
+              Spectating
+            </p>
+          ) : isHost ? (
             <button className="btn-primary w-full" onClick={() => { haptic(80); onRematch(); }}>
               Play Again
             </button>
