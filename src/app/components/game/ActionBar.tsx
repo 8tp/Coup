@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ActionType, ClientGameState, GameMode, TurnPhase } from '@/shared/types';
 import { ACTION_DEFINITIONS, FORCED_COUP_THRESHOLD, CONVERSION_SELF_COST, CONVERSION_OTHER_COST } from '@/shared/constants';
 import { DukeIcon, AssassinIcon, CaptainIcon, AmbassadorIcon, InquisitorIcon, CoinIcon } from '../icons';
@@ -104,7 +104,14 @@ interface ActionBarProps {
 
 export function ActionBar({ gameState }: ActionBarProps) {
   const [selectingTarget, setSelectingTarget] = useState<ActionType | null>(null);
+  const [actionPending, setActionPending] = useState(false);
   const socket = getSocket();
+
+  // Reset pending state when phase changes (server accepted the action)
+  useEffect(() => {
+    setActionPending(false);
+    setSelectingTarget(null);
+  }, [gameState.turnPhase, gameState.turnNumber]);
 
   const me = gameState.players.find(p => p.id === gameState.myId);
   const isMyTurn = gameState.players[gameState.currentPlayerIndex]?.id === gameState.myId;
@@ -127,6 +134,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
   const actionConfig = getActionConfig(isReformation, useInquisitor, gameState.treasuryReserve);
 
   const handleAction = (action: ActionType) => {
+    if (actionPending) return;
     haptic(80);
     // Convert can target self or other — handle specially
     if (action === ActionType.Convert) {
@@ -137,13 +145,16 @@ export function ActionBar({ gameState }: ActionBarProps) {
     if (def.requiresTarget) {
       setSelectingTarget(action);
     } else {
+      setActionPending(true);
       socket.emit('game:action', { action });
     }
   };
 
   const handleTargetSelect = (targetId: string) => {
+    if (actionPending) return;
     hapticHeavy();
     if (selectingTarget) {
+      setActionPending(true);
       socket.emit('game:action', { action: selectingTarget, targetId });
       setSelectingTarget(null);
     }
@@ -169,9 +180,11 @@ export function ActionBar({ gameState }: ActionBarProps) {
           <div className="flex flex-col gap-2">
             <button
               className="btn-secondary w-full"
-              disabled={me.coins < CONVERSION_SELF_COST}
+              disabled={me.coins < CONVERSION_SELF_COST || actionPending}
               onClick={() => {
+                if (actionPending) return;
                 hapticHeavy();
+                setActionPending(true);
                 socket.emit('game:convert', {});
                 setSelectingTarget(null);
               }}
@@ -182,9 +195,11 @@ export function ActionBar({ gameState }: ActionBarProps) {
               <button
                 key={t.id}
                 className="btn-secondary w-full"
-                disabled={me.coins < CONVERSION_OTHER_COST}
+                disabled={me.coins < CONVERSION_OTHER_COST || actionPending}
                 onClick={() => {
+                  if (actionPending) return;
                   hapticHeavy();
+                  setActionPending(true);
                   socket.emit('game:convert', { targetId: t.id });
                   setSelectingTarget(null);
                 }}
@@ -214,6 +229,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
             <button
               key={t.id}
               className="btn-secondary w-full"
+              disabled={actionPending}
               onClick={() => handleTargetSelect(t.id)}
             >
               {t.name} ({t.coins} coins)
@@ -249,8 +265,11 @@ export function ActionBar({ gameState }: ActionBarProps) {
             <button
               key={t.id}
               className="btn-danger w-full"
+              disabled={actionPending}
               onClick={() => {
+                if (actionPending) return;
                 hapticHeavy();
+                setActionPending(true);
                 socket.emit('game:action', { action: ActionType.Coup, targetId: t.id });
               }}
             >
@@ -280,7 +299,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
           const isFactionAction = [ActionType.Coup, ActionType.Assassinate, ActionType.Steal, ActionType.Examine].includes(a.type);
           const relevantTargets = isFactionAction ? factionTargets : targets;
           const hasTargets = a.type === ActionType.Convert || !def.requiresTarget || relevantTargets.length > 0;
-          const disabled = !canAfford || !hasTargets;
+          const disabled = !canAfford || !hasTargets || actionPending;
           const Icon = a.icon;
 
           return (

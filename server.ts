@@ -32,8 +32,8 @@ app.prepare().then(() => {
     cors: {
       origin: dev ? '*' : (process.env.CORS_ORIGIN || false),
     },
-    pingInterval: 10000,
-    pingTimeout: 5000,
+    pingInterval: 25000,
+    pingTimeout: 20000,
   });
 
   server.set('trust proxy', 1);

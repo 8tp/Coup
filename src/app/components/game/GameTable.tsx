@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChatMessage, ClientGameState, GameMode } from '@/shared/types';
+import { ChatMessage, ClientGameState } from '@/shared/types';
 import { PlayerSeat } from './PlayerSeat';
 import { CardFace } from './CardFace';
 import { CoinIcon } from '../icons';
@@ -38,6 +38,7 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
   useSoundEffects();
   const isMuted = useGameStore(s => s.isMuted);
   const setMuted = useGameStore(s => s.setMuted);
+  const reconnecting = useGameStore(s => s.reconnecting);
   const [showRules, setShowRules] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const me = gameState.players.find(p => p.id === gameState.myId);
@@ -57,11 +58,6 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
         <span>Room: <span className="text-gray-400 font-mono">{gameState.roomCode}</span></span>
         <span>Turn {gameState.turnNumber}</span>
         <div className="flex items-center gap-2.5">
-          {gameState.gameMode === GameMode.Reformation && (
-            <span className={`font-mono ${gameState.treasuryReserve > 0 ? 'text-coup-gold' : 'text-gray-600'}`}>
-              Reserve: {gameState.treasuryReserve}
-            </span>
-          )}
           <span>Deck: {gameState.deckCount}</span>
           <button
             onClick={() => { haptic(); setMuted(!isMuted); }}
@@ -89,6 +85,13 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
           </button>
         </div>
       </div>
+
+      {/* Reconnecting banner */}
+      {reconnecting && (
+        <div className="bg-yellow-900/80 border border-yellow-600 text-yellow-200 text-xs text-center py-1.5 px-3 rounded-lg mb-2 animate-pulse">
+          Reconnecting to server...
+        </div>
+      )}
 
       {/* Phase status banner */}
       <div className="mb-3">

@@ -49,6 +49,7 @@ export function useSocket() {
     // Use named handlers so cleanup only removes THIS component's listeners
     const onConnect = () => {
       setConnected(true);
+      useGameStore.getState().setReconnecting(false);
 
       // Attempt rejoin if we have room data
       const storedRoom = sessionStorage.getItem('coup_room');
@@ -76,6 +77,19 @@ export function useSocket() {
 
     const onDisconnect = () => {
       setConnected(false);
+      useGameStore.getState().setReconnecting(true);
+    };
+
+    const onReconnectAttempt = () => {
+      useGameStore.getState().setReconnecting(true);
+    };
+
+    const onReconnect = () => {
+      useGameStore.getState().setReconnecting(false);
+    };
+
+    const onReconnectFailed = () => {
+      useGameStore.getState().setReconnecting(false);
     };
 
     const onRoomUpdatedRaw = (data: { players: any; hostId: string; settings: any; lastWinnerId?: string | null }) => {
@@ -126,6 +140,9 @@ export function useSocket() {
 
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
+    socket.io.on('reconnect_attempt', onReconnectAttempt);
+    socket.io.on('reconnect', onReconnect);
+    socket.io.on('reconnect_failed', onReconnectFailed);
     socket.on('room:updated', onRoomUpdatedRaw);
     socket.on('game:state', onGameState);
     socket.on('game:error', onGameError);
@@ -141,6 +158,9 @@ export function useSocket() {
     return () => {
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
+      socket.io.off('reconnect_attempt', onReconnectAttempt);
+      socket.io.off('reconnect', onReconnect);
+      socket.io.off('reconnect_failed', onReconnectFailed);
       socket.off('room:updated', onRoomUpdatedRaw);
       socket.off('game:state', onGameState);
       socket.off('game:error', onGameError);

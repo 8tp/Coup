@@ -1041,9 +1041,9 @@ export class BotBrain {
       }
     }
 
-    // If the card is Contessa and bot has Assassin, force swap to remove their defense
-    if (revealedCard === Character.Contessa && bot.hiddenCharacters.includes(Character.Assassin)) {
-      forceSwap = true;
+    // Conservative personalities only swap truly threatening cards (check first so specifics override)
+    if (personality.actionWeightSteal < 1.1 && personality.actionWeightAssassinate < 1.1 && personality.bluffRateSteal < 0.1) {
+      forceSwap = cardValue >= 5;
     }
 
     // Aggressive personalities force swap more often
@@ -1051,9 +1051,15 @@ export class BotBrain {
       forceSwap = true;
     }
 
-    // Conservative personalities only swap truly threatening cards
-    if (personality.actionWeightIncome > 0.8 && personality.actionWeightAssassinate < 1.1) {
-      forceSwap = cardValue >= 5;
+    // If the card is Contessa and bot has Assassin, force swap to remove their defense
+    if (revealedCard === Character.Contessa && bot.hiddenCharacters.includes(Character.Assassin)) {
+      forceSwap = true;
+    }
+
+    // In 1v1, Assassin is an immediate kill threat — always force swap if they can afford it
+    if (revealedCard === Character.Assassin && target && game.getAlivePlayers().length === 2
+        && target.coins >= ASSASSINATE_COST) {
+      forceSwap = true;
     }
 
     return { type: 'examine_decision', forceSwap };

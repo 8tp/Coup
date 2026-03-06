@@ -82,107 +82,122 @@ export class SocketHandler {
     });
 
     socket.on('room:create', (data, callback) => {
-      if (!this.checkRateLimit(socket.id, 'room:create', RATE_LIMIT_ROOM_CREATE_MS)) {
-        callback({ success: false, error: 'Too many requests, please wait' });
-        return;
+      try {
+        if (!this.checkRateLimit(socket.id, 'room:create', RATE_LIMIT_ROOM_CREATE_MS)) {
+          callback({ success: false, error: 'Too many requests, please wait' });
+          return;
+        }
+
+        const nameResult = validateName(data.playerName);
+        if (!nameResult.valid) {
+          callback({ success: false, error: nameResult.error });
+          return;
+        }
+
+        const result = this.roomManager.createRoom(nameResult.sanitized, socket.id, data.isPublic);
+        socket.leave('browser');
+        socket.join(result.room.code);
+        callback({
+          success: true,
+          roomCode: result.room.code,
+          playerId: result.playerId,
+          sessionToken: result.sessionToken,
+        });
+
+        console.log(`Room ${result.room.code} created by ${nameResult.sanitized}`);
+        this.broadcastRoomUpdate(result.room.code);
+        this.maybeBroadcastPublicRoomList(result.room);
+      } catch (err) {
+        console.error('Error in room:create handler:', err);
+        callback({ success: false, error: 'Internal server error' });
       }
-
-      const nameResult = validateName(data.playerName);
-      if (!nameResult.valid) {
-        callback({ success: false, error: nameResult.error });
-        return;
-      }
-
-      const result = this.roomManager.createRoom(nameResult.sanitized, socket.id, data.isPublic);
-      socket.leave('browser');
-      socket.join(result.room.code);
-      callback({
-        success: true,
-        roomCode: result.room.code,
-        playerId: result.playerId,
-        sessionToken: result.sessionToken,
-      });
-
-      console.log(`Room ${result.room.code} created by ${nameResult.sanitized}`);
-      this.broadcastRoomUpdate(result.room.code);
-      this.maybeBroadcastPublicRoomList(result.room);
     });
 
     socket.on('room:join', (data, callback) => {
-      if (!this.checkRateLimit(socket.id, 'room:join', RATE_LIMIT_ROOM_JOIN_MS)) {
-        callback({ success: false, error: 'Too many requests, please wait' });
-        return;
-      }
+      try {
+        if (!this.checkRateLimit(socket.id, 'room:join', RATE_LIMIT_ROOM_JOIN_MS)) {
+          callback({ success: false, error: 'Too many requests, please wait' });
+          return;
+        }
 
-      const nameResult = validateName(data.playerName);
-      const code = data.roomCode?.trim().toUpperCase();
-      if (!nameResult.valid) {
-        callback({ success: false, error: nameResult.error });
-        return;
-      }
-      if (!code) {
-        callback({ success: false, error: 'Invalid room code' });
-        return;
-      }
+        const nameResult = validateName(data.playerName);
+        const code = data.roomCode?.trim().toUpperCase();
+        if (!nameResult.valid) {
+          callback({ success: false, error: nameResult.error });
+          return;
+        }
+        if (!code) {
+          callback({ success: false, error: 'Invalid room code' });
+          return;
+        }
 
-      const result = this.roomManager.joinRoom(code, nameResult.sanitized, socket.id);
-      if ('error' in result) {
-        callback({ success: false, error: result.error });
-        return;
+        const result = this.roomManager.joinRoom(code, nameResult.sanitized, socket.id);
+        if ('error' in result) {
+          callback({ success: false, error: result.error });
+          return;
+        }
+
+        socket.leave('browser');
+        socket.join(result.room.code);
+        console.log(`Player ${nameResult.sanitized} joined room ${result.room.code}`);
+        callback({
+          success: true,
+          roomCode: result.room.code,
+          playerId: result.playerId,
+          sessionToken: result.sessionToken,
+        });
+
+        this.broadcastRoomUpdate(result.room.code);
+        this.maybeBroadcastPublicRoomList(result.room);
+      } catch (err) {
+        console.error('Error in room:join handler:', err);
+        callback({ success: false, error: 'Internal server error' });
       }
-
-      socket.leave('browser');
-      socket.join(result.room.code);
-      console.log(`Player ${nameResult.sanitized} joined room ${result.room.code}`);
-      callback({
-        success: true,
-        roomCode: result.room.code,
-        playerId: result.playerId,
-        sessionToken: result.sessionToken,
-      });
-
-      this.broadcastRoomUpdate(result.room.code);
-      this.maybeBroadcastPublicRoomList(result.room);
     });
 
     socket.on('room:rejoin', (data, callback) => {
-      const code = data.roomCode?.trim().toUpperCase();
-      if (!code || !data.playerId) {
-        callback({ success: false, error: 'Invalid rejoin data' });
-        return;
-      }
+      try {
+        const code = data.roomCode?.trim().toUpperCase();
+        if (!code || !data.playerId) {
+          callback({ success: false, error: 'Invalid rejoin data' });
+          return;
+        }
 
-      const result = this.roomManager.rejoinRoom(code, data.playerId, socket.id, data.sessionToken);
-      if ('error' in result) {
-        callback({ success: false, error: result.error });
-        return;
-      }
+        const result = this.roomManager.rejoinRoom(code, data.playerId, socket.id, data.sessionToken);
+        if ('error' in result) {
+          callback({ success: false, error: result.error });
+          return;
+        }
 
-      // Cancel disconnect timer on successful rejoin
-      this.roomManager.cancelDisconnectTimer(code, data.playerId);
-      this.roomManager.touchRoom(code);
+        // Cancel disconnect timer on successful rejoin
+        this.roomManager.cancelDisconnectTimer(code, data.playerId);
+        this.roomManager.touchRoom(code);
 
-      socket.join(result.room.code);
-      console.log(`Player ${result.player.name} rejoined room ${result.room.code}`);
-      callback({
-        success: true,
-        roomCode: result.room.code,
-        playerId: result.player.id,
-      });
+        socket.join(result.room.code);
+        console.log(`Player ${result.player.name} rejoined room ${result.room.code}`);
+        callback({
+          success: true,
+          roomCode: result.room.code,
+          playerId: result.player.id,
+        });
 
-      this.broadcastRoomUpdate(result.room.code);
+        this.broadcastRoomUpdate(result.room.code);
 
-      // If game in progress, send current state
-      const engine = this.roomManager.getEngine(code);
-      if (engine) {
-        const state = engine.getFullState();
-        socket.emit('game:state', serializeForPlayer(state, result.player.id, result.room.players));
-      }
+        // If game in progress, send current state
+        const engine = this.roomManager.getEngine(code);
+        if (engine) {
+          const state = engine.getFullState();
+          socket.emit('game:state', serializeForPlayer(state, result.player.id, result.room.players));
+        }
 
-      // Send chat history
-      const chatHistory = this.roomManager.getChatHistory(code);
-      if (chatHistory.length > 0) {
-        socket.emit('chat:history', { messages: chatHistory });
+        // Send chat history
+        const chatHistory = this.roomManager.getChatHistory(code);
+        if (chatHistory.length > 0) {
+          socket.emit('chat:history', { messages: chatHistory });
+        }
+      } catch (err) {
+        console.error('Error in room:rejoin handler:', err);
+        callback({ success: false, error: 'Internal server error' });
       }
     });
 
@@ -291,62 +306,71 @@ export class SocketHandler {
     });
 
     socket.on('game:start', () => {
-      const found = this.roomManager.getPlayerRoom(socket.id);
-      if (!found) {
-        socket.emit('game:error', { message: 'Not in a room' });
-        return;
-      }
-
-      if (found.player.id !== found.room.hostId) {
-        socket.emit('game:error', { message: 'Only the host can start the game' });
-        return;
-      }
-
-      const result = this.roomManager.startGame(found.room.code);
-      if ('error' in result) {
-        socket.emit('game:error', { message: result.error });
-        return;
-      }
-
-      const engine = result;
-      const roomCode = found.room.code;
-      console.log(`Game started in room ${roomCode} with ${found.room.players.length} players`);
-
-      // Create BotController if there are bots in the room
-      const botPlayers = found.room.players.filter(p => p.isBot);
-      if (botPlayers.length > 0) {
-        const botMinReactionMs = (found.room.settings.botMinReactionSeconds ?? 2) * 1000;
-        const botController = new BotController(engine, botPlayers, botMinReactionMs);
-        this.roomManager.setBotController(roomCode, botController);
-        this.wireBotEmoteCallback(roomCode, botController);
-      }
-
-      engine.setOnStateChange((state: GameState) => {
-        this.broadcastGameState(roomCode, state);
-
-        // Increment win count immediately when game ends
-        if (state.turnPhase === TurnPhase.GameOver && state.winnerId) {
-          const room = this.roomManager.getRoom(roomCode);
-          if (room && !room.lastWinnerId) {
-            const winner = room.players.find(p => p.id === state.winnerId);
-            if (winner) {
-              winner.wins = (winner.wins || 0) + 1;
-              console.log(`Game finished in room ${roomCode} — winner: ${winner.name}`);
-            }
-            room.lastWinnerId = state.winnerId;
-            this.broadcastRoomUpdate(roomCode);
-          }
+      try {
+        const found = this.roomManager.getPlayerRoom(socket.id);
+        if (!found) {
+          socket.emit('game:error', { message: 'Not in a room' });
+          return;
         }
 
-        // Dynamically look up BotController so mid-game additions are picked up
-        this.roomManager.getBotController(roomCode)?.onStateChange();
-      });
+        if (found.player.id !== found.room.hostId) {
+          socket.emit('game:error', { message: 'Only the host can start the game' });
+          return;
+        }
 
-      this.broadcastGameState(roomCode, engine.getFullState());
-      // Trigger initial bot evaluation
-      this.roomManager.getBotController(roomCode)?.onStateChange();
-      this.maybeBroadcastPublicRoomList(found.room);
-      this.broadcastServerStats();
+        const result = this.roomManager.startGame(found.room.code);
+        if ('error' in result) {
+          socket.emit('game:error', { message: result.error });
+          return;
+        }
+
+        const engine = result;
+        const roomCode = found.room.code;
+        console.log(`Game started in room ${roomCode} with ${found.room.players.length} players`);
+
+        // Create BotController if there are bots in the room
+        const botPlayers = found.room.players.filter(p => p.isBot);
+        if (botPlayers.length > 0) {
+          const botMinReactionMs = (found.room.settings.botMinReactionSeconds ?? 2) * 1000;
+          const botController = new BotController(engine, botPlayers, botMinReactionMs);
+          this.roomManager.setBotController(roomCode, botController);
+          this.wireBotEmoteCallback(roomCode, botController);
+        }
+
+        engine.setOnStateChange((state: GameState) => {
+          try {
+            this.broadcastGameState(roomCode, state);
+
+            // Increment win count immediately when game ends
+            if (state.turnPhase === TurnPhase.GameOver && state.winnerId) {
+              const room = this.roomManager.getRoom(roomCode);
+              if (room && !room.lastWinnerId) {
+                const winner = room.players.find(p => p.id === state.winnerId);
+                if (winner) {
+                  winner.wins = (winner.wins || 0) + 1;
+                  console.log(`Game finished in room ${roomCode} — winner: ${winner.name}`);
+                }
+                room.lastWinnerId = state.winnerId;
+                this.broadcastRoomUpdate(roomCode);
+              }
+            }
+
+            // Dynamically look up BotController so mid-game additions are picked up
+            this.roomManager.getBotController(roomCode)?.onStateChange();
+          } catch (err) {
+            console.error(`Error in state change callback for room ${roomCode}:`, err);
+          }
+        });
+
+        this.broadcastGameState(roomCode, engine.getFullState());
+        // Trigger initial bot evaluation
+        this.roomManager.getBotController(roomCode)?.onStateChange();
+        this.maybeBroadcastPublicRoomList(found.room);
+        this.broadcastServerStats();
+      } catch (err) {
+        console.error('Error in game:start handler:', err);
+        socket.emit('game:error', { message: 'Failed to start game' });
+      }
     });
 
     // ─── Chat ───
@@ -411,35 +435,40 @@ export class SocketHandler {
     // ─── Rematch ───
 
     socket.on('game:rematch', () => {
-      const found = this.roomManager.getPlayerRoom(socket.id);
-      if (!found) {
-        socket.emit('game:error', { message: 'Not in a room' });
-        return;
+      try {
+        const found = this.roomManager.getPlayerRoom(socket.id);
+        if (!found) {
+          socket.emit('game:error', { message: 'Not in a room' });
+          return;
+        }
+
+        if (found.player.id !== found.room.hostId) {
+          socket.emit('game:error', { message: 'Only the host can start a rematch' });
+          return;
+        }
+
+        // Check the engine's live state, not the stale room.gameState snapshot
+        const engine = this.roomManager.getEngine(found.room.code);
+        const isFinished = engine
+          ? engine.game.status === GameStatus.Finished
+          : found.room.gameState?.status === GameStatus.Finished;
+        if (!isFinished) {
+          socket.emit('game:error', { message: 'Game is not finished' });
+          return;
+        }
+
+        console.log(`Rematch initiated in room ${found.room.code}`);
+        const room = this.roomManager.resetToLobby(found.room.code);
+        if (!room) return;
+
+        this.io.to(room.code).emit('game:rematch_to_lobby');
+        this.broadcastRoomUpdate(room.code);
+        this.maybeBroadcastPublicRoomList(room);
+        this.broadcastServerStats();
+      } catch (err) {
+        console.error('Error in game:rematch handler:', err);
+        socket.emit('game:error', { message: 'Failed to start rematch' });
       }
-
-      if (found.player.id !== found.room.hostId) {
-        socket.emit('game:error', { message: 'Only the host can start a rematch' });
-        return;
-      }
-
-      // Check the engine's live state, not the stale room.gameState snapshot
-      const engine = this.roomManager.getEngine(found.room.code);
-      const isFinished = engine
-        ? engine.game.status === GameStatus.Finished
-        : found.room.gameState?.status === GameStatus.Finished;
-      if (!isFinished) {
-        socket.emit('game:error', { message: 'Game is not finished' });
-        return;
-      }
-
-      console.log(`Rematch initiated in room ${found.room.code}`);
-      const room = this.roomManager.resetToLobby(found.room.code);
-      if (!room) return;
-
-      this.io.to(room.code).emit('game:rematch_to_lobby');
-      this.broadcastRoomUpdate(room.code);
-      this.maybeBroadcastPublicRoomList(room);
-      this.broadcastServerStats();
     });
 
     // ─── Game Actions ───

@@ -867,6 +867,12 @@ export class ActionResolver {
         const isInquisitor = pendingAction.claimedCharacter === Character.Inquisitor;
         const drawCount = isInquisitor ? INQUISITOR_EXCHANGE_DRAW_COUNT : EXCHANGE_DRAW_COUNT;
         const drawnCards = game.deck.drawMultiple(drawCount);
+        if (drawnCards.length === 0) {
+          // Deck exhausted — resolve exchange with no new cards (player keeps current hand)
+          sideEffects.push({ type: 'log', message: `${actor.name} exchanges but the deck is empty.`, eventType: 'exchange', character: pendingAction.claimedCharacter!, actorId: actor.id, actorName: actor.name });
+          sideEffects.push({ type: 'advance_turn' });
+          return this.resolved(sideEffects);
+        }
         sideEffects.push({ type: 'start_exchange', playerId: actor.id, drawnCards });
         return {
           newPhase: TurnPhase.AwaitingExchange,
