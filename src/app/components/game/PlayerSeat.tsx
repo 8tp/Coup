@@ -87,6 +87,17 @@ export function PlayerSeat({
   selectable,
   timerExpiry,
 }: PlayerSeatProps) {
+  const factionColor = player.faction === Faction.Loyalist
+    ? 'border-l-blue-400'
+    : player.faction === Faction.Reformist
+      ? 'border-l-red-400'
+      : '';
+  const factionBg = player.faction === Faction.Loyalist
+    ? 'bg-blue-500/[0.07]'
+    : player.faction === Faction.Reformist
+      ? 'bg-red-500/[0.07]'
+      : '';
+
   return (
     <div
       className={`card-container text-center relative overflow-hidden
@@ -94,7 +105,8 @@ export function PlayerSeat({
         ${!player.isAlive ? 'opacity-40' : ''}
         ${isTarget ? 'ring-2 ring-red-500' : ''}
         ${selectable ? 'cursor-pointer hover:ring-2 hover:ring-coup-accent' : ''}
-        ${isMe ? 'bg-coup-surface' : '!p-2.5'}`}
+        ${isMe ? 'bg-coup-surface' : '!p-2.5'}
+        ${player.faction ? `border-l-[3px] ${factionColor} ${factionBg}` : ''}`}
       onClick={selectable ? onSelect : undefined}
     >
       <div className={`flex items-center justify-between gap-1.5 ${isMe ? 'mb-2' : 'mb-1'}`}>
@@ -106,15 +118,6 @@ export function PlayerSeat({
           {player.isBot && (
             <span className="shrink-0 text-[10px] bg-blue-600 text-white px-1 py-px rounded font-bold leading-tight">
               BOT
-            </span>
-          )}
-          {player.faction && (
-            <span className={`shrink-0 text-[10px] px-1 py-px rounded font-bold leading-tight ${
-              player.faction === Faction.Loyalist
-                ? 'bg-blue-500/30 text-blue-300'
-                : 'bg-red-500/30 text-red-300'
-            }`}>
-              {player.faction === Faction.Loyalist ? 'L' : 'R'}
             </span>
           )}
         </div>

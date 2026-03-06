@@ -68,9 +68,19 @@ function countMyActions(gameState: ClientGameState, myId: string): Partial<Recor
           case 'Captain': counts[ActionType.Steal] = (counts[ActionType.Steal] ?? 0) + 1; break;
           case 'Assassin': counts[ActionType.Assassinate] = (counts[ActionType.Assassinate] ?? 0) + 1; break;
           case 'Ambassador': counts[ActionType.Exchange] = (counts[ActionType.Exchange] ?? 0) + 1; break;
+          case 'Inquisitor': counts[ActionType.Exchange] = (counts[ActionType.Exchange] ?? 0) + 1; break;
         }
         break;
       }
+      case 'convert':
+        counts[ActionType.Convert] = (counts[ActionType.Convert] ?? 0) + 1;
+        break;
+      case 'embezzle':
+        counts[ActionType.Embezzle] = (counts[ActionType.Embezzle] ?? 0) + 1;
+        break;
+      case 'examine':
+        counts[ActionType.Examine] = (counts[ActionType.Examine] ?? 0) + 1;
+        break;
     }
   }
 

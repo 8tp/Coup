@@ -175,17 +175,17 @@ export class ActionResolver {
 
     // Log the action declaration
     const targetName = targetId ? game.getPlayer(targetId)?.name : null;
-    if (def.claimedCharacter) {
+    if (claimedCharacter) {
       const targetPart = targetName ? ` targeting ${targetName}` : '';
       sideEffects.push({
         type: 'log',
-        message: `${actor.name} claims ${def.claimedCharacter} to ${ACTION_DISPLAY_NAMES[actionType]}${targetPart}.`,
+        message: `${actor.name} claims ${claimedCharacter} to ${ACTION_DISPLAY_NAMES[actionType]}${targetPart}.`,
         eventType: 'claim_action',
-        character: def.claimedCharacter,
+        character: claimedCharacter,
         actorId,
         actorName: actor.name,
         targetId: targetId || null,
-        wasBluff: !actor.hasCharacter(def.claimedCharacter),
+        wasBluff: !actor.hasCharacter(claimedCharacter),
       });
     } else {
       sideEffects.push({
@@ -209,7 +209,7 @@ export class ActionResolver {
         challengeState: {
           challengerId: '',
           challengedPlayerId: actorId,
-          claimedCharacter: def.claimedCharacter!,
+          claimedCharacter: claimedCharacter!,
           passedPlayerIds: [actorId], // Actor can't challenge themselves
         },
         influenceLossRequest: null,

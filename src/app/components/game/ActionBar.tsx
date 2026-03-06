@@ -87,14 +87,12 @@ function getActionConfig(isReformation: boolean, useInquisitor: boolean, treasur
       desc: `Switch faction (${CONVERSION_SELF_COST}/${CONVERSION_OTHER_COST} coins)`,
       icon: SwapIcon,
     });
-    if (treasuryReserve > 0) {
-      config.splice(-1, 0, {
-        type: ActionType.Embezzle,
-        label: 'Embezzle',
-        desc: `Take ${treasuryReserve} from reserve`,
-        icon: TreasuryIcon,
-      });
-    }
+    config.splice(-1, 0, {
+      type: ActionType.Embezzle,
+      label: 'Embezzle',
+      desc: treasuryReserve > 0 ? `Take ${treasuryReserve} from reserve` : 'Reserve is empty',
+      icon: TreasuryIcon,
+    });
   }
 
   return config;
@@ -274,6 +272,10 @@ export function ActionBar({ gameState }: ActionBarProps) {
           // Convert cost is dynamic
           if (a.type === ActionType.Convert) {
             canAfford = me.coins >= CONVERSION_SELF_COST;
+          }
+          // Embezzle requires non-empty reserve
+          if (a.type === ActionType.Embezzle) {
+            canAfford = gameState.treasuryReserve > 0;
           }
           const isFactionAction = [ActionType.Coup, ActionType.Assassinate, ActionType.Steal, ActionType.Examine].includes(a.type);
           const relevantTargets = isFactionAction ? factionTargets : targets;

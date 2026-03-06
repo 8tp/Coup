@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChatMessage, ClientGameState } from '@/shared/types';
+import { ChatMessage, ClientGameState, GameMode } from '@/shared/types';
 import { PlayerSeat } from './PlayerSeat';
 import { CardFace } from './CardFace';
 import { CoinIcon } from '../icons';
@@ -57,8 +57,10 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
         <span>Room: <span className="text-gray-400 font-mono">{gameState.roomCode}</span></span>
         <span>Turn {gameState.turnNumber}</span>
         <div className="flex items-center gap-2.5">
-          {gameState.treasuryReserve > 0 && (
-            <span className="text-coup-gold">Reserve: {gameState.treasuryReserve}</span>
+          {gameState.gameMode === GameMode.Reformation && (
+            <span className={`font-mono ${gameState.treasuryReserve > 0 ? 'text-coup-gold' : 'text-gray-600'}`}>
+              Reserve: {gameState.treasuryReserve}
+            </span>
           )}
           <span>Deck: {gameState.deckCount}</span>
           <button
@@ -136,15 +138,18 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
       {me && (
         <div className="relative mt-2">
           <ReactionBubble playerId={me.id} />
-        <div className={`card-container !px-3 !py-2.5 ${!me.isAlive ? 'opacity-50' : 'border-coup-accent/30'}`}>
+        <div className={`card-container !px-3 !py-2.5 ${!me.isAlive ? 'opacity-50' : 'border-coup-accent/30'} ${
+          me.faction === 'Loyalist' ? 'border-l-[3px] border-l-blue-400 bg-blue-500/[0.07]' :
+          me.faction === 'Reformist' ? 'border-l-[3px] border-l-red-400 bg-red-500/[0.07]' : ''
+        }`}>
           <div className="flex items-center justify-between mb-1">
             <span className="font-bold text-coup-accent text-sm flex items-center gap-1.5">
               Your Hand
               {me.faction && (
-                <span className={`text-[10px] px-1 py-px rounded font-bold leading-tight ${
-                  me.faction === 'Loyalist' ? 'bg-blue-500/30 text-blue-300' : 'bg-red-500/30 text-red-300'
+                <span className={`text-xs font-medium ${
+                  me.faction === 'Loyalist' ? 'text-blue-300' : 'text-red-300'
                 }`}>
-                  {me.faction}
+                  ({me.faction})
                 </span>
               )}
             </span>

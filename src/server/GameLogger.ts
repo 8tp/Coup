@@ -77,6 +77,7 @@ export class GameLogger {
       [Character.Captain]: ActionType.Steal,
       [Character.Assassin]: ActionType.Assassinate,
       [Character.Ambassador]: ActionType.Exchange,
+      [Character.Inquisitor]: ActionType.Exchange,
     };
 
     for (const entry of log) {
@@ -112,6 +113,15 @@ export class GameLogger {
           break;
         case 'elimination':
           totalEliminations++;
+          break;
+        case 'convert':
+          actionCounts[ActionType.Convert] = (actionCounts[ActionType.Convert] || 0) + 1;
+          break;
+        case 'embezzle':
+          actionCounts[ActionType.Embezzle] = (actionCounts[ActionType.Embezzle] || 0) + 1;
+          break;
+        case 'examine':
+          actionCounts[ActionType.Examine] = (actionCounts[ActionType.Examine] || 0) + 1;
           break;
       }
     }

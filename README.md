@@ -32,8 +32,9 @@ Play Coup with 2–6 friends from any device — no app install, no accounts. Cr
 
 ### Game Rules
 - **Complete 2012 base game** — Income, Foreign Aid, Tax, Steal, Assassinate, Exchange, Coup
+- **Reformation expansion** — Factions (Loyalist/Reformist), Convert, Embezzle, Treasury Reserve, Inquisitor character with Examine action
 - **Full challenge system** — any player can call a bluff; failed challenges cost an influence
-- **Block and counter-block** — Duke blocks Foreign Aid, Contessa blocks Assassination, Captain/Ambassador block Steal
+- **Block and counter-block** — Duke blocks Foreign Aid, Contessa blocks Assassination, Captain/Ambassador/Inquisitor block Steal
 - **Forced Coup** — 10+ coins means you must Coup
 - **Timed responses** — 15-second windows for challenges and blocks keep the pace up
 
@@ -110,6 +111,9 @@ Bots make decisions with realistic randomized delays (1.5–3.5s for actions, 0.
 | **Captain** | Steal | Take 2 coins from target | Steal |
 | **Ambassador** | Exchange | Draw 2 from deck, return 2 | Steal |
 | **Contessa** | — | — | Assassination |
+| **Inquisitor*** | Exchange / Examine | Draw 1, swap or keep / Look at opponent's card | Steal |
+
+*\*Inquisitor replaces Ambassador in Reformation mode (optional)*
 
 ### General Actions
 
@@ -118,6 +122,18 @@ Bots make decisions with realistic randomized delays (1.5–3.5s for actions, 0.
 | **Income** | +1 coin (safe — cannot be challenged or blocked) |
 | **Foreign Aid** | +2 coins (blockable by Duke) |
 | **Coup** | Pay 7 coins, target loses influence (unblockable, unchallengeable) |
+
+### Reformation Expansion
+
+The host can enable Reformation mode in the lobby settings. This adds factions, new actions, and the Inquisitor character.
+
+**Factions** — Players are assigned to Loyalists (blue) or Reformists (red). You cannot target same-faction players with Coup, Assassinate, Steal, or Examine. Challenges and blocks are unrestricted. When all surviving players share a faction, restrictions lift.
+
+| Action | Cost | Effect |
+|--------|------|--------|
+| **Convert** | 1 (self) / 2 (other) | Switch a player's faction. Coins go to Treasury Reserve |
+| **Embezzle** | 0 | Take all coins from the Treasury Reserve. Inverse challenge: challenger wins if you DO have Duke |
+| **Examine** | 0 | Look at an opponent's card (claim Inquisitor). Force swap it or return it |
 
 ### Core Mechanics
 
@@ -147,10 +163,13 @@ The `ActionResolver` is a pure state machine: `(state, input) → (newPhase, sid
 AwaitingAction
   ├─ Income ───────────────────────────> resolve ──> next turn
   ├─ Coup ─────────────────────────────> AwaitingInfluenceLoss ──> next turn
-  ├─ Tax / Steal / Assassinate / Exchange
+  ├─ Convert ──────────────────────────> resolve ──> next turn
+  ├─ Tax / Steal / Assassinate / Exchange / Examine / Embezzle
   │   └─> AwaitingActionChallenge
   │         ├─ Challenge ──> resolve
-  │         └─ All Pass ──> AwaitingBlock (if blockable) or resolve
+  │         └─ All Pass ──> AwaitingBlock (if blockable)
+  │                          or AwaitingExamineDecision (Examine)
+  │                          or resolve
   └─ ForeignAid
       └─> AwaitingBlock
             ├─ Block ──> AwaitingBlockChallenge
@@ -165,7 +184,8 @@ Coup/
 ├── docs/                           # Project documentation
 │   ├── BOT-STRATEGY.md             # AI strategy research and tuning methodology
 │   ├── CONTRIBUTING.md             # Contribution guidelines
-│   └── PRD.md                      # Product requirements document
+│   ├── PRD.md                      # Product requirements document
+│   └── REFORMATION_PLAN.md         # Reformation expansion implementation plan
 ├── tests/                          # Test suite
 │   ├── engine/                     # Engine unit tests
 │   └── server/                     # Server unit tests
@@ -209,7 +229,7 @@ Coup/
 | `npm run dev` | Start dev server (Express + Next.js + Socket.io) |
 | `npm run build` | Build for production |
 | `npm start` | Run production build |
-| `npm test` | Run test suite (350 tests across 11 files) |
+| `npm test` | Run test suite (465 tests across 14 files) |
 | `npm run test:watch` | Run tests in watch mode |
 
 ```sh

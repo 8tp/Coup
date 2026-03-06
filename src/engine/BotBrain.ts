@@ -156,8 +156,10 @@ export class BotBrain {
         break;
 
       case Character.Ambassador:
-        // Exchange for better cards + blocks steal
+      case Character.Inquisitor:
+        // Exchange for better cards + blocks steal; Inquisitor also examines
         value = 3;
+        if (character === Character.Inquisitor) value += 1; // Examine is powerful
         if (aliveCount > 3) value += 2;
         else if (aliveCount > 2 && !bot.hiddenCharacters.includes(Character.Captain)) value += 1;
         if (aliveCount <= 2) value -= 1;

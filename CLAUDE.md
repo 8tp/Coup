@@ -71,9 +71,10 @@ The turn progresses through these phases (defined in `TurnPhase` enum):
 3. `AwaitingBlock` -- eligible players may block
 4. `AwaitingBlockChallenge` -- original actor may challenge the block
 5. `AwaitingInfluenceLoss` -- a player must choose a card to reveal
-6. `AwaitingExchange` -- Ambassador player picks cards to keep
-7. `ActionResolved` -- turn ends, advance to next player
-8. `GameOver` -- winner determined
+6. `AwaitingExchange` -- Ambassador/Inquisitor player picks cards to keep
+7. `AwaitingExamineDecision` -- Inquisitor player decides to return or force-swap examined card (Reformation only)
+8. `ActionResolved` -- turn ends, advance to next player
+9. `GameOver` -- winner determined
 
 Not every turn visits every phase. Income resolves immediately. Coup skips to InfluenceLoss. The `ActionResolver` determines the path.
 
@@ -111,6 +112,9 @@ Not every turn visits every phase. Income resolves immediately. Coup skips to In
 | `src/app/components/game/ReactionBubble.tsx` | Displays active reaction above a player seat |
 | `src/app/components/settings/SettingsModal.tsx` | Settings: sound, haptic feedback, text size, bug report/feedback links |
 | `src/app/components/lobby/AddBotModal.tsx` | Modal with name input + personality selector (7 personality buttons) for adding bots |
+| `src/app/components/game/ExaminePrompt.tsx` | Inquisitor examine decision UI: shows revealed card, Return or Force Swap buttons |
+| `src/app/components/icons/InquisitorIcon.tsx` | Inquisitor SVG icon (all-seeing eye, teal) |
+| `docs/REFORMATION_PLAN.md` | Full implementation plan for the Reformation expansion |
 
 ---
 
@@ -163,6 +167,25 @@ Key behaviors:
 
 After a game finishes, the host can click "Play Again" which triggers `game:rematch` → server calls `resetToLobby()` (destroys engine and BotController, clears game state, removes disconnected human players, preserves bots) → broadcasts `game:rematch_to_lobby` → all clients clear game state and redirect to the lobby. Chat history is preserved across rematches.
 
+### Reformation Expansion
+
+The Reformation expansion adds factions, new actions, and the Inquisitor character. It is toggled per-room via `RoomSettings.gameMode` (Classic/Reformation) and `RoomSettings.useInquisitor`.
+
+**Key concepts:**
+- **Factions** (`Faction.Loyalist` / `Faction.Reformist`) — assigned alternating at game start. Cannot target same-faction with Coup/Assassinate/Steal/Examine. Restrictions lift when all alive players share a faction (`Game.allSameFaction()`)
+- **Treasury Reserve** (`Game.treasuryReserve`) — separate coin pool. Filled by Convert payments, emptied by Embezzle
+- **Convert** — pay 1 coin (self) or 2 coins (other) to the reserve, flip faction. Not challengeable/blockable
+- **Embezzle** — take all reserve coins. Uses **inverse challenge**: challenger wins if embezzler HAS Duke (they lied about not having it)
+- **Inquisitor** — replaces Ambassador when `useInquisitor` is true. Exchange draws 1 card (not 2). Examine action looks at opponent's card → force swap or return. Blocks Steal
+- **Deck configuration** — `Deck.setExcludedCharacters()` swaps Ambassador/Inquisitor. Both exist in `Character` enum but only one is in the deck per game
+- **`useInquisitor`** field on `GameState`/`ClientGameState` — all client components use this to conditionally show Ambassador vs Inquisitor text, icons, and block options
+
+**Phase flow for Examine:**
+1. Player declares Examine → `AwaitingActionChallenge`
+2. If unchallenged → server sets `examineState` with revealed card
+3. `AwaitingExamineDecision` → Inquisitor sees card, decides Return or Force Swap
+4. → `ActionResolved`
+
 ### Side Effect Pattern
 
 The resolver never mutates game state directly. Instead, it returns side effects like:
@@ -173,6 +196,10 @@ The resolver never mutates game state directly. Instead, it returns side effects
 { type: 'log', message: 'Alice collects Tax (+3 coins).' }
 { type: 'advance_turn' }
 { type: 'set_timer', durationMs: 15000 }
+// Reformation expansion:
+{ type: 'transfer_to_reserve', playerId: '...', amount: 2 }
+{ type: 'take_from_reserve', playerId: '...' }
+{ type: 'change_faction', playerId: '...', newFaction: Faction.Reformist }
 ```
 
 The `GameEngine.applySideEffect()` method interprets each effect and mutates the `Game` accordingly.
