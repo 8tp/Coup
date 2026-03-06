@@ -23,7 +23,7 @@ export default function Home() {
 function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { createRoom, joinRoom, subscribeToBrowser, unsubscribeFromBrowser } = useSocket();
+  const { createRoom, joinRoom, spectateRoom, subscribeToBrowser, unsubscribeFromBrowser } = useSocket();
   const { error, setError, setRoom, publicRooms, playersOnline, gamesInProgress } = useGameStore();
   const joinCode = searchParams.get('join');
   const [mode, setMode] = useState<'idle' | 'create' | 'join' | 'browse'>(joinCode ? 'join' : 'idle');
@@ -95,7 +95,23 @@ function HomeContent() {
     }
   };
 
+  const handleSpectate = async (code: string) => {
+    haptic(80);
+    const spectatorName = name.trim() || 'Spectator';
+    setLoading(true);
+    try {
+      const result = await spectateRoom(code, spectatorName);
+      useGameStore.getState().setSpectating(result.roomCode, result.spectatorId);
+      router.push(`/game/${result.roomCode}`);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'An error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const joinableRooms = publicRooms.filter(r => !r.hasGame && r.playerCount < r.maxPlayers);
+  const watchableRooms = publicRooms.filter(r => r.hasGame);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden">
@@ -263,15 +279,15 @@ function HomeContent() {
 
             <div className="card-container text-left">
               <h2 className="font-bold text-gray-400 text-sm uppercase mb-3">
-                Public Games
+                Join a Game
               </h2>
 
               {joinableRooms.length === 0 ? (
                 <p className="text-gray-500 text-sm text-center py-4">
-                  No public games available right now.
+                  No open lobbies right now.
                 </p>
               ) : (
-                <div className="space-y-2 max-h-64 overflow-y-auto">
+                <div className="space-y-2 max-h-48 overflow-y-auto">
                   {joinableRooms.map(room => (
                     <div
                       key={room.code}
@@ -305,6 +321,49 @@ function HomeContent() {
                 </div>
               )}
             </div>
+
+            {/* Watch live games */}
+            {watchableRooms.length > 0 && (
+              <div className="card-container text-left">
+                <h2 className="font-bold text-gray-400 text-sm uppercase mb-3">
+                  Watch Live
+                </h2>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {watchableRooms.map(room => (
+                    <div
+                      key={room.code}
+                      className="flex items-center justify-between py-2 px-3 bg-coup-bg rounded-lg"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-gray-200 truncate">
+                            {room.hostName}&apos;s game
+                          </span>
+                          <span className="text-xs text-gray-500 font-mono">{room.code}</span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-xs text-gray-500">
+                            {room.playerCount} players
+                          </span>
+                          {room.spectatorCount > 0 && (
+                            <span className="text-xs text-purple-400">
+                              {room.spectatorCount} watching
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        className="text-xs px-3 py-1 ml-2 rounded-lg font-bold bg-purple-600 hover:bg-purple-500 text-white transition-colors"
+                        onClick={() => handleSpectate(room.code)}
+                        disabled={loading}
+                      >
+                        Watch
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <button
               className="btn-secondary w-full"

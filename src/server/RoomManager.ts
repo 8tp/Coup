@@ -1,9 +1,11 @@
 import { randomInt, randomBytes } from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
-import { BotPersonality, ChatMessage, GameMode, GameStatus, PublicRoomInfo, Room, RoomPlayer, RoomSettings } from '../shared/types';
+import { BotPersonality, ChatMessage, GameMode, GameStatus, PublicRoomInfo, Room, RoomPlayer, RoomSettings, Spectator } from '../shared/types';
 import { CHAT_MAX_HISTORY, CHAT_MAX_MESSAGE_LENGTH, CHAT_RATE_LIMIT_MS, DEFAULT_ROOM_SETTINGS, DISCONNECT_BOT_REPLACE_MS, INACTIVE_ROOM_CLEANUP_MS, MAX_ACTION_TIMER, MAX_BOT_REACTION_SECONDS, MAX_PLAYERS, MAX_TURN_TIMER, MIN_ACTION_TIMER, MIN_BOT_REACTION_SECONDS, MIN_PLAYERS, MIN_TURN_TIMER, PUBLIC_ROOM_LIST_MAX, REACTION_RATE_LIMIT_MS } from '../shared/constants';
 import { GameEngine } from '../engine/GameEngine';
 import { BotController } from './BotController';
+
+const MAX_SPECTATORS_PER_ROOM = 10;
 
 const ROOM_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -16,6 +18,7 @@ export class RoomManager {
   private lastReactionTime: Map<string, number> = new Map();
   private lastHumanActivityAt: Map<string, number> = new Map();
   private disconnectTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+  private spectators: Map<string, Spectator[]> = new Map(); // roomCode -> spectators
   private cleanupInterval: ReturnType<typeof setInterval>;
 
   constructor() {
@@ -248,6 +251,7 @@ export class RoomManager {
         maxPlayers: MAX_PLAYERS,
         settings: { ...room.settings },
         hasGame: room.gameState !== null,
+        spectatorCount: this.getSpectators(room.code).length,
       });
       if (result.length >= PUBLIC_ROOM_LIST_MAX) break;
     }
@@ -425,6 +429,55 @@ export class RoomManager {
     return null;
   }
 
+  // ─── Spectators ───
+
+  addSpectator(roomCode: string, name: string, socketId: string): { spectatorId: string } | { error: string } {
+    const code = roomCode.toUpperCase();
+    const room = this.rooms.get(code);
+    if (!room) return { error: 'Room not found' };
+
+    let spectators = this.spectators.get(code);
+    if (!spectators) {
+      spectators = [];
+      this.spectators.set(code, spectators);
+    }
+
+    if (spectators.length >= MAX_SPECTATORS_PER_ROOM) {
+      return { error: 'Too many spectators' };
+    }
+
+    const spectatorId = uuidv4();
+    spectators.push({ id: spectatorId, name, socketId });
+    return { spectatorId };
+  }
+
+  removeSpectator(socketId: string): { roomCode: string } | null {
+    for (const [code, spectators] of this.spectators.entries()) {
+      const idx = spectators.findIndex(s => s.socketId === socketId);
+      if (idx !== -1) {
+        spectators.splice(idx, 1);
+        if (spectators.length === 0) this.spectators.delete(code);
+        return { roomCode: code };
+      }
+    }
+    return null;
+  }
+
+  getSpectators(roomCode: string): Spectator[] {
+    return this.spectators.get(roomCode.toUpperCase()) || [];
+  }
+
+  getSpectatorRoom(socketId: string): { room: Room; spectator: Spectator } | null {
+    for (const [code, spectators] of this.spectators.entries()) {
+      const spectator = spectators.find(s => s.socketId === socketId);
+      if (spectator) {
+        const room = this.rooms.get(code);
+        if (room) return { room, spectator };
+      }
+    }
+    return null;
+  }
+
   // ─── Disconnect Timer & Bot Replacement ───
 
   startDisconnectTimer(roomCode: string, playerId: string, onReplace: () => void): void {
@@ -531,6 +584,7 @@ export class RoomManager {
     this.rooms.delete(roomCode);
     this.chatMessages.delete(roomCode);
     this.lastHumanActivityAt.delete(roomCode);
+    this.spectators.delete(roomCode);
   }
 
   private cleanup(): void {

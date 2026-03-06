@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import type { ClientToServerEvents, ServerToClientEvents } from '@/shared/protocol';
-import type { BotPersonality, ChallengeRevealEvent, ChatMessage, ClientGameState, ClientRoomPlayer, PublicRoomInfo, RoomSettings } from '@/shared/types';
+import type { BotPersonality, ChallengeRevealEvent, ChatMessage, ClientGameState, ClientRoomPlayer, ClientSpectator, PublicRoomInfo, RoomSettings } from '@/shared/types';
 import { useGameStore } from '../stores/gameStore';
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -105,8 +105,8 @@ export function useSocket() {
       useGameStore.getState().setReconnecting(false);
     };
 
-    const onRoomUpdatedRaw = (data: { players: ClientRoomPlayer[]; hostId: string; settings: RoomSettings; lastWinnerId?: string | null }) => {
-      setRoomPlayers(data.players, data.hostId, data.settings, data.lastWinnerId);
+    const onRoomUpdatedRaw = (data: { players: ClientRoomPlayer[]; hostId: string; settings: RoomSettings; lastWinnerId?: string | null; spectators?: ClientSpectator[] }) => {
+      setRoomPlayers(data.players, data.hostId, data.settings, data.lastWinnerId, data.spectators);
     };
 
     const onGameState = (state: ClientGameState) => {
@@ -282,6 +282,28 @@ export function useSocket() {
     socketRef.current.emit('reaction:send', { reactionId });
   }, []);
 
+  const spectateRoom = useCallback((roomCode: string, playerName: string): Promise<{ roomCode: string; spectatorId: string }> => {
+    return withTimeout(new Promise((resolve, reject) => {
+      socketRef.current.emit('room:spectate', { roomCode, playerName }, (response) => {
+        if (response.success && response.roomCode && response.spectatorId) {
+          sessionStorage.setItem('coup_room', response.roomCode);
+          sessionStorage.setItem('coup_player', response.spectatorId);
+          sessionStorage.setItem('coup_spectator', 'true');
+          resolve({ roomCode: response.roomCode, spectatorId: response.spectatorId });
+        } else {
+          reject(new Error(response.error || 'Failed to spectate'));
+        }
+      });
+    }));
+  }, []);
+
+  const stopSpectating = useCallback(() => {
+    socketRef.current.emit('room:stop_spectating');
+    sessionStorage.removeItem('coup_room');
+    sessionStorage.removeItem('coup_player');
+    sessionStorage.removeItem('coup_spectator');
+  }, []);
+
   const subscribeToBrowser = useCallback(() => {
     socketRef.current.emit('browser:subscribe');
   }, []);
@@ -302,6 +324,8 @@ export function useSocket() {
     addBot,
     removeBot,
     updateRoomSettings,
+    spectateRoom,
+    stopSpectating,
     subscribeToBrowser,
     unsubscribeFromBrowser,
   };

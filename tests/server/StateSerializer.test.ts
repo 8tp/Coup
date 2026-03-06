@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { serializeForPlayer } from '@/server/StateSerializer';
+import { serializeForPlayer, serializeForSpectator } from '@/server/StateSerializer';
 import {
   GameState,
   GameMode,
@@ -225,6 +225,117 @@ describe('StateSerializer', () => {
       const state = createMockGameState({ exchangeState: null });
       const clientState = serializeForPlayer(state, 'p1');
       expect(clientState.exchangeState).toBeNull();
+    });
+
+    it('strips wasBluff from action log during game', () => {
+      const state = createMockGameState({
+        actionLog: [
+          { message: 'Alice claims Duke', eventType: 'claim_action', character: Character.Duke, turnNumber: 1, actorId: 'p1', actorName: 'Alice', timestamp: 0, wasBluff: true },
+        ],
+      });
+      const clientState = serializeForPlayer(state, 'p2');
+      expect(clientState.actionLog[0].wasBluff).toBeUndefined();
+    });
+
+    it('includes wasBluff in action log at game over', () => {
+      const state = createMockGameState({
+        turnPhase: TurnPhase.GameOver,
+        winnerId: 'p1',
+        actionLog: [
+          { message: 'Alice claims Duke', eventType: 'claim_action', character: Character.Duke, turnNumber: 1, actorId: 'p1', actorName: 'Alice', timestamp: 0, wasBluff: true },
+          { message: 'Bob blocks with Contessa', eventType: 'block', character: Character.Contessa, turnNumber: 1, actorId: 'p2', actorName: 'Bob', timestamp: 0, wasBluff: false },
+        ],
+      });
+      const clientState = serializeForPlayer(state, 'p2');
+      expect(clientState.actionLog[0].wasBluff).toBe(true);
+      expect(clientState.actionLog[1].wasBluff).toBe(false);
+    });
+
+    it('reveals all cards at game over', () => {
+      const state = createMockGameState({
+        turnPhase: TurnPhase.GameOver,
+        winnerId: 'p1',
+      });
+      const clientState = serializeForPlayer(state, 'p1');
+      // p2's unrevealed card should now be visible
+      const p2 = clientState.players.find(p => p.id === 'p2')!;
+      expect(p2.influences[0].character).toBe(Character.Assassin);
+    });
+  });
+
+  describe('serializeForSpectator()', () => {
+    it('hides all unrevealed cards from spectator', () => {
+      const state = createMockGameState();
+      const clientState = serializeForSpectator(state, 'spec-1');
+
+      // All unrevealed cards should be null
+      const p1 = clientState.players.find(p => p.id === 'p1')!;
+      expect(p1.influences[0].character).toBeNull();
+      expect(p1.influences[1].character).toBeNull();
+
+      const p2 = clientState.players.find(p => p.id === 'p2')!;
+      expect(p2.influences[0].character).toBeNull();
+    });
+
+    it('shows revealed cards to spectator', () => {
+      const state = createMockGameState();
+      const clientState = serializeForSpectator(state, 'spec-1');
+
+      const p2 = clientState.players.find(p => p.id === 'p2')!;
+      expect(p2.influences[1].character).toBe(Character.Contessa);
+      expect(p2.influences[1].revealed).toBe(true);
+    });
+
+    it('does not include exchange state for spectator', () => {
+      const state = createMockGameState({
+        exchangeState: { playerId: 'p1', drawnCards: [Character.Assassin] },
+        turnPhase: TurnPhase.AwaitingExchange,
+      });
+      const clientState = serializeForSpectator(state, 'spec-1');
+      expect(clientState.exchangeState).toBeNull();
+    });
+
+    it('does not include examine state for spectator', () => {
+      const state = createMockGameState({
+        examineState: { examinerId: 'p1', targetId: 'p2', revealedCard: Character.Assassin, influenceIndex: 0 },
+        turnPhase: TurnPhase.AwaitingExamineDecision,
+      });
+      const clientState = serializeForSpectator(state, 'spec-1');
+      expect(clientState.examineState).toBeNull();
+    });
+
+    it('myId is the spectator ID', () => {
+      const state = createMockGameState();
+      const clientState = serializeForSpectator(state, 'spec-123');
+      expect(clientState.myId).toBe('spec-123');
+    });
+
+    it('strips wasBluff from log during game', () => {
+      const state = createMockGameState({
+        actionLog: [
+          { message: 'Alice claims Duke', eventType: 'claim_action', character: Character.Duke, turnNumber: 1, actorId: 'p1', actorName: 'Alice', timestamp: 0, wasBluff: true },
+        ],
+      });
+      const clientState = serializeForSpectator(state, 'spec-1');
+      expect(clientState.actionLog[0].wasBluff).toBeUndefined();
+    });
+
+    it('reveals all cards and bluff data at game over', () => {
+      const state = createMockGameState({
+        turnPhase: TurnPhase.GameOver,
+        winnerId: 'p1',
+        actionLog: [
+          { message: 'Alice claims Duke', eventType: 'claim_action', character: Character.Duke, turnNumber: 1, actorId: 'p1', actorName: 'Alice', timestamp: 0, wasBluff: true },
+        ],
+      });
+      const clientState = serializeForSpectator(state, 'spec-1');
+
+      // Cards revealed
+      const p1 = clientState.players.find(p => p.id === 'p1')!;
+      expect(p1.influences[0].character).toBe(Character.Duke);
+
+      // Bluff data revealed
+      expect(clientState.actionLog[0].wasBluff).toBe(true);
     });
   });
 });

@@ -1,4 +1,4 @@
-import { ActionType, BotPersonality, ChallengeRevealEvent, Character, ChatMessage, ClientGameState, ClientRoomPlayer, Faction, PublicRoomInfo, ReactionEvent, RoomSettings } from './types';
+import { ActionType, BotPersonality, ChallengeRevealEvent, Character, ChatMessage, ClientGameState, ClientRoomPlayer, ClientSpectator, Faction, PublicRoomInfo, ReactionEvent, RoomSettings } from './types';
 
 // ─── Client → Server Events ───
 export interface ClientToServerEvents {
@@ -39,6 +39,10 @@ export interface ClientToServerEvents {
   // Room settings
   'room:update_settings': (data: { settings: RoomSettings }, callback: (response: { success: boolean; error?: string }) => void) => void;
 
+  // Spectator
+  'room:spectate': (data: { roomCode: string; playerName: string }, callback: (response: SpectateResponse) => void) => void;
+  'room:stop_spectating': () => void;
+
   // Room browser
   'browser:subscribe': () => void;
   'browser:unsubscribe': () => void;
@@ -49,7 +53,7 @@ export interface ClientToServerEvents {
 
 // ─── Server → Client Events ───
 export interface ServerToClientEvents {
-  'room:updated': (data: { players: ClientRoomPlayer[]; hostId: string; settings: RoomSettings; lastWinnerId?: string | null }) => void;
+  'room:updated': (data: { players: ClientRoomPlayer[]; hostId: string; settings: RoomSettings; lastWinnerId?: string | null; spectators?: ClientSpectator[] }) => void;
   'room:error': (data: { message: string }) => void;
   'game:state': (state: ClientGameState) => void;
   'game:error': (data: { message: string }) => void;
@@ -69,5 +73,12 @@ export interface RoomResponse {
   roomCode?: string;
   playerId?: string;
   sessionToken?: string;
+  error?: string;
+}
+
+export interface SpectateResponse {
+  success: boolean;
+  roomCode?: string;
+  spectatorId?: string;
   error?: string;
 }

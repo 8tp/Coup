@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useEffect } from 'react';
-import { LogEntry } from '@/shared/types';
+import { LogEntry, TurnPhase } from '@/shared/types';
 import { LOG_EVENT_ICONS, CHARACTER_COLORS } from '@/shared/constants';
 import { formatLogMessage } from '@/app/utils/logFormat';
 
@@ -10,6 +10,9 @@ interface ActionLogProps {
   myName: string;
   turnPhase?: string;
 }
+
+/** Log event types that represent claims (where wasBluff is meaningful) */
+const CLAIM_EVENT_TYPES = new Set(['claim_action', 'block']);
 
 /** Group consecutive entries by turnNumber */
 function groupByTurn(entries: LogEntry[]): LogEntry[][] {
@@ -41,6 +44,7 @@ function getGroupBorderColor(group: LogEntry[]): string {
 }
 
 export function ActionLog({ log, myName, turnPhase }: ActionLogProps) {
+  const isGameOver = turnPhase === TurnPhase.GameOver;
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Scroll to bottom on new entries or phase changes
@@ -83,6 +87,7 @@ export function ActionLog({ log, myName, turnPhase }: ActionLogProps) {
                 const isLatestGroup = gi === turnGroups.length - 1;
                 const isLatestEntry = isLatestGroup && ei === group.length - 1;
                 const message = formatLogMessage(entry.message, myName);
+                const showBluffBadge = isGameOver && CLAIM_EVENT_TYPES.has(entry.eventType) && entry.wasBluff !== undefined;
 
                 return (
                   <p
@@ -95,6 +100,15 @@ export function ActionLog({ log, myName, turnPhase }: ActionLogProps) {
                   >
                     <span className="mr-1">{icon}</span>
                     {message}
+                    {showBluffBadge && (
+                      <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full align-middle ${
+                        entry.wasBluff
+                          ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                          : 'bg-green-500/15 text-green-400/80 border border-green-500/20'
+                      }`}>
+                        {entry.wasBluff ? 'BLUFF' : 'TRUE'}
+                      </span>
+                    )}
                   </p>
                 );
               })}

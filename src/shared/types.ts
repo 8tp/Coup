@@ -318,6 +318,15 @@ export interface RoomPlayer {
 
 export type ClientRoomPlayer = Omit<RoomPlayer, 'socketId' | 'sessionToken'>;
 
+// ─── Spectators ───
+export interface Spectator {
+  id: string;
+  name: string;
+  socketId: string;
+}
+
+export type ClientSpectator = Omit<Spectator, 'socketId'>;
+
 // ─── Room Settings ───
 export interface RoomSettings {
   actionTimerSeconds: number;
@@ -337,6 +346,7 @@ export interface PublicRoomInfo {
   maxPlayers: number;
   settings: RoomSettings;
   hasGame: boolean;
+  spectatorCount: number;
 }
 
 // ─── Challenge Reveal Event ───
