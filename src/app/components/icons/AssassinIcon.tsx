@@ -1,11 +1,16 @@
 'use client';
 
+import { useId } from 'react';
+
 interface IconProps {
   size?: number;
   className?: string;
 }
 
 export function AssassinIcon({ size = 24, className }: IconProps) {
+  const id = useId();
+  const clipId = `assassin-blade-${id}`;
+
   return (
     <svg
       width={size}
@@ -15,6 +20,11 @@ export function AssassinIcon({ size = 24, className }: IconProps) {
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
+      <defs>
+        <clipPath id={clipId}>
+          <path d="M32 6L28 38h8L32 6z" />
+        </clipPath>
+      </defs>
       {/* Blade */}
       <path
         d="M32 6L28 38h8L32 6z"
@@ -22,6 +32,15 @@ export function AssassinIcon({ size = 24, className }: IconProps) {
         stroke="#cbd5e1"
         strokeWidth="1.5"
       />
+      {/* Blade gleam sweep */}
+      <rect
+        x="29" y="-8" width="6" height="10" rx="3"
+        fill="white" opacity="0.25"
+        clipPath={`url(#${clipId})`}
+      >
+        <animate attributeName="y" values="-10;42" dur="3s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="0;0.3;0" dur="3s" repeatCount="indefinite" />
+      </rect>
       {/* Blood groove */}
       <path
         d="M32 10v24"
