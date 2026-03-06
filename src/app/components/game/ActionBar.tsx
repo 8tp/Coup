@@ -125,12 +125,8 @@ export function ActionBar({ gameState }: ActionBarProps) {
     ? targets.filter(p => p.faction !== me.faction)
     : targets;
 
-  // Determine if Inquisitor mode based on whether any player has Inquisitor in their visible cards
-  // (we can't see hidden cards, but the exchange label tells us)
-  const useInquisitor = isReformation && gameState.players.some(p =>
-    p.influences.some(inf => inf.character === 'Inquisitor'),
-  );
-  const actionConfig = getActionConfig(isReformation, useInquisitor || isReformation, gameState.treasuryReserve);
+  const useInquisitor = gameState.useInquisitor;
+  const actionConfig = getActionConfig(isReformation, useInquisitor, gameState.treasuryReserve);
 
   const handleAction = (action: ActionType) => {
     haptic(80);

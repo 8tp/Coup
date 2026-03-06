@@ -25,13 +25,15 @@ export class Game {
   winnerId: string | null = null;
   // Reformation expansion
   gameMode: GameMode = GameMode.Classic;
+  useInquisitor: boolean = false;
   treasuryReserve: number = 0;
 
   constructor(public readonly roomCode: string) {}
 
   initialize(playerInfos: Array<{ id: string; name: string }>, options?: { gameMode?: GameMode; useInquisitor?: boolean }): void {
     this.gameMode = options?.gameMode ?? GameMode.Classic;
-    const useInquisitor = options?.useInquisitor ?? false;
+    this.useInquisitor = options?.useInquisitor ?? false;
+    const useInquisitor = this.useInquisitor;
 
     // Configure deck based on mode
     if (useInquisitor) {
@@ -211,6 +213,7 @@ export class Game {
       winnerId: this.winnerId,
       turnNumber: this.turnNumber,
       gameMode: this.gameMode,
+      useInquisitor: this.useInquisitor,
       treasuryReserve: this.treasuryReserve,
     };
   }

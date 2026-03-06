@@ -39,6 +39,7 @@ export function serializeForPlayer(state: GameState, playerId: string, roomPlaye
     turnNumber: state.turnNumber,
     myId: playerId,
     gameMode: state.gameMode,
+    useInquisitor: state.useInquisitor,
     treasuryReserve: state.treasuryReserve,
   };
 }

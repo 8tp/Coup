@@ -67,6 +67,7 @@ function createMockGameState(overrides: Partial<GameState> = {}): GameState {
     winnerId: null,
     turnNumber: 1,
     gameMode: GameMode.Classic,
+    useInquisitor: false,
     treasuryReserve: 0,
     ...overrides,
   };

@@ -159,6 +159,7 @@ export interface GameState {
 
   // Reformation expansion
   gameMode: GameMode;
+  useInquisitor: boolean;
   /** Treasury Reserve / Almshouse (coins from conversions) */
   treasuryReserve: number;
 }
@@ -216,6 +217,7 @@ export interface ClientGameState {
   myId: string;
   // Reformation expansion
   gameMode: GameMode;
+  useInquisitor: boolean;
   treasuryReserve: number;
 }
 

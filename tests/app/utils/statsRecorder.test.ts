@@ -47,6 +47,7 @@ function makeGameState(overrides: Partial<ClientGameState> = {}): ClientGameStat
     turnNumber: 5,
     myId: 'p1',
     gameMode: GameMode.Classic,
+    useInquisitor: false,
     treasuryReserve: 0,
     ...overrides,
   };
