@@ -9,6 +9,7 @@ import { haptic } from '../../utils/haptic';
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
+  onOpenTutorial?: () => void;
 }
 
 const TEXT_SIZE_OPTIONS: { value: TextSize; label: string }[] = [
@@ -17,7 +18,7 @@ const TEXT_SIZE_OPTIONS: { value: TextSize; label: string }[] = [
   { value: 'xl', label: 'Extra Large' },
 ];
 
-export function SettingsModal({ open, onClose }: SettingsModalProps) {
+export function SettingsModal({ open, onClose, onOpenTutorial }: SettingsModalProps) {
   const isMuted = useGameStore(s => s.isMuted);
   const setMuted = useGameStore(s => s.setMuted);
   const hapticEnabled = useSettingsStore(s => s.hapticEnabled);
@@ -87,6 +88,18 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
             ))}
           </div>
         </div>
+
+        {/* Tutorial - main menu only */}
+        {onOpenTutorial && (
+          <div className="border-t border-gray-700 pt-4">
+            <button
+              className="w-full py-2.5 px-3 rounded-lg border border-coup-accent/50 text-sm text-coup-accent hover:bg-coup-accent/10 transition text-center font-medium"
+              onClick={() => { haptic(); onClose(); onOpenTutorial(); }}
+            >
+              New Player Tutorial
+            </button>
+          </div>
+        )}
 
         {/* Feedback links */}
         <div className="border-t border-gray-700 pt-4">
