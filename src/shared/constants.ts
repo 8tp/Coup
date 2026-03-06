@@ -1,4 +1,4 @@
-import { ActionType, BotPersonality, Character, PersonalityParams, LogEventType, RoomSettings } from './types';
+import { ActionType, BotPersonality, Character, GameMode, PersonalityParams, LogEventType, RoomSettings } from './types';
 
 // ─── Action Display Names ───
 export const ACTION_DISPLAY_NAMES: Record<ActionType, string> = {
@@ -9,6 +9,9 @@ export const ACTION_DISPLAY_NAMES: Record<ActionType, string> = {
   [ActionType.Assassinate]: 'Assassinate',
   [ActionType.Steal]: 'Steal',
   [ActionType.Exchange]: 'Exchange',
+  [ActionType.Convert]: 'Convert',
+  [ActionType.Embezzle]: 'Embezzle',
+  [ActionType.Examine]: 'Examine',
 };
 
 // ─── Game Constants ───
@@ -24,12 +27,17 @@ export const CHALLENGE_TIMER_MS = 15_000;
 export const BLOCK_TIMER_MS = 15_000;
 export const TURN_TIMER_MS = 30_000;
 export const EXCHANGE_DRAW_COUNT = 2;
+export const INQUISITOR_EXCHANGE_DRAW_COUNT = 1;
+
+// ─── Reformation Constants ───
+export const CONVERSION_SELF_COST = 1;
+export const CONVERSION_OTHER_COST = 2;
 
 // ─── Room Settings ───
 export const DEFAULT_BOT_MIN_REACTION_SECONDS = 2;
 export const MIN_BOT_REACTION_SECONDS = 1;
 export const MAX_BOT_REACTION_SECONDS = 10;
-export const DEFAULT_ROOM_SETTINGS: RoomSettings = { actionTimerSeconds: 15, turnTimerSeconds: 30, isPublic: false, botMinReactionSeconds: DEFAULT_BOT_MIN_REACTION_SECONDS };
+export const DEFAULT_ROOM_SETTINGS: RoomSettings = { actionTimerSeconds: 15, turnTimerSeconds: 30, isPublic: false, botMinReactionSeconds: DEFAULT_BOT_MIN_REACTION_SECONDS, gameMode: GameMode.Classic, useInquisitor: false };
 export const PUBLIC_ROOM_LIST_MAX = 50;
 export const MIN_ACTION_TIMER = 10;
 export const MAX_ACTION_TIMER = 60;
@@ -185,13 +193,38 @@ export const ACTION_DEFINITIONS: Record<ActionType, ActionDefinition> = {
     cost: 0,
     requiresTarget: true,
     challengeable: true,
-    blockedBy: [Character.Captain, Character.Ambassador],
+    blockedBy: [Character.Captain, Character.Ambassador, Character.Inquisitor],
   },
   [ActionType.Exchange]: {
     type: ActionType.Exchange,
     claimedCharacter: Character.Ambassador,
     cost: 0,
     requiresTarget: false,
+    challengeable: true,
+    blockedBy: [],
+  },
+  // Reformation expansion actions
+  [ActionType.Convert]: {
+    type: ActionType.Convert,
+    claimedCharacter: null,
+    cost: 0, // Cost is dynamic (1 for self, 2 for other) — handled in resolver
+    requiresTarget: false, // Can target self or another — handled in resolver
+    challengeable: false,
+    blockedBy: [],
+  },
+  [ActionType.Embezzle]: {
+    type: ActionType.Embezzle,
+    claimedCharacter: null, // Inverse claim: proves you DON'T have Duke
+    cost: 0,
+    requiresTarget: false,
+    challengeable: true, // Inverse challenge
+    blockedBy: [],
+  },
+  [ActionType.Examine]: {
+    type: ActionType.Examine,
+    claimedCharacter: Character.Inquisitor,
+    cost: 0,
+    requiresTarget: true,
     challengeable: true,
     blockedBy: [],
   },
@@ -204,6 +237,7 @@ export const CHARACTER_DESCRIPTIONS: Record<Character, string> = {
   [Character.Captain]: 'Steal: Take 2 coins from target. Blocks Steal.',
   [Character.Ambassador]: 'Exchange: Draw 2, return 2. Blocks Steal.',
   [Character.Contessa]: 'Blocks Assassination.',
+  [Character.Inquisitor]: 'Exchange: Draw 1, swap or keep. Examine: Look at opponent card. Blocks Steal.',
 };
 
 // ─── Log Event Icons ───
@@ -230,6 +264,12 @@ export const LOG_EVENT_ICONS: Record<LogEventType, string> = {
   elimination: '☠️',
   win: '🏆',
   bot_replace: '🤖',
+  // Reformation expansion
+  convert: '🔄',
+  embezzle: '💸',
+  examine: '🔍',
+  examine_decision: '🔍',
+  faction_change: '⚔️',
 };
 
 // ─── Character colors (for UI) ───
@@ -239,6 +279,7 @@ export const CHARACTER_COLORS: Record<Character, string> = {
   [Character.Captain]: '#2980b9',
   [Character.Ambassador]: '#27ae60',
   [Character.Contessa]: '#e74c3c',
+  [Character.Inquisitor]: '#0d9488',
 };
 
 // ─── Character icons (emoji placeholders) ───
@@ -248,6 +289,7 @@ export const CHARACTER_ICONS: Record<Character, string> = {
   [Character.Captain]: '🛡️',
   [Character.Ambassador]: '📜',
   [Character.Contessa]: '💃',
+  [Character.Inquisitor]: '🔍',
 };
 
 // ─── Bot Personality Archetypes ───

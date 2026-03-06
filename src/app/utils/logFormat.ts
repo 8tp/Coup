@@ -27,6 +27,11 @@ export function formatLogMessage(message: string, myName: string): string {
     wins: 'win',
     has: 'have',
     does: 'do',
+    converts: 'convert',
+    embezzles: 'embezzle',
+    examines: 'examine',
+    forces: 'force',
+    returns: 'return',
   };
 
   for (const [thirdPerson, secondPerson] of Object.entries(verbMap)) {

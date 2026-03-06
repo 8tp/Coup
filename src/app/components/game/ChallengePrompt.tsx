@@ -1,6 +1,6 @@
 'use client';
 
-import { ClientGameState, TurnPhase } from '@/shared/types';
+import { ActionType, ClientGameState, TurnPhase } from '@/shared/types';
 import { ACTION_DEFINITIONS, ACTION_DISPLAY_NAMES } from '@/shared/constants';
 import { Timer } from '../ui/Timer';
 import { getSocket } from '../../hooks/useSocket';
@@ -29,11 +29,15 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
 
   // Actor sees waiting state
   if (myId === pendingAction.actorId) {
+    const isMyEmbezzle = pendingAction.type === ActionType.Embezzle;
     return (
       <div className="prompt-info">
         <p className="text-center text-gray-300 mb-1">
-          You claimed <span className="text-coup-accent font-bold">{pendingAction.claimedCharacter}</span> to {ACTION_DISPLAY_NAMES[pendingAction.type]}
-          {target && <> on <span className="font-bold">{target.name}</span></>}
+          {isMyEmbezzle
+            ? <>You want to <span className="text-coup-accent font-bold">Embezzle</span> (claiming no Duke)</>
+            : <>You claimed <span className="text-coup-accent font-bold">{pendingAction.claimedCharacter}</span> to {ACTION_DISPLAY_NAMES[pendingAction.type]}
+              {target && <> on <span className="font-bold">{target.name}</span></>}</>
+          }
         </p>
         <p className="text-center text-gray-500 text-xs">Waiting for others to accept or challenge...</p>
         <Timer expiresAt={gameState.timerExpiry} />
@@ -54,9 +58,12 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
   }
 
   // Actionable: can challenge or pass
-  const actionDesc = target
-    ? `${actor?.name} claims ${pendingAction.claimedCharacter} to ${ACTION_DISPLAY_NAMES[pendingAction.type]} ${target.name}`
-    : `${actor?.name} claims ${pendingAction.claimedCharacter} to ${ACTION_DISPLAY_NAMES[pendingAction.type]}`;
+  const isEmbezzle = pendingAction.type === ActionType.Embezzle;
+  const actionDesc = isEmbezzle
+    ? `${actor?.name} wants to Embezzle (claims no Duke)`
+    : target
+      ? `${actor?.name} claims ${pendingAction.claimedCharacter} to ${ACTION_DISPLAY_NAMES[pendingAction.type]} ${target.name}`
+      : `${actor?.name} claims ${pendingAction.claimedCharacter} to ${ACTION_DISPLAY_NAMES[pendingAction.type]}`;
 
   return (
     <div className="prompt-action">
@@ -64,7 +71,9 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
         {actionDesc}
       </p>
       <p className="text-center text-gray-400 text-xs mb-2">
-        Do you think they&apos;re bluffing? Challenge to call them out!
+        {isEmbezzle
+          ? 'Think they actually have a Duke? Challenge to prove it!'
+          : 'Do you think they\u0027re bluffing? Challenge to call them out!'}
       </p>
       <Timer expiresAt={gameState.timerExpiry} />
       <div className="flex gap-3 mt-3">

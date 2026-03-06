@@ -13,6 +13,7 @@ const characterColors: Record<Character, string> = {
   [Character.Captain]: 'border-blue-500 bg-blue-900/40',
   [Character.Ambassador]: 'border-green-500 bg-green-900/40',
   [Character.Contessa]: 'border-red-500 bg-red-900/40',
+  [Character.Inquisitor]: 'border-teal-500 bg-teal-900/40',
 };
 
 interface ExchangeViewProps {
@@ -69,7 +70,7 @@ export function ExchangeView({ gameState }: ExchangeViewProps) {
     <div className="prompt-action">
       <Timer expiresAt={gameState.timerExpiry} />
       <p className="text-center text-coup-accent font-bold text-lg mb-1">
-        Ambassador Exchange
+        {gameState.useInquisitor ? 'Inquisitor' : 'Ambassador'} Exchange
       </p>
       <p className="text-center text-gray-400 text-xs mb-4">
         Tap {keepCount} card{keepCount > 1 ? 's' : ''} to keep. The rest go back to the deck.

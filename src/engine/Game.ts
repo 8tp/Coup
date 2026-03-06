@@ -1,9 +1,11 @@
 import { randomInt } from 'crypto';
 import {
   GameState,
+  GameMode,
   GameStatus,
   TurnPhase,
   Character,
+  Faction,
   LogEntry,
   LogEventType,
 } from '../shared/types';
@@ -21,12 +23,28 @@ export class Game {
   turnNumber: number = 1;
   status: GameStatus = GameStatus.Lobby;
   winnerId: string | null = null;
+  // Reformation expansion
+  gameMode: GameMode = GameMode.Classic;
+  useInquisitor: boolean = false;
+  treasuryReserve: number = 0;
 
   constructor(public readonly roomCode: string) {}
 
-  initialize(playerInfos: Array<{ id: string; name: string }>): void {
+  initialize(playerInfos: Array<{ id: string; name: string }>, options?: { gameMode?: GameMode; useInquisitor?: boolean }): void {
+    this.gameMode = options?.gameMode ?? GameMode.Classic;
+    this.useInquisitor = options?.useInquisitor ?? false;
+    const useInquisitor = this.useInquisitor;
+
+    // Configure deck based on mode
+    if (useInquisitor) {
+      this.deck.setExcludedCharacters([Character.Ambassador]);
+    } else {
+      this.deck.setExcludedCharacters([Character.Inquisitor]);
+    }
+
     this.deck.reset();
     this.deck.shuffle();
+    this.treasuryReserve = 0;
 
     this.players = playerInfos.map((p, index) => {
       const player = new Player(p.id, p.name, index);
@@ -40,6 +58,12 @@ export class Game {
       // Give starting coins
       player.coins = STARTING_COINS;
       this.treasury -= STARTING_COINS;
+
+      // Assign factions in Reformation mode (alternating)
+      if (this.gameMode === GameMode.Reformation) {
+        player.faction = index % 2 === 0 ? Faction.Loyalist : Faction.Reformist;
+      }
+
       return player;
     });
 
@@ -52,6 +76,25 @@ export class Game {
     this.actionLog = [];
 
     this.log(`Game started! ${this.currentPlayer.name}'s turn.`, 'game_start', null, null, null);
+  }
+
+  /** Check if all remaining alive players share the same faction (restrictions lift) */
+  allSameFaction(): boolean {
+    if (this.gameMode !== GameMode.Reformation) return false;
+    const alive = this.getAlivePlayers();
+    if (alive.length <= 1) return true;
+    const firstFaction = alive[0].faction;
+    return alive.every(p => p.faction === firstFaction);
+  }
+
+  /** Check if faction targeting restrictions apply between two players */
+  isFactionRestricted(actorId: string, targetId: string): boolean {
+    if (this.gameMode !== GameMode.Reformation) return false;
+    if (this.allSameFaction()) return false;
+    const actor = this.getPlayer(actorId);
+    const target = this.getPlayer(targetId);
+    if (!actor || !target) return false;
+    return actor.faction === target.faction;
   }
 
   get currentPlayer(): Player {
@@ -163,11 +206,15 @@ export class Game {
       challengeState: null,
       influenceLossRequest: null,
       exchangeState: null,
+      examineState: null,
       blockPassedPlayerIds: [],
       actionLog: [...this.actionLog],
       timerExpiry: null,
       winnerId: this.winnerId,
       turnNumber: this.turnNumber,
+      gameMode: this.gameMode,
+      useInquisitor: this.useInquisitor,
+      treasuryReserve: this.treasuryReserve,
     };
   }
 }

@@ -1,4 +1,4 @@
-import { Character, Influence, PlayerState } from '../shared/types';
+import { Character, Faction, Influence, PlayerState } from '../shared/types';
 
 export class Player {
   readonly id: string;
@@ -6,6 +6,7 @@ export class Player {
   coins: number;
   influences: Influence[];
   seatIndex: number;
+  faction?: Faction;
 
   constructor(id: string, name: string, seatIndex: number) {
     this.id = id;
@@ -66,7 +67,7 @@ export class Player {
 
   /** Serialize to PlayerState */
   toState(): PlayerState {
-    return {
+    const state: PlayerState = {
       id: this.id,
       name: this.name,
       coins: this.coins,
@@ -74,5 +75,9 @@ export class Player {
       isAlive: this.isAlive,
       seatIndex: this.seatIndex,
     };
+    if (this.faction) {
+      state.faction = this.faction;
+    }
+    return state;
   }
 }

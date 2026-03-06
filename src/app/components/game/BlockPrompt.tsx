@@ -1,6 +1,6 @@
 'use client';
 
-import { ClientGameState, TurnPhase, ActionType } from '@/shared/types';
+import { Character, ClientGameState, TurnPhase, ActionType } from '@/shared/types';
 import { ACTION_DEFINITIONS, ACTION_DISPLAY_NAMES } from '@/shared/constants';
 import { CHARACTER_SVG_ICONS } from '../icons';
 import { Timer } from '../ui/Timer';
@@ -79,7 +79,8 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
     subtext = 'Block with Contessa to survive (you don\'t need to actually have her!)';
   } else if (isStealing) {
     headline = `${actor?.name} is trying to steal 2 of your coins!`;
-    subtext = 'Block with Captain or Ambassador to keep your coins';
+    const blocker = gameState.useInquisitor ? 'Captain or Inquisitor' : 'Captain or Ambassador';
+    subtext = `Block with ${blocker} to keep your coins`;
   } else if (isForeignAid) {
     headline = `${actor?.name} is taking Foreign Aid (+2 coins)`;
     subtext = 'Claim Duke to block them from getting coins';
@@ -98,7 +99,13 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
       </p>
       <Timer expiresAt={gameState.timerExpiry} />
       <div className="flex flex-col gap-2 mt-3">
-        {def.blockedBy.map(char => {
+        {def.blockedBy
+          .filter(char => {
+            // Hide Ambassador in Inquisitor mode and vice versa
+            if (gameState.useInquisitor) return char !== Character.Ambassador;
+            return char !== Character.Inquisitor;
+          })
+          .map(char => {
           const Icon = CHARACTER_SVG_ICONS[char];
           return (
             <button

@@ -4,12 +4,14 @@ import { AssassinIcon } from './AssassinIcon';
 import { CaptainIcon } from './CaptainIcon';
 import { AmbassadorIcon } from './AmbassadorIcon';
 import { ContessaIcon } from './ContessaIcon';
+import { InquisitorIcon } from './InquisitorIcon';
 
 export { DukeIcon } from './DukeIcon';
 export { AssassinIcon } from './AssassinIcon';
 export { CaptainIcon } from './CaptainIcon';
 export { AmbassadorIcon } from './AmbassadorIcon';
 export { ContessaIcon } from './ContessaIcon';
+export { InquisitorIcon } from './InquisitorIcon';
 export { CardBack } from './CardBack';
 export { CoinIcon } from './CoinIcon';
 export { CoupLogo } from './CoupLogo';
@@ -20,4 +22,5 @@ export const CHARACTER_SVG_ICONS: Record<Character, React.ComponentType<{ size?:
   [Character.Captain]: CaptainIcon,
   [Character.Ambassador]: AmbassadorIcon,
   [Character.Contessa]: ContessaIcon,
+  [Character.Inquisitor]: InquisitorIcon,
 };

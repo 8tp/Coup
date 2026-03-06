@@ -5,6 +5,7 @@ import {
   ClientInfluence,
   ClientChallengeState,
   ClientExchangeState,
+  ClientExamineState,
   RoomPlayer,
   TurnPhase,
 } from '../shared/types';
@@ -28,6 +29,7 @@ export function serializeForPlayer(state: GameState, playerId: string, roomPlaye
     challengeState: state.challengeState ? serializeChallengeState(state.challengeState) : null,
     influenceLossRequest: state.influenceLossRequest,
     exchangeState: serializeExchangeState(state, playerId),
+    examineState: serializeExamineState(state, playerId),
     blockPassedPlayerIds: state.blockPassedPlayerIds || [],
     actionLog: isGameOver
       ? state.actionLog
@@ -36,6 +38,9 @@ export function serializeForPlayer(state: GameState, playerId: string, roomPlaye
     winnerId: state.winnerId,
     turnNumber: state.turnNumber,
     myId: playerId,
+    gameMode: state.gameMode,
+    useInquisitor: state.useInquisitor,
+    treasuryReserve: state.treasuryReserve,
   };
 }
 
@@ -51,6 +56,7 @@ function serializePlayer(player: import('../shared/types').PlayerState, viewerId
     isAlive: player.isAlive,
     seatIndex: player.seatIndex,
     isBot: roomPlayer?.isBot || undefined,
+    faction: player.faction,
   };
 }
 
@@ -67,6 +73,16 @@ function serializeChallengeState(cs: import('../shared/types').ChallengeState): 
     challengedPlayerId: cs.challengedPlayerId,
     claimedCharacter: cs.claimedCharacter,
     passedPlayerIds: cs.passedPlayerIds,
+  };
+}
+
+function serializeExamineState(state: GameState, playerId: string): ClientExamineState | null {
+  if (!state.examineState) return null;
+  // Only the examiner sees the revealed card
+  if (state.examineState.examinerId !== playerId) return null;
+  return {
+    targetId: state.examineState.targetId,
+    revealedCard: state.examineState.revealedCard,
   };
 }
 

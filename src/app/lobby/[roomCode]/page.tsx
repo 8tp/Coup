@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSocket } from '../../hooks/useSocket';
 import { useGameStore } from '../../stores/gameStore';
 import { MIN_PLAYERS, MAX_PLAYERS, MIN_ACTION_TIMER, MAX_ACTION_TIMER, MIN_TURN_TIMER, MAX_TURN_TIMER, MIN_BOT_REACTION_SECONDS, MAX_BOT_REACTION_SECONDS } from '@/shared/constants';
-import { GameStatus } from '@/shared/types';
+import { GameMode, GameStatus } from '@/shared/types';
 import { ChatPanel } from '../../components/chat/ChatPanel';
 import { AddBotModal } from '../../components/lobby/AddBotModal';
 import { QRShareModal } from '../../components/lobby/QRShareModal';
@@ -28,6 +28,7 @@ export default function LobbyPage() {
     error,
   } = useGameStore();
 
+  const leavingRef = useRef(false);
   const [showAddBotModal, setShowAddBotModal] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -47,6 +48,7 @@ export default function LobbyPage() {
 
   // Redirect home if no session for this room (QR scan / direct link) or rejoin failed
   useEffect(() => {
+    if (leavingRef.current) return;
     // New user (e.g. QR code scan) — no session for this room, redirect immediately
     const storedRoom = sessionStorage.getItem('coup_room');
     if (storedRoom !== roomCode) {
@@ -55,7 +57,7 @@ export default function LobbyPage() {
     }
     // Existing user reconnecting — wait for rejoin socket callback
     const timer = setTimeout(() => {
-      if (!useGameStore.getState().playerId) {
+      if (!leavingRef.current && !useGameStore.getState().playerId) {
         router.replace(`/?join=${roomCode}`);
       }
     }, 2000);
@@ -64,6 +66,7 @@ export default function LobbyPage() {
 
   const handleLeave = () => {
     haptic();
+    leavingRef.current = true;
     leaveRoom();
     useGameStore.getState().clearRoom();
     router.push('/');
@@ -239,6 +242,60 @@ export default function LobbyPage() {
                 <span className="text-sm text-gray-400">{roomSettings.isPublic ? 'Public' : 'Private'}</span>
               )}
             </div>
+
+            {/* Game Mode Toggle */}
+            <div className="flex items-center justify-between mb-4">
+              <label className="text-sm text-gray-300">Game Mode</label>
+              {isHost ? (
+                <div className="flex bg-coup-bg rounded-lg overflow-hidden border border-gray-700">
+                  <button
+                    className={`px-3 py-1 text-xs font-medium transition-colors ${roomSettings.gameMode === GameMode.Classic ? 'bg-coup-accent text-white' : 'text-gray-400 hover:text-gray-200'}`}
+                    onClick={() => {
+                      haptic();
+                      updateRoomSettings({ ...roomSettings, gameMode: GameMode.Classic, useInquisitor: false });
+                    }}
+                  >
+                    Classic
+                  </button>
+                  <button
+                    className={`px-3 py-1 text-xs font-medium transition-colors ${roomSettings.gameMode === GameMode.Reformation ? 'bg-coup-accent text-white' : 'text-gray-400 hover:text-gray-200'}`}
+                    onClick={() => {
+                      haptic();
+                      updateRoomSettings({ ...roomSettings, gameMode: GameMode.Reformation });
+                    }}
+                  >
+                    Reformation
+                  </button>
+                </div>
+              ) : (
+                <span className="text-sm text-gray-400">{roomSettings.gameMode}</span>
+              )}
+            </div>
+
+            {/* Inquisitor Toggle (Reformation only) */}
+            {roomSettings.gameMode === GameMode.Reformation && (
+              <div className="flex items-center justify-between mb-4">
+                <label className="text-sm text-gray-300">Use Inquisitor</label>
+                {isHost ? (
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={roomSettings.useInquisitor}
+                    onClick={() => {
+                      haptic();
+                      updateRoomSettings({ ...roomSettings, useInquisitor: !roomSettings.useInquisitor });
+                    }}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${roomSettings.useInquisitor ? 'bg-coup-accent' : 'bg-gray-600'}`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${roomSettings.useInquisitor ? 'translate-x-6' : 'translate-x-1'}`}
+                    />
+                  </button>
+                ) : (
+                  <span className="text-sm text-gray-400">{roomSettings.useInquisitor ? 'Yes' : 'No'}</span>
+                )}
+              </div>
+            )}
 
             {/* Action Timer */}
             <div className="flex items-center justify-between">

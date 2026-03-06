@@ -8,6 +8,7 @@ import { CoupLogo } from './components/icons';
 import { HowToPlay } from './components/home/HowToPlay';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { StatsModal } from './components/stats/StatsModal';
+import { Tutorial } from './components/tutorial/Tutorial';
 import { MAX_PLAYERS } from '@/shared/constants';
 import { haptic } from './utils/haptic';
 
@@ -33,6 +34,7 @@ function HomeContent() {
   const [showSettings, setShowSettings] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [isPublic, setIsPublic] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   useEffect(() => {
     subscribeToBrowser();
@@ -336,7 +338,8 @@ function HomeContent() {
       </div>
 
       <HowToPlay open={showHowToPlay} onClose={() => setShowHowToPlay(false)} />
-      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
+      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} onOpenTutorial={() => setShowTutorial(true)} />
+      <Tutorial open={showTutorial} onClose={() => setShowTutorial(false)} />
       <StatsModal open={showStats} onClose={() => setShowStats(false)} />
     </div>
   );

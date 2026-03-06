@@ -1,6 +1,6 @@
 import { randomInt, randomBytes } from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
-import { BotPersonality, ChatMessage, GameStatus, PublicRoomInfo, Room, RoomPlayer, RoomSettings } from '../shared/types';
+import { BotPersonality, ChatMessage, GameMode, GameStatus, PublicRoomInfo, Room, RoomPlayer, RoomSettings } from '../shared/types';
 import { CHAT_MAX_HISTORY, CHAT_MAX_MESSAGE_LENGTH, CHAT_RATE_LIMIT_MS, DEFAULT_ROOM_SETTINGS, DISCONNECT_BOT_REPLACE_MS, INACTIVE_ROOM_CLEANUP_MS, MAX_ACTION_TIMER, MAX_BOT_REACTION_SECONDS, MAX_PLAYERS, MAX_TURN_TIMER, MIN_ACTION_TIMER, MIN_BOT_REACTION_SECONDS, MIN_PLAYERS, MIN_TURN_TIMER, PUBLIC_ROOM_LIST_MAX, REACTION_RATE_LIMIT_MS } from '../shared/constants';
 import { GameEngine } from '../engine/GameEngine';
 import { BotController } from './BotController';
@@ -229,7 +229,11 @@ export class RoomManager {
     botReaction = Math.round(botReaction * 2) / 2; // round to nearest 0.5
     botReaction = Math.min(botReaction, timer); // can't exceed action timer
 
-    room.settings = { actionTimerSeconds: timer, turnTimerSeconds: turnTimer, isPublic: !!settings.isPublic, botMinReactionSeconds: botReaction };
+    // Validate game mode and inquisitor settings
+    const gameMode = settings.gameMode === GameMode.Reformation ? GameMode.Reformation : GameMode.Classic;
+    const useInquisitor = gameMode === 'Reformation' ? !!settings.useInquisitor : false;
+
+    room.settings = { actionTimerSeconds: timer, turnTimerSeconds: turnTimer, isPublic: !!settings.isPublic, botMinReactionSeconds: botReaction, gameMode, useInquisitor };
     return { success: true };
   }
 
@@ -274,7 +278,10 @@ export class RoomManager {
     const timerMs = room.settings.actionTimerSeconds * 1000;
     const turnTimerMs = room.settings.turnTimerSeconds * 1000;
     const engine = new GameEngine(roomCode, timerMs, turnTimerMs);
-    engine.startGame(room.players.map(p => ({ id: p.id, name: p.name })));
+    engine.startGame(
+      room.players.map(p => ({ id: p.id, name: p.name })),
+      { gameMode: room.settings.gameMode, useInquisitor: room.settings.useInquisitor },
+    );
 
     this.engines.set(roomCode, engine);
     room.gameState = engine.getFullState();

@@ -5,6 +5,7 @@ export enum Character {
   Captain = 'Captain',
   Ambassador = 'Ambassador',
   Contessa = 'Contessa',
+  Inquisitor = 'Inquisitor',
 }
 
 // ─── Actions ───
@@ -16,6 +17,22 @@ export enum ActionType {
   Assassinate = 'Assassinate',
   Steal = 'Steal',
   Exchange = 'Exchange',
+  // Reformation expansion
+  Convert = 'Convert',
+  Embezzle = 'Embezzle',
+  Examine = 'Examine',
+}
+
+// ─── Game Mode ───
+export enum GameMode {
+  Classic = 'Classic',
+  Reformation = 'Reformation',
+}
+
+// ─── Factions (Reformation) ───
+export enum Faction {
+  Loyalist = 'Loyalist',
+  Reformist = 'Reformist',
 }
 
 // ─── Turn Phases ───
@@ -26,6 +43,7 @@ export enum TurnPhase {
   AwaitingBlockChallenge = 'AwaitingBlockChallenge',
   AwaitingInfluenceLoss = 'AwaitingInfluenceLoss',
   AwaitingExchange = 'AwaitingExchange',
+  AwaitingExamineDecision = 'AwaitingExamineDecision',
   ActionResolved = 'ActionResolved',
   GameOver = 'GameOver',
 }
@@ -52,6 +70,8 @@ export interface PlayerState {
   isAlive: boolean;
   /** Index in the turn order */
   seatIndex: number;
+  /** Faction allegiance (Reformation mode only) */
+  faction?: Faction;
 }
 
 // ─── Pending Action ───
@@ -81,7 +101,17 @@ export interface ChallengeState {
 // ─── Influence Loss Tracking ───
 export interface InfluenceLossRequest {
   playerId: string;
-  reason: 'challenge_lost' | 'assassination' | 'coup' | 'challenge_failed_defense';
+  reason: 'challenge_lost' | 'assassination' | 'coup' | 'challenge_failed_defense' | 'embezzle_failed';
+}
+
+// ─── Examine State (Inquisitor) ───
+export interface ExamineState {
+  examinerId: string;
+  targetId: string;
+  /** The card the inquisitor is looking at (server-side, sent only to examiner) */
+  revealedCard: Character;
+  /** Index of the revealed influence on the target */
+  influenceIndex: number;
 }
 
 // ─── Exchange State ───
@@ -110,6 +140,7 @@ export interface GameState {
   challengeState: ChallengeState | null;
   influenceLossRequest: InfluenceLossRequest | null;
   exchangeState: ExchangeState | null;
+  examineState: ExamineState | null;
 
   // Block pass tracking
   blockPassedPlayerIds: string[];
@@ -125,6 +156,12 @@ export interface GameState {
 
   // Turn number for tracking
   turnNumber: number;
+
+  // Reformation expansion
+  gameMode: GameMode;
+  useInquisitor: boolean;
+  /** Treasury Reserve / Almshouse (coins from conversions) */
+  treasuryReserve: number;
 }
 
 // ─── Log Event Types ───
@@ -135,7 +172,9 @@ export type LogEventType =
   | 'block' | 'block_challenge' | 'block_challenge_fail' | 'block_challenge_success' | 'block_unchallenged'
   | 'influence_loss' | 'exchange' | 'exchange_draw'
   | 'action_resolve' | 'assassination' | 'elimination' | 'win'
-  | 'bot_replace';
+  | 'bot_replace'
+  // Reformation expansion
+  | 'convert' | 'embezzle' | 'examine' | 'examine_decision' | 'faction_change';
 
 // ─── Log Entry ───
 export interface LogEntry {
@@ -167,6 +206,8 @@ export interface ClientGameState {
   influenceLossRequest: InfluenceLossRequest | null;
   /** Only set if the current client is the one exchanging */
   exchangeState: ClientExchangeState | null;
+  /** Only set if the current client is the one examining */
+  examineState: ClientExamineState | null;
   blockPassedPlayerIds: string[];
   actionLog: LogEntry[];
   timerExpiry: number | null;
@@ -174,6 +215,10 @@ export interface ClientGameState {
   turnNumber: number;
   /** The client's own player ID */
   myId: string;
+  // Reformation expansion
+  gameMode: GameMode;
+  useInquisitor: boolean;
+  treasuryReserve: number;
 }
 
 export interface ClientPlayerState {
@@ -184,6 +229,7 @@ export interface ClientPlayerState {
   isAlive: boolean;
   seatIndex: number;
   isBot?: boolean;
+  faction?: Faction;
 }
 
 export interface ClientInfluence {
@@ -204,6 +250,12 @@ export interface ClientExchangeState {
   availableCards: Character[];
   /** How many cards the player must keep */
   keepCount: number;
+}
+
+export interface ClientExamineState {
+  targetId: string;
+  /** The card revealed to the examiner */
+  revealedCard: Character;
 }
 
 // ─── Bot Personality ───
@@ -272,6 +324,9 @@ export interface RoomSettings {
   turnTimerSeconds: number;
   isPublic: boolean;
   botMinReactionSeconds: number;
+  // Reformation expansion
+  gameMode: GameMode;
+  useInquisitor: boolean;
 }
 
 // ─── Public Room Info (for room browser) ───

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createEmptyStats, recordGameResult } from '@/app/utils/statsRecorder';
-import { ClientGameState, TurnPhase, GameStatus, ActionType, Character, LogEntry } from '@/shared/types';
+import { ClientGameState, GameMode, TurnPhase, GameStatus, ActionType, Character, LogEntry } from '@/shared/types';
 import { StoredPlayerStats } from '@/app/types/stats';
 
 function makeLog(entries: Partial<LogEntry>[]): LogEntry[] {
@@ -39,12 +39,16 @@ function makeGameState(overrides: Partial<ClientGameState> = {}): ClientGameStat
     challengeState: null,
     influenceLossRequest: null,
     exchangeState: null,
+    examineState: null,
     blockPassedPlayerIds: [],
     actionLog: [],
     timerExpiry: null,
     winnerId: 'p1',
     turnNumber: 5,
     myId: 'p1',
+    gameMode: GameMode.Classic,
+    useInquisitor: false,
+    treasuryReserve: 0,
     ...overrides,
   };
 }

@@ -22,7 +22,9 @@ export function CaptainIcon({ size = 24, className }: IconProps) {
         stroke="#60a5fa"
         strokeWidth="2.5"
         strokeLinejoin="round"
-      />
+      >
+        <animate attributeName="stroke-opacity" values="1;0.5;1" dur="3s" repeatCount="indefinite" />
+      </path>
       {/* Shield inner border */}
       <path
         d="M32 11L13 19v14c0 11.5 8 16.5 19 21.5 11-5 19-10 19-21.5V19L32 11z"
@@ -37,8 +39,17 @@ export function CaptainIcon({ size = 24, className }: IconProps) {
         strokeWidth="3"
         strokeLinecap="round"
       />
-      {/* Anchor ring */}
-      <circle cx="32" cy="22" r="4" fill="none" stroke="#dbeafe" strokeWidth="2.5" />
+      {/* Anchor ring — slow spin */}
+      <circle cx="32" cy="22" r="4" fill="none" stroke="#dbeafe" strokeWidth="2.5">
+        <animateTransform
+          attributeName="transform"
+          type="rotate"
+          from="0 32 22"
+          to="360 32 22"
+          dur="8s"
+          repeatCount="indefinite"
+        />
+      </circle>
       {/* Anchor arms */}
       <path
         d="M22 38c0-4 4.5-6 10-6s10 2 10 6"

@@ -11,6 +11,7 @@ import { BlockPrompt } from './BlockPrompt';
 import { BlockChallengePrompt } from './BlockChallengePrompt';
 import { InfluenceLossPrompt } from './InfluenceLossPrompt';
 import { ExchangeView } from './ExchangeView';
+import { ExaminePrompt } from './ExaminePrompt';
 import { GameCenterTabs } from './GameCenterTabs';
 import { GameOverOverlay } from './GameOverOverlay';
 import { ChallengeRevealOverlay } from './ChallengeRevealOverlay';
@@ -37,6 +38,7 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
   useSoundEffects();
   const isMuted = useGameStore(s => s.isMuted);
   const setMuted = useGameStore(s => s.setMuted);
+  const reconnecting = useGameStore(s => s.reconnecting);
   const [showRules, setShowRules] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const me = gameState.players.find(p => p.id === gameState.myId);
@@ -84,6 +86,13 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
         </div>
       </div>
 
+      {/* Reconnecting banner */}
+      {reconnecting && (
+        <div className="bg-yellow-900/80 border border-yellow-600 text-yellow-200 text-xs text-center py-1.5 px-3 rounded-lg mb-2 animate-pulse">
+          Reconnecting to server...
+        </div>
+      )}
+
       {/* Phase status banner */}
       <div className="mb-3">
         <PhaseStatus gameState={gameState} />
@@ -123,6 +132,7 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
           <BlockChallengePrompt gameState={gameState} />
           <InfluenceLossPrompt gameState={gameState} />
           <ExchangeView gameState={gameState} />
+          <ExaminePrompt gameState={gameState} />
           <WaitingView gameState={gameState} />
         </div>
       </div>
@@ -131,9 +141,21 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
       {me && (
         <div className="relative mt-2">
           <ReactionBubble playerId={me.id} />
-        <div className={`card-container !px-3 !py-2.5 ${!me.isAlive ? 'opacity-50' : 'border-coup-accent/30'}`}>
+        <div className={`card-container !px-3 !py-2.5 ${!me.isAlive ? 'opacity-50' : 'border-coup-accent/30'} ${
+          me.faction === 'Loyalist' ? 'border-l-[3px] border-l-blue-400 bg-blue-500/[0.07]' :
+          me.faction === 'Reformist' ? 'border-l-[3px] border-l-red-400 bg-red-500/[0.07]' : ''
+        }`}>
           <div className="flex items-center justify-between mb-1">
-            <span className="font-bold text-coup-accent text-sm">Your Hand</span>
+            <span className="font-bold text-coup-accent text-sm flex items-center gap-1.5">
+              Your Hand
+              {me.faction && (
+                <span className={`text-xs font-medium ${
+                  me.faction === 'Loyalist' ? 'text-blue-300' : 'text-red-300'
+                }`}>
+                  ({me.faction})
+                </span>
+              )}
+            </span>
             <span className="flex items-center gap-1 text-coup-gold font-bold text-sm">
               <CoinIcon size={16} />
               {me.coins}

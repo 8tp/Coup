@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ClientPlayerState } from '@/shared/types';
+import { ClientPlayerState, Faction } from '@/shared/types';
 import { CardFace } from './CardFace';
 import { CoinIcon } from '../icons';
 
@@ -87,6 +87,17 @@ export function PlayerSeat({
   selectable,
   timerExpiry,
 }: PlayerSeatProps) {
+  const factionColor = player.faction === Faction.Loyalist
+    ? 'border-l-blue-400'
+    : player.faction === Faction.Reformist
+      ? 'border-l-red-400'
+      : '';
+  const factionBg = player.faction === Faction.Loyalist
+    ? 'bg-blue-500/[0.07]'
+    : player.faction === Faction.Reformist
+      ? 'bg-red-500/[0.07]'
+      : '';
+
   return (
     <div
       className={`card-container text-center relative overflow-hidden
@@ -94,7 +105,8 @@ export function PlayerSeat({
         ${!player.isAlive ? 'opacity-40' : ''}
         ${isTarget ? 'ring-2 ring-red-500' : ''}
         ${selectable ? 'cursor-pointer hover:ring-2 hover:ring-coup-accent' : ''}
-        ${isMe ? 'bg-coup-surface' : '!p-2.5'}`}
+        ${isMe ? 'bg-coup-surface' : '!p-2.5'}
+        ${player.faction ? `border-l-[3px] ${factionColor} ${factionBg}` : ''}`}
       onClick={selectable ? onSelect : undefined}
     >
       <div className={`flex items-center justify-between gap-1.5 ${isMe ? 'mb-2' : 'mb-1'}`}>

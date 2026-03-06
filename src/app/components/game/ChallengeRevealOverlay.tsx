@@ -11,6 +11,7 @@ const characterColors: Record<Character, string> = {
   [Character.Captain]: 'border-blue-500 bg-blue-900/60',
   [Character.Ambassador]: 'border-green-500 bg-green-900/60',
   [Character.Contessa]: 'border-red-500 bg-red-900/60',
+  [Character.Inquisitor]: 'border-teal-500 bg-teal-900/60',
 };
 
 type Phase = 'reveal' | 'card-to-deck' | 'new-card' | 'done';

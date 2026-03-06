@@ -1,6 +1,8 @@
 import {
   ActionType,
   Character,
+  ExamineState,
+  Faction,
   TurnPhase,
   PendingAction,
   PendingBlock,
@@ -16,6 +18,9 @@ import {
   BLOCK_TIMER_MS,
   FORCED_COUP_THRESHOLD,
   EXCHANGE_DRAW_COUNT,
+  INQUISITOR_EXCHANGE_DRAW_COUNT,
+  CONVERSION_SELF_COST,
+  CONVERSION_OTHER_COST,
 } from '../shared/constants';
 import type { ChallengeRevealEvent } from '../shared/types';
 import { Game } from './Game';
@@ -38,7 +43,11 @@ export type SideEffect =
   | { type: 'log'; message: string; eventType: LogEventType; character: Character | null; actorId: string | null; actorName: string | null; targetId?: string | null; wasBluff?: boolean }
   | { type: 'start_exchange'; playerId: string; drawnCards: Character[] }
   | { type: 'win_check' }
-  | { type: 'challenge_reveal'; challengerName: string; challengedName: string; character: Character; wasGenuine: boolean };
+  | { type: 'challenge_reveal'; challengerName: string; challengedName: string; character: Character; wasGenuine: boolean }
+  // Reformation expansion
+  | { type: 'transfer_to_reserve'; playerId: string; amount: number }
+  | { type: 'take_from_reserve'; playerId: string }
+  | { type: 'change_faction'; playerId: string; newFaction: Faction };
 
 export interface ResolverResult {
   newPhase: TurnPhase;
@@ -47,6 +56,7 @@ export interface ResolverResult {
   challengeState: ChallengeState | null;
   influenceLossRequest: InfluenceLossRequest | null;
   exchangeState: ExchangeState | null;
+  examineState?: ExamineState | null;
   sideEffects: SideEffect[];
   /** Players who should be auto-passed in the block phase (e.g., a challenger who already chose to challenge cannot also block) */
   blockAutoPassIds?: string[];
@@ -103,11 +113,34 @@ export class ActionResolver {
       }
     }
 
+    // Faction restriction check (Reformation mode)
+    if (targetId && [ActionType.Coup, ActionType.Assassinate, ActionType.Steal, ActionType.Examine].includes(actionType)) {
+      if (game.isFactionRestricted(actorId, targetId)) {
+        return { error: 'Cannot target a player on your same faction' };
+      }
+    }
+
+    // ─── Convert (Reformation only) ───
+    if (actionType === ActionType.Convert) {
+      return this.resolveConvert(game, actor, targetId);
+    }
+
+    // ─── Embezzle (Reformation only) ───
+    if (actionType === ActionType.Embezzle) {
+      return this.resolveEmbezzle(game, actor);
+    }
+
+    // Determine claimed character — override for Exchange in Inquisitor mode
+    let claimedCharacter = def.claimedCharacter ?? undefined;
+    if (actionType === ActionType.Exchange && this.isInquisitorMode(game)) {
+      claimedCharacter = Character.Inquisitor;
+    }
+
     const pendingAction: PendingAction = {
       type: actionType,
       actorId,
       targetId,
-      claimedCharacter: def.claimedCharacter ?? undefined,
+      claimedCharacter,
     };
 
     const sideEffects: SideEffect[] = [];
@@ -142,17 +175,17 @@ export class ActionResolver {
 
     // Log the action declaration
     const targetName = targetId ? game.getPlayer(targetId)?.name : null;
-    if (def.claimedCharacter) {
+    if (claimedCharacter) {
       const targetPart = targetName ? ` targeting ${targetName}` : '';
       sideEffects.push({
         type: 'log',
-        message: `${actor.name} claims ${def.claimedCharacter} to ${ACTION_DISPLAY_NAMES[actionType]}${targetPart}.`,
+        message: `${actor.name} claims ${claimedCharacter} to ${ACTION_DISPLAY_NAMES[actionType]}${targetPart}.`,
         eventType: 'claim_action',
-        character: def.claimedCharacter,
+        character: claimedCharacter,
         actorId,
         actorName: actor.name,
         targetId: targetId || null,
-        wasBluff: !actor.hasCharacter(def.claimedCharacter),
+        wasBluff: !actor.hasCharacter(claimedCharacter),
       });
     } else {
       sideEffects.push({
@@ -176,7 +209,7 @@ export class ActionResolver {
         challengeState: {
           challengerId: '',
           challengedPlayerId: actorId,
-          claimedCharacter: def.claimedCharacter!,
+          claimedCharacter: claimedCharacter!,
           passedPlayerIds: [actorId], // Actor can't challenge themselves
         },
         influenceLossRequest: null,
@@ -216,6 +249,11 @@ export class ActionResolver {
     if (!challenger || !challenger.isAlive) return { error: 'Invalid challenger' };
     if (challengerId === pendingAction.actorId) return { error: 'Cannot challenge your own action' };
     if (challengeState.passedPlayerIds.includes(challengerId)) return { error: 'You already passed' };
+
+    // Embezzle uses inverse challenge logic
+    if (pendingAction.type === ActionType.Embezzle) {
+      return this.challengeEmbezzle(game, challengerId, pendingAction, challengeState);
+    }
 
     const challenged = game.getPlayer(pendingAction.actorId)!;
     const claimedChar = pendingAction.claimedCharacter!;
@@ -723,8 +761,9 @@ export class ActionResolver {
     const keptCards = keepIndices.map(i => allCards[i]);
     const returnedCards = allCards.filter((_, i) => !keepIndices.includes(i));
 
+    const exchangeChar = pendingAction.claimedCharacter === Character.Inquisitor ? Character.Inquisitor : Character.Ambassador;
     const sideEffects: SideEffect[] = [
-      { type: 'log', message: `${player.name} completes the exchange.`, eventType: 'exchange', character: Character.Ambassador, actorId: playerId, actorName: player.name },
+      { type: 'log', message: `${player.name} completes the exchange.`, eventType: 'exchange', character: exchangeChar, actorId: playerId, actorName: player.name },
     ];
 
     // Return cards to deck
@@ -824,7 +863,16 @@ export class ActionResolver {
       }
 
       case ActionType.Exchange: {
-        const drawnCards = game.deck.drawMultiple(EXCHANGE_DRAW_COUNT);
+        // Inquisitor draws 1 card, Ambassador draws 2
+        const isInquisitor = pendingAction.claimedCharacter === Character.Inquisitor;
+        const drawCount = isInquisitor ? INQUISITOR_EXCHANGE_DRAW_COUNT : EXCHANGE_DRAW_COUNT;
+        const drawnCards = game.deck.drawMultiple(drawCount);
+        if (drawnCards.length === 0) {
+          // Deck exhausted — resolve exchange with no new cards (player keeps current hand)
+          sideEffects.push({ type: 'log', message: `${actor.name} exchanges but the deck is empty.`, eventType: 'exchange', character: pendingAction.claimedCharacter!, actorId: actor.id, actorName: actor.name });
+          sideEffects.push({ type: 'advance_turn' });
+          return this.resolved(sideEffects);
+        }
         sideEffects.push({ type: 'start_exchange', playerId: actor.id, drawnCards });
         return {
           newPhase: TurnPhase.AwaitingExchange,
@@ -837,10 +885,349 @@ export class ActionResolver {
         };
       }
 
+      case ActionType.Examine: {
+        // Inquisitor examines one of target's face-down cards
+        const target = game.getPlayer(pendingAction.targetId!)!;
+        if (!target.isAlive) {
+          sideEffects.push({ type: 'advance_turn' });
+          return this.resolved(sideEffects);
+        }
+        // Pick the first unrevealed influence (in real game, target chooses — simplified to first)
+        const hiddenIndices = target.influences
+          .map((inf, i) => ({ inf, i }))
+          .filter(({ inf }) => !inf.revealed);
+        if (hiddenIndices.length === 0) {
+          sideEffects.push({ type: 'advance_turn' });
+          return this.resolved(sideEffects);
+        }
+        // If target has only 1 hidden card, examine that one. Otherwise pick random.
+        const examIdx = hiddenIndices.length === 1 ? hiddenIndices[0].i : hiddenIndices[0].i;
+        const revealedCard = target.influences[examIdx].character;
+
+        sideEffects.push({
+          type: 'log',
+          message: `${actor.name} examines one of ${target.name}'s cards.`,
+          eventType: 'examine',
+          character: Character.Inquisitor,
+          actorId: actor.id,
+          actorName: actor.name,
+          targetId: target.id,
+        });
+
+        return {
+          newPhase: TurnPhase.AwaitingExamineDecision,
+          pendingAction,
+          pendingBlock: null,
+          challengeState: null,
+          influenceLossRequest: null,
+          exchangeState: null,
+          examineState: {
+            examinerId: actor.id,
+            targetId: target.id,
+            revealedCard,
+            influenceIndex: examIdx,
+          },
+          sideEffects,
+        };
+      }
+
+      case ActionType.Embezzle: {
+        sideEffects.push({ type: 'take_from_reserve', playerId: actor.id });
+        sideEffects.push({
+          type: 'log',
+          message: `${actor.name} embezzles the Treasury Reserve!`,
+          eventType: 'embezzle',
+          character: null,
+          actorId: actor.id,
+          actorName: actor.name,
+        });
+        sideEffects.push({ type: 'advance_turn' });
+        return this.resolved(sideEffects);
+      }
+
       default:
         sideEffects.push({ type: 'advance_turn' });
         return this.resolved(sideEffects);
     }
+  }
+
+  /** Check if game is using Inquisitor instead of Ambassador */
+  private isInquisitorMode(game: Game): boolean {
+    // Check if any Inquisitor cards exist in the deck or player hands
+    const deckHasInquisitor = game.deck.getCards().some(c => c === Character.Inquisitor);
+    const playersHaveInquisitor = game.getAlivePlayers().some(p =>
+      p.influences.some(inf => inf.character === Character.Inquisitor),
+    );
+    return deckHasInquisitor || playersHaveInquisitor;
+  }
+
+  /**
+   * Resolve Convert action (Reformation only).
+   * Self-convert: pay 1 coin to treasury reserve, flip own faction.
+   * Other-convert: pay 2 coins to treasury reserve, flip target's faction.
+   */
+  private resolveConvert(
+    game: Game,
+    actor: Player,
+    targetId?: string,
+  ): ResolverResult | { error: string } {
+    if (game.gameMode !== 'Reformation') {
+      return { error: 'Convert is only available in Reformation mode' };
+    }
+
+    const sideEffects: SideEffect[] = [];
+    const isSelf = !targetId || targetId === actor.id;
+    const cost = isSelf ? CONVERSION_SELF_COST : CONVERSION_OTHER_COST;
+
+    if (actor.coins < cost) {
+      return { error: `Not enough coins (need ${cost}, have ${actor.coins})` };
+    }
+
+    // Pay to treasury reserve
+    sideEffects.push({ type: 'transfer_to_reserve', playerId: actor.id, amount: cost });
+
+    if (isSelf) {
+      const newFaction = actor.faction === Faction.Loyalist ? Faction.Reformist : Faction.Loyalist;
+      sideEffects.push({ type: 'change_faction', playerId: actor.id, newFaction });
+      sideEffects.push({
+        type: 'log',
+        message: `${actor.name} converts to ${newFaction} (${cost} coin to Treasury Reserve).`,
+        eventType: 'convert',
+        character: null,
+        actorId: actor.id,
+        actorName: actor.name,
+      });
+    } else {
+      const target = game.getPlayer(targetId!);
+      if (!target || !target.isAlive) return { error: 'Target not found or eliminated' };
+      const newFaction = target.faction === Faction.Loyalist ? Faction.Reformist : Faction.Loyalist;
+      sideEffects.push({ type: 'change_faction', playerId: target.id, newFaction });
+      sideEffects.push({
+        type: 'log',
+        message: `${actor.name} converts ${target.name} to ${newFaction} (${cost} coins to Treasury Reserve).`,
+        eventType: 'convert',
+        character: null,
+        actorId: actor.id,
+        actorName: actor.name,
+        targetId: target.id,
+      });
+    }
+
+    sideEffects.push({ type: 'advance_turn' });
+    return this.resolved(sideEffects);
+  }
+
+  /**
+   * Resolve Embezzle action (Reformation only).
+   * Take all coins from Treasury Reserve.
+   * Inverse challenge: player claims NOT to have Duke.
+   */
+  private resolveEmbezzle(
+    game: Game,
+    actor: Player,
+  ): ResolverResult | { error: string } {
+    if (game.gameMode !== 'Reformation') {
+      return { error: 'Embezzle is only available in Reformation mode' };
+    }
+
+    if (game.treasuryReserve === 0) {
+      return { error: 'Treasury Reserve is empty' };
+    }
+
+    const sideEffects: SideEffect[] = [];
+
+    sideEffects.push({
+      type: 'log',
+      message: `${actor.name} claims to NOT have Duke and attempts to embezzle the Treasury Reserve (${game.treasuryReserve} coins).`,
+      eventType: 'claim_action',
+      character: Character.Duke,
+      actorId: actor.id,
+      actorName: actor.name,
+      // Inverse bluff: wasBluff = true if they DO have Duke (they're lying about not having it)
+      wasBluff: actor.hasCharacter(Character.Duke),
+    });
+
+    // Embezzle is challengeable (inverse challenge)
+    sideEffects.push({ type: 'set_timer', durationMs: this.timerMs });
+
+    const pendingAction: PendingAction = {
+      type: ActionType.Embezzle,
+      actorId: actor.id,
+      claimedCharacter: Character.Duke, // The character in question for the inverse claim
+    };
+
+    return {
+      newPhase: TurnPhase.AwaitingActionChallenge,
+      pendingAction,
+      pendingBlock: null,
+      challengeState: {
+        challengerId: '',
+        challengedPlayerId: actor.id,
+        claimedCharacter: Character.Duke,
+        passedPlayerIds: [actor.id],
+      },
+      influenceLossRequest: null,
+      exchangeState: null,
+      sideEffects,
+    };
+  }
+
+  /**
+   * Handle challenge for Embezzle (inverse challenge).
+   * If challenged player HAS Duke → challenge succeeds (they lied about not having Duke).
+   * If challenged player does NOT have Duke → challenge fails (they were truthful).
+   */
+  challengeEmbezzle(
+    game: Game,
+    challengerId: string,
+    pendingAction: PendingAction,
+    challengeState: ChallengeState,
+  ): ResolverResult | { error: string } {
+    const challenger = game.getPlayer(challengerId);
+    if (!challenger || !challenger.isAlive) return { error: 'Invalid challenger' };
+    if (challengerId === pendingAction.actorId) return { error: 'Cannot challenge your own action' };
+
+    const challenged = game.getPlayer(pendingAction.actorId)!;
+    const sideEffects: SideEffect[] = [
+      { type: 'clear_timer' },
+      { type: 'log', message: `${challenger.name} challenges ${challenged.name}'s claim of not having Duke!`, eventType: 'challenge', character: Character.Duke, actorId: challengerId, actorName: challenger.name },
+    ];
+
+    // INVERSE: if challenged player HAS Duke, challenge SUCCEEDS (they were lying)
+    if (challenged.hasCharacter(Character.Duke)) {
+      sideEffects.push({
+        type: 'challenge_reveal',
+        challengerName: challenger.name,
+        challengedName: challenged.name,
+        character: Character.Duke,
+        wasGenuine: false, // They claimed not to have Duke but did
+      });
+      sideEffects.push({
+        type: 'log',
+        message: `${challenged.name} DOES have Duke — embezzle fails! ${challenged.name} must lose an influence.`,
+        eventType: 'challenge_success',
+        character: Character.Duke,
+        actorId: challengerId,
+        actorName: challenger.name,
+        targetId: challenged.id,
+      });
+
+      if (challenged.aliveInfluenceCount === 1) {
+        const idx = challenged.influences.findIndex(inf => !inf.revealed);
+        sideEffects.push({ type: 'reveal_influence', playerId: challenged.id, influenceIndex: idx });
+        sideEffects.push({ type: 'eliminate_check', playerId: challenged.id });
+        sideEffects.push({ type: 'win_check' });
+        sideEffects.push({ type: 'advance_turn' });
+        return this.resolved(sideEffects);
+      }
+
+      return {
+        newPhase: TurnPhase.AwaitingInfluenceLoss,
+        pendingAction: null,
+        pendingBlock: null,
+        challengeState: { ...challengeState, challengerId },
+        influenceLossRequest: { playerId: challenged.id, reason: 'challenge_failed_defense' },
+        exchangeState: null,
+        sideEffects,
+      };
+    } else {
+      // Challenge FAILS — challenged player truly doesn't have Duke, challenger loses influence
+      sideEffects.push({
+        type: 'challenge_reveal',
+        challengerName: challenger.name,
+        challengedName: challenged.name,
+        character: Character.Duke,
+        wasGenuine: true, // They truthfully don't have Duke
+      });
+      sideEffects.push({
+        type: 'log',
+        message: `${challenged.name} does NOT have Duke — challenge fails! ${challenger.name} must lose an influence. Embezzle proceeds.`,
+        eventType: 'challenge_fail',
+        character: Character.Duke,
+        actorId: challenged.id,
+        actorName: challenged.name,
+      });
+
+      if (challenger.aliveInfluenceCount === 1) {
+        const idx = challenger.influences.findIndex(inf => !inf.revealed);
+        sideEffects.push({ type: 'reveal_influence', playerId: challengerId, influenceIndex: idx });
+        sideEffects.push({ type: 'eliminate_check', playerId: challengerId });
+        // Embezzle proceeds
+        sideEffects.push({ type: 'take_from_reserve', playerId: challenged.id });
+        sideEffects.push({
+          type: 'log',
+          message: `${challenged.name} embezzles the Treasury Reserve!`,
+          eventType: 'embezzle',
+          character: null,
+          actorId: challenged.id,
+          actorName: challenged.name,
+        });
+        sideEffects.push({ type: 'win_check' });
+        sideEffects.push({ type: 'advance_turn' });
+        return this.resolved(sideEffects);
+      }
+
+      // Challenger must choose influence to lose, then embezzle resolves
+      return {
+        newPhase: TurnPhase.AwaitingInfluenceLoss,
+        pendingAction,
+        pendingBlock: null,
+        challengeState: { ...challengeState, challengerId },
+        influenceLossRequest: { playerId: challengerId, reason: 'challenge_lost' },
+        exchangeState: null,
+        sideEffects,
+      };
+    }
+  }
+
+  /**
+   * Resolve the Inquisitor's examine decision.
+   * forceSwap = true: target's card goes to deck, target draws a new one.
+   * forceSwap = false: return the card (no change).
+   */
+  resolveExamine(
+    game: Game,
+    playerId: string,
+    forceSwap: boolean,
+    examineState: ExamineState,
+    pendingAction: PendingAction,
+  ): ResolverResult | { error: string } {
+    if (examineState.examinerId !== playerId) return { error: 'Not your examine decision' };
+
+    const target = game.getPlayer(examineState.targetId)!;
+    const sideEffects: SideEffect[] = [];
+
+    if (forceSwap) {
+      // Return examined card to deck, draw new one for target
+      const oldChar = examineState.revealedCard;
+      const newCard = game.deck.draw();
+      if (newCard) {
+        game.deck.returnAndShuffle(oldChar);
+        target.influences[examineState.influenceIndex].character = newCard;
+        sideEffects.push({
+          type: 'log',
+          message: `${game.getPlayer(playerId)?.name} forces ${target.name} to swap a card.`,
+          eventType: 'examine_decision',
+          character: Character.Inquisitor,
+          actorId: playerId,
+          actorName: game.getPlayer(playerId)?.name ?? null,
+          targetId: target.id,
+        });
+      }
+    } else {
+      sideEffects.push({
+        type: 'log',
+        message: `${game.getPlayer(playerId)?.name} returns ${target.name}'s card.`,
+        eventType: 'examine_decision',
+        character: Character.Inquisitor,
+        actorId: playerId,
+        actorName: game.getPlayer(playerId)?.name ?? null,
+        targetId: target.id,
+      });
+    }
+
+    sideEffects.push({ type: 'advance_turn' });
+    return this.resolved(sideEffects);
   }
 
   /** Helper: create a resolved result (turn ends) */

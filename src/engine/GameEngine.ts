@@ -3,6 +3,8 @@ import {
   ActionType,
   ChallengeRevealEvent,
   Character,
+  ExamineState,
+  GameMode,
   TurnPhase,
   GameState,
   PendingAction,
@@ -28,6 +30,7 @@ export class GameEngine {
   challengeState: ChallengeState | null = null;
   influenceLossRequest: InfluenceLossRequest | null = null;
   exchangeState: ExchangeState | null = null;
+  examineState: ExamineState | null = null;
   timerExpiry: number | null = null;
   lastChallengeReveal: ChallengeRevealEvent | null = null;
   private timerHandle: ReturnType<typeof setTimeout> | null = null;
@@ -50,8 +53,8 @@ export class GameEngine {
     this.onStateChange = null;
   }
 
-  startGame(playerInfos: Array<{ id: string; name: string }>): void {
-    this.game.initialize(playerInfos);
+  startGame(playerInfos: Array<{ id: string; name: string }>, options?: { gameMode?: GameMode; useInquisitor?: boolean }): void {
+    this.game.initialize(playerInfos, options);
     this.clearTurnState();
 
     // Set turn timer for the first player's action
@@ -72,6 +75,7 @@ export class GameEngine {
     state.challengeState = this.challengeState;
     state.influenceLossRequest = this.influenceLossRequest;
     state.exchangeState = this.exchangeState;
+    state.examineState = this.examineState;
     state.timerExpiry = this.timerExpiry;
     state.blockPassedPlayerIds = this.blockPassedPlayerIds
       ? Array.from(this.blockPassedPlayerIds)
@@ -231,6 +235,32 @@ export class GameEngine {
     return null;
   }
 
+  handleExamineDecision(playerId: string, forceSwap: boolean): string | null {
+    if (!this.examineState || !this.pendingAction) return 'No pending examine';
+    if (this.game.turnPhase !== TurnPhase.AwaitingExamineDecision) return 'Not in examine phase';
+
+    const result = this.resolver.resolveExamine(
+      this.game, playerId, forceSwap, this.examineState, this.pendingAction,
+    );
+    if ('error' in result) return result.error;
+    this.applyResult(result);
+    return null;
+  }
+
+  handleConvert(actorId: string, targetId?: string): string | null {
+    const result = this.resolver.declareAction(this.game, actorId, ActionType.Convert, targetId);
+    if ('error' in result) return result.error;
+    this.applyResult(result);
+    return null;
+  }
+
+  handleEmbezzle(actorId: string): string | null {
+    const result = this.resolver.declareAction(this.game, actorId, ActionType.Embezzle);
+    if ('error' in result) return result.error;
+    this.applyResult(result);
+    return null;
+  }
+
   // ─── Timer ───
 
   handleTimerExpiry(): void {
@@ -252,6 +282,8 @@ export class GameEngine {
       this.handleExchangeTimeout();
     } else if (phase === TurnPhase.AwaitingInfluenceLoss) {
       this.handleInfluenceLossTimeout();
+    } else if (phase === TurnPhase.AwaitingExamineDecision) {
+      this.handleExamineTimeout();
     }
   }
 
@@ -282,6 +314,12 @@ export class GameEngine {
     this.handleChooseExchange(this.exchangeState.playerId, keepIndices);
   }
 
+  private handleExamineTimeout(): void {
+    if (!this.examineState) return;
+    // Default: return the card (no swap)
+    this.handleExamineDecision(this.examineState.examinerId, false);
+  }
+
   private handleInfluenceLossTimeout(): void {
     if (!this.influenceLossRequest) return;
     const player = this.game.getPlayer(this.influenceLossRequest.playerId);
@@ -308,6 +346,7 @@ export class GameEngine {
     this.challengeState = result.challengeState;
     this.influenceLossRequest = result.influenceLossRequest;
     this.exchangeState = result.exchangeState;
+    this.examineState = result.examineState ?? null;
 
     // Clear block tracking when leaving block phase
     if (result.newPhase !== TurnPhase.AwaitingBlock) {
@@ -362,7 +401,8 @@ export class GameEngine {
     if (
       this.turnTimerMs > 0 &&
       (result.newPhase === TurnPhase.AwaitingExchange ||
-       result.newPhase === TurnPhase.AwaitingInfluenceLoss)
+       result.newPhase === TurnPhase.AwaitingInfluenceLoss ||
+       result.newPhase === TurnPhase.AwaitingExamineDecision)
     ) {
       this.clearTimer();
       this.timerExpiry = Date.now() + this.turnTimerMs;
@@ -472,6 +512,31 @@ export class GameEngine {
         };
         break;
       }
+      case 'transfer_to_reserve': {
+        const player = this.game.getPlayer(effect.playerId);
+        if (player) {
+          const actual = Math.min(effect.amount, player.coins);
+          player.removeCoins(actual);
+          this.game.treasuryReserve += actual;
+        }
+        break;
+      }
+      case 'take_from_reserve': {
+        const player = this.game.getPlayer(effect.playerId);
+        if (player) {
+          const actual = this.game.treasuryReserve;
+          this.game.treasuryReserve = 0;
+          player.addCoins(actual);
+        }
+        break;
+      }
+      case 'change_faction': {
+        const player = this.game.getPlayer(effect.playerId);
+        if (player) {
+          player.faction = effect.newFaction;
+        }
+        break;
+      }
     }
   }
 
@@ -481,6 +546,7 @@ export class GameEngine {
     this.challengeState = null;
     this.influenceLossRequest = null;
     this.exchangeState = null;
+    this.examineState = null;
     this.blockPassedPlayerIds = null;
     this.clearTimer();
   }

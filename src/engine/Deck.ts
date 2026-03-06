@@ -4,16 +4,30 @@ import { CARDS_PER_CHARACTER } from '../shared/constants';
 
 export class Deck {
   private cards: Character[] = [];
+  private excludedCharacters: Character[] = [Character.Inquisitor];
+  private cardsPerCharacter: number = CARDS_PER_CHARACTER;
 
   constructor() {
     this.reset();
   }
 
+  /** Configure which characters to exclude (e.g., Ambassador when using Inquisitor) */
+  setExcludedCharacters(excluded: Character[]): void {
+    this.excludedCharacters = excluded;
+  }
+
+  /** Configure cards per character (for player count scaling) */
+  setCardsPerCharacter(count: number): void {
+    this.cardsPerCharacter = count;
+  }
+
   reset(): void {
     this.cards = [];
-    const characters = Object.values(Character);
+    const characters = Object.values(Character).filter(
+      c => !this.excludedCharacters.includes(c),
+    );
     for (const char of characters) {
-      for (let i = 0; i < CARDS_PER_CHARACTER; i++) {
+      for (let i = 0; i < this.cardsPerCharacter; i++) {
         this.cards.push(char);
       }
     }

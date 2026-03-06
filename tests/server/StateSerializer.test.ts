@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { serializeForPlayer } from '@/server/StateSerializer';
 import {
   GameState,
+  GameMode,
   GameStatus,
   TurnPhase,
   Character,
@@ -59,11 +60,15 @@ function createMockGameState(overrides: Partial<GameState> = {}): GameState {
     challengeState: null,
     influenceLossRequest: null,
     exchangeState: null,
+    examineState: null,
     blockPassedPlayerIds: [],
     actionLog: [],
     timerExpiry: null,
     winnerId: null,
     turnNumber: 1,
+    gameMode: GameMode.Classic,
+    useInquisitor: false,
+    treasuryReserve: 0,
     ...overrides,
   };
 }

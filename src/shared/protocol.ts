@@ -1,4 +1,4 @@
-import { ActionType, BotPersonality, ChallengeRevealEvent, Character, ChatMessage, ClientGameState, ClientRoomPlayer, PublicRoomInfo, ReactionEvent, RoomSettings } from './types';
+import { ActionType, BotPersonality, ChallengeRevealEvent, Character, ChatMessage, ClientGameState, ClientRoomPlayer, Faction, PublicRoomInfo, ReactionEvent, RoomSettings } from './types';
 
 // ─── Client → Server Events ───
 export interface ClientToServerEvents {
@@ -17,6 +17,11 @@ export interface ClientToServerEvents {
   'game:pass_challenge_block': () => void;
   'game:choose_influence_loss': (data: { influenceIndex: number }) => void;
   'game:choose_exchange': (data: { keepIndices: number[] }) => void;
+
+  // Reformation expansion
+  'game:convert': (data: { targetId?: string }) => void;
+  'game:embezzle': () => void;
+  'game:examine_decision': (data: { forceSwap: boolean }) => void;
 
   // Chat
   'chat:send': (data: { message: string }) => void;

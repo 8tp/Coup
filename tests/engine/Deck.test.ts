@@ -15,13 +15,16 @@ describe('Deck', () => {
       expect(deck.size).toBe(15);
     });
 
-    it('contains exactly CARDS_PER_CHARACTER of each character', () => {
+    it('contains exactly CARDS_PER_CHARACTER of each non-excluded character', () => {
       const cards = deck.getCards();
-      const characters = Object.values(Character);
+      // Default deck excludes Inquisitor (Classic mode)
+      const characters = Object.values(Character).filter(c => c !== Character.Inquisitor);
       for (const char of characters) {
         const count = cards.filter(c => c === char).length;
         expect(count).toBe(CARDS_PER_CHARACTER);
       }
+      // Inquisitor should not be in deck
+      expect(cards.filter(c => c === Character.Inquisitor).length).toBe(0);
     });
 
     it('resets back to 15 cards after draws', () => {

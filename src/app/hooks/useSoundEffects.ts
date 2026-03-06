@@ -205,6 +205,15 @@ export function useSoundEffects(): void {
       sound.play('exchange');
     }
 
+    // Examine phase starts for you
+    if (
+      curr.turnPhase === TurnPhase.AwaitingExamineDecision &&
+      prev.turnPhase !== TurnPhase.AwaitingExamineDecision &&
+      gameState.examineState
+    ) {
+      sound.play('exchange'); // reuse exchange sound for examine reveal
+    }
+
     // ─── Challenge reveal ───
     if (curr.challengeReveal && curr.challengeReveal !== prev.challengeReveal) {
       if (curr.challengeReveal.wasGenuine) {

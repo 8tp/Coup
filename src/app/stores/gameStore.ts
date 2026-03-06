@@ -6,7 +6,9 @@ import { ChallengeRevealEvent, ChatMessage, ClientGameState, ClientRoomPlayer, P
 interface GameStore {
   // Connection state
   connected: boolean;
+  reconnecting: boolean;
   setConnected: (connected: boolean) => void;
+  setReconnecting: (reconnecting: boolean) => void;
 
   // Room state
   roomCode: string | null;
@@ -57,7 +59,9 @@ interface GameStore {
 
 export const useGameStore = create<GameStore>((set) => ({
   connected: false,
+  reconnecting: false,
   setConnected: (connected) => set({ connected }),
+  setReconnecting: (reconnecting) => set({ reconnecting }),
 
   roomCode: null,
   playerId: null,

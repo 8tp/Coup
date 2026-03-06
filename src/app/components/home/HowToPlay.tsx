@@ -7,7 +7,7 @@ import { CHARACTER_SVG_ICONS } from '../icons';
 import { Modal } from '../ui/Modal';
 import { haptic } from '../../utils/haptic';
 
-const tabs = ['Overview', 'Characters', 'Actions & Rules'] as const;
+const tabs = ['Overview', 'Characters', 'Actions & Rules', 'Reformation'] as const;
 type Tab = typeof tabs[number];
 
 const characterThemes: Record<Character, { bg: string; border: string; label: string }> = {
@@ -16,6 +16,7 @@ const characterThemes: Record<Character, { bg: string; border: string; label: st
   [Character.Captain]: { bg: 'bg-blue-900/30', border: 'border-blue-500', label: 'text-blue-300' },
   [Character.Ambassador]: { bg: 'bg-green-900/30', border: 'border-green-500', label: 'text-green-300' },
   [Character.Contessa]: { bg: 'bg-red-900/30', border: 'border-red-500', label: 'text-red-300' },
+  [Character.Inquisitor]: { bg: 'bg-teal-900/30', border: 'border-teal-500', label: 'text-teal-300' },
 };
 
 interface HowToPlayProps {
@@ -56,6 +57,7 @@ export function HowToPlay({ open, onClose }: HowToPlayProps) {
       {activeTab === 'Overview' && <OverviewTab />}
       {activeTab === 'Characters' && <CharactersTab />}
       {activeTab === 'Actions & Rules' && <RulesTab />}
+      {activeTab === 'Reformation' && <ReformationTab />}
     </Modal>
   );
 }
@@ -244,6 +246,72 @@ function RulesTab() {
           If you have <span className="text-white font-medium">10 or more coins</span> at the
           start of your turn, you <span className="text-white font-medium">must</span> Coup.
           No other action is allowed.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ReformationTab() {
+  return (
+    <div className="space-y-5 text-sm">
+      <div>
+        <h3 className="text-coup-accent font-bold text-base mb-2">What is Reformation?</h3>
+        <p className="text-gray-400">
+          Reformation is an expansion that adds <span className="text-white font-medium">factions</span>,
+          new actions, and the <span className="text-teal-300 font-medium">Inquisitor</span> character.
+          Enable it in the lobby settings before starting a game.
+        </p>
+      </div>
+
+      <div>
+        <h3 className="text-coup-accent font-bold text-base mb-2">Factions</h3>
+        <p className="text-gray-400 mb-2">
+          Each player is assigned to either the <span className="text-blue-300 font-medium">Loyalists</span> or{' '}
+          <span className="text-red-300 font-medium">Reformists</span>. You{' '}
+          <span className="text-white font-medium">cannot target</span> players in your own faction with
+          Coup, Assassinate, Steal, or Examine. If all surviving players share the same faction,
+          this restriction is lifted.
+        </p>
+      </div>
+
+      <div>
+        <h3 className="text-coup-accent font-bold text-base mb-2">New Actions</h3>
+        <div className="space-y-3 text-gray-400">
+          <div>
+            <span className="text-white font-medium">Convert</span> &mdash; Pay 1 coin to switch your own
+            faction, or 2 coins to switch another player&apos;s faction. Coins go to the Treasury Reserve.
+            Cannot be challenged or blocked.
+          </div>
+          <div>
+            <span className="text-white font-medium">Embezzle</span> &mdash; Take all coins from the
+            Treasury Reserve. Claims you do <em>not</em> have a Duke. Uses{' '}
+            <span className="text-white font-medium">inverse challenge</span> logic: a challenger wins
+            if you actually <em>do</em> have a Duke.
+          </div>
+          <div>
+            <span className="text-teal-300 font-medium">Examine</span> &mdash; Look at one of a
+            target&apos;s face-down cards (claims Inquisitor). You can then force them to swap it
+            for a random card from the deck, or return it unchanged.
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-coup-accent font-bold text-base mb-2">Inquisitor</h3>
+        <p className="text-gray-400">
+          Replaces the Ambassador in Reformation mode. The Inquisitor can:{' '}
+          <span className="text-white font-medium">Exchange</span> (draw 1 card instead of 2),{' '}
+          <span className="text-white font-medium">Examine</span> an opponent&apos;s card, and{' '}
+          <span className="text-white font-medium">Block Steal</span> (same as Ambassador/Captain).
+        </p>
+      </div>
+
+      <div>
+        <h3 className="text-coup-accent font-bold text-base mb-2">Treasury Reserve</h3>
+        <p className="text-gray-400">
+          A shared pool of coins separate from the main treasury. Conversion costs go here.
+          The reserve can be claimed via Embezzle.
         </p>
       </div>
     </div>
