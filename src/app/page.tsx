@@ -57,8 +57,8 @@ function HomeContent() {
       const result = await createRoom(name.trim(), isPublic);
       setRoom(result.roomCode, result.playerId);
       router.push(`/lobby/${result.roomCode}`);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
@@ -73,8 +73,8 @@ function HomeContent() {
       const result = await joinRoom(roomCode.trim(), name.trim());
       setRoom(result.roomCode, result.playerId);
       router.push(`/lobby/${result.roomCode}`);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
@@ -88,8 +88,8 @@ function HomeContent() {
       const result = await joinRoom(code, name.trim());
       setRoom(result.roomCode, result.playerId);
       router.push(`/lobby/${result.roomCode}`);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'An error occurred');
     } finally {
       setLoading(false);
     }

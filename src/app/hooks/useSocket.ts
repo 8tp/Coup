@@ -3,12 +3,24 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import type { ClientToServerEvents, ServerToClientEvents } from '@/shared/protocol';
-import type { BotPersonality, RoomSettings } from '@/shared/types';
+import type { BotPersonality, ChallengeRevealEvent, ChatMessage, ClientGameState, ClientRoomPlayer, PublicRoomInfo, RoomSettings } from '@/shared/types';
 import { useGameStore } from '../stores/gameStore';
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
 let globalSocket: TypedSocket | null = null;
+
+const SOCKET_TIMEOUT_MS = 5000;
+
+function withTimeout<T>(promise: Promise<T>, ms = SOCKET_TIMEOUT_MS): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Request timed out')), ms);
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val); },
+      (err) => { clearTimeout(timer); reject(err); },
+    );
+  });
+}
 
 export function getSocket(): TypedSocket {
   if (!globalSocket) {
@@ -41,6 +53,7 @@ export function useSocket() {
 
   useEffect(() => {
     const socket = socketRef.current;
+    const errorTimers: ReturnType<typeof setTimeout>[] = [];
 
     if (!socket.connected) {
       socket.connect();
@@ -92,29 +105,29 @@ export function useSocket() {
       useGameStore.getState().setReconnecting(false);
     };
 
-    const onRoomUpdatedRaw = (data: { players: any; hostId: string; settings: any; lastWinnerId?: string | null }) => {
+    const onRoomUpdatedRaw = (data: { players: ClientRoomPlayer[]; hostId: string; settings: RoomSettings; lastWinnerId?: string | null }) => {
       setRoomPlayers(data.players, data.hostId, data.settings, data.lastWinnerId);
     };
 
-    const onGameState = (state: any) => {
+    const onGameState = (state: ClientGameState) => {
       setGameState(state);
     };
 
     const onGameError = (data: { message: string }) => {
       setError(data.message);
-      setTimeout(() => setError(null), 3000);
+      errorTimers.push(setTimeout(() => setError(null), 3000));
     };
 
     const onRoomError = (data: { message: string }) => {
       setError(data.message);
-      setTimeout(() => setError(null), 3000);
+      errorTimers.push(setTimeout(() => setError(null), 3000));
     };
 
-    const onChatMessage = (data: any) => {
+    const onChatMessage = (data: ChatMessage) => {
       addChatMessage(data);
     };
 
-    const onChatHistory = (data: { messages: any[] }) => {
+    const onChatHistory = (data: { messages: ChatMessage[] }) => {
       setChatHistory(data.messages);
     };
 
@@ -122,11 +135,11 @@ export function useSocket() {
       setGameState(null);
     };
 
-    const onChallengeReveal = (data: any) => {
+    const onChallengeReveal = (data: ChallengeRevealEvent) => {
       setChallengeReveal(data);
     };
 
-    const onBrowserList = (data: { rooms: any[] }) => {
+    const onBrowserList = (data: { rooms: PublicRoomInfo[] }) => {
       setPublicRooms(data.rooms);
     };
 
@@ -156,6 +169,7 @@ export function useSocket() {
     socket.on('server:stats', onServerStats);
 
     return () => {
+      errorTimers.forEach(clearTimeout);
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
       socket.io.off('reconnect_attempt', onReconnectAttempt);
@@ -176,7 +190,7 @@ export function useSocket() {
   }, [setConnected, setRoomPlayers, setGameState, setError, addChatMessage, setChatHistory, setChallengeReveal, setPublicRooms, setReaction, setServerStats]);
 
   const createRoom = useCallback((playerName: string, isPublic?: boolean): Promise<{ roomCode: string; playerId: string }> => {
-    return new Promise((resolve, reject) => {
+    return withTimeout(new Promise((resolve, reject) => {
       socketRef.current.emit('room:create', { playerName, isPublic }, (response) => {
         if (response.success && response.roomCode && response.playerId) {
           sessionStorage.setItem('coup_room', response.roomCode);
@@ -189,11 +203,11 @@ export function useSocket() {
           reject(new Error(response.error || 'Failed to create room'));
         }
       });
-    });
+    }));
   }, []);
 
   const joinRoom = useCallback((roomCode: string, playerName: string): Promise<{ roomCode: string; playerId: string }> => {
-    return new Promise((resolve, reject) => {
+    return withTimeout(new Promise((resolve, reject) => {
       socketRef.current.emit('room:join', { roomCode, playerName }, (response) => {
         if (response.success && response.roomCode && response.playerId) {
           sessionStorage.setItem('coup_room', response.roomCode);
@@ -206,7 +220,7 @@ export function useSocket() {
           reject(new Error(response.error || 'Failed to join room'));
         }
       });
-    });
+    }));
   }, []);
 
   const startGame = useCallback(() => {
@@ -229,7 +243,7 @@ export function useSocket() {
   }, []);
 
   const addBot = useCallback((name: string, personality: BotPersonality): Promise<string> => {
-    return new Promise((resolve, reject) => {
+    return withTimeout(new Promise((resolve, reject) => {
       socketRef.current.emit('bot:add', { name, personality }, (response) => {
         if (response.success && response.botId) {
           resolve(response.botId);
@@ -237,11 +251,11 @@ export function useSocket() {
           reject(new Error(response.error || 'Failed to add bot'));
         }
       });
-    });
+    }));
   }, []);
 
   const updateRoomSettings = useCallback((settings: RoomSettings): Promise<void> => {
-    return new Promise((resolve, reject) => {
+    return withTimeout(new Promise((resolve, reject) => {
       socketRef.current.emit('room:update_settings', { settings }, (response) => {
         if (response.success) {
           resolve();
@@ -249,11 +263,11 @@ export function useSocket() {
           reject(new Error(response.error || 'Failed to update settings'));
         }
       });
-    });
+    }));
   }, []);
 
   const removeBot = useCallback((botId: string): Promise<void> => {
-    return new Promise((resolve, reject) => {
+    return withTimeout(new Promise((resolve, reject) => {
       socketRef.current.emit('bot:remove', { botId }, (response) => {
         if (response.success) {
           resolve();
@@ -261,7 +275,7 @@ export function useSocket() {
           reject(new Error(response.error || 'Failed to remove bot'));
         }
       });
-    });
+    }));
   }, []);
 
   const sendReaction = useCallback((reactionId: string) => {
