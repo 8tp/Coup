@@ -598,6 +598,11 @@ export class SocketHandler {
     });
 
     socket.on('game:choose_exchange', (data) => {
+      if (!this.checkRateLimit(socket.id, 'game:action', RATE_LIMIT_GAME_ACTION_MS)) {
+        socket.emit('game:error', { message: 'Too many requests, please wait' });
+        return;
+      }
+
       const ctx = this.getGameContext(socket);
       if (!ctx) return;
 
