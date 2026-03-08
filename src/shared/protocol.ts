@@ -62,6 +62,7 @@ export interface ServerToClientEvents {
   'chat:history': (data: { messages: ChatMessage[] }) => void;
   'game:challenge_reveal': (data: ChallengeRevealEvent) => void;
   'game:rematch_to_lobby': () => void;
+  'spectator:promoted': (data: { playerId: string; sessionToken: string }) => void;
   'reaction:fired': (data: ReactionEvent) => void;
   'browser:list': (data: { rooms: PublicRoomInfo[] }) => void;
   'server:stats': (data: { playersOnline: number; gamesInProgress: number }) => void;

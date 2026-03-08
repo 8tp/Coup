@@ -310,13 +310,19 @@ export interface RoomPlayer {
   connected: boolean;
   isBot?: boolean;
   personality?: BotPersonality;
+  /** Resolved personality params for random bots, persisted across rematches */
+  resolvedPersonality?: PersonalityParams;
+  /** Persisted emotiveness trait (0-1), survives rematches */
+  emotiveness?: number;
+  /** Persisted meanness trait (0-1), survives rematches */
+  meanness?: number;
   replacedByBot?: boolean;
   wins?: number;
   /** Server-only session token for rejoin authentication (never serialized to clients) */
   sessionToken?: string;
 }
 
-export type ClientRoomPlayer = Omit<RoomPlayer, 'socketId' | 'sessionToken'>;
+export type ClientRoomPlayer = Omit<RoomPlayer, 'socketId' | 'sessionToken' | 'resolvedPersonality' | 'emotiveness' | 'meanness'>;
 
 // ─── Spectators ───
 export interface Spectator {

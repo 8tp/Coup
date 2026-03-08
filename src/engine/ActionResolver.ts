@@ -955,12 +955,7 @@ export class ActionResolver {
 
   /** Check if game is using Inquisitor instead of Ambassador */
   private isInquisitorMode(game: Game): boolean {
-    // Check if any Inquisitor cards exist in the deck or player hands
-    const deckHasInquisitor = game.deck.getCards().some(c => c === Character.Inquisitor);
-    const playersHaveInquisitor = game.getAlivePlayers().some(p =>
-      p.influences.some(inf => inf.character === Character.Inquisitor),
-    );
-    return deckHasInquisitor || playersHaveInquisitor;
+    return game.useInquisitor;
   }
 
   /**

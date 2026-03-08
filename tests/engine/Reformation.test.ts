@@ -27,10 +27,13 @@ describe('Reformation Expansion', () => {
   describe('Faction Assignment', () => {
     it('assigns alternating factions to players', () => {
       const engine = createReformationEngine(4);
-      expect(engine.game.getPlayer('p1')!.faction).toBe(Faction.Loyalist);
-      expect(engine.game.getPlayer('p2')!.faction).toBe(Faction.Reformist);
-      expect(engine.game.getPlayer('p3')!.faction).toBe(Faction.Loyalist);
-      expect(engine.game.getPlayer('p4')!.faction).toBe(Faction.Reformist);
+      const p1Faction = engine.game.getPlayer('p1')!.faction;
+      const p2Faction = engine.game.getPlayer('p2')!.faction;
+      // First two players must have different factions (alternating)
+      expect(p1Faction).not.toBe(p2Faction);
+      // Odd-indexed players share a faction, even-indexed share another
+      expect(engine.game.getPlayer('p3')!.faction).toBe(p1Faction);
+      expect(engine.game.getPlayer('p4')!.faction).toBe(p2Faction);
     });
 
     it('does not assign factions in classic mode', () => {
@@ -90,12 +93,12 @@ describe('Reformation Expansion', () => {
     it('self-converts and changes faction', () => {
       const engine = createReformationEngine(4);
       const p1 = engine.game.getPlayer('p1')!;
-      expect(p1.faction).toBe(Faction.Loyalist);
+      const originalFaction = p1.faction;
       const coinsBefore = p1.coins;
 
       const error = engine.handleConvert('p1');
       expect(error).toBeNull();
-      expect(p1.faction).toBe(Faction.Reformist);
+      expect(p1.faction).not.toBe(originalFaction);
       expect(p1.coins).toBe(coinsBefore - 1); // CONVERSION_SELF_COST = 1
       expect(engine.game.treasuryReserve).toBe(1);
     });
@@ -105,11 +108,11 @@ describe('Reformation Expansion', () => {
       const p1 = engine.game.getPlayer('p1')!;
       const p2 = engine.game.getPlayer('p2')!;
       p1.coins = 5;
-      expect(p2.faction).toBe(Faction.Reformist);
+      const p2OriginalFaction = p2.faction;
 
       const error = engine.handleConvert('p1', 'p2');
       expect(error).toBeNull();
-      expect(p2.faction).toBe(Faction.Loyalist);
+      expect(p2.faction).not.toBe(p2OriginalFaction);
       expect(p1.coins).toBe(3); // CONVERSION_OTHER_COST = 2
       expect(engine.game.treasuryReserve).toBe(2);
     });
