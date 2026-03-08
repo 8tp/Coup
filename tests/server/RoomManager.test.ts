@@ -20,7 +20,7 @@ describe('RoomManager', () => {
     it('creates a room with a code and a player', () => {
       const { room, playerId } = manager.createRoom('Alice', 'socket1');
       expect(room.code).toBeDefined();
-      expect(room.code.length).toBe(6);
+      expect(room.code.length).toBe(4);
       expect(room.hostId).toBe(playerId);
       expect(room.players).toHaveLength(1);
       expect(room.players[0].name).toBe('Alice');

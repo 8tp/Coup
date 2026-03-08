@@ -27,11 +27,11 @@ export class RoomManager {
   }
 
   generateRoomCode(): string {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No ambiguous chars
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // Letters only, no ambiguous chars
     let code: string;
     do {
       code = '';
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < 4; i++) {
         code += chars[randomInt(chars.length)];
       }
     } while (this.rooms.has(code));
