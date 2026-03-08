@@ -87,7 +87,7 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
           className="btn-secondary flex-1"
           onClick={() => { haptic(80); socket.emit('game:pass_challenge'); }}
         >
-          Let it go
+          Pass
         </button>
       </div>
     </div>

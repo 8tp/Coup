@@ -42,7 +42,7 @@ export function PhaseStatus({ gameState }: PhaseStatusProps) {
       if (myId === pendingAction?.actorId) {
         text = `Waiting — target may block your ${pendingAction ? ACTION_DISPLAY_NAMES[pendingAction.type] : 'action'}`;
       } else if (isTarget) {
-        text = `${actor?.name} is targeting you — Block or let it happen?`;
+        text = `${actor?.name} is targeting you — Block or allow?`;
         color = 'bg-red-900/40 text-red-300 border border-red-600/50';
       } else {
         text = `Waiting for block decision on ${actor?.name}'s ${pendingAction ? ACTION_DISPLAY_NAMES[pendingAction.type] : 'action'}`;
