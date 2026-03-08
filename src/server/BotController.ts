@@ -61,15 +61,23 @@ export class BotController {
       .filter(p => p.isBot)
       .map(p => {
         const personalityType = p.personality ?? DEFAULT_BOT_PERSONALITY;
+        // Use persisted personality/traits if available (survives rematches), otherwise resolve fresh
+        const personality = p.resolvedPersonality ?? resolvePersonality(personalityType);
+        const emotiveness = p.emotiveness ?? Math.random();
+        const meanness = p.meanness ?? Math.random();
+        // Persist back to RoomPlayer so these survive rematches
+        p.resolvedPersonality = personality;
+        p.emotiveness = emotiveness;
+        p.meanness = meanness;
         return {
           id: p.id,
           name: p.name,
           personalityType,
-          personality: resolvePersonality(personalityType),
+          personality,
           deckMemory: new Map<Character, number>(),
           lastProcessedLogLength: 0,
-          emotiveness: Math.random(),
-          meanness: Math.random(),
+          emotiveness,
+          meanness,
           lastEmoteLogLength: 0,
           lastEmoteTime: 0,
         };
@@ -275,6 +283,12 @@ export class BotController {
     const state = this.engine.getFullState();
 
     for (const bot of this.bots) {
+      // Eliminated bots don't react
+      const botPlayer = game.getPlayer(bot.id);
+      if (botPlayer && !botPlayer.isAlive) {
+        bot.lastEmoteLogLength = logLength;
+        continue;
+      }
       // Scan new log entries since last emote check
       for (let i = bot.lastEmoteLogLength; i < logLength; i++) {
         const entry = game.actionLog[i];

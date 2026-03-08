@@ -46,6 +46,9 @@ export class Game {
     this.deck.shuffle();
     this.treasuryReserve = 0;
 
+    // Randomize which faction is assigned to the first player slot
+    const startWithLoyalist = Math.random() < 0.5;
+
     this.players = playerInfos.map((p, index) => {
       const player = new Player(p.id, p.name, index);
       // Deal cards
@@ -59,9 +62,10 @@ export class Game {
       player.coins = STARTING_COINS;
       this.treasury -= STARTING_COINS;
 
-      // Assign factions in Reformation mode (alternating)
+      // Assign factions in Reformation mode (alternating, random starting faction)
       if (this.gameMode === GameMode.Reformation) {
-        player.faction = index % 2 === 0 ? Faction.Loyalist : Faction.Reformist;
+        const isEven = index % 2 === 0;
+        player.faction = (isEven === startWithLoyalist) ? Faction.Loyalist : Faction.Reformist;
       }
 
       return player;

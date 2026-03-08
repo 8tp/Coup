@@ -523,10 +523,19 @@ export class SocketHandler {
         }
 
         console.log(`Rematch initiated in room ${found.room.code}`);
-        const room = this.roomManager.resetToLobby(found.room.code);
-        if (!room) return;
+        const result = this.roomManager.resetToLobby(found.room.code);
+        if (!result) return;
+
+        const { room, promoted } = result;
 
         this.io.to(room.code).emit('game:rematch_to_lobby');
+
+        // Notify promoted spectators so they switch to player mode
+        for (const { spectator, playerId, sessionToken } of promoted) {
+          this.io.to(spectator.socketId).emit('spectator:promoted', { playerId, sessionToken });
+          console.log(`Spectator ${spectator.name} promoted to player in room ${room.code}`);
+        }
+
         this.broadcastRoomUpdate(room.code);
         this.maybeBroadcastPublicRoomList(room);
         this.broadcastServerStats();

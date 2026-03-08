@@ -673,25 +673,33 @@ export class BotBrain {
       if (!game.allSameFaction()) {
         const factionTargets = alivePlayers.filter(p => p.id !== botId && p.faction !== bot.faction);
         if (factionTargets.length === 0 && bot.coins >= 1) {
-          // No valid targets — must convert to unlock targeting
+          // No valid targets — must self-convert to unlock targeting
           candidates.push({ action: ActionType.Convert, weight: 6 });
         } else if (bot.coins >= 2) {
           // Strategic convert: consider converting the coin leader to our faction (protects them from us but denies others)
           const leader = [...alivePlayers].filter(p => p.id !== botId).sort((a, b) => b.coins - a.coins)[0];
           if (leader && leader.faction !== bot.faction && leader.coins >= COUP_COST) {
             // Convert the leader to our faction — they can't be targeted by same-faction allies
-            candidates.push({ action: ActionType.Convert, weight: 1.5 * personality.leaderBias });
+            candidates.push({ action: ActionType.Convert, targetId: leader.id, weight: 1.5 * personality.leaderBias });
           }
           // Convert an opponent to create faction imbalance (more same-faction = fewer targets for them)
           const sameFactionCount = alivePlayers.filter(p => p.faction === bot.faction).length;
           const oppFactionCount = alivePlayers.filter(p => p.faction !== bot.faction).length;
           if (oppFactionCount > sameFactionCount + 1) {
-            // We're outnumbered in faction — convert someone to balance
-            candidates.push({ action: ActionType.Convert, weight: 1.0 });
+            // We're outnumbered in faction — convert an opposite-faction player to balance
+            const oppPlayers = alivePlayers.filter(p => p.id !== botId && p.faction !== bot.faction);
+            if (oppPlayers.length > 0) {
+              const convertTarget = oppPlayers[Math.floor(Math.random() * oppPlayers.length)];
+              candidates.push({ action: ActionType.Convert, targetId: convertTarget.id, weight: 1.0 });
+            }
           }
-          // Small baseline chance for strategic conversion
+          // Small baseline chance for strategic conversion of a random opponent
           if (Math.random() < 0.1) {
-            candidates.push({ action: ActionType.Convert, weight: 0.3 });
+            const oppPlayers = alivePlayers.filter(p => p.id !== botId && p.faction !== bot.faction);
+            if (oppPlayers.length > 0) {
+              const convertTarget = oppPlayers[Math.floor(Math.random() * oppPlayers.length)];
+              candidates.push({ action: ActionType.Convert, targetId: convertTarget.id, weight: 0.3 });
+            }
           }
         }
       }

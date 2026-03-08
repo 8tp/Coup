@@ -292,11 +292,21 @@ export class GameEngine {
     if (!actor || !actor.isAlive) return;
 
     if (actor.coins >= FORCED_COUP_THRESHOLD) {
-      // Must coup — pick a random alive opponent
-      const targets = this.game.getAlivePlayers().filter(p => p.id !== actor.id);
+      // Must coup — pick a random alive opponent respecting faction restrictions
+      let targets = this.game.getAlivePlayers().filter(p => p.id !== actor.id);
+      if (this.game.gameMode === GameMode.Reformation && !this.game.allSameFaction()) {
+        const legalTargets = targets.filter(p => p.faction !== actor.faction);
+        if (legalTargets.length > 0) {
+          targets = legalTargets;
+        }
+      }
       if (targets.length === 0) return;
       const target = targets[randomInt(targets.length)];
-      this.handleAction(actor.id, ActionType.Coup, target.id);
+      const error = this.handleAction(actor.id, ActionType.Coup, target.id);
+      if (error) {
+        // Fallback to income if coup was rejected
+        this.handleAction(actor.id, ActionType.Income);
+      }
     } else {
       // Auto-Income
       this.handleAction(actor.id, ActionType.Income);

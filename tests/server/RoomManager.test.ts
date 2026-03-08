@@ -374,8 +374,8 @@ describe('RoomManager', () => {
 
       const reset = manager.resetToLobby(room.code);
       expect(reset).not.toBeNull();
-      expect(reset!.players).toHaveLength(2);
-      const bot = reset!.players.find(p => p.isBot);
+      expect(reset!.room.players).toHaveLength(2);
+      const bot = reset!.room.players.find(p => p.isBot);
       expect(bot).toBeDefined();
       expect(bot!.name).toBe('Bot1');
     });
@@ -393,9 +393,9 @@ describe('RoomManager', () => {
       const reset = manager.resetToLobby(room.code);
       expect(reset).not.toBeNull();
       // Alice (connected) + Bot1 = 2, Bob (disconnected) removed
-      expect(reset!.players).toHaveLength(2);
-      expect(reset!.players.find(p => p.name === 'Bob')).toBeUndefined();
-      expect(reset!.players.find(p => p.isBot)).toBeDefined();
+      expect(reset!.room.players).toHaveLength(2);
+      expect(reset!.room.players.find(p => p.name === 'Bob')).toBeUndefined();
+      expect(reset!.room.players.find(p => p.isBot)).toBeDefined();
     });
 
     it('reassigns host to human when current host is disconnected', () => {
@@ -411,8 +411,8 @@ describe('RoomManager', () => {
       const reset = manager.resetToLobby(room.code);
       expect(reset).not.toBeNull();
       // Host should be Bob (human), not Bot1
-      const bob = reset!.players.find(p => p.name === 'Bob')!;
-      expect(reset!.hostId).toBe(bob.id);
+      const bob = reset!.room.players.find(p => p.name === 'Bob')!;
+      expect(reset!.room.hostId).toBe(bob.id);
     });
 
     it('deletes room if only bots remain after rematch', () => {
@@ -438,7 +438,7 @@ describe('RoomManager', () => {
 
       const reset = manager.resetToLobby(room.code);
       expect(reset).not.toBeNull();
-      expect(reset!.gameState).toBeNull();
+      expect(reset!.room.gameState).toBeNull();
       expect(manager.getEngine(room.code)).toBeUndefined();
     });
   });
@@ -588,7 +588,7 @@ describe('RoomManager', () => {
 
       const reset = manager.resetToLobby(room.code);
       expect(reset).not.toBeNull();
-      expect(reset!.settings.actionTimerSeconds).toBe(45);
+      expect(reset!.room.settings.actionTimerSeconds).toBe(45);
     });
   });
 
@@ -740,7 +740,7 @@ describe('RoomManager', () => {
 
       const reset = manager.resetToLobby(room.code);
       expect(reset).not.toBeNull();
-      expect(reset!.settings.isPublic).toBe(true);
+      expect(reset!.room.settings.isPublic).toBe(true);
     });
   });
 

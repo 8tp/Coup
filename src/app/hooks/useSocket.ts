@@ -68,23 +68,44 @@ export function useSocket() {
       const storedRoom = sessionStorage.getItem('coup_room');
       const storedPlayer = sessionStorage.getItem('coup_player');
       const storedToken = sessionStorage.getItem('coup_session_token');
+      const isSpectator = sessionStorage.getItem('coup_spectator') === 'true';
       if (storedRoom && storedPlayer) {
-        socket.emit('room:rejoin', {
-          roomCode: storedRoom,
-          playerId: storedPlayer,
-          sessionToken: storedToken ?? undefined,
-        }, (response) => {
-          if (response.success) {
-            // Restore store state from sessionStorage after reconnection
-            useGameStore.getState().setRoom(storedRoom, storedPlayer);
-          } else {
-            sessionStorage.removeItem('coup_room');
-            sessionStorage.removeItem('coup_player');
-            sessionStorage.removeItem('coup_session_token');
-            useGameStore.getState().clearRoom();
-            useGameStore.getState().setGameState(null);
-          }
-        });
+        if (isSpectator) {
+          // Spectators re-spectate instead of attempting player rejoin
+          const storedName = sessionStorage.getItem('coup_player_name') || 'Spectator';
+          socket.emit('room:spectate', {
+            roomCode: storedRoom,
+            playerName: storedName,
+          }, (response) => {
+            if (response.success && response.spectatorId) {
+              sessionStorage.setItem('coup_player', response.spectatorId);
+              useGameStore.getState().setRoom(storedRoom, response.spectatorId);
+            } else {
+              sessionStorage.removeItem('coup_room');
+              sessionStorage.removeItem('coup_player');
+              sessionStorage.removeItem('coup_spectator');
+              useGameStore.getState().clearRoom();
+              useGameStore.getState().setGameState(null);
+            }
+          });
+        } else {
+          socket.emit('room:rejoin', {
+            roomCode: storedRoom,
+            playerId: storedPlayer,
+            sessionToken: storedToken ?? undefined,
+          }, (response) => {
+            if (response.success) {
+              // Restore store state from sessionStorage after reconnection
+              useGameStore.getState().setRoom(storedRoom, storedPlayer);
+            } else {
+              sessionStorage.removeItem('coup_room');
+              sessionStorage.removeItem('coup_player');
+              sessionStorage.removeItem('coup_session_token');
+              useGameStore.getState().clearRoom();
+              useGameStore.getState().setGameState(null);
+            }
+          });
+        }
       }
     };
 
@@ -135,6 +156,19 @@ export function useSocket() {
       setGameState(null);
     };
 
+    const onSpectatorPromoted = (data: { playerId: string; sessionToken: string }) => {
+      // Spectator has been promoted to a player in the lobby
+      const storedRoom = sessionStorage.getItem('coup_room');
+      if (storedRoom) {
+        sessionStorage.setItem('coup_player', data.playerId);
+        sessionStorage.setItem('coup_session_token', data.sessionToken);
+        sessionStorage.removeItem('coup_spectator');
+        sessionStorage.removeItem('coup_player_name');
+        useGameStore.getState().setRoom(storedRoom, data.playerId);
+        setGameState(null);
+      }
+    };
+
     const onChallengeReveal = (data: ChallengeRevealEvent) => {
       setChallengeReveal(data);
     };
@@ -163,6 +197,7 @@ export function useSocket() {
     socket.on('chat:message', onChatMessage);
     socket.on('chat:history', onChatHistory);
     socket.on('game:rematch_to_lobby', onRematchToLobby);
+    socket.on('spectator:promoted', onSpectatorPromoted);
     socket.on('game:challenge_reveal', onChallengeReveal);
     socket.on('browser:list', onBrowserList);
     socket.on('reaction:fired', onReactionFired);
@@ -182,6 +217,7 @@ export function useSocket() {
       socket.off('chat:message', onChatMessage);
       socket.off('chat:history', onChatHistory);
       socket.off('game:rematch_to_lobby', onRematchToLobby);
+      socket.off('spectator:promoted', onSpectatorPromoted);
       socket.off('game:challenge_reveal', onChallengeReveal);
       socket.off('browser:list', onBrowserList);
       socket.off('reaction:fired', onReactionFired);
@@ -289,6 +325,7 @@ export function useSocket() {
           sessionStorage.setItem('coup_room', response.roomCode);
           sessionStorage.setItem('coup_player', response.spectatorId);
           sessionStorage.setItem('coup_spectator', 'true');
+          sessionStorage.setItem('coup_player_name', playerName);
           resolve({ roomCode: response.roomCode, spectatorId: response.spectatorId });
         } else {
           reject(new Error(response.error || 'Failed to spectate'));

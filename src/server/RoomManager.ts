@@ -218,17 +218,29 @@ export class RoomManager {
     if (!room) return { error: 'Room not found' };
     if (room.gameState) return { error: 'Cannot change settings during a game' };
 
-    const timer = Math.round(settings.actionTimerSeconds);
+    // Validate and sanitize numeric inputs before any arithmetic
+    const rawTimer = Number(settings.actionTimerSeconds);
+    if (!Number.isFinite(rawTimer)) {
+      return { error: 'Invalid action timer value' };
+    }
+    const timer = Math.round(rawTimer);
     if (timer < MIN_ACTION_TIMER || timer > MAX_ACTION_TIMER) {
       return { error: `Timer must be between ${MIN_ACTION_TIMER} and ${MAX_ACTION_TIMER} seconds` };
     }
 
     // Validate turn timer: clamp to [MIN_TURN_TIMER, MAX_TURN_TIMER]
-    const turnTimer = Math.max(MIN_TURN_TIMER, Math.min(MAX_TURN_TIMER, Math.round(settings.turnTimerSeconds ?? room.settings.turnTimerSeconds)));
+    const rawTurnTimer = Number(settings.turnTimerSeconds ?? room.settings.turnTimerSeconds);
+    if (!Number.isFinite(rawTurnTimer)) {
+      return { error: 'Invalid turn timer value' };
+    }
+    const turnTimer = Math.max(MIN_TURN_TIMER, Math.min(MAX_TURN_TIMER, Math.round(rawTurnTimer)));
 
     // Validate bot min reaction time: clamp to [MIN, MAX], round to nearest 0.5, cap at action timer
-    let botReaction = settings.botMinReactionSeconds ?? room.settings.botMinReactionSeconds;
-    botReaction = Math.max(MIN_BOT_REACTION_SECONDS, Math.min(MAX_BOT_REACTION_SECONDS, botReaction));
+    const rawBotReaction = Number(settings.botMinReactionSeconds ?? room.settings.botMinReactionSeconds);
+    if (!Number.isFinite(rawBotReaction)) {
+      return { error: 'Invalid bot reaction time value' };
+    }
+    let botReaction = Math.max(MIN_BOT_REACTION_SECONDS, Math.min(MAX_BOT_REACTION_SECONDS, rawBotReaction));
     botReaction = Math.round(botReaction * 2) / 2; // round to nearest 0.5
     botReaction = Math.min(botReaction, timer); // can't exceed action timer
 
@@ -374,7 +386,7 @@ export class RoomManager {
 
   // ─── Rematch ───
 
-  resetToLobby(roomCode: string): Room | null {
+  resetToLobby(roomCode: string): { room: Room; promoted: Array<{ spectator: Spectator; playerId: string; sessionToken: string }> } | null {
     const room = this.rooms.get(roomCode);
     if (!room) return null;
 
@@ -418,7 +430,48 @@ export class RoomManager {
       }
     }
 
-    return room;
+    // Promote spectators to players (queue behavior)
+    const promoted = this.promoteSpectators(roomCode);
+
+    return { room, promoted };
+  }
+
+  /**
+   * Promote waiting spectators into the lobby as players, up to MAX_PLAYERS.
+   * Returns the list of promoted spectators so the caller can notify them.
+   */
+  promoteSpectators(roomCode: string): Array<{ spectator: Spectator; playerId: string; sessionToken: string }> {
+    const code = roomCode.toUpperCase();
+    const room = this.rooms.get(code);
+    if (!room) return [];
+    const spectators = this.spectators.get(code);
+    if (!spectators || spectators.length === 0) return [];
+
+    const promoted: Array<{ spectator: Spectator; playerId: string; sessionToken: string }> = [];
+
+    while (spectators.length > 0 && room.players.length < MAX_PLAYERS) {
+      const spectator = spectators.shift()!;
+
+      // Skip if name conflicts with an existing player
+      if (room.players.some(p => p.name.toLowerCase() === spectator.name.toLowerCase())) {
+        continue;
+      }
+
+      const playerId = uuidv4();
+      const sessionToken = randomBytes(32).toString('hex');
+      room.players.push({
+        id: playerId,
+        name: spectator.name,
+        socketId: spectator.socketId,
+        connected: true,
+        sessionToken,
+      });
+
+      promoted.push({ spectator, playerId, sessionToken });
+    }
+
+    if (spectators.length === 0) this.spectators.delete(code);
+    return promoted;
   }
 
   getPlayerRoom(socketId: string): { room: Room; player: RoomPlayer } | null {
