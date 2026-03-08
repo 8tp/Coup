@@ -314,20 +314,33 @@ export function ActionBar({ gameState }: ActionBarProps) {
           const disabled = !canAfford || !hasTargets || actionPending;
           const Icon = a.icon;
 
+          // Build a reason string for disabled actions
+          let disabledReason = '';
+          if (!canAfford && def.cost > 0) {
+            disabledReason = `Need ${def.cost} coins`;
+          } else if (a.type === ActionType.Embezzle && gameState.treasuryReserve === 0) {
+            disabledReason = 'Reserve empty';
+          } else if (!hasTargets && def.requiresTarget) {
+            disabledReason = 'No valid targets';
+          }
+
           return (
             <button
               key={a.type}
-              className={`bg-coup-surface rounded-lg p-2 text-left border border-gray-700
-                ${disabled ? 'opacity-30 cursor-not-allowed' : 'hover:border-coup-accent cursor-pointer active:scale-[0.97]'}
+              className={`bg-coup-surface rounded-lg p-2 text-left border border-gray-700 relative
+                ${disabled ? 'opacity-40 cursor-not-allowed' : 'hover:border-coup-accent cursor-pointer active:scale-[0.97]'}
                 transition-all`}
               onClick={() => !disabled && handleAction(a.type)}
               disabled={disabled}
+              title={disabled ? disabledReason : ''}
             >
               <div className="flex items-start gap-2">
                 <span className="mt-0.5 shrink-0"><Icon size={18} /></span>
                 <div className="min-w-0">
                   <div className="font-bold text-sm leading-tight">{a.label}</div>
-                  <div className="text-[10px] text-gray-400 leading-tight mt-0.5">{a.desc}</div>
+                  <div className="text-[10px] text-gray-400 leading-tight mt-0.5">
+                    {disabled && disabledReason ? disabledReason : a.desc}
+                  </div>
                 </div>
               </div>
             </button>
