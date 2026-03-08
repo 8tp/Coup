@@ -449,11 +449,13 @@ export class RoomManager {
 
     const promoted: Array<{ spectator: Spectator; playerId: string; sessionToken: string }> = [];
 
+    const skipped: Spectator[] = [];
     while (spectators.length > 0 && room.players.length < MAX_PLAYERS) {
       const spectator = spectators.shift()!;
 
-      // Skip if name conflicts with an existing player
+      // Retain spectators whose name conflicts with an existing player
       if (room.players.some(p => p.name.toLowerCase() === spectator.name.toLowerCase())) {
+        skipped.push(spectator);
         continue;
       }
 
@@ -470,6 +472,8 @@ export class RoomManager {
       promoted.push({ spectator, playerId, sessionToken });
     }
 
+    // Put back spectators that couldn't be promoted (name conflict)
+    spectators.unshift(...skipped);
     if (spectators.length === 0) this.spectators.delete(code);
     return promoted;
   }

@@ -358,6 +358,11 @@ export class SocketHandler {
         return;
       }
 
+      if (!data?.settings || typeof data.settings !== 'object') {
+        callback({ success: false, error: 'Invalid settings' });
+        return;
+      }
+
       const wasPublic = found.room.settings.isPublic;
       const result = this.roomManager.updateSettings(found.room.code, data.settings);
       if ('error' in result) {
@@ -445,6 +450,7 @@ export class SocketHandler {
       if (!found) return;
       this.roomManager.touchRoom(found.room.code);
 
+      if (!data || typeof data.message !== 'string') return;
       const msgResult = validateChatMessage(data.message);
       if (!msgResult.valid) {
         socket.emit('room:error', { message: msgResult.error });
@@ -473,6 +479,7 @@ export class SocketHandler {
       if (found.player.isBot) return;
       this.roomManager.touchRoom(found.room.code);
 
+      if (!data || typeof data.reactionId !== 'string') return;
       const reactionId = data.reactionId;
       const reaction = REACTIONS.find(r => r.id === reactionId);
       if (!reaction) return;
@@ -556,7 +563,7 @@ export class SocketHandler {
       const ctx = this.getGameContext(socket);
       if (!ctx) return;
 
-      if (!data.action || !Object.values(ActionType).includes(data.action as ActionType)) {
+      if (!data || !data.action || !Object.values(ActionType).includes(data.action as ActionType)) {
         socket.emit('game:error', { message: 'Invalid action' });
         return;
       }
@@ -605,7 +612,7 @@ export class SocketHandler {
       const ctx = this.getGameContext(socket);
       if (!ctx) return;
 
-      if (!VALID_CHARACTERS.has(data.character)) {
+      if (!data || !VALID_CHARACTERS.has(data.character)) {
         socket.emit('game:error', { message: 'Invalid character' });
         return;
       }
@@ -662,7 +669,7 @@ export class SocketHandler {
       const ctx = this.getGameContext(socket);
       if (!ctx) return;
 
-      if (data.influenceIndex !== 0 && data.influenceIndex !== 1) {
+      if (!data || (data.influenceIndex !== 0 && data.influenceIndex !== 1)) {
         socket.emit('game:error', { message: 'Invalid influence index' });
         return;
       }
@@ -680,7 +687,7 @@ export class SocketHandler {
       const ctx = this.getGameContext(socket);
       if (!ctx) return;
 
-      if (!Array.isArray(data.keepIndices) || !data.keepIndices.every((i: unknown) => typeof i === 'number')) {
+      if (!data || !Array.isArray(data.keepIndices) || !data.keepIndices.every((i: unknown) => typeof i === 'number')) {
         socket.emit('game:error', { message: 'Invalid exchange selection' });
         return;
       }
@@ -700,12 +707,12 @@ export class SocketHandler {
       const ctx = this.getGameContext(socket);
       if (!ctx) return;
 
-      if (data.targetId !== undefined && typeof data.targetId !== 'string') {
+      if (data && data.targetId !== undefined && typeof data.targetId !== 'string') {
         socket.emit('game:error', { message: 'Invalid target' });
         return;
       }
 
-      const error = ctx.engine.handleConvert(ctx.player.id, data.targetId);
+      const error = ctx.engine.handleConvert(ctx.player.id, data?.targetId);
       if (error) socket.emit('game:error', { message: error });
     });
 
@@ -731,7 +738,7 @@ export class SocketHandler {
       const ctx = this.getGameContext(socket);
       if (!ctx) return;
 
-      if (typeof data.forceSwap !== 'boolean') {
+      if (!data || typeof data.forceSwap !== 'boolean') {
         socket.emit('game:error', { message: 'Invalid examine decision' });
         return;
       }

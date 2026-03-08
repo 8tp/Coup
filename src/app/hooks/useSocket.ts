@@ -79,7 +79,7 @@ export function useSocket() {
           }, (response) => {
             if (response.success && response.spectatorId) {
               sessionStorage.setItem('coup_player', response.spectatorId);
-              useGameStore.getState().setRoom(storedRoom, response.spectatorId);
+              useGameStore.getState().setSpectating(storedRoom, response.spectatorId);
             } else {
               sessionStorage.removeItem('coup_room');
               sessionStorage.removeItem('coup_player');
