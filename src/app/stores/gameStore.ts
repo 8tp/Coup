@@ -1,7 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
-import { ChallengeRevealEvent, ChatMessage, ClientGameState, ClientRoomPlayer, PublicRoomInfo, RoomSettings } from '@/shared/types';
+import { ChallengeRevealEvent, ChatMessage, ClientGameState, ClientRoomPlayer, ClientSpectator, PublicRoomInfo, RoomSettings } from '@/shared/types';
 
 interface GameStore {
   // Connection state
@@ -17,8 +17,11 @@ interface GameStore {
   roomPlayers: ClientRoomPlayer[];
   roomSettings: RoomSettings | null;
   lastWinnerId: string | null;
+  spectators: ClientSpectator[];
+  isSpectator: boolean;
   setRoom: (roomCode: string, playerId: string) => void;
-  setRoomPlayers: (players: ClientRoomPlayer[], hostId: string, settings: RoomSettings, lastWinnerId?: string | null) => void;
+  setSpectating: (roomCode: string, spectatorId: string) => void;
+  setRoomPlayers: (players: ClientRoomPlayer[], hostId: string, settings: RoomSettings, lastWinnerId?: string | null, spectators?: ClientSpectator[]) => void;
   clearRoom: () => void;
 
   // Game state
@@ -69,8 +72,17 @@ export const useGameStore = create<GameStore>((set) => ({
   roomPlayers: [],
   roomSettings: null,
   lastWinnerId: null,
-  setRoom: (roomCode, playerId) => set({ roomCode, playerId }),
-  setRoomPlayers: (players, hostId, settings, lastWinnerId) => set({ roomPlayers: players, hostId, roomSettings: settings, lastWinnerId: lastWinnerId ?? null }),
+  spectators: [],
+  isSpectator: false,
+  setRoom: (roomCode, playerId) => set({ roomCode, playerId, isSpectator: false }),
+  setSpectating: (roomCode, spectatorId) => set({ roomCode, playerId: spectatorId, isSpectator: true }),
+  setRoomPlayers: (players, hostId, settings, lastWinnerId, spectators) => set({
+    roomPlayers: players,
+    hostId,
+    roomSettings: settings,
+    lastWinnerId: lastWinnerId ?? null,
+    spectators: spectators ?? [],
+  }),
   clearRoom: () => set({
     roomCode: null,
     playerId: null,
@@ -78,6 +90,8 @@ export const useGameStore = create<GameStore>((set) => ({
     roomPlayers: [],
     roomSettings: null,
     lastWinnerId: null,
+    spectators: [],
+    isSpectator: false,
     gameState: null,
     chatMessages: [],
     challengeReveal: null,

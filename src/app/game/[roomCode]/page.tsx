@@ -9,11 +9,11 @@ import { getSoundEngine } from '../../audio/SoundEngine';
 
 export default function GamePage() {
   const router = useRouter();
-  const { sendChat, sendReaction, rematch } = useSocket();
+  const { sendChat, sendReaction, rematch, stopSpectating } = useSocket();
 
-  const { gameState, chatMessages, playerId, hostId, error } = useGameStore();
+  const { gameState, chatMessages, playerId, hostId, error, isSpectator } = useGameStore();
 
-  const isHost = playerId === hostId;
+  const isHost = !isSpectator && playerId === hostId;
 
   // Unlock AudioContext on first user gesture (required for mobile Safari)
   useEffect(() => {
@@ -33,7 +33,11 @@ export default function GamePage() {
       const timer = setTimeout(() => {
         const current = useGameStore.getState();
         if (!current.gameState) {
-          if (current.roomCode) {
+          if (current.isSpectator) {
+            // Spectator: game ended, go home
+            current.clearRoom();
+            router.push('/');
+          } else if (current.roomCode) {
             // Rematch: sent back to lobby
             router.push(`/lobby/${current.roomCode}`);
           } else {
@@ -64,10 +68,16 @@ export default function GamePage() {
       <GameTable
         gameState={gameState}
         chatMessages={chatMessages}
-        onSendChat={sendChat}
+        onSendChat={isSpectator ? () => {} : sendChat}
         onSendReaction={sendReaction}
         isHost={isHost}
         onRematch={rematch}
+        isSpectator={isSpectator}
+        onStopSpectating={isSpectator ? () => {
+          stopSpectating();
+          useGameStore.getState().clearRoom();
+          router.push('/');
+        } : undefined}
       />
     </>
   );

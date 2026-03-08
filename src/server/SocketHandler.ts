@@ -4,7 +4,7 @@ import { ActionType, BotPersonality, Character, GameState, GameStatus, TurnPhase
 import { REACTIONS, RATE_LIMIT_ROOM_CREATE_MS, RATE_LIMIT_ROOM_JOIN_MS, RATE_LIMIT_GAME_ACTION_MS, RATE_LIMIT_BOT_ADD_MS } from '../shared/constants';
 import { validateName, validateChatMessage } from './ContentFilter';
 import { RoomManager } from './RoomManager';
-import { serializeForPlayer } from './StateSerializer';
+import { serializeForPlayer, serializeForSpectator } from './StateSerializer';
 import { BotController } from './BotController';
 
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -218,6 +218,71 @@ export class SocketHandler {
 
     socket.on('browser:unsubscribe', () => {
       socket.leave('browser');
+    });
+
+    // ─── Spectators ───
+
+    socket.on('room:spectate', (data, callback) => {
+      try {
+        if (!this.checkRateLimit(socket.id, 'room:spectate', RATE_LIMIT_ROOM_JOIN_MS)) {
+          callback({ success: false, error: 'Too many requests, please wait' });
+          return;
+        }
+
+        const nameResult = validateName(data.playerName);
+        const code = data.roomCode?.trim().toUpperCase();
+        if (!nameResult.valid) {
+          callback({ success: false, error: nameResult.error });
+          return;
+        }
+        if (!code) {
+          callback({ success: false, error: 'Invalid room code' });
+          return;
+        }
+
+        const room = this.roomManager.getRoom(code);
+        if (!room) {
+          callback({ success: false, error: 'Room not found' });
+          return;
+        }
+
+        const result = this.roomManager.addSpectator(code, nameResult.sanitized, socket.id);
+        if ('error' in result) {
+          callback({ success: false, error: result.error });
+          return;
+        }
+
+        socket.leave('browser');
+        socket.join(code);
+        console.log(`Spectator ${nameResult.sanitized} watching room ${code}`);
+        callback({
+          success: true,
+          roomCode: code,
+          spectatorId: result.spectatorId,
+        });
+
+        this.broadcastRoomUpdate(code);
+
+        // Send current game state if game is in progress
+        const engine = this.roomManager.getEngine(code);
+        if (engine) {
+          const state = engine.getFullState();
+          socket.emit('game:state', serializeForSpectator(state, result.spectatorId, room.players));
+        }
+
+        // Send chat history
+        const chatHistory = this.roomManager.getChatHistory(code);
+        if (chatHistory.length > 0) {
+          socket.emit('chat:history', { messages: chatHistory });
+        }
+      } catch (err) {
+        console.error('Error in room:spectate handler:', err);
+        callback({ success: false, error: 'Internal server error' });
+      }
+    });
+
+    socket.on('room:stop_spectating', () => {
+      this.handleSpectatorLeave(socket);
     });
 
     // ─── Bots ───
@@ -598,6 +663,11 @@ export class SocketHandler {
     });
 
     socket.on('game:choose_exchange', (data) => {
+      if (!this.checkRateLimit(socket.id, 'game:action', RATE_LIMIT_GAME_ACTION_MS)) {
+        socket.emit('game:error', { message: 'Too many requests, please wait' });
+        return;
+      }
+
       const ctx = this.getGameContext(socket);
       if (!ctx) return;
 
@@ -689,7 +759,24 @@ export class SocketHandler {
     return { room: found.room, player: found.player, engine };
   }
 
+  private handleSpectatorLeave(socket: TypedSocket): void {
+    const result = this.roomManager.removeSpectator(socket.id);
+    if (!result) return;
+
+    socket.leave(result.roomCode);
+    this.broadcastRoomUpdate(result.roomCode);
+  }
+
   private handleDisconnect(socket: TypedSocket): void {
+    // Check if this was a spectator first
+    const spectatorResult = this.roomManager.removeSpectator(socket.id);
+    if (spectatorResult) {
+      socket.leave(spectatorResult.roomCode);
+      this.broadcastRoomUpdate(spectatorResult.roomCode);
+      this.broadcastServerStats();
+      return;
+    }
+
     const found = this.roomManager.getPlayerRoom(socket.id);
     if (!found) return;
 
@@ -768,11 +855,13 @@ export class SocketHandler {
     const room = this.roomManager.getRoom(roomCode);
     if (!room) return;
 
+    const spectators = this.roomManager.getSpectators(roomCode);
     this.io.to(roomCode).emit('room:updated', {
       players: room.players.map(({ socketId: _, sessionToken: __, ...rest }) => rest),
       hostId: room.hostId,
       settings: room.settings,
       lastWinnerId: room.lastWinnerId ?? null,
+      spectators: spectators.map(({ socketId: _, ...rest }) => rest),
     });
   }
 
@@ -802,6 +891,13 @@ export class SocketHandler {
       if (!player.connected || player.isBot) continue;
       const clientState = serializeForPlayer(state, player.id, room.players);
       this.io.to(player.socketId).emit('game:state', clientState);
+    }
+
+    // Send spectator view to each spectator
+    const spectators = this.roomManager.getSpectators(roomCode);
+    for (const spectator of spectators) {
+      const spectatorState = serializeForSpectator(state, spectator.id, room.players);
+      this.io.to(spectator.socketId).emit('game:state', spectatorState);
     }
 
     // Emit challenge reveal event if available
