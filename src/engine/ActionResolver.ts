@@ -1215,6 +1215,17 @@ export class ActionResolver {
           actorName: game.getPlayer(playerId)?.name ?? null,
           targetId: target.id,
         });
+      } else {
+        // Deck empty — cannot complete swap, treat as return
+        sideEffects.push({
+          type: 'log',
+          message: `${game.getPlayer(playerId)?.name} attempts to force swap but the deck is empty. Card returned.`,
+          eventType: 'examine_decision',
+          character: Character.Inquisitor,
+          actorId: playerId,
+          actorName: game.getPlayer(playerId)?.name ?? null,
+          targetId: target.id,
+        });
       }
     } else {
       sideEffects.push({

@@ -113,6 +113,13 @@ export function ActionBar({ gameState }: ActionBarProps) {
     setSelectingTarget(null);
   }, [gameState.turnPhase, gameState.turnNumber]);
 
+  // Reset pending state on server error (e.g., steal from 0-coin target)
+  useEffect(() => {
+    const onError = () => setActionPending(false);
+    socket.on('game:error', onError);
+    return () => { socket.off('game:error', onError); };
+  }, [socket]);
+
   const me = gameState.players.find(p => p.id === gameState.myId);
   const isMyTurn = gameState.players[gameState.currentPlayerIndex]?.id === gameState.myId;
 
@@ -169,7 +176,11 @@ export function ActionBar({ gameState }: ActionBarProps) {
 
     // Use faction-restricted targets for targeted actions
     const isFactionRestricted = [ActionType.Coup, ActionType.Assassinate, ActionType.Steal, ActionType.Examine].includes(selectingTarget);
-    const availableTargets = isFactionRestricted ? factionTargets : targets;
+    let availableTargets = isFactionRestricted ? factionTargets : targets;
+    // Filter out 0-coin targets for Steal
+    if (selectingTarget === ActionType.Steal) {
+      availableTargets = availableTargets.filter(t => t.coins > 0);
+    }
 
     // Convert has special options: self-convert or target-convert
     if (selectingTarget === ActionType.Convert) {
@@ -297,7 +308,8 @@ export function ActionBar({ gameState }: ActionBarProps) {
             canAfford = gameState.treasuryReserve > 0;
           }
           const isFactionAction = [ActionType.Coup, ActionType.Assassinate, ActionType.Steal, ActionType.Examine].includes(a.type);
-          const relevantTargets = isFactionAction ? factionTargets : targets;
+          let relevantTargets = isFactionAction ? factionTargets : targets;
+          if (a.type === ActionType.Steal) relevantTargets = relevantTargets.filter(t => t.coins > 0);
           const hasTargets = a.type === ActionType.Convert || !def.requiresTarget || relevantTargets.length > 0;
           const disabled = !canAfford || !hasTargets || actionPending;
           const Icon = a.icon;

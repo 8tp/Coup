@@ -1,6 +1,7 @@
 'use client';
 
 import { ClientGameState, TurnPhase } from '@/shared/types';
+import { ACTION_DISPLAY_NAMES } from '@/shared/constants';
 
 interface PhaseStatusProps {
   gameState: ClientGameState;
@@ -39,12 +40,12 @@ export function PhaseStatus({ gameState }: PhaseStatusProps) {
       const actor = gameState.players.find(p => p.id === pendingAction?.actorId);
       const isTarget = pendingAction?.targetId === myId;
       if (myId === pendingAction?.actorId) {
-        text = `Waiting — target may block your ${pendingAction?.type}`;
+        text = `Waiting — target may block your ${pendingAction ? ACTION_DISPLAY_NAMES[pendingAction.type] : 'action'}`;
       } else if (isTarget) {
         text = `${actor?.name} is targeting you — Block or let it happen?`;
         color = 'bg-red-900/40 text-red-300 border border-red-600/50';
       } else {
-        text = `Waiting for block decision on ${actor?.name}'s ${pendingAction?.type}`;
+        text = `Waiting for block decision on ${actor?.name}'s ${pendingAction ? ACTION_DISPLAY_NAMES[pendingAction.type] : 'action'}`;
       }
       break;
     }

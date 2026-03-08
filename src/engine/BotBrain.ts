@@ -496,7 +496,11 @@ export class BotBrain {
     // Card counting, bluff persistence, demonstrated chars
     const revealed = this.countRevealedCharacters(game);
     const demonstrated = this.getDemonstratedCharacters(game, botId);
-    const { established, burnt } = this.getBluffIdentity(game, botId, ownedCharacters);
+    const { established: rawEstablished, burnt } = this.getBluffIdentity(game, botId, ownedCharacters);
+    // Don't persist bluffs for characters excluded from the game
+    const excludedChar = game.useInquisitor ? Character.Ambassador : Character.Inquisitor;
+    const established = rawEstablished === excludedChar ? null : rawEstablished;
+    burnt.delete(excludedChar);
 
     // Detect 3P1L endgame
     const is3P1L = aliveCount === 3 && alivePlayers.every(p => p.aliveInfluenceCount === 1);
@@ -594,7 +598,8 @@ export class BotBrain {
       const captainRevealed = revealed.get(Character.Captain) || 0;
       const unblockedTargets = stealTargets.filter(p => {
         const demo = demonstrated.get(p.id);
-        return !demo || (!demo.has(Character.Captain) && !demo.has(Character.Ambassador));
+        const stealBlocker = game.useInquisitor ? Character.Inquisitor : Character.Ambassador;
+        return !demo || (!demo.has(Character.Captain) && !demo.has(stealBlocker));
       });
       const effectiveTargets = unblockedTargets.length > 0 ? unblockedTargets : stealTargets;
       const targetId = this.pickTarget(game, botId, personality, effectiveTargets.map(p => p.id));
@@ -629,11 +634,11 @@ export class BotBrain {
       }
     }
 
-    // Exchange (Ambassador or Inquisitor)
+    // Exchange (Ambassador or Inquisitor, depending on game setting)
     const hasAmbassador = ownedCharacters.includes(Character.Ambassador);
     const hasInquisitor = ownedCharacters.includes(Character.Inquisitor);
     const hasExchangeChar = hasAmbassador || hasInquisitor;
-    const exchangeChar = hasInquisitor ? Character.Inquisitor : Character.Ambassador;
+    const exchangeChar = game.useInquisitor ? Character.Inquisitor : Character.Ambassador;
     const exchangeRevealed = revealed.get(exchangeChar) || 0;
     if (hasExchangeChar) {
       const weight = aliveCount <= 2 ? 1 : (aliveCount > 3 ? 4 : 3);
@@ -691,22 +696,24 @@ export class BotBrain {
         }
       }
 
-      // Examine (Inquisitor — truthful or bluff)
-      const inquisitorRevealed = revealed.get(Character.Inquisitor) || 0;
-      if (hasInquisitor) {
-        const examineTarget = this.pickTarget(game, botId, personality);
-        if (examineTarget) {
-          candidates.push({ action: ActionType.Examine, targetId: examineTarget, weight: aliveCount > 2 ? 3.5 : 1.5 });
-        }
-      } else if (aliveCount > 2 && inquisitorRevealed < CARDS_PER_CHARACTER
-          && !burnt.has(Character.Inquisitor) && Math.random() < personality.bluffRateExchange) {
-        // Bluff Examine — uses same bluff rate as Exchange (both claim Inquisitor/Ambassador)
-        const examineTarget = this.pickTarget(game, botId, personality);
-        if (examineTarget) {
-          let weight = 1.0;
-          if (established === Character.Inquisitor) weight *= persistBoost;
-          else weight *= switchPenalty;
-          candidates.push({ action: ActionType.Examine, targetId: examineTarget, weight: weight * bluffMod });
+      // Examine (Inquisitor only — requires useInquisitor)
+      if (game.useInquisitor) {
+        const inquisitorRevealed = revealed.get(Character.Inquisitor) || 0;
+        if (hasInquisitor) {
+          const examineTarget = this.pickTarget(game, botId, personality);
+          if (examineTarget) {
+            candidates.push({ action: ActionType.Examine, targetId: examineTarget, weight: aliveCount > 2 ? 3.5 : 1.5 });
+          }
+        } else if (aliveCount > 2 && inquisitorRevealed < CARDS_PER_CHARACTER
+            && !burnt.has(Character.Inquisitor) && Math.random() < personality.bluffRateExchange) {
+          // Bluff Examine — uses same bluff rate as Exchange (both claim Inquisitor/Ambassador)
+          const examineTarget = this.pickTarget(game, botId, personality);
+          if (examineTarget) {
+            let weight = 1.0;
+            if (established === Character.Inquisitor) weight *= persistBoost;
+            else weight *= switchPenalty;
+            candidates.push({ action: ActionType.Examine, targetId: examineTarget, weight: weight * bluffMod });
+          }
         }
       }
     }
@@ -897,6 +904,10 @@ export class BotBrain {
     }
 
     for (const blockChar of def.blockedBy) {
+      // Skip characters not in the current game configuration
+      if (blockChar === Character.Inquisitor && !game.useInquisitor) continue;
+      if (blockChar === Character.Ambassador && game.useInquisitor) continue;
+
       const hasCard = bot.hiddenCharacters.includes(blockChar);
 
       if (hasCard) {

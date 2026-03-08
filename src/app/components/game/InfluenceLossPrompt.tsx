@@ -15,6 +15,7 @@ const REASON_LABELS: Record<string, string> = {
   assassination: 'You are being assassinated!',
   challenge_lost: 'You lost the challenge!',
   challenge_failed_defense: 'Your bluff was called!',
+  embezzle_failed: 'Your embezzle was caught!',
 };
 
 const SPECTATOR_REASON_LABELS: Record<string, string> = {
@@ -22,6 +23,7 @@ const SPECTATOR_REASON_LABELS: Record<string, string> = {
   assassination: 'Assassination',
   challenge_lost: 'Lost challenge',
   challenge_failed_defense: 'Caught bluffing',
+  embezzle_failed: 'Failed embezzle',
 };
 
 export function InfluenceLossPrompt({ gameState }: InfluenceLossPromptProps) {
