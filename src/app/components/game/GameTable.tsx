@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChatMessage, ClientGameState } from '@/shared/types';
+import { ChatMessage, ClientGameState, GameMode } from '@/shared/types';
 import { PlayerSeat } from './PlayerSeat';
 import { CardFace } from './CardFace';
 import { CoinIcon } from '../icons';
@@ -56,7 +56,7 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
       : currentPlayerId);
 
   return (
-    <div className="h-dvh flex flex-col max-w-lg mx-auto px-3 py-3 overflow-hidden" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))', paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+    <div className="h-dvh flex flex-col max-w-lg lg:max-w-xl mx-auto px-3 py-3 overflow-hidden" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))', paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
       {/* Header bar */}
       <div className="flex items-center justify-between mb-2 text-xs text-gray-500">
         <span>Room: <span className="text-gray-400 font-mono">{gameState.roomCode}</span></span>
@@ -68,16 +68,19 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
         </span>
         <div className="flex items-center gap-2.5">
           <span>Deck: {gameState.deckCount}</span>
+          {gameState.gameMode === GameMode.Reformation && (
+            <span className="text-coup-gold" title="Treasury Reserve">Reserve: {gameState.treasuryReserve}</span>
+          )}
           <button
             onClick={() => { haptic(); setMuted(!isMuted); }}
-            className="w-8 h-8 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition text-xs flex items-center justify-center"
+            className="w-9 h-9 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition text-xs flex items-center justify-center"
             title={isMuted ? 'Unmute sounds' : 'Mute sounds'}
           >
             {isMuted ? '🔇' : '🔊'}
           </button>
           <button
             onClick={() => { haptic(); setShowSettings(true); }}
-            className="w-8 h-8 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition flex items-center justify-center"
+            className="w-9 h-9 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition flex items-center justify-center"
             title="Settings"
           >
             <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
@@ -171,8 +174,8 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
           me.faction === 'Loyalist' ? 'border-l-[3px] border-l-blue-400 bg-blue-500/[0.07]' :
           me.faction === 'Reformist' ? 'border-l-[3px] border-l-red-400 bg-red-500/[0.07]' : ''
         }`}>
-          <div className="flex items-center justify-between mb-1">
-            <span className="font-bold text-coup-accent text-sm flex items-center gap-1.5">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="font-bold text-coup-accent text-sm lg:text-base flex items-center gap-1.5">
               Your Hand
               {me.faction && (
                 <span className={`text-xs font-medium ${
