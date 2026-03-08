@@ -50,7 +50,8 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
 
   // Determine which player should show the timer bar on their seat
   const timerPlayerId = gameState.influenceLossRequest?.playerId
-    ?? (gameState.turnPhase === 'AwaitingExchange' && gameState.pendingAction?.actorId
+    ?? ((gameState.turnPhase === 'AwaitingExchange' || gameState.turnPhase === 'AwaitingExamineDecision')
+        && gameState.pendingAction?.actorId
       ? gameState.pendingAction.actorId
       : currentPlayerId);
 

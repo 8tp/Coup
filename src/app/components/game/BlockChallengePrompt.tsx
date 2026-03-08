@@ -1,6 +1,7 @@
 'use client';
 
 import { ClientGameState, TurnPhase } from '@/shared/types';
+import { ACTION_DISPLAY_NAMES } from '@/shared/constants';
 import { Timer } from '../ui/Timer';
 import { getSocket } from '../../hooks/useSocket';
 import { haptic, hapticHeavy } from '../../utils/haptic';
@@ -51,7 +52,7 @@ export function BlockChallengePrompt({ gameState }: BlockChallengePromptProps) {
   return (
     <div className="prompt-action">
       <p className="text-center text-white font-bold mb-1">
-        {blocker?.name} claims <span className="text-coup-accent">{pendingBlock.claimedCharacter}</span> to block{pendingAction ? ` the ${pendingAction.type}` : ''}
+        {blocker?.name} claims <span className="text-coup-accent">{pendingBlock.claimedCharacter}</span> to block{pendingAction ? ` the ${ACTION_DISPLAY_NAMES[pendingAction.type]}` : ''}
       </p>
       <p className="text-center text-gray-400 text-xs mb-2">
         Think they&apos;re bluffing the block? Challenge them!
