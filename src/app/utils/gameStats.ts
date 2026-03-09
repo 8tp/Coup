@@ -125,7 +125,10 @@ export function computePlayerStats(log: LogEntry[], playerIds: string[], playerN
 
 function selectAwards(stats: Map<string, PlayerStats>): Award[] {
   const all = Array.from(stats.values());
-  const candidates: { award: Award; priority: number; playerId: string }[] = [];
+  // Each candidate gets a score based on how impressive the achievement is.
+  // Higher score = more likely to be selected. This replaces the old fixed-
+  // priority system so rare/impressive feats naturally surface over common ones.
+  const candidates: { award: Award; score: number; playerId: string }[] = [];
 
   // Pants on Fire — most times caught bluffing (≥1)
   const mostCaught = all.filter(s => s.timesCaughtBluffing >= 1)
@@ -133,7 +136,7 @@ function selectAwards(stats: Map<string, PlayerStats>): Award[] {
   if (mostCaught) {
     candidates.push({
       playerId: mostCaught.playerId,
-      priority: 1,
+      score: mostCaught.timesCaughtBluffing * 4 - 1, // 1→3, 2→7, 3→11
       award: {
         emoji: '🤥',
         title: 'Pants on Fire',
@@ -150,7 +153,7 @@ function selectAwards(stats: Map<string, PlayerStats>): Award[] {
     const h = honestCandidates[0];
     candidates.push({
       playerId: h.playerId,
-      priority: 2,
+      score: h.timesProvenHonest * 3, // 1→3, 2→6, 3→9
       award: {
         emoji: '😇',
         title: 'Honest Abe',
@@ -166,7 +169,7 @@ function selectAwards(stats: Map<string, PlayerStats>): Award[] {
   if (mostChallenges) {
     candidates.push({
       playerId: mostChallenges.playerId,
-      priority: 3,
+      score: mostChallenges.challengesMade * 2.5, // 2→5, 3→7.5, 4→10
       award: {
         emoji: '🔍',
         title: 'The Inquisitor',
@@ -176,16 +179,16 @@ function selectAwards(stats: Map<string, PlayerStats>): Award[] {
     });
   }
 
-  // Eagle Eye — best challenge win rate (≥2 challenges, ≥75% accuracy)
+  // Eagle Eye — best challenge accuracy (≥2 challenges, ≥50% win rate)
   const eagleEyeCandidates = all.filter(s => s.challengesMade >= 2)
     .map(s => ({ ...s, winRate: s.challengesWon / s.challengesMade }))
-    .filter(s => s.winRate >= 0.75)
+    .filter(s => s.winRate >= 0.5)
     .sort((a, b) => b.winRate - a.winRate || b.challengesWon - a.challengesWon);
   if (eagleEyeCandidates.length > 0) {
     const e = eagleEyeCandidates[0];
     candidates.push({
       playerId: e.playerId,
-      priority: 4,
+      score: e.challengesWon * 4 + (e.winRate - 0.5) * 6, // 2/2→11, 2/3→7.3, 3/4→13.5
       award: {
         emoji: '🦅',
         title: 'Eagle Eye',
@@ -201,7 +204,7 @@ function selectAwards(stats: Map<string, PlayerStats>): Award[] {
   if (mostBlocks) {
     candidates.push({
       playerId: mostBlocks.playerId,
-      priority: 5,
+      score: mostBlocks.blocksMade * 3.5, // 2→7, 3→10.5, 4→14
       award: {
         emoji: '🧱',
         title: 'The Wall',
@@ -211,14 +214,14 @@ function selectAwards(stats: Map<string, PlayerStats>): Award[] {
     });
   }
 
-  // Smooth Operator — most claims with 0 times caught (≥3 claims)
-  const smoothCandidates = all.filter(s => s.actionsClaimed >= 3 && s.timesCaughtBluffing === 0)
+  // Smooth Operator — most claims with 0 times caught (≥4 claims)
+  const smoothCandidates = all.filter(s => s.actionsClaimed >= 4 && s.timesCaughtBluffing === 0)
     .sort((a, b) => b.actionsClaimed - a.actionsClaimed);
   if (smoothCandidates.length > 0) {
     const sm = smoothCandidates[0];
     candidates.push({
       playerId: sm.playerId,
-      priority: 6,
+      score: sm.actionsClaimed * 1.5, // 4→6, 6→9, 8→12
       award: {
         emoji: '🎭',
         title: 'Smooth Operator',
@@ -234,7 +237,7 @@ function selectAwards(stats: Map<string, PlayerStats>): Award[] {
   if (mostCoups) {
     candidates.push({
       playerId: mostCoups.playerId,
-      priority: 7,
+      score: mostCoups.coupsMade * 4, // 2→8, 3→12
       award: {
         emoji: '⚔️',
         title: 'Coup Machine',
@@ -244,18 +247,20 @@ function selectAwards(stats: Map<string, PlayerStats>): Award[] {
     });
   }
 
-  // Silent Assassin — most assassinations (≥2)
-  const mostAssassinations = all.filter(s => s.assassinationsMade >= 2)
+  // Silent Assassin — most assassinations (≥1)
+  const mostAssassinations = all.filter(s => s.assassinationsMade >= 1)
     .sort((a, b) => b.assassinationsMade - a.assassinationsMade)[0];
   if (mostAssassinations) {
     candidates.push({
       playerId: mostAssassinations.playerId,
-      priority: 8,
+      score: mostAssassinations.assassinationsMade * 7, // 1→7, 2→14, 3→21
       award: {
         emoji: '🗡️',
         title: 'Silent Assassin',
         playerName: mostAssassinations.playerName,
-        description: `${mostAssassinations.assassinationsMade} assassinations`,
+        description: mostAssassinations.assassinationsMade === 1
+          ? '1 assassination'
+          : `${mostAssassinations.assassinationsMade} assassinations`,
       },
     });
   }
@@ -266,7 +271,7 @@ function selectAwards(stats: Map<string, PlayerStats>): Award[] {
   if (mostLost) {
     candidates.push({
       playerId: mostLost.playerId,
-      priority: 9,
+      score: mostLost.challengesLost * 3.5, // 2→7, 3→10.5
       award: {
         emoji: '🎲',
         title: 'Bold Strategy',
@@ -276,12 +281,12 @@ function selectAwards(stats: Map<string, PlayerStats>): Award[] {
     });
   }
 
-  // Quick Exit — first player eliminated (exactly 1 person with eliminationOrder === 1)
+  // Quick Exit — first player eliminated
   const firstOut = all.find(s => s.eliminationOrder === 1);
   if (firstOut) {
     candidates.push({
       playerId: firstOut.playerId,
-      priority: 10,
+      score: 2, // Low flat score — filler award, only appears when slots remain
       award: {
         emoji: '🚪',
         title: 'Quick Exit',
@@ -291,11 +296,11 @@ function selectAwards(stats: Map<string, PlayerStats>): Award[] {
     });
   }
 
-  // Deduplicate: max 1 award per player (pick lowest priority = rarest)
+  // Select: highest score first, max 1 award per player, max 4 total
   const awarded = new Set<string>();
   const selected: Award[] = [];
 
-  candidates.sort((a, b) => a.priority - b.priority);
+  candidates.sort((a, b) => b.score - a.score);
 
   for (const c of candidates) {
     if (awarded.has(c.playerId)) continue;
