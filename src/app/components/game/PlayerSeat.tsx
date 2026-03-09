@@ -120,6 +120,15 @@ export function PlayerSeat({
               BOT
             </span>
           )}
+          {player.faction && (
+            <span className={`shrink-0 text-[10px] px-1 py-px rounded font-bold leading-tight ${
+              player.faction === Faction.Loyalist
+                ? 'bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/30'
+                : 'bg-red-500/20 text-red-300 ring-1 ring-red-500/30'
+            }`}>
+              {player.faction === Faction.Loyalist ? 'LOY' : 'REF'}
+            </span>
+          )}
         </div>
         <span className="flex items-center gap-1 text-coup-gold font-bold text-sm shrink-0 relative">
           <CoinIcon size={14} />

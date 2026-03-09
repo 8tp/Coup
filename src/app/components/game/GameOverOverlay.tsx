@@ -45,6 +45,7 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator }: G
 
   const winner = gameState.players.find(p => p.id === gameState.winnerId);
   const isMe = !isSpectator && winner?.id === gameState.myId;
+  const isOnlyHuman = !isSpectator && gameState.players.filter(p => !p.isBot).length <= 1;
 
   // Sort: winner first, then alive, then eliminated
   const sortedPlayers = [...gameState.players].sort((a, b) => {
@@ -56,7 +57,7 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator }: G
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 animate-fade-in p-4">
-      <div className="bg-coup-surface rounded-2xl border border-gray-700 max-w-sm w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-coup-surface rounded-2xl border border-gray-700 max-w-xs sm:max-w-sm w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="text-center pt-8 pb-4 px-6">
           <div className="text-5xl mb-3">{isMe ? '🏆' : '💀'}</div>
@@ -90,16 +91,16 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator }: G
                   </span>
 
                   {/* Name + win count */}
-                  <span className={`text-sm font-medium flex-1 min-w-0 truncate ${
+                  <span className={`text-sm font-medium flex-1 truncate min-w-0 ${
                     isWinner ? 'text-coup-accent' : p.isAlive ? 'text-gray-300' : 'text-gray-500'
                   }`}>
                     {p.id === gameState.myId ? 'You' : p.name}
-                    {wins > 0 && (
-                      <span className="ml-1.5 text-xs bg-yellow-600 text-white px-1.5 py-0.5 rounded-full font-bold align-middle">
-                        {wins} {wins === 1 ? 'win' : 'wins'}
-                      </span>
-                    )}
                   </span>
+                  {wins > 0 && (
+                    <span className="shrink-0 text-[10px] bg-yellow-600/80 text-white px-1.5 py-px rounded-full font-bold">
+                      {wins}W
+                    </span>
+                  )}
 
                   {/* Cards */}
                   <div className="flex gap-1.5 flex-none">
@@ -168,7 +169,7 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator }: G
                         </>
                       ) : (
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-400/80 border border-green-500/20">
-                          {bluffRate}% bluff
+                          honest
                         </span>
                       )}
                     </div>
@@ -204,7 +205,7 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator }: G
             <p className="text-purple-400 text-sm text-center">
               Spectating
             </p>
-          ) : isHost ? (
+          ) : isHost || isOnlyHuman ? (
             <button className="btn-primary w-full" onClick={() => { haptic(80); onRematch(); }}>
               Play Again
             </button>

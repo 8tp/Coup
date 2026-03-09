@@ -17,7 +17,8 @@
     @apply bg-coup-accent text-coup-bg font-bold py-3 px-6 rounded-xl
            active:scale-95 transition-all duration-100
            disabled:opacity-50 disabled:cursor-not-allowed
-           text-lg min-h-[48px] min-w-[48px];
+           text-lg min-h-[48px] min-w-[48px]
+           lg:py-2.5 lg:px-5 lg:text-base lg:rounded-lg;
     background-image: linear-gradient(to bottom, rgba(255,255,255,0.1), transparent);
   }
 
@@ -29,14 +30,16 @@
     @apply bg-red-600 text-white font-bold py-3 px-6 rounded-xl
            active:scale-95 transition-transform duration-100
            disabled:opacity-50 disabled:cursor-not-allowed
-           text-lg min-h-[48px] min-w-[48px];
+           text-lg min-h-[48px] min-w-[48px]
+           lg:py-2.5 lg:px-5 lg:text-base lg:rounded-lg;
   }
 
   .btn-secondary {
     @apply bg-coup-card text-white font-bold py-3 px-6 rounded-xl border border-gray-600
            active:scale-95 transition-transform duration-100
            disabled:opacity-50 disabled:cursor-not-allowed
-           text-lg min-h-[48px] min-w-[48px];
+           text-lg min-h-[48px] min-w-[48px]
+           lg:py-2.5 lg:px-5 lg:text-base lg:rounded-lg;
   }
 
   .card-container {

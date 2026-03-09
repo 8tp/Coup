@@ -95,7 +95,7 @@ export default function LobbyPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-6">
-      <div className="max-w-md w-full">
+      <div className="max-w-sm lg:max-w-2xl w-full">
         {/* Top buttons + Room Code */}
         <div className="text-center mb-8 relative">
           <div className="flex justify-end gap-2 mb-3">
@@ -136,6 +136,8 @@ export default function LobbyPage() {
           </div>
         )}
 
+        <div className="lg:grid lg:grid-cols-2 lg:gap-6">
+
         {/* Player List */}
         <div className="card-container mb-6">
           <h2 className="font-bold text-gray-400 text-sm uppercase mb-3">
@@ -145,55 +147,51 @@ export default function LobbyPage() {
             {roomPlayers.map(p => (
               <div
                 key={p.id}
-                className="flex items-center justify-between py-2 px-3 bg-coup-bg rounded-lg"
+                className="flex items-center py-2 px-3 bg-coup-bg rounded-lg gap-2"
               >
-                <div className="flex items-center gap-1.5">
-                  {p.id === lastWinnerId && (
-                    <span className="text-yellow-400" title="Last game winner">&#128081;</span>
-                  )}
-                  <span className={`font-medium ${p.id === playerId ? 'text-coup-accent' : ''}`}>
-                    {p.name}
-                    {p.id === playerId && ' (You)'}
+                {p.id === lastWinnerId && (
+                  <span className="text-yellow-400 shrink-0" title="Last game winner">&#128081;</span>
+                )}
+                <span className={`font-medium truncate min-w-0 ${p.id === playerId ? 'text-coup-accent' : ''}`}>
+                  {p.name}
+                  {p.id === playerId && ' (You)'}
+                </span>
+                {(p.wins ?? 0) > 0 && (
+                  <span className="shrink-0 text-[10px] bg-yellow-600/80 text-white px-1.5 py-px rounded-full font-bold">
+                    {p.wins}W
                   </span>
-                  {(p.wins ?? 0) > 0 && (
-                    <span className="text-xs bg-yellow-600 text-white px-1.5 py-0.5 rounded-full font-bold">
-                      {p.wins} {p.wins === 1 ? 'win' : 'wins'}
+                )}
+                <div className="flex items-center gap-1.5 ml-auto shrink-0">
+                  {p.isBot && p.personality && (
+                    <span className={`text-[10px] px-1.5 py-px rounded-full font-bold text-white ${
+                      p.personality === 'aggressive' ? 'bg-red-600' :
+                      p.personality === 'conservative' ? 'bg-green-600' :
+                      p.personality === 'vengeful' ? 'bg-orange-600' :
+                      p.personality === 'deceptive' ? 'bg-pink-600' :
+                      p.personality === 'analytical' ? 'bg-blue-600' :
+                      p.personality === 'optimal' ? 'bg-yellow-600' :
+                      'bg-purple-600'
+                    }`}>
+                      {p.personality.toUpperCase()}
                     </span>
                   )}
-                </div>
-                <div className="flex items-center gap-2">
                   {p.isBot && (
-                    <>
-                      <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full font-bold">
-                        BOT
-                      </span>
-                      {p.personality && (
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-bold text-white ${
-                          p.personality === 'aggressive' ? 'bg-red-600' :
-                          p.personality === 'conservative' ? 'bg-green-600' :
-                          p.personality === 'vengeful' ? 'bg-orange-600' :
-                          p.personality === 'deceptive' ? 'bg-pink-600' :
-                          p.personality === 'analytical' ? 'bg-blue-600' :
-                          p.personality === 'optimal' ? 'bg-yellow-600' :
-                          'bg-purple-600'
-                        }`}>
-                          {p.personality.toUpperCase()}
-                        </span>
-                      )}
-                    </>
+                    <span className="text-[10px] bg-blue-600 text-white px-1.5 py-px rounded-full font-bold">
+                      BOT
+                    </span>
                   )}
                   {p.id === hostId && (
-                    <span className="text-xs bg-coup-accent text-coup-bg px-2 py-0.5 rounded-full font-bold">
+                    <span className="text-[10px] bg-coup-accent text-coup-bg px-1.5 py-px rounded-full font-bold">
                       HOST
                     </span>
                   )}
                   {p.isBot && isHost && (
                     <button
                       onClick={() => { haptic(); handleRemoveBot(p.id); }}
-                      className="text-gray-500 hover:text-red-400 transition text-sm font-bold w-5 h-5 flex items-center justify-center"
+                      className="text-gray-500 hover:text-red-400 transition text-xs font-bold w-4 h-4 flex items-center justify-center"
                       title="Remove bot"
                     >
-                      X
+                      &times;
                     </button>
                   )}
                   {!p.isBot && (
@@ -397,8 +395,10 @@ export default function LobbyPage() {
           </div>
         )}
 
+        </div>{/* end lg:grid */}
+
         {/* Controls */}
-        <div className="space-y-3">
+        <div className="space-y-3 lg:max-w-xs lg:mx-auto">
           {isHost && (
             <button
               className="btn-primary w-full"
@@ -422,7 +422,7 @@ export default function LobbyPage() {
         </div>
 
         {/* Chat */}
-        <div className="card-container mt-6">
+        <div className="card-container mt-6 lg:max-w-sm lg:mx-auto">
           <h2 className="font-bold text-gray-400 text-sm uppercase mb-2">Chat</h2>
           <ChatPanel messages={chatMessages} myId={playerId} onSend={sendChat} />
         </div>

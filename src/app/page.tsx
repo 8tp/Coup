@@ -153,10 +153,10 @@ function HomeContent() {
         }}
       />
 
-      <div className="max-w-md w-full text-center relative">
-        <CoupLogo className="w-64 h-auto mx-auto mb-2" />
-        <p className="text-gray-400 mb-2">The classic bluffing game</p>
-        <p className="text-gray-500 text-sm mb-8">
+      <div className="max-w-xs sm:max-w-sm lg:max-w-md w-full text-center relative">
+        <CoupLogo className="w-64 lg:w-72 h-auto mx-auto mb-2" />
+        <p className="text-gray-400 mb-1 text-sm">The classic bluffing game</p>
+        <p className="text-gray-500 text-xs mb-6">
           {playersOnline} player{playersOnline !== 1 ? 's' : ''} online · {gamesInProgress} game{gamesInProgress !== 1 ? 's' : ''} in progress
         </p>
 
@@ -167,34 +167,40 @@ function HomeContent() {
         )}
 
         {mode === 'idle' && (
-          <div className="space-y-4 animate-fade-in">
-            <button className="btn-primary w-full" onClick={() => { haptic(); setMode('create'); }}>
-              Create Room
-            </button>
-            <button className="btn-secondary w-full" onClick={() => { haptic(); setMode('join'); }}>
-              Join Room
-            </button>
+          <div className="space-y-3 animate-fade-in">
+            {/* Primary actions — side by side on desktop */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              <button className="btn-primary w-full" onClick={() => { haptic(); setMode('create'); }}>
+                Create Room
+              </button>
+              <button className="btn-secondary w-full" onClick={() => { haptic(); setMode('join'); }}>
+                Join Room
+              </button>
+            </div>
             <button className="btn-secondary w-full" onClick={() => { haptic(); setMode('browse'); }}>
               Browse Public Games
             </button>
 
-            <div className="flex items-center gap-3 my-2">
-              <div className="flex-1 h-px bg-gray-700" />
-              <span className="text-gray-600 text-xs">or</span>
-              <div className="flex-1 h-px bg-gray-700" />
+            <div className="flex items-center justify-center gap-4 pt-2">
+              <button
+                className="text-gray-400 hover:text-coup-accent text-sm font-medium transition-colors"
+                onClick={() => { haptic(); setShowHowToPlay(true); }}
+              >
+                How to Play
+              </button>
+              <span className="text-gray-700">·</span>
+              <button
+                className="text-gray-400 hover:text-coup-accent text-sm font-medium transition-colors"
+                onClick={() => { haptic(); setShowTutorial(true); }}
+              >
+                Tutorial
+              </button>
             </div>
-
-            <button
-              className="text-gray-400 hover:text-coup-accent text-sm font-medium transition-colors w-full py-2"
-              onClick={() => { haptic(); setShowHowToPlay(true); }}
-            >
-              How to Play
-            </button>
           </div>
         )}
 
         {mode === 'create' && (
-          <div className="space-y-4 animate-slide-up">
+          <div className="space-y-3 animate-slide-up max-w-xs mx-auto">
             <input
               className="input-field"
               placeholder="Your name"
@@ -234,7 +240,7 @@ function HomeContent() {
         )}
 
         {mode === 'join' && (
-          <div className="space-y-4 animate-slide-up">
+          <div className="space-y-3 animate-slide-up max-w-xs mx-auto">
             <input
               className="input-field"
               placeholder="Your name"
@@ -267,7 +273,7 @@ function HomeContent() {
         )}
 
         {mode === 'browse' && (
-          <div className="space-y-4 animate-slide-up">
+          <div className="space-y-3 animate-slide-up">
             <input
               className="input-field"
               placeholder="Your name"
@@ -374,7 +380,7 @@ function HomeContent() {
           </div>
         )}
 
-        <div className="mt-12 flex items-center justify-center gap-3 text-gray-600 text-xs">
+        <div className="mt-8 flex items-center justify-center gap-3 text-gray-600 text-xs">
           <p>2-6 players. Bluff, challenge, eliminate.</p>
           <span className="text-gray-700">·</span>
           <a
