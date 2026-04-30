@@ -296,6 +296,11 @@ describe('ActionResolver', () => {
         expect(replaceEffect.playerId).toBe('p1');
         expect(replaceEffect.oldCharacter).toBe(Character.Duke);
       }
+      const revealEffect = result.sideEffects.find(e => e.type === 'challenge_reveal');
+      expect(revealEffect).toBeDefined();
+      if (revealEffect && revealEffect.type === 'challenge_reveal') {
+        expect(revealEffect.replacementDrawn).toBe(true);
+      }
 
       // The challenger should lose influence or we move to influence loss
       // If challenger has 2 influences, they must choose
@@ -333,6 +338,33 @@ describe('ActionResolver', () => {
         e => e.type === 'reveal_influence' && (e as any).playerId === 'p2',
       );
       expect(revealEffect).toBeDefined();
+    });
+
+    it('does not advertise a replacement card when the challenge loss is the final influence', () => {
+      setCards(game, 'p1', [Character.Duke, Character.Contessa]);
+      setCards(game, 'p2', [Character.Captain]);
+      game.getPlayer('p3')!.influences.forEach(inf => { inf.revealed = true; });
+
+      const declareResult = resolver.declareAction(game, 'p1', ActionType.Tax);
+      expect(isError(declareResult)).toBe(false);
+      if (isError(declareResult)) return;
+
+      const result = resolver.challenge(
+        game,
+        'p2',
+        declareResult.pendingAction!,
+        declareResult.challengeState!,
+      );
+      expect(isError(result)).toBe(false);
+      if (isError(result)) return;
+
+      const replaceEffect = result.sideEffects.find(e => e.type === 'replace_influence');
+      expect(replaceEffect).toBeUndefined();
+      const challengeReveal = result.sideEffects.find(e => e.type === 'challenge_reveal');
+      expect(challengeReveal).toBeDefined();
+      if (challengeReveal && challengeReveal.type === 'challenge_reveal') {
+        expect(challengeReveal.replacementDrawn).toBe(false);
+      }
     });
   });
 

@@ -54,6 +54,10 @@ type ActionConfig = {
   icon: React.ComponentType<{ size?: number }>;
 };
 
+function coinLabel(amount: number): string {
+  return `${amount} coin${amount === 1 ? '' : 's'}`;
+}
+
 function getActionConfig(isReformation: boolean, useInquisitor: boolean, treasuryReserve: number): ActionConfig[] {
   const config: ActionConfig[] = [
     { type: ActionType.Income, label: 'Income', desc: '+1 coin (safe)', icon: CoinIcon },
@@ -182,16 +186,32 @@ export function ActionBar({ gameState }: ActionBarProps) {
       availableTargets = availableTargets.filter(t => t.coins > 0);
     }
 
+    const blockedByFaction = isFactionRestricted && factionTargets.length === 0 && targets.length > 0;
+    const blockedByCoins = selectingTarget === ActionType.Steal && availableTargets.length === 0 && factionTargets.length > 0;
+    const noTargetMessage = blockedByFaction
+      ? 'No enemy faction targets. Convert first or wait until factions match.'
+      : blockedByCoins
+        ? 'No valid Steal targets. Opponents in range have no coins.'
+        : 'No valid targets.';
+
     // Convert has special options: self-convert or target-convert
     if (selectingTarget === ActionType.Convert) {
+      const canConvertSelf = me.coins >= CONVERSION_SELF_COST;
+      const canConvertOther = me.coins >= CONVERSION_OTHER_COST;
       return (
         <div className="prompt-action">
           <Timer expiresAt={gameState.timerExpiry} />
           <p className="text-center text-white font-bold mb-3">Convert who?</p>
+          {!canConvertSelf && (
+            <p className="text-center text-red-300 text-xs mb-2">
+              You need {coinLabel(CONVERSION_SELF_COST)} to convert yourself.
+            </p>
+          )}
           <div className="flex flex-col gap-2">
             <button
               className="btn-secondary w-full"
-              disabled={me.coins < CONVERSION_SELF_COST || actionPending}
+              disabled={!canConvertSelf || actionPending}
+              title={!canConvertSelf ? `Need ${coinLabel(CONVERSION_SELF_COST)}` : ''}
               onClick={() => {
                 if (actionPending) return;
                 hapticHeavy();
@@ -206,7 +226,8 @@ export function ActionBar({ gameState }: ActionBarProps) {
               <button
                 key={t.id}
                 className="btn-secondary w-full"
-                disabled={me.coins < CONVERSION_OTHER_COST || actionPending}
+                disabled={!canConvertOther || actionPending}
+                title={!canConvertOther ? `Need ${coinLabel(CONVERSION_OTHER_COST)}` : ''}
                 onClick={() => {
                   if (actionPending) return;
                   hapticHeavy();
@@ -247,7 +268,10 @@ export function ActionBar({ gameState }: ActionBarProps) {
             </button>
           ))}
           {isFactionRestricted && availableTargets.length === 0 && (
-            <p className="text-gray-400 text-sm text-center py-2">No valid targets (same faction)</p>
+            <p className="text-gray-400 text-sm text-center py-2">{noTargetMessage}</p>
+          )}
+          {!isFactionRestricted && availableTargets.length === 0 && (
+            <p className="text-gray-400 text-sm text-center py-2">{noTargetMessage}</p>
           )}
           <button
             className="text-gray-500 text-sm mt-1"
@@ -299,9 +323,11 @@ export function ActionBar({ gameState }: ActionBarProps) {
         {actionConfig.map(a => {
           const def = ACTION_DEFINITIONS[a.type];
           let canAfford = me.coins >= def.cost;
+          let costReason = def.cost > 0 ? `Need ${coinLabel(def.cost)}` : '';
           // Convert cost is dynamic
           if (a.type === ActionType.Convert) {
             canAfford = me.coins >= CONVERSION_SELF_COST;
+            costReason = `Need ${coinLabel(CONVERSION_SELF_COST)} to convert yourself`;
           }
           // Embezzle requires non-empty reserve
           if (a.type === ActionType.Embezzle) {
@@ -309,25 +335,45 @@ export function ActionBar({ gameState }: ActionBarProps) {
           }
           const isFactionAction = [ActionType.Coup, ActionType.Assassinate, ActionType.Steal, ActionType.Examine].includes(a.type);
           let relevantTargets = isFactionAction ? factionTargets : targets;
+          const factionEligibleTargets = relevantTargets;
           if (a.type === ActionType.Steal) relevantTargets = relevantTargets.filter(t => t.coins > 0);
           const hasTargets = a.type === ActionType.Convert || !def.requiresTarget || relevantTargets.length > 0;
           const disabled = !canAfford || !hasTargets || actionPending;
           const Icon = a.icon;
 
+          // Build a reason string for disabled actions
+          let disabledReason = '';
+          if (actionPending) {
+            disabledReason = 'Sending action...';
+          } else if (!canAfford) {
+            disabledReason = a.type === ActionType.Embezzle ? 'Reserve empty' : costReason;
+          } else if (a.type === ActionType.Embezzle && gameState.treasuryReserve === 0) {
+            disabledReason = 'Reserve empty';
+          } else if (a.type === ActionType.Steal && factionEligibleTargets.length > 0 && relevantTargets.length === 0) {
+            disabledReason = 'No opponents with coins';
+          } else if (isFactionAction && factionTargets.length === 0 && targets.length > 0) {
+            disabledReason = 'No enemy faction targets';
+          } else if (!hasTargets && def.requiresTarget) {
+            disabledReason = 'No valid targets';
+          }
+
           return (
             <button
               key={a.type}
-              className={`bg-coup-surface rounded-lg p-2 text-left border border-gray-700
-                ${disabled ? 'opacity-30 cursor-not-allowed' : 'hover:border-coup-accent cursor-pointer active:scale-[0.97]'}
+              className={`bg-coup-surface rounded-lg p-2 text-left border border-gray-700 relative
+                ${disabled ? 'opacity-40 cursor-not-allowed' : 'hover:border-coup-accent cursor-pointer active:scale-[0.97]'}
                 transition-all`}
               onClick={() => !disabled && handleAction(a.type)}
               disabled={disabled}
+              title={disabled ? disabledReason : ''}
             >
               <div className="flex items-start gap-2">
                 <span className="mt-0.5 shrink-0"><Icon size={18} /></span>
                 <div className="min-w-0">
                   <div className="font-bold text-sm leading-tight">{a.label}</div>
-                  <div className="text-[10px] text-gray-400 leading-tight mt-0.5">{a.desc}</div>
+                  <div className="text-[10px] text-gray-400 leading-tight mt-0.5">
+                    {disabled && disabledReason ? disabledReason : a.desc}
+                  </div>
                 </div>
               </div>
             </button>

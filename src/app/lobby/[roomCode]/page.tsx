@@ -10,34 +10,57 @@ import { ChatPanel } from '../../components/chat/ChatPanel';
 import { AddBotModal } from '../../components/lobby/AddBotModal';
 import { QRShareModal } from '../../components/lobby/QRShareModal';
 import { SettingsModal } from '../../components/settings/SettingsModal';
+import { HowToPlay } from '../../components/home/HowToPlay';
 import { haptic } from '../../utils/haptic';
 
 export default function LobbyPage() {
   const router = useRouter();
   const params = useParams();
   const roomCode = params.roomCode as string;
-  const { startGame, leaveRoom, sendChat, addBot, removeBot, updateRoomSettings } = useSocket();
+  const { startGame, leaveRoom, sendChat, addBot, removeBot, removePlayer, removeSpectator, updateRoomSettings } = useSocket();
   const {
     playerId,
     hostId,
     roomPlayers,
     roomSettings,
     lastWinnerId,
+    spectators,
     chatMessages,
     gameState,
     error,
   } = useGameStore();
 
   const leavingRef = useRef(false);
+  const copyStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showAddBotModal, setShowAddBotModal] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showRules, setShowRules] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'code' | 'link' | 'error'>('idle');
+  const [inviteUrl, setInviteUrl] = useState(`https://coup.chuds.dev/lobby/${roomCode}`);
 
   const isHost = playerId === hostId;
   const canStart = roomPlayers.length >= MIN_PLAYERS && roomPlayers.length <= MAX_PLAYERS;
+  const startReason = roomPlayers.length < MIN_PLAYERS
+    ? `Need ${MIN_PLAYERS - roomPlayers.length} more player${MIN_PLAYERS - roomPlayers.length === 1 ? '' : 's'}`
+    : roomPlayers.length > MAX_PLAYERS
+      ? 'Too many players'
+      : 'Ready when everyone has joined';
   const canAddBot = roomPlayers.length < MAX_PLAYERS;
   const hasBots = roomPlayers.some(p => p.isBot);
   const botReactionMax = Math.min(MAX_BOT_REACTION_SECONDS, roomSettings?.actionTimerSeconds ?? MAX_ACTION_TIMER);
+
+  useEffect(() => {
+    return () => {
+      if (copyStatusTimerRef.current) {
+        clearTimeout(copyStatusTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    setInviteUrl(`${window.location.origin}/lobby/${roomCode}`);
+  }, [roomCode]);
 
   // Navigate to game when it starts
   useEffect(() => {
@@ -72,13 +95,34 @@ export default function LobbyPage() {
     router.push('/');
   };
 
-  const copyRoomCode = () => {
-    haptic();
-    try {
-      navigator.clipboard.writeText(roomCode);
-    } catch {
-      // Clipboard API not available (HTTP or permission denied)
+  const showCopyStatus = (status: typeof copyStatus) => {
+    if (copyStatusTimerRef.current) {
+      clearTimeout(copyStatusTimerRef.current);
     }
+    setCopyStatus(status);
+    copyStatusTimerRef.current = setTimeout(() => setCopyStatus('idle'), 2000);
+  };
+
+  const copyText = (value: string, status: 'code' | 'link') => {
+    haptic();
+    showCopyStatus(status);
+
+    if (!navigator.clipboard?.writeText) {
+      showCopyStatus('error');
+      return;
+    }
+
+    navigator.clipboard.writeText(value).catch(() => {
+      showCopyStatus('error');
+    });
+  };
+
+  const copyRoomCode = () => {
+    copyText(roomCode, 'code');
+  };
+
+  const copyInviteLink = () => {
+    copyText(inviteUrl, 'link');
   };
 
   const handleAddBot = async (name: string, personality: import('@/shared/types').BotPersonality) => {
@@ -93,16 +137,41 @@ export default function LobbyPage() {
     }
   };
 
+  const handleRemovePlayer = async (targetPlayerId: string) => {
+    try {
+      await removePlayer(targetPlayerId);
+    } catch {
+      // Error will be shown via room:error
+    }
+  };
+
+  const handleRemoveSpectator = async (spectatorId: string) => {
+    try {
+      await removeSpectator(spectatorId);
+    } catch {
+      // Error will be shown via room:error
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-6">
-      <div className="max-w-md w-full">
+      <div className="max-w-sm lg:max-w-2xl w-full">
         {/* Top buttons + Room Code */}
         <div className="text-center mb-8 relative">
           <div className="flex justify-end gap-2 mb-3">
             <button
+              onClick={() => { haptic(); setShowRules(true); }}
+              className="w-9 h-9 rounded-full bg-gray-800 border border-gray-600 text-gray-300 hover:border-coup-accent hover:text-coup-accent transition flex items-center justify-center text-sm font-bold"
+              title="How to Play"
+              aria-label="How to Play"
+            >
+              ?
+            </button>
+            <button
               onClick={() => { haptic(); setShowQRModal(true); }}
               className="w-9 h-9 rounded-full bg-gray-800 border border-gray-600 text-gray-300 hover:border-coup-accent hover:text-coup-accent transition flex items-center justify-center"
               title="Share Room"
+              aria-label="Share room"
             >
               <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
                 <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
@@ -112,6 +181,7 @@ export default function LobbyPage() {
               onClick={() => { haptic(); setShowSettings(true); }}
               className="w-9 h-9 rounded-full bg-gray-800 border border-gray-600 text-gray-300 hover:border-coup-accent hover:text-coup-accent transition flex items-center justify-center"
               title="Settings"
+              aria-label="Settings"
             >
               <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
                 <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
@@ -122,12 +192,32 @@ export default function LobbyPage() {
           <button
             className="text-4xl font-bold tracking-widest text-coup-accent hover:opacity-80 transition"
             onClick={copyRoomCode}
+            aria-label={`Copy room code ${roomCode}`}
           >
             {roomCode}
           </button>
-          <p className="text-gray-600 text-xs mt-1">
-            Tap to copy &middot; {roomSettings?.isPublic ? 'Public' : 'Private'}
+          <p className="text-gray-600 text-xs mt-1" aria-live="polite">
+            {copyStatus === 'code' && 'Room code copied'}
+            {copyStatus === 'link' && 'Invite link copied'}
+            {copyStatus === 'error' && 'Copy failed - select the code or use the QR button'}
+            {copyStatus === 'idle' && <>Tap to copy &middot; {roomSettings?.isPublic ? 'Public' : 'Private'}</>}
           </p>
+          <div className="flex justify-center gap-2 mt-3">
+            <button
+              type="button"
+              onClick={copyRoomCode}
+              className="px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800/80 text-xs font-medium text-gray-300 hover:border-coup-accent hover:text-coup-accent transition"
+            >
+              Copy Code
+            </button>
+            <button
+              type="button"
+              onClick={copyInviteLink}
+              className="px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800/80 text-xs font-medium text-gray-300 hover:border-coup-accent hover:text-coup-accent transition"
+            >
+              Copy Invite
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -135,6 +225,8 @@ export default function LobbyPage() {
             {error}
           </div>
         )}
+
+        <div className="lg:grid lg:grid-cols-2 lg:gap-6">
 
         {/* Player List */}
         <div className="card-container mb-6">
@@ -145,55 +237,62 @@ export default function LobbyPage() {
             {roomPlayers.map(p => (
               <div
                 key={p.id}
-                className="flex items-center justify-between py-2 px-3 bg-coup-bg rounded-lg"
+                className="flex items-center py-2 px-3 bg-coup-bg rounded-lg gap-2"
               >
-                <div className="flex items-center gap-1.5">
-                  {p.id === lastWinnerId && (
-                    <span className="text-yellow-400" title="Last game winner">&#128081;</span>
-                  )}
-                  <span className={`font-medium ${p.id === playerId ? 'text-coup-accent' : ''}`}>
-                    {p.name}
-                    {p.id === playerId && ' (You)'}
+                {p.id === lastWinnerId && (
+                  <span className="text-yellow-400 shrink-0" title="Last game winner">&#128081;</span>
+                )}
+                <span className={`font-medium truncate min-w-0 ${p.id === playerId ? 'text-coup-accent' : ''}`}>
+                  {p.name}
+                  {p.id === playerId && ' (You)'}
+                </span>
+                {(p.wins ?? 0) > 0 && (
+                  <span className="shrink-0 text-[10px] bg-yellow-600/80 text-white px-1.5 py-px rounded-full font-bold">
+                    {p.wins}W
                   </span>
-                  {(p.wins ?? 0) > 0 && (
-                    <span className="text-xs bg-yellow-600 text-white px-1.5 py-0.5 rounded-full font-bold">
-                      {p.wins} {p.wins === 1 ? 'win' : 'wins'}
+                )}
+                <div className="flex items-center gap-1.5 ml-auto shrink-0">
+                  {p.isBot && p.personality && (
+                    <span className={`text-[10px] px-1.5 py-px rounded-full font-bold text-white ${
+                      p.personality === 'aggressive' ? 'bg-red-600' :
+                      p.personality === 'conservative' ? 'bg-green-600' :
+                      p.personality === 'vengeful' ? 'bg-orange-600' :
+                      p.personality === 'deceptive' ? 'bg-pink-600' :
+                      p.personality === 'analytical' ? 'bg-blue-600' :
+                      p.personality === 'optimal' ? 'bg-yellow-600' :
+                      'bg-purple-600'
+                    }`}>
+                      {p.personality.toUpperCase()}
                     </span>
                   )}
-                </div>
-                <div className="flex items-center gap-2">
                   {p.isBot && (
-                    <>
-                      <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full font-bold">
-                        BOT
-                      </span>
-                      {p.personality && (
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-bold text-white ${
-                          p.personality === 'aggressive' ? 'bg-red-600' :
-                          p.personality === 'conservative' ? 'bg-green-600' :
-                          p.personality === 'vengeful' ? 'bg-orange-600' :
-                          p.personality === 'deceptive' ? 'bg-pink-600' :
-                          p.personality === 'analytical' ? 'bg-blue-600' :
-                          p.personality === 'optimal' ? 'bg-yellow-600' :
-                          'bg-purple-600'
-                        }`}>
-                          {p.personality.toUpperCase()}
-                        </span>
-                      )}
-                    </>
+                    <span className="text-[10px] bg-blue-600 text-white px-1.5 py-px rounded-full font-bold">
+                      BOT
+                    </span>
                   )}
                   {p.id === hostId && (
-                    <span className="text-xs bg-coup-accent text-coup-bg px-2 py-0.5 rounded-full font-bold">
+                    <span className="text-[10px] bg-coup-accent text-coup-bg px-1.5 py-px rounded-full font-bold">
                       HOST
                     </span>
                   )}
                   {p.isBot && isHost && (
                     <button
                       onClick={() => { haptic(); handleRemoveBot(p.id); }}
-                      className="text-gray-500 hover:text-red-400 transition text-sm font-bold w-5 h-5 flex items-center justify-center"
+                      className="text-gray-500 hover:text-red-400 transition text-xs font-bold w-4 h-4 flex items-center justify-center"
                       title="Remove bot"
+                      aria-label={`Remove ${p.name}`}
                     >
-                      X
+                      &times;
+                    </button>
+                  )}
+                  {!p.isBot && isHost && p.id !== hostId && (
+                    <button
+                      onClick={() => { haptic(); handleRemovePlayer(p.id); }}
+                      className="text-gray-500 hover:text-red-400 transition text-xs font-bold w-4 h-4 flex items-center justify-center"
+                      title="Remove player"
+                      aria-label={`Remove ${p.name}`}
+                    >
+                      &times;
                     </button>
                   )}
                   {!p.isBot && (
@@ -212,6 +311,32 @@ export default function LobbyPage() {
             >
               + Add Computer Player
             </button>
+          )}
+
+          {spectators.length > 0 && (
+            <div className="mt-4 border-t border-gray-800 pt-3">
+              <h3 className="font-bold text-gray-500 text-xs uppercase mb-2">
+                Spectators ({spectators.length})
+              </h3>
+              <div className="space-y-2">
+                {spectators.map(s => (
+                  <div key={s.id} className="flex items-center gap-2 py-1.5 px-3 bg-coup-bg/70 rounded-lg">
+                    <span className="text-sm text-purple-300 truncate min-w-0 flex-1">{s.name}</span>
+                    {isHost && (
+                      <button
+                        type="button"
+                        onClick={() => { haptic(); handleRemoveSpectator(s.id); }}
+                        className="text-gray-500 hover:text-red-400 transition text-xs font-bold w-4 h-4 flex items-center justify-center"
+                        title="Remove spectator"
+                        aria-label={`Remove spectator ${s.name}`}
+                      >
+                        &times;
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
 
@@ -397,19 +522,27 @@ export default function LobbyPage() {
           </div>
         )}
 
+        </div>{/* end lg:grid */}
+
         {/* Controls */}
-        <div className="space-y-3">
+        <div className="space-y-3 lg:max-w-xs lg:mx-auto">
           {isHost && (
             <button
               className="btn-primary w-full"
               disabled={!canStart}
               onClick={() => { haptic(80); startGame(); }}
+              title={startReason}
             >
               {canStart
                 ? `Start Game (${roomPlayers.length} players)`
                 : `Need ${MIN_PLAYERS}+ players`
               }
             </button>
+          )}
+          {isHost && (
+            <p className={`text-center text-xs ${canStart ? 'text-green-400' : 'text-yellow-300'}`}>
+              {startReason}
+            </p>
           )}
           {!isHost && (
             <p className="text-center text-gray-400">
@@ -422,7 +555,7 @@ export default function LobbyPage() {
         </div>
 
         {/* Chat */}
-        <div className="card-container mt-6">
+        <div className="card-container mt-6 lg:max-w-sm lg:mx-auto">
           <h2 className="font-bold text-gray-400 text-sm uppercase mb-2">Chat</h2>
           <ChatPanel messages={chatMessages} myId={playerId} onSend={sendChat} />
         </div>
@@ -437,6 +570,7 @@ export default function LobbyPage() {
       />
       <QRShareModal open={showQRModal} onClose={() => setShowQRModal(false)} roomCode={roomCode} />
       <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
+      <HowToPlay open={showRules} onClose={() => setShowRules(false)} />
     </div>
   );
 }

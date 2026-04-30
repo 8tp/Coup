@@ -1,14 +1,17 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { LogEntry, TurnPhase } from '@/shared/types';
 import { LOG_EVENT_ICONS, CHARACTER_COLORS } from '@/shared/constants';
 import { formatLogMessage } from '@/app/utils/logFormat';
+import { getLogExplanation } from '@/app/utils/logExplanations';
+import { haptic } from '../../utils/haptic';
 
 interface ActionLogProps {
   log: LogEntry[];
   myName: string;
   turnPhase?: string;
+  showExplanations?: boolean;
 }
 
 /** Log event types that represent claims (where wasBluff is meaningful) */
@@ -43,9 +46,10 @@ function getGroupBorderColor(group: LogEntry[]): string {
   return '#4b5563'; // gray-600 fallback
 }
 
-export function ActionLog({ log, myName, turnPhase }: ActionLogProps) {
+export function ActionLog({ log, myName, turnPhase, showExplanations = false }: ActionLogProps) {
   const isGameOver = turnPhase === TurnPhase.GameOver;
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [expandedEntryKey, setExpandedEntryKey] = useState<string | null>(null);
 
   // Scroll to bottom on new entries or phase changes
   useEffect(() => {
@@ -88,28 +92,54 @@ export function ActionLog({ log, myName, turnPhase }: ActionLogProps) {
                 const isLatestEntry = isLatestGroup && ei === group.length - 1;
                 const message = formatLogMessage(entry.message, myName);
                 const showBluffBadge = isGameOver && CLAIM_EVENT_TYPES.has(entry.eventType) && entry.wasBluff !== undefined;
+                const explanation = showExplanations ? getLogExplanation(entry) : null;
+                const entryKey = `${entry.timestamp}-${entry.turnNumber}-${gi}-${ei}`;
+                const isExpanded = expandedEntryKey === entryKey;
 
                 return (
-                  <p
-                    key={`${entry.turnNumber}-${ei}`}
-                    className={`text-sm ${
-                      isLatestEntry
-                        ? 'text-gray-200 font-medium'
-                        : 'text-gray-400'
-                    }`}
-                  >
-                    <span className="mr-1">{icon}</span>
-                    {message}
-                    {showBluffBadge && (
-                      <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full align-middle ${
-                        entry.wasBluff
-                          ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                          : 'bg-green-500/15 text-green-400/80 border border-green-500/20'
-                      }`}>
-                        {entry.wasBluff ? 'BLUFF' : 'TRUE'}
-                      </span>
+                  <div key={entryKey}>
+                    <div
+                      className={`text-sm ${
+                        isLatestEntry
+                          ? 'text-gray-200 font-medium'
+                          : 'text-gray-400'
+                      }`}
+                    >
+                      <span className="mr-1">{icon}</span>
+                      {message}
+                      {showBluffBadge && (
+                        <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full align-middle ${
+                          entry.wasBluff
+                            ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                            : 'bg-green-500/15 text-green-400/80 border border-green-500/20'
+                        }`}>
+                          {entry.wasBluff ? 'BLUFF' : 'TRUE'}
+                        </span>
+                      )}
+                      {explanation && (
+                        <button
+                          type="button"
+                          className={`ml-1.5 rounded-full border px-1.5 py-0.5 text-[10px] font-bold align-middle transition ${
+                            isExpanded
+                              ? 'border-coup-accent text-coup-accent'
+                              : 'border-gray-700 text-gray-500 hover:border-coup-accent hover:text-coup-accent'
+                          }`}
+                          onClick={() => {
+                            haptic();
+                            setExpandedEntryKey(isExpanded ? null : entryKey);
+                          }}
+                          aria-expanded={isExpanded}
+                        >
+                          Why?
+                        </button>
+                      )}
+                    </div>
+                    {explanation && isExpanded && (
+                      <div className="mt-1 mb-1 rounded-lg border border-gray-800 bg-coup-surface/80 px-2 py-1.5 text-xs leading-snug text-gray-400">
+                        {explanation}
+                      </div>
                     )}
-                  </p>
+                  </div>
                 );
               })}
             </div>

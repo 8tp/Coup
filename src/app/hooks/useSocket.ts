@@ -11,6 +11,7 @@ type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 let globalSocket: TypedSocket | null = null;
 
 const SOCKET_TIMEOUT_MS = 5000;
+const PRACTICE_ROOM_KEY = 'coup_practice_room';
 
 function withTimeout<T>(promise: Promise<T>, ms = SOCKET_TIMEOUT_MS): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -84,6 +85,7 @@ export function useSocket() {
               sessionStorage.removeItem('coup_room');
               sessionStorage.removeItem('coup_player');
               sessionStorage.removeItem('coup_spectator');
+              sessionStorage.removeItem(PRACTICE_ROOM_KEY);
               useGameStore.getState().clearRoom();
               useGameStore.getState().setGameState(null);
             }
@@ -101,6 +103,7 @@ export function useSocket() {
               sessionStorage.removeItem('coup_room');
               sessionStorage.removeItem('coup_player');
               sessionStorage.removeItem('coup_session_token');
+              sessionStorage.removeItem(PRACTICE_ROOM_KEY);
               useGameStore.getState().clearRoom();
               useGameStore.getState().setGameState(null);
             }
@@ -144,6 +147,19 @@ export function useSocket() {
       errorTimers.push(setTimeout(() => setError(null), 3000));
     };
 
+    const onRoomRemoved = (data: { message: string }) => {
+      sessionStorage.setItem('coup_removed_message', data.message);
+      sessionStorage.removeItem('coup_room');
+      sessionStorage.removeItem('coup_player');
+      sessionStorage.removeItem('coup_session_token');
+      sessionStorage.removeItem('coup_spectator');
+      sessionStorage.removeItem('coup_player_name');
+      sessionStorage.removeItem(PRACTICE_ROOM_KEY);
+      useGameStore.getState().clearRoom();
+      setError(data.message);
+      window.location.assign('/');
+    };
+
     const onChatMessage = (data: ChatMessage) => {
       addChatMessage(data);
     };
@@ -164,6 +180,7 @@ export function useSocket() {
         sessionStorage.setItem('coup_session_token', data.sessionToken);
         sessionStorage.removeItem('coup_spectator');
         sessionStorage.removeItem('coup_player_name');
+        sessionStorage.removeItem(PRACTICE_ROOM_KEY);
         useGameStore.getState().setRoom(storedRoom, data.playerId);
         setGameState(null);
       }
@@ -194,6 +211,7 @@ export function useSocket() {
     socket.on('game:state', onGameState);
     socket.on('game:error', onGameError);
     socket.on('room:error', onRoomError);
+    socket.on('room:removed', onRoomRemoved);
     socket.on('chat:message', onChatMessage);
     socket.on('chat:history', onChatHistory);
     socket.on('game:rematch_to_lobby', onRematchToLobby);
@@ -214,6 +232,7 @@ export function useSocket() {
       socket.off('game:state', onGameState);
       socket.off('game:error', onGameError);
       socket.off('room:error', onRoomError);
+      socket.off('room:removed', onRoomRemoved);
       socket.off('chat:message', onChatMessage);
       socket.off('chat:history', onChatHistory);
       socket.off('game:rematch_to_lobby', onRematchToLobby);
@@ -229,6 +248,7 @@ export function useSocket() {
     return withTimeout(new Promise((resolve, reject) => {
       socketRef.current.emit('room:create', { playerName, isPublic }, (response) => {
         if (response.success && response.roomCode && response.playerId) {
+          sessionStorage.removeItem(PRACTICE_ROOM_KEY);
           sessionStorage.setItem('coup_room', response.roomCode);
           sessionStorage.setItem('coup_player', response.playerId);
           if (response.sessionToken) {
@@ -246,6 +266,7 @@ export function useSocket() {
     return withTimeout(new Promise((resolve, reject) => {
       socketRef.current.emit('room:join', { roomCode, playerName }, (response) => {
         if (response.success && response.roomCode && response.playerId) {
+          sessionStorage.removeItem(PRACTICE_ROOM_KEY);
           sessionStorage.setItem('coup_room', response.roomCode);
           sessionStorage.setItem('coup_player', response.playerId);
           if (response.sessionToken) {
@@ -268,6 +289,7 @@ export function useSocket() {
     sessionStorage.removeItem('coup_room');
     sessionStorage.removeItem('coup_player');
     sessionStorage.removeItem('coup_session_token');
+    sessionStorage.removeItem(PRACTICE_ROOM_KEY);
   }, []);
 
   const sendChat = useCallback((message: string) => {
@@ -314,6 +336,30 @@ export function useSocket() {
     }));
   }, []);
 
+  const removePlayer = useCallback((targetPlayerId: string): Promise<void> => {
+    return withTimeout(new Promise((resolve, reject) => {
+      socketRef.current.emit('room:remove_player', { playerId: targetPlayerId }, (response) => {
+        if (response.success) {
+          resolve();
+        } else {
+          reject(new Error(response.error || 'Failed to remove player'));
+        }
+      });
+    }));
+  }, []);
+
+  const removeSpectator = useCallback((spectatorId: string): Promise<void> => {
+    return withTimeout(new Promise((resolve, reject) => {
+      socketRef.current.emit('room:remove_spectator', { spectatorId }, (response) => {
+        if (response.success) {
+          resolve();
+        } else {
+          reject(new Error(response.error || 'Failed to remove spectator'));
+        }
+      });
+    }));
+  }, []);
+
   const sendReaction = useCallback((reactionId: string) => {
     socketRef.current.emit('reaction:send', { reactionId });
   }, []);
@@ -322,6 +368,7 @@ export function useSocket() {
     return withTimeout(new Promise((resolve, reject) => {
       socketRef.current.emit('room:spectate', { roomCode, playerName }, (response) => {
         if (response.success && response.roomCode && response.spectatorId) {
+          sessionStorage.removeItem(PRACTICE_ROOM_KEY);
           sessionStorage.setItem('coup_room', response.roomCode);
           sessionStorage.setItem('coup_player', response.spectatorId);
           sessionStorage.setItem('coup_spectator', 'true');
@@ -339,6 +386,7 @@ export function useSocket() {
     sessionStorage.removeItem('coup_room');
     sessionStorage.removeItem('coup_player');
     sessionStorage.removeItem('coup_spectator');
+    sessionStorage.removeItem(PRACTICE_ROOM_KEY);
   }, []);
 
   const subscribeToBrowser = useCallback(() => {
@@ -360,6 +408,8 @@ export function useSocket() {
     rematch,
     addBot,
     removeBot,
+    removePlayer,
+    removeSpectator,
     updateRoomSettings,
     spectateRoom,
     stopSpectating,

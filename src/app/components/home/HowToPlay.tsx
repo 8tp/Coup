@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import { Character } from '@/shared/types';
 import { CHARACTER_DESCRIPTIONS } from '@/shared/constants';
-import { CHARACTER_SVG_ICONS } from '../icons';
 import { Modal } from '../ui/Modal';
 import { haptic } from '../../utils/haptic';
+import { CardArtwork, CharacterCardBadge } from '../game/CardArtwork';
 
 const tabs = ['Overview', 'Characters', 'Actions & Rules', 'Reformation'] as const;
 type Tab = typeof tabs[number];
@@ -124,15 +124,16 @@ function CharactersTab() {
   return (
     <div className="grid gap-3">
       {characters.map(char => {
-        const Icon = CHARACTER_SVG_ICONS[char];
         const theme = characterThemes[char];
         return (
           <div
             key={char}
             className={`flex items-center gap-3 p-3 rounded-lg border ${theme.bg} ${theme.border}`}
           >
-            <div className="shrink-0">
-              <Icon size={36} />
+            <div className={`relative h-14 w-10 shrink-0 overflow-hidden rounded-md border ${theme.border}`}>
+              <CardArtwork character={char} variant="focus" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
+              <CharacterCardBadge character={char} />
             </div>
             <div>
               <div className={`font-bold ${theme.label}`}>{char}</div>
@@ -264,11 +265,21 @@ function ReformationTab() {
         </p>
       </div>
 
+      <div className="rounded-xl border border-coup-accent/30 bg-coup-accent/10 p-3">
+        <h3 className="text-coup-accent font-bold text-base mb-2">Quick Start</h3>
+        <ol className="list-decimal list-inside space-y-1.5 text-gray-300">
+          <li>Check faction markers before targeting: <span className="text-blue-300 font-bold">▲ LOY</span> and <span className="text-red-300 font-bold">◆ REF</span>.</li>
+          <li>Use Convert to fix targeting, rescue an ally, or put coins into the reserve.</li>
+          <li>Only Embezzle when the reserve is worth the challenge risk.</li>
+          <li>If Inquisitor is enabled, Exchange is smaller but Examine gives direct information.</li>
+        </ol>
+      </div>
+
       <div>
         <h3 className="text-coup-accent font-bold text-base mb-2">Factions</h3>
         <p className="text-gray-400 mb-2">
-          Each player is assigned to either the <span className="text-blue-300 font-medium">Loyalists</span> or{' '}
-          <span className="text-red-300 font-medium">Reformists</span>. You{' '}
+          Each player is assigned to either the <span className="text-blue-300 font-medium">▲ Loyalists</span> or{' '}
+          <span className="text-red-300 font-medium">◆ Reformists</span>. You{' '}
           <span className="text-white font-medium">cannot target</span> players in your own faction with
           Coup, Assassinate, Steal, or Examine. If all surviving players share the same faction,
           this restriction is lifted.

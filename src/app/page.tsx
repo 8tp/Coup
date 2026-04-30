@@ -23,7 +23,7 @@ export default function Home() {
 function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { createRoom, joinRoom, spectateRoom, subscribeToBrowser, unsubscribeFromBrowser } = useSocket();
+  const { createRoom, joinRoom, spectateRoom, addBot, startGame, subscribeToBrowser, unsubscribeFromBrowser } = useSocket();
   const { error, setError, setRoom, publicRooms, playersOnline, gamesInProgress } = useGameStore();
   const joinCode = searchParams.get('join');
   const [mode, setMode] = useState<'idle' | 'create' | 'join' | 'browse'>(joinCode ? 'join' : 'idle');
@@ -42,6 +42,13 @@ function HomeContent() {
       unsubscribeFromBrowser();
     };
   }, [subscribeToBrowser, unsubscribeFromBrowser]);
+
+  useEffect(() => {
+    const removedMessage = sessionStorage.getItem('coup_removed_message');
+    if (!removedMessage) return;
+    sessionStorage.removeItem('coup_removed_message');
+    setError(removedMessage);
+  }, [setError]);
 
   useEffect(() => {
     if (!error) return;
@@ -110,6 +117,24 @@ function HomeContent() {
     }
   };
 
+  const handlePracticeBot = async () => {
+    haptic(80);
+    const practiceName = name.trim() || 'Player';
+    setLoading(true);
+    try {
+      const result = await createRoom(practiceName, false);
+      setRoom(result.roomCode, result.playerId);
+      await addBot('Tutor Bot', 'conservative');
+      sessionStorage.setItem('coup_practice_room', 'true');
+      startGame();
+      router.push(`/game/${result.roomCode}`);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Could not start practice game');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const joinableRooms = publicRooms.filter(r => !r.hasGame && r.playerCount < r.maxPlayers);
   const watchableRooms = publicRooms.filter(r => r.hasGame);
 
@@ -123,6 +148,7 @@ function HomeContent() {
           onClick={() => { haptic(); setShowStats(true); }}
           className="w-9 h-9 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition flex items-center justify-center"
           title="My Stats"
+          aria-label="My stats"
         >
           <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
             <path d="M2 3a1 1 0 011-1h1a1 1 0 011 1v14a1 1 0 01-1 1H3a1 1 0 01-1-1V3zm5 2a1 1 0 011-1h1a1 1 0 011 1v12a1 1 0 01-1 1H8a1 1 0 01-1-1V5zm5-4a1 1 0 011-1h1a1 1 0 011 1v16a1 1 0 01-1 1h-1a1 1 0 01-1-1V1z" />
@@ -132,6 +158,7 @@ function HomeContent() {
           onClick={() => { haptic(); setShowSettings(true); }}
           className="w-9 h-9 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition flex items-center justify-center"
           title="Settings"
+          aria-label="Settings"
         >
           <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
             <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
@@ -153,10 +180,10 @@ function HomeContent() {
         }}
       />
 
-      <div className="max-w-md w-full text-center relative">
-        <CoupLogo className="w-64 h-auto mx-auto mb-2" />
-        <p className="text-gray-400 mb-2">The classic bluffing game</p>
-        <p className="text-gray-500 text-sm mb-8">
+      <div className="max-w-xs sm:max-w-sm lg:max-w-md w-full text-center relative">
+        <CoupLogo className="w-64 lg:w-72 h-auto mx-auto mb-2" />
+        <p className="text-gray-400 mb-1 text-sm">The classic bluffing game</p>
+        <p className="text-gray-500 text-xs mb-6">
           {playersOnline} player{playersOnline !== 1 ? 's' : ''} online · {gamesInProgress} game{gamesInProgress !== 1 ? 's' : ''} in progress
         </p>
 
@@ -167,34 +194,40 @@ function HomeContent() {
         )}
 
         {mode === 'idle' && (
-          <div className="space-y-4 animate-fade-in">
-            <button className="btn-primary w-full" onClick={() => { haptic(); setMode('create'); }}>
-              Create Room
-            </button>
-            <button className="btn-secondary w-full" onClick={() => { haptic(); setMode('join'); }}>
-              Join Room
-            </button>
+          <div className="space-y-3 animate-fade-in">
+            {/* Primary actions — side by side on desktop */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              <button className="btn-primary w-full" onClick={() => { haptic(); setMode('create'); }}>
+                Create Room
+              </button>
+              <button className="btn-secondary w-full" onClick={() => { haptic(); setMode('join'); }}>
+                Join Room
+              </button>
+            </div>
             <button className="btn-secondary w-full" onClick={() => { haptic(); setMode('browse'); }}>
               Browse Public Games
             </button>
 
-            <div className="flex items-center gap-3 my-2">
-              <div className="flex-1 h-px bg-gray-700" />
-              <span className="text-gray-600 text-xs">or</span>
-              <div className="flex-1 h-px bg-gray-700" />
+            <div className="flex items-center justify-center gap-4 pt-2">
+              <button
+                className="text-gray-400 hover:text-coup-accent text-sm font-medium transition-colors"
+                onClick={() => { haptic(); setShowHowToPlay(true); }}
+              >
+                How to Play
+              </button>
+              <span className="text-gray-700">·</span>
+              <button
+                className="text-gray-400 hover:text-coup-accent text-sm font-medium transition-colors"
+                onClick={() => { haptic(); setShowTutorial(true); }}
+              >
+                Tutorial
+              </button>
             </div>
-
-            <button
-              className="text-gray-400 hover:text-coup-accent text-sm font-medium transition-colors w-full py-2"
-              onClick={() => { haptic(); setShowHowToPlay(true); }}
-            >
-              How to Play
-            </button>
           </div>
         )}
 
         {mode === 'create' && (
-          <div className="space-y-4 animate-slide-up">
+          <div className="space-y-3 animate-slide-up max-w-xs mx-auto">
             <input
               className="input-field"
               placeholder="Your name"
@@ -234,7 +267,7 @@ function HomeContent() {
         )}
 
         {mode === 'join' && (
-          <div className="space-y-4 animate-slide-up">
+          <div className="space-y-3 animate-slide-up max-w-xs mx-auto">
             <input
               className="input-field"
               placeholder="Your name"
@@ -247,8 +280,8 @@ function HomeContent() {
               className="input-field uppercase"
               placeholder="Room code"
               value={roomCode}
-              onChange={e => setRoomCode(e.target.value.toUpperCase())}
-              maxLength={6}
+              onChange={e => setRoomCode(e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4))}
+              maxLength={4}
             />
             <button
               className="btn-primary w-full"
@@ -267,7 +300,7 @@ function HomeContent() {
         )}
 
         {mode === 'browse' && (
-          <div className="space-y-4 animate-slide-up">
+          <div className="space-y-3 animate-slide-up">
             <input
               className="input-field"
               placeholder="Your name"
@@ -374,7 +407,7 @@ function HomeContent() {
           </div>
         )}
 
-        <div className="mt-12 flex items-center justify-center gap-3 text-gray-600 text-xs">
+        <div className="mt-8 flex items-center justify-center gap-3 text-gray-600 text-xs">
           <p>2-6 players. Bluff, challenge, eliminate.</p>
           <span className="text-gray-700">·</span>
           <a
@@ -397,7 +430,13 @@ function HomeContent() {
       </div>
 
       <HowToPlay open={showHowToPlay} onClose={() => setShowHowToPlay(false)} />
-      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} onOpenTutorial={() => setShowTutorial(true)} />
+      <SettingsModal
+        open={showSettings}
+        onClose={() => setShowSettings(false)}
+        onOpenTutorial={() => setShowTutorial(true)}
+        onPracticeBot={handlePracticeBot}
+        practiceLoading={loading}
+      />
       <Tutorial open={showTutorial} onClose={() => setShowTutorial(false)} />
       <StatsModal open={showStats} onClose={() => setShowStats(false)} />
     </div>

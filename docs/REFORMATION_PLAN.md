@@ -1,10 +1,17 @@
-# Coup: Reformation Expansion -- Implementation Plan
+# Coup: Reformation Expansion -- Implementation Notes
+
+**Status:** Implemented in the current `dev` branch for 2-6 player rooms. This document is retained as architecture notes and follow-up tracking, not as an unstarted plan.
+
+**Implemented deviations / remaining follow-ups:**
+- Faction restrictions apply to targeted hostile actions (`Coup`, `Assassinate`, `Steal`, `Examine`), not to Foreign Aid blocks.
+- Inquisitor `Examine` currently selects one hidden target card server-side when the target has two hidden cards. The physical expansion has the target choose which card is examined; matching that exactly would require an additional target-choice prompt/phase.
+- 7-10 player Reformation deck scaling remains future work.
 
 ## Rules Summary
 
 ### Factions (Allegiances)
-- Each player is either **Loyalist** or **Reformist** (alternating at game start, first player chooses)
-- **Targeting restriction**: You CANNOT Coup, Assassinate, Steal, Examine, or block Foreign Aid against a player on your **same** faction
+- Each player is either **Loyalist** or **Reformist** (alternating at game start, randomized starting faction)
+- **Targeting restriction**: You CANNOT Coup, Assassinate, Steal, or Examine a player on your **same** faction
 - You **CAN** always challenge anyone regardless of faction
 - When **all remaining players share the same faction**, restrictions lift -- free-for-all resumes
 
@@ -22,7 +29,7 @@
 
 ### Inquisitor (replaces Ambassador, optional)
 - **Exchange**: Draw **1 card** from deck (not 2 like Ambassador), choose whether to swap with one of your hidden cards, return 1 card to deck
-- **Examine**: Look at one of an opponent's face-down cards (opponent chooses which). Either return it, OR force them to draw a new card from deck and return the examined card to deck. Cannot examine same-faction unless all same faction.
+- **Examine**: Look at one of an opponent's face-down cards. Either return it, OR force them to draw a new card from deck and return the examined card to deck. Cannot examine same-faction unless all same faction.
 - **Blocks Stealing** (same as Ambassador)
 - Replaces Ambassador entirely -- Ambassador cards removed from deck, Inquisitor cards added
 
@@ -143,7 +150,7 @@ Examine flow:
 - `Tutorial.tsx` -- Add Reformation steps
 - `icons/index.ts` -- Export `InquisitorIcon`, add to `CHARACTER_SVG_ICONS`
 
-### Phase 6: New SVG Assets
+### Phase 6: Visual Assets
 
 **InquisitorIcon:** All-seeing eye with magnifying glass
 - Outer: Diamond-shaped frame (teal #0d9488 stroke)
@@ -151,6 +158,8 @@ Examine flow:
 - Magnifying glass handle extending from bottom-right
 - Color: Teal primary (#0d9488), light teal highlights (#5eead4)
 - Animated: iris slowly pulses, magnifying glass has subtle gleam sweep
+
+**Generated influence card art:** Reformation-enabled decks should use the same raster card-face pipeline as the base game, including `public/assets/cards/inquisitor-v2.webp` for the Inquisitor influence card. Keep the SVG `InquisitorIcon` for compact action/block controls where exact symbol readability matters.
 
 **FactionBadge SVGs:**
 - Loyalist: Blue shield with crown silhouette (#3b82f6)

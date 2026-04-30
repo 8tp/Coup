@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { ChatMessage, ClientGameState } from '@/shared/types';
+import { useEffect, useState } from 'react';
+import { ChatMessage, ClientGameState, GameMode, TurnPhase } from '@/shared/types';
 import { PlayerSeat } from './PlayerSeat';
 import { CardFace } from './CardFace';
+import { CoinChangeBurst } from './CoinChangeBurst';
 import { CoinIcon } from '../icons';
 import { ActionBar } from './ActionBar';
 import { ChallengePrompt } from './ChallengePrompt';
@@ -33,10 +34,12 @@ interface GameTableProps {
   isHost: boolean;
   onRematch: () => void;
   isSpectator?: boolean;
+  isPracticeRoom?: boolean;
+  onExitPractice?: () => void;
   onStopSpectating?: () => void;
 }
 
-export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction, isHost, onRematch, isSpectator, onStopSpectating }: GameTableProps) {
+export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction, isHost, onRematch, isSpectator, isPracticeRoom, onExitPractice, onStopSpectating }: GameTableProps) {
   useSoundEffects();
   const isMuted = useGameStore(s => s.isMuted);
   const setMuted = useGameStore(s => s.setMuted);
@@ -55,8 +58,59 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
       ? gameState.pendingAction.actorId
       : currentPlayerId);
 
+  useEffect(() => {
+    const titleSuffix = `Coup ${gameState.roomCode}`;
+    let title = titleSuffix;
+
+    if (isSpectator) {
+      title = `Watching | ${titleSuffix}`;
+    } else if (me && !me.isAlive) {
+      title = `Eliminated | ${titleSuffix}`;
+    } else if (me) {
+      const challengePassed = gameState.challengeState?.passedPlayerIds.includes(gameState.myId) ?? false;
+      const blockPassed = gameState.blockPassedPlayerIds?.includes(gameState.myId) ?? false;
+
+      if (gameState.turnPhase === TurnPhase.AwaitingAction && currentPlayerId === gameState.myId) {
+        title = `Your turn | ${titleSuffix}`;
+      } else if (
+        gameState.turnPhase === TurnPhase.AwaitingActionChallenge &&
+        gameState.pendingAction?.actorId !== gameState.myId &&
+        !challengePassed
+      ) {
+        title = `Challenge? | ${titleSuffix}`;
+      } else if (
+        gameState.turnPhase === TurnPhase.AwaitingBlock &&
+        gameState.pendingAction?.actorId !== gameState.myId &&
+        !blockPassed &&
+        (!gameState.pendingAction?.targetId || gameState.pendingAction.targetId === gameState.myId)
+      ) {
+        title = `Block? | ${titleSuffix}`;
+      } else if (
+        gameState.turnPhase === TurnPhase.AwaitingBlockChallenge &&
+        gameState.pendingBlock?.blockerId !== gameState.myId &&
+        !challengePassed
+      ) {
+        title = `Challenge block? | ${titleSuffix}`;
+      } else if (
+        gameState.turnPhase === TurnPhase.AwaitingInfluenceLoss &&
+        gameState.influenceLossRequest?.playerId === gameState.myId
+      ) {
+        title = `Reveal influence | ${titleSuffix}`;
+      } else if (gameState.turnPhase === TurnPhase.AwaitingExchange && gameState.exchangeState) {
+        title = `Choose cards | ${titleSuffix}`;
+      } else if (gameState.turnPhase === TurnPhase.AwaitingExamineDecision && gameState.examineState) {
+        title = `Examine card | ${titleSuffix}`;
+      }
+    }
+
+    document.title = title;
+    return () => {
+      document.title = 'Coup Online';
+    };
+  }, [currentPlayerId, gameState, isSpectator, me]);
+
   return (
-    <div className="h-dvh flex flex-col max-w-lg mx-auto px-3 py-3 overflow-hidden" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))', paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+    <div className="h-dvh flex flex-col max-w-lg lg:max-w-xl mx-auto px-3 py-3 overflow-hidden" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))', paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
       {/* Header bar */}
       <div className="flex items-center justify-between mb-2 text-xs text-gray-500">
         <span>Room: <span className="text-gray-400 font-mono">{gameState.roomCode}</span></span>
@@ -68,17 +122,23 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
         </span>
         <div className="flex items-center gap-2.5">
           <span>Deck: {gameState.deckCount}</span>
+          {gameState.gameMode === GameMode.Reformation && (
+            <span className="text-coup-gold" title="Treasury Reserve">Reserve: {gameState.treasuryReserve}</span>
+          )}
           <button
             onClick={() => { haptic(); setMuted(!isMuted); }}
-            className="w-8 h-8 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition text-xs flex items-center justify-center"
+            className="w-9 h-9 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition text-xs flex items-center justify-center"
             title={isMuted ? 'Unmute sounds' : 'Mute sounds'}
+            aria-label={isMuted ? 'Unmute sounds' : 'Mute sounds'}
+            aria-pressed={isMuted}
           >
             {isMuted ? '🔇' : '🔊'}
           </button>
           <button
             onClick={() => { haptic(); setShowSettings(true); }}
-            className="w-8 h-8 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition flex items-center justify-center"
+            className="w-9 h-9 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition flex items-center justify-center"
             title="Settings"
+            aria-label="Settings"
           >
             <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
               <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
@@ -89,6 +149,7 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
             onClick={() => { haptic(); setShowRules(true); }}
             className="w-8 h-8 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition text-xs font-bold flex items-center justify-center"
             title="How to Play"
+            aria-label="How to Play"
           >
             ?
           </button>
@@ -146,6 +207,7 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
           myName={me?.name ?? ''}
           onSendChat={onSendChat}
           turnPhase={gameState.turnPhase}
+          showLogExplanations={isPracticeRoom}
         />
 
         {/* Interactive prompts - only one shows at a time (hidden for spectators) */}
@@ -171,25 +233,26 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
           me.faction === 'Loyalist' ? 'border-l-[3px] border-l-blue-400 bg-blue-500/[0.07]' :
           me.faction === 'Reformist' ? 'border-l-[3px] border-l-red-400 bg-red-500/[0.07]' : ''
         }`}>
-          <div className="flex items-center justify-between mb-1">
-            <span className="font-bold text-coup-accent text-sm flex items-center gap-1.5">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="font-bold text-coup-accent text-sm lg:text-base flex items-center gap-1.5">
               Your Hand
               {me.faction && (
                 <span className={`text-xs font-medium ${
                   me.faction === 'Loyalist' ? 'text-blue-300' : 'text-red-300'
                 }`}>
-                  ({me.faction})
+                  ({me.faction === 'Loyalist' ? '▲ Loyalist' : '◆ Reformist'})
                 </span>
               )}
             </span>
-            <span className="flex items-center gap-1 text-coup-gold font-bold text-sm">
+            <span className="flex items-center gap-1 text-coup-gold font-bold text-sm relative">
               <CoinIcon size={16} />
               {me.coins}
+              <CoinChangeBurst coins={me.coins} />
             </span>
           </div>
           <div className="flex gap-2 justify-center">
             {me.influences.map((inf, i) => (
-              <CardFace key={i} influence={inf} size="md" />
+              <CardFace key={i} influence={inf} size="md" priority />
             ))}
           </div>
           {!me.isAlive && (
@@ -199,7 +262,14 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
         </div>
       )}
 
-      <GameOverOverlay gameState={gameState} isHost={isHost && !isSpectator} onRematch={onRematch} isSpectator={isSpectator} />
+      <GameOverOverlay
+        gameState={gameState}
+        isHost={isHost && !isSpectator}
+        onRematch={onRematch}
+        isSpectator={isSpectator}
+        isPracticeRoom={isPracticeRoom}
+        onExitPractice={onExitPractice}
+      />
       <ChallengeRevealOverlay />
       <HowToPlay open={showRules} onClose={() => setShowRules(false)} />
       <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />

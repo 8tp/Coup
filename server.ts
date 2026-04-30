@@ -51,6 +51,18 @@ app.prepare().then(() => {
     next();
   });
 
+  server.use(express.static('public', {
+    fallthrough: true,
+    setHeaders: (res, filePath) => {
+      if (/\.(?:ico|png|svg|webp)$/i.test(filePath)) {
+        res.setHeader(
+          'Cache-Control',
+          dev ? 'public, max-age=0' : 'public, max-age=86400, stale-while-revalidate=604800',
+        );
+      }
+    },
+  }));
+
   const roomManager = new RoomManager();
   const socketHandler = new SocketHandler(io, roomManager);
 

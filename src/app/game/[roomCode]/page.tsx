@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSocket } from '../../hooks/useSocket';
 import { useGameStore } from '../../stores/gameStore';
@@ -9,11 +9,26 @@ import { getSoundEngine } from '../../audio/SoundEngine';
 
 export default function GamePage() {
   const router = useRouter();
-  const { sendChat, sendReaction, rematch, stopSpectating } = useSocket();
+  const { sendChat, sendReaction, rematch, stopSpectating, leaveRoom } = useSocket();
 
   const { gameState, chatMessages, playerId, hostId, error, isSpectator } = useGameStore();
+  const [isPracticeRoom, setIsPracticeRoom] = useState(false);
 
   const isHost = !isSpectator && playerId === hostId;
+
+  const clearPracticeSession = useCallback(() => {
+    sessionStorage.removeItem('coup_practice_room');
+    sessionStorage.removeItem('coup_room');
+    sessionStorage.removeItem('coup_player');
+    sessionStorage.removeItem('coup_session_token');
+    sessionStorage.removeItem('coup_spectator');
+    sessionStorage.removeItem('coup_player_name');
+    useGameStore.getState().clearRoom();
+  }, []);
+
+  useEffect(() => {
+    setIsPracticeRoom(sessionStorage.getItem('coup_practice_room') === 'true');
+  }, []);
 
   // Unlock AudioContext on first user gesture (required for mobile Safari)
   useEffect(() => {
@@ -26,16 +41,21 @@ export default function GamePage() {
     };
   }, []);
 
-  // Redirect when game state is cleared (rematch → lobby) or missing
+  // Redirect when game state is cleared (rematch -> lobby) or missing
   useEffect(() => {
     if (!gameState) {
       // Small delay to allow state to load (reconnection)
       const timer = setTimeout(() => {
         const current = useGameStore.getState();
         if (!current.gameState) {
+          const isPracticeSession = sessionStorage.getItem('coup_practice_room') === 'true';
           if (current.isSpectator) {
             // Spectator: game ended, go home
             current.clearRoom();
+            router.push('/');
+          } else if (isPracticeSession) {
+            // Practice games are disposable and should not return to a lobby.
+            clearPracticeSession();
             router.push('/');
           } else if (current.roomCode) {
             // Rematch: sent back to lobby
@@ -47,7 +67,13 @@ export default function GamePage() {
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [gameState, router]);
+  }, [clearPracticeSession, gameState, router]);
+
+  const handleExitPractice = useCallback(() => {
+    leaveRoom();
+    clearPracticeSession();
+    router.push('/');
+  }, [clearPracticeSession, leaveRoom, router]);
 
   if (!gameState) {
     return (
@@ -73,6 +99,8 @@ export default function GamePage() {
         isHost={isHost}
         onRematch={rematch}
         isSpectator={isSpectator}
+        isPracticeRoom={isPracticeRoom}
+        onExitPractice={handleExitPractice}
         onStopSpectating={isSpectator ? () => {
           stopSpectating();
           useGameStore.getState().clearRoom();

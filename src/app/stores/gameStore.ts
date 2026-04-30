@@ -32,6 +32,8 @@ interface GameStore {
   chatMessages: ChatMessage[];
   addChatMessage: (msg: ChatMessage) => void;
   setChatHistory: (messages: ChatMessage[]) => void;
+  mutedPlayerIds: string[];
+  toggleMutedPlayer: (playerId: string) => void;
 
   // Challenge reveal
   challengeReveal: ChallengeRevealEvent | null;
@@ -94,6 +96,7 @@ export const useGameStore = create<GameStore>((set) => ({
     isSpectator: false,
     gameState: null,
     chatMessages: [],
+    mutedPlayerIds: [],
     challengeReveal: null,
     activeReactions: new Map(),
   }),
@@ -104,6 +107,12 @@ export const useGameStore = create<GameStore>((set) => ({
   chatMessages: [],
   addChatMessage: (msg) => set((s) => ({ chatMessages: [...s.chatMessages, msg] })),
   setChatHistory: (messages) => set({ chatMessages: messages }),
+  mutedPlayerIds: [],
+  toggleMutedPlayer: (playerId) => set((s) => ({
+    mutedPlayerIds: s.mutedPlayerIds.includes(playerId)
+      ? s.mutedPlayerIds.filter(id => id !== playerId)
+      : [...s.mutedPlayerIds, playerId],
+  })),
 
   challengeReveal: null,
   setChallengeReveal: (data) => set({ challengeReveal: data }),

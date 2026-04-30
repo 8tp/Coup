@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { ClientGameState, TurnPhase, Character } from '@/shared/types';
-import { CHARACTER_SVG_ICONS } from '../icons';
 import { Timer } from '../ui/Timer';
 import { getSocket } from '../../hooks/useSocket';
 import { haptic } from '../../utils/haptic';
+import { CardArtwork, CharacterCardBadge } from './CardArtwork';
 
 const characterColors: Record<Character, string> = {
   [Character.Duke]: 'border-purple-500 bg-purple-900/40',
@@ -76,21 +76,21 @@ export function ExchangeView({ gameState }: ExchangeViewProps) {
         Tap {keepCount} card{keepCount > 1 ? 's' : ''} to keep. The rest go back to the deck.
       </p>
       <div className="flex flex-wrap gap-3 justify-center mb-4">
-        {availableCards.map((char, i) => {
-          const Icon = CHARACTER_SVG_ICONS[char];
-          return (
-            <button
-              key={i}
-              title={char}
-              className={`card-face card-face-lg ${characterColors[char]}
-                ${selectedIndices.includes(i) ? 'ring-2 ring-coup-accent scale-105' : 'opacity-60'}
-                transition-all cursor-pointer hover:scale-105`}
-              onClick={() => toggleCard(i)}
-            >
-              <Icon size={48} />
-            </button>
-          );
-        })}
+        {availableCards.map((char, i) => (
+          <button
+            key={i}
+            title={char}
+            className={`card-face card-face-lg ${characterColors[char]}
+              ${selectedIndices.includes(i) ? 'ring-2 ring-coup-accent scale-105' : 'opacity-60'}
+              transition-all cursor-pointer hover:scale-105`}
+            onClick={() => toggleCard(i)}
+          >
+            <CardArtwork character={char} variant="focus" priority />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
+            <CharacterCardBadge character={char} />
+            <span className="sr-only">{char}</span>
+          </button>
+        ))}
       </div>
       <button
         className="btn-primary w-full"

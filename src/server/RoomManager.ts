@@ -1,5 +1,4 @@
-import { randomInt, randomBytes } from 'crypto';
-import { v4 as uuidv4 } from 'uuid';
+import { randomInt, randomBytes, randomUUID } from 'crypto';
 import { BotPersonality, ChatMessage, GameMode, GameStatus, PublicRoomInfo, Room, RoomPlayer, RoomSettings, Spectator } from '../shared/types';
 import { CHAT_MAX_HISTORY, CHAT_MAX_MESSAGE_LENGTH, CHAT_RATE_LIMIT_MS, DEFAULT_ROOM_SETTINGS, DISCONNECT_BOT_REPLACE_MS, INACTIVE_ROOM_CLEANUP_MS, MAX_ACTION_TIMER, MAX_BOT_REACTION_SECONDS, MAX_PLAYERS, MAX_TURN_TIMER, MIN_ACTION_TIMER, MIN_BOT_REACTION_SECONDS, MIN_PLAYERS, MIN_TURN_TIMER, PUBLIC_ROOM_LIST_MAX, REACTION_RATE_LIMIT_MS } from '../shared/constants';
 import { GameEngine } from '../engine/GameEngine';
@@ -44,7 +43,7 @@ export class RoomManager {
 
   createRoom(playerName: string, socketId: string, isPublic?: boolean): { room: Room; playerId: string; sessionToken: string } {
     const code = this.generateRoomCode();
-    const playerId = uuidv4();
+    const playerId = randomUUID();
     const sessionToken = randomBytes(32).toString('hex');
 
     const room: Room = {
@@ -84,7 +83,7 @@ export class RoomManager {
       return { error: 'Name already taken in this room' };
     }
 
-    const playerId = uuidv4();
+    const playerId = randomUUID();
     const sessionToken = randomBytes(32).toString('hex');
     room.players.push({
       id: playerId,
@@ -112,7 +111,7 @@ export class RoomManager {
       return { error: 'Name already taken in this room' };
     }
 
-    const botId = uuidv4();
+    const botId = randomUUID();
     room.players.push({
       id: botId,
       name,
@@ -136,6 +135,21 @@ export class RoomManager {
 
     room.players = room.players.filter(p => p.id !== botId);
     return { success: true };
+  }
+
+  removePlayer(roomCode: string, playerId: string): { removedPlayer: RoomPlayer } | { error: string } {
+    const room = this.rooms.get(roomCode.toUpperCase());
+    if (!room) return { error: 'Room not found' };
+    if (room.gameState) return { error: 'Game already in progress' };
+    if (room.hostId === playerId) return { error: 'Cannot remove the host' };
+
+    const player = room.players.find(p => p.id === playerId);
+    if (!player) return { error: 'Player not found' };
+
+    room.players = room.players.filter(p => p.id !== playerId);
+    this.lastChatTime.delete(playerId);
+    this.lastReactionTime.delete(playerId);
+    return { removedPlayer: player };
   }
 
   getBotController(code: string): BotController | undefined {
@@ -325,7 +339,7 @@ export class RoomManager {
     this.lastChatTime.set(playerId, now);
 
     const chatMsg: ChatMessage = {
-      id: uuidv4(),
+      id: randomUUID(),
       playerId,
       playerName,
       message: trimmed,
@@ -350,7 +364,7 @@ export class RoomManager {
     if (!room) return { error: 'Room not found' };
 
     const chatMsg: ChatMessage = {
-      id: uuidv4(),
+      id: randomUUID(),
       playerId: botId,
       playerName: botName,
       message,
@@ -459,7 +473,7 @@ export class RoomManager {
         continue;
       }
 
-      const playerId = uuidv4();
+      const playerId = randomUUID();
       const sessionToken = randomBytes(32).toString('hex');
       room.players.push({
         id: playerId,
@@ -503,7 +517,7 @@ export class RoomManager {
       return { error: 'Too many spectators' };
     }
 
-    const spectatorId = uuidv4();
+    const spectatorId = randomUUID();
     spectators.push({ id: spectatorId, name, socketId });
     return { spectatorId };
   }
@@ -518,6 +532,20 @@ export class RoomManager {
       }
     }
     return null;
+  }
+
+  removeSpectatorById(roomCode: string, spectatorId: string): { spectator: Spectator } | { error: string } {
+    const code = roomCode.toUpperCase();
+    const spectators = this.spectators.get(code);
+    if (!this.rooms.has(code)) return { error: 'Room not found' };
+    if (!spectators) return { error: 'Spectator not found' };
+
+    const idx = spectators.findIndex(s => s.id === spectatorId);
+    if (idx === -1) return { error: 'Spectator not found' };
+
+    const [spectator] = spectators.splice(idx, 1);
+    if (spectators.length === 0) this.spectators.delete(code);
+    return { spectator };
   }
 
   getSpectators(roomCode: string): Spectator[] {

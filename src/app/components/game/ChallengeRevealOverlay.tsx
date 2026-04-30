@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useGameStore } from '../../stores/gameStore';
-import { CHARACTER_SVG_ICONS } from '../icons';
 import { Character } from '@/shared/types';
+import { CardArtwork, CardBackArtwork, CharacterCardBadge } from './CardArtwork';
 
 const characterColors: Record<Character, string> = {
   [Character.Duke]: 'border-purple-500 bg-purple-900/60',
@@ -29,13 +29,29 @@ export function ChallengeRevealOverlay() {
 
     // Phase 1: Reveal (0–1.5s)
     setPhase('reveal');
+    const showReplacement = challengeReveal.wasGenuine && challengeReveal.replacementDrawn !== false;
+
+    if (!showReplacement) {
+      const tDone = setTimeout(() => {
+        setPhase('done');
+      }, 1600);
+
+      const tClear = setTimeout(() => {
+        setChallengeReveal(null);
+      }, 1800);
+
+      return () => {
+        clearTimeout(tDone);
+        clearTimeout(tClear);
+      };
+    }
 
     const t1 = setTimeout(() => {
       setPhase('card-to-deck');
     }, 1500);
 
     const t2 = setTimeout(() => {
-      if (challengeReveal.wasGenuine) {
+      if (showReplacement) {
         setPhase('new-card');
       } else {
         setPhase('done');
@@ -44,11 +60,11 @@ export function ChallengeRevealOverlay() {
 
     const t3 = setTimeout(() => {
       setPhase('done');
-    }, challengeReveal.wasGenuine ? 3500 : 2500);
+    }, 3500);
 
     const tClear = setTimeout(() => {
       setChallengeReveal(null);
-    }, challengeReveal.wasGenuine ? 3700 : 2700);
+    }, 3700);
 
     return () => {
       clearTimeout(t1);
@@ -61,7 +77,7 @@ export function ChallengeRevealOverlay() {
   if (!challengeReveal || phase === 'done') return null;
 
   const { challengerName, challengedName, character, wasGenuine } = challengeReveal;
-  const Icon = CHARACTER_SVG_ICONS[character];
+  const showReplacement = wasGenuine && challengeReveal.replacementDrawn !== false;
   const cardStyle = characterColors[character];
 
   return (
@@ -71,15 +87,16 @@ export function ChallengeRevealOverlay() {
         {wasGenuine ? (
           <div
             className={`
-              w-28 h-40 rounded-xl border-2 flex flex-col items-center justify-center gap-2 shadow-2xl
+              card-reveal-face relative w-28 h-40 overflow-hidden rounded-xl border-2 shadow-2xl
               ${cardStyle}
               ${phase === 'reveal' ? 'animate-challenge-card-in' : ''}
               ${phase === 'card-to-deck' ? 'animate-challenge-card-out' : ''}
               ${phase === 'new-card' ? 'hidden' : ''}
             `}
           >
-            <Icon size={48} />
-            <span className="text-white font-bold text-sm">{character}</span>
+            <CardArtwork character={character} variant="focus" priority />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/25" />
+            <CharacterCardBadge character={character} />
           </div>
         ) : (
           <div
@@ -95,9 +112,11 @@ export function ChallengeRevealOverlay() {
         )}
 
         {/* New card from deck (phase 3) */}
-        {phase === 'new-card' && (
-          <div className="w-28 h-40 rounded-xl border-2 border-gray-600 bg-coup-surface flex items-center justify-center shadow-2xl animate-card-from-deck">
-            <span className="text-gray-400 text-2xl font-bold">?</span>
+        {phase === 'new-card' && showReplacement && (
+          <div className="relative w-28 h-40 overflow-hidden rounded-xl border-2 border-gray-600 bg-coup-surface shadow-2xl animate-card-from-deck">
+            <CardBackArtwork variant="focus" priority />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10" />
+            <span className="sr-only">New hidden influence</span>
           </div>
         )}
 

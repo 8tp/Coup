@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { ClientPlayerState, Faction } from '@/shared/types';
 import { CardFace } from './CardFace';
 import { CoinIcon } from '../icons';
+import { CoinChangeBurst } from './CoinChangeBurst';
+import { useGameStore } from '../../stores/gameStore';
 
 interface PlayerSeatProps {
   player: ClientPlayerState;
@@ -51,33 +53,6 @@ function TimerBar({ timerExpiry }: { timerExpiry: number }) {
   );
 }
 
-function CoinDelta({ coins }: { coins: number }) {
-  const prevCoins = useRef(coins);
-  const [delta, setDelta] = useState<number | null>(null);
-  const [key, setKey] = useState(0);
-
-  useEffect(() => {
-    if (prevCoins.current !== coins) {
-      const diff = coins - prevCoins.current;
-      prevCoins.current = coins;
-      setDelta(diff);
-      setKey(k => k + 1);
-    }
-  }, [coins]);
-
-  if (delta === null) return null;
-
-  return (
-    <span
-      key={key}
-      className={`absolute -top-1 right-1 text-xs font-bold pointer-events-none animate-coin-float
-        ${delta > 0 ? 'text-green-400' : 'text-red-400'}`}
-    >
-      {delta > 0 ? `+${delta}` : delta}
-    </span>
-  );
-}
-
 export function PlayerSeat({
   player,
   isCurrentTurn,
@@ -87,6 +62,9 @@ export function PlayerSeat({
   selectable,
   timerExpiry,
 }: PlayerSeatProps) {
+  const mutedPlayerIds = useGameStore(s => s.mutedPlayerIds);
+  const toggleMutedPlayer = useGameStore(s => s.toggleMutedPlayer);
+  const isMuted = mutedPlayerIds.includes(player.id);
   const factionColor = player.faction === Faction.Loyalist
     ? 'border-l-blue-400'
     : player.faction === Faction.Reformist
@@ -120,17 +98,50 @@ export function PlayerSeat({
               BOT
             </span>
           )}
+          {player.faction && (
+            <span className={`shrink-0 text-[10px] px-1 py-px rounded font-bold leading-tight ${
+              player.faction === Faction.Loyalist
+                ? 'bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/30'
+                : 'bg-red-500/20 text-red-300 ring-1 ring-red-500/30'
+            }`}>
+              {player.faction === Faction.Loyalist ? '▲ LOY' : '◆ REF'}
+            </span>
+          )}
         </div>
-        <span className="flex items-center gap-1 text-coup-gold font-bold text-sm shrink-0 relative">
-          <CoinIcon size={14} />
-          {player.coins}
-          <CoinDelta coins={player.coins} />
-        </span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {!isMe && (
+            <button
+              type="button"
+              aria-label={isMuted ? `Unmute ${player.name}` : `Mute chat and reactions from ${player.name}`}
+              aria-pressed={isMuted}
+              title={isMuted ? `Unmute ${player.name}` : `Mute ${player.name}`}
+              className={`w-6 h-6 rounded-full border flex items-center justify-center transition ${
+                isMuted
+                  ? 'border-coup-accent/60 text-coup-accent bg-coup-accent/10'
+                  : 'border-gray-700 text-gray-600 hover:border-gray-500 hover:text-gray-300'
+              }`}
+              onClick={(event) => {
+                event.stopPropagation();
+                toggleMutedPlayer(player.id);
+              }}
+            >
+              <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5" aria-hidden="true">
+                <path d="M4 8.5a1 1 0 011-1h2.1l3.2-2.7A1 1 0 0112 5.6v8.8a1 1 0 01-1.7.7l-3.2-2.6H5a1 1 0 01-1-1v-3z" />
+                <path d="M14.2 7.2a.8.8 0 011.1 0L16.5 8.4l1.2-1.2a.8.8 0 111.1 1.1L17.6 9.5l1.2 1.2a.8.8 0 11-1.1 1.1l-1.2-1.2-1.2 1.2a.8.8 0 01-1.1-1.1l1.2-1.2-1.2-1.2a.8.8 0 010-1.1z" />
+              </svg>
+            </button>
+          )}
+          <span className="flex items-center gap-1 text-coup-gold font-bold text-sm relative">
+            <CoinIcon size={14} />
+            {player.coins}
+            <CoinChangeBurst coins={player.coins} />
+          </span>
+        </div>
       </div>
 
       <div className="flex gap-2 justify-center">
         {player.influences.map((inf, i) => (
-          <CardFace key={i} influence={inf} size={isMe ? "md" : "sm"} />
+          <CardFace key={i} influence={inf} size={isMe ? "md" : "sm"} priority={isMe} />
         ))}
       </div>
 

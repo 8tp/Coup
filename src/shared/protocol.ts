@@ -5,6 +5,8 @@ export interface ClientToServerEvents {
   'room:create': (data: { playerName: string; isPublic?: boolean }, callback: (response: RoomResponse) => void) => void;
   'room:join': (data: { roomCode: string; playerName: string }, callback: (response: RoomResponse) => void) => void;
   'room:leave': () => void;
+  'room:remove_player': (data: { playerId: string }, callback: (response: { success: boolean; error?: string }) => void) => void;
+  'room:remove_spectator': (data: { spectatorId: string }, callback: (response: { success: boolean; error?: string }) => void) => void;
   'game:start': () => void;
 
   // Game actions
@@ -55,6 +57,7 @@ export interface ClientToServerEvents {
 export interface ServerToClientEvents {
   'room:updated': (data: { players: ClientRoomPlayer[]; hostId: string; settings: RoomSettings; lastWinnerId?: string | null; spectators?: ClientSpectator[] }) => void;
   'room:error': (data: { message: string }) => void;
+  'room:removed': (data: { message: string }) => void;
   'game:state': (state: ClientGameState) => void;
   'game:error': (data: { message: string }) => void;
   'game:log': (data: { message: string }) => void;
