@@ -519,6 +519,7 @@ export class GameEngine {
           challengedName: effect.challengedName,
           character: effect.character,
           wasGenuine: effect.wasGenuine,
+          replacementDrawn: effect.replacementDrawn,
         };
         break;
       }

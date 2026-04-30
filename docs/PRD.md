@@ -114,7 +114,7 @@ The app is designed for low-friction play:
 
 ### Practice
 
-1. First-time player opens the tutorial or home screen and chooses Practice vs Bot.
+1. First-time player opens main menu settings and chooses Practice vs Bot.
 2. The app creates a private room, adds a conservative bot, and starts the game immediately.
 3. Player can leave or return home after the game; practice games do not return to a lobby and are not recorded in local stats.
 
@@ -179,7 +179,7 @@ The app is designed for low-friction play:
 - Rejoin tokens are signed random tokens but are stored in `sessionStorage`, so an XSS would still expose them.
 - Socket rate limits are per socket for gameplay events; deployment-level IP or edge rate limiting would still be useful.
 - Game rooms are in memory only; server restarts clear active rooms.
-- The tutorial can launch a practice bot game and the rules modal includes a Reformation quick guide, but there is not yet a full interactive Reformation scenario.
+- Practice vs Bot is available from main menu settings and the rules modal includes a Reformation quick guide, but there is not yet a full interactive Reformation scenario.
 
 ## 8. Out Of Scope For 1.0
 

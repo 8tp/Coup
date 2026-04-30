@@ -44,7 +44,7 @@ export type SideEffect =
   | { type: 'log'; message: string; eventType: LogEventType; character: Character | null; actorId: string | null; actorName: string | null; targetId?: string | null; wasBluff?: boolean }
   | { type: 'start_exchange'; playerId: string; drawnCards: Character[] }
   | { type: 'win_check' }
-  | { type: 'challenge_reveal'; challengerName: string; challengedName: string; character: Character; wasGenuine: boolean }
+  | { type: 'challenge_reveal'; challengerName: string; challengedName: string; character: Character; wasGenuine: boolean; replacementDrawn?: boolean }
   // Reformation expansion
   | { type: 'transfer_to_reserve'; playerId: string; amount: number }
   | { type: 'take_from_reserve'; playerId: string }
@@ -265,12 +265,14 @@ export class ActionResolver {
 
     if (challenged.hasCharacter(claimedChar)) {
       // Challenge FAILS — challenger loses influence
+      const isGameEnding = challenger.aliveInfluenceCount === 1 && game.getAlivePlayers().length === 2;
       sideEffects.push({
         type: 'challenge_reveal',
         challengerName: challenger.name,
         challengedName: challenged.name,
         character: claimedChar,
         wasGenuine: true,
+        replacementDrawn: !isGameEnding,
       });
       sideEffects.push({
         type: 'log',
@@ -282,7 +284,6 @@ export class ActionResolver {
       });
 
       // Challenged player gets a replacement card (skip if this challenge ends the game)
-      const isGameEnding = challenger.aliveInfluenceCount === 1 && game.getAlivePlayers().length === 2;
       if (!isGameEnding) {
         const newCard = game.deck.draw();
         if (newCard) {
@@ -324,6 +325,7 @@ export class ActionResolver {
         challengedName: challenged.name,
         character: claimedChar,
         wasGenuine: false,
+        replacementDrawn: false,
       });
       sideEffects.push({
         type: 'log',
@@ -515,12 +517,14 @@ export class ActionResolver {
     if (blocker.hasCharacter(claimedChar)) {
       // Block challenge FAILS — blocker proves they have the card
       // Challenger (actor) loses influence, action is blocked
+      const isGameEnding = challenger.aliveInfluenceCount === 1 && game.getAlivePlayers().length === 2;
       sideEffects.push({
         type: 'challenge_reveal',
         challengerName: challenger.name,
         challengedName: blocker.name,
         character: claimedChar,
         wasGenuine: true,
+        replacementDrawn: !isGameEnding,
       });
       sideEffects.push({
         type: 'log',
@@ -532,7 +536,6 @@ export class ActionResolver {
       });
 
       // Blocker gets replacement (skip if this challenge ends the game)
-      const isGameEnding = challenger.aliveInfluenceCount === 1 && game.getAlivePlayers().length === 2;
       if (!isGameEnding) {
         const newCard = game.deck.draw();
         if (newCard) {
@@ -574,6 +577,7 @@ export class ActionResolver {
         challengedName: blocker.name,
         character: claimedChar,
         wasGenuine: false,
+        replacementDrawn: false,
       });
       sideEffects.push({
         type: 'log',
@@ -1099,6 +1103,7 @@ export class ActionResolver {
         challengedName: challenged.name,
         character: Character.Duke,
         wasGenuine: false, // They claimed not to have Duke but did
+        replacementDrawn: false,
       });
       sideEffects.push({
         type: 'log',
@@ -1136,6 +1141,7 @@ export class ActionResolver {
         challengedName: challenged.name,
         character: Character.Duke,
         wasGenuine: true, // They truthfully don't have Duke
+        replacementDrawn: false,
       });
       sideEffects.push({
         type: 'log',

@@ -10,6 +10,8 @@ interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
   onOpenTutorial?: () => void;
+  onPracticeBot?: () => void;
+  practiceLoading?: boolean;
 }
 
 const TEXT_SIZE_OPTIONS: { value: TextSize; label: string }[] = [
@@ -18,7 +20,7 @@ const TEXT_SIZE_OPTIONS: { value: TextSize; label: string }[] = [
   { value: 'xl', label: 'Extra Large' },
 ];
 
-export function SettingsModal({ open, onClose, onOpenTutorial }: SettingsModalProps) {
+export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, practiceLoading }: SettingsModalProps) {
   const isMuted = useGameStore(s => s.isMuted);
   const setMuted = useGameStore(s => s.setMuted);
   const hapticEnabled = useSettingsStore(s => s.hapticEnabled);
@@ -107,15 +109,29 @@ export function SettingsModal({ open, onClose, onOpenTutorial }: SettingsModalPr
           </div>
         </div>
 
-        {/* Tutorial - main menu only */}
-        {onOpenTutorial && (
+        {/* Learning - main menu only */}
+        {(onOpenTutorial || onPracticeBot) && (
           <div className="border-t border-gray-700 pt-4">
-            <button
-              className="w-full py-2.5 px-3 rounded-lg border border-coup-accent/50 text-sm text-coup-accent hover:bg-coup-accent/10 transition text-center font-medium"
-              onClick={() => { haptic(); onClose(); onOpenTutorial(); }}
-            >
-              New Player Tutorial
-            </button>
+            <span className="text-sm text-gray-300 block mb-2">Learning</span>
+            <div className="space-y-2">
+              {onOpenTutorial && (
+                <button
+                  className="w-full py-2.5 px-3 rounded-lg border border-coup-accent/50 text-sm text-coup-accent hover:bg-coup-accent/10 transition text-center font-medium"
+                  onClick={() => { haptic(); onClose(); onOpenTutorial(); }}
+                >
+                  New Player Tutorial
+                </button>
+              )}
+              {onPracticeBot && (
+                <button
+                  className="w-full py-2.5 px-3 rounded-lg border border-gray-600 text-sm text-gray-300 hover:border-coup-accent hover:text-coup-accent transition text-center font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => { haptic(80); onClose(); onPracticeBot(); }}
+                  disabled={practiceLoading}
+                >
+                  {practiceLoading ? 'Starting Practice...' : 'Practice vs Bot'}
+                </button>
+              )}
+            </div>
           </div>
         )}
 

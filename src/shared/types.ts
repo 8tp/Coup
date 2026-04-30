@@ -361,6 +361,8 @@ export interface ChallengeRevealEvent {
   challengedName: string;
   character: Character;
   wasGenuine: boolean; // true = challenged player had the card (challenge fails)
+  /** True when a proven card was actually shuffled back and replaced. */
+  replacementDrawn?: boolean;
 }
 
 // ─── Reactions ───

@@ -28,7 +28,7 @@ Started in the current release-readiness branch:
 - Card replacement/deal movement and animated coin movement on player seats and the local hand.
 - Staged post-game truth reveal, showing the winning hand before the rest of the table.
 - Explicit reduced-animation setting in the Settings modal.
-- First-time practice flow that creates a private bot game from the home screen or tutorial.
+- First-time practice flow tucked into main menu settings, creating a disposable private bot game.
 - Reformation quick-start guide covering faction markers, Convert, Embezzle, and Inquisitor.
 - Shareable post-game recap export from the final table state and full action log.
 - Host lobby moderation for removing players or spectators before start.

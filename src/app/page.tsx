@@ -207,9 +207,6 @@ function HomeContent() {
             <button className="btn-secondary w-full" onClick={() => { haptic(); setMode('browse'); }}>
               Browse Public Games
             </button>
-            <button className="w-full rounded-xl border border-coup-accent/40 bg-coup-accent/10 px-4 py-3 text-sm font-bold text-coup-accent transition hover:bg-coup-accent/20 disabled:opacity-50 disabled:cursor-not-allowed" onClick={handlePracticeBot} disabled={loading}>
-              {loading ? 'Starting Practice...' : 'Practice vs Bot'}
-            </button>
 
             <div className="flex items-center justify-center gap-4 pt-2">
               <button
@@ -433,8 +430,14 @@ function HomeContent() {
       </div>
 
       <HowToPlay open={showHowToPlay} onClose={() => setShowHowToPlay(false)} />
-      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} onOpenTutorial={() => setShowTutorial(true)} />
-      <Tutorial open={showTutorial} onClose={() => setShowTutorial(false)} onPracticeBot={handlePracticeBot} practiceLoading={loading} />
+      <SettingsModal
+        open={showSettings}
+        onClose={() => setShowSettings(false)}
+        onOpenTutorial={() => setShowTutorial(true)}
+        onPracticeBot={handlePracticeBot}
+        practiceLoading={loading}
+      />
+      <Tutorial open={showTutorial} onClose={() => setShowTutorial(false)} />
       <StatsModal open={showStats} onClose={() => setShowStats(false)} />
     </div>
   );

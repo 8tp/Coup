@@ -35,7 +35,7 @@ Play Coup with 2–6 players from any device — no app install, no accounts. Cr
 - **Room codes** — 4-letter codes for easy sharing, no accounts required
 - **Public/private rooms** — browse public lobbies, join open games, or watch live games as a spectator
 - **QR sharing** — lobby share button opens a scannable room link
-- **Practice vs Bot** — first-time players can start a disposable private tutorial game against a conservative bot from the home screen or tutorial, without affecting local stats
+- **Practice vs Bot** — first-time players can start a disposable private tutorial game against a conservative bot from main menu settings, without affecting local stats
 - **Computer players** — add 1–5 AI opponents with 7 personality types (Aggressive, Conservative, Vengeful, Deceptive, Analytical, Optimal, Random)
 - **Reconnection** — signed session tokens let players rejoin mid-game without losing their seat
 - **Host moderation** — hosts can remove lobby players or spectators before the game starts
