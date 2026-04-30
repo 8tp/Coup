@@ -10,6 +10,9 @@ interface SettingsStore {
 
   textSize: TextSize;
   setTextSize: (size: TextSize) => void;
+
+  reducedMotionEnabled: boolean;
+  setReducedMotionEnabled: (enabled: boolean) => void;
 }
 
 function applyTextSizeClass(size: TextSize): void {
@@ -18,6 +21,11 @@ function applyTextSizeClass(size: TextSize): void {
   root.classList.remove('text-size-large', 'text-size-xl');
   if (size === 'large') root.classList.add('text-size-large');
   else if (size === 'xl') root.classList.add('text-size-xl');
+}
+
+function applyReducedMotionClass(enabled: boolean): void {
+  if (typeof document === 'undefined') return;
+  document.documentElement.classList.toggle('reduce-motion', enabled);
 }
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
@@ -45,5 +53,17 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
     }
     applyTextSizeClass(size);
     set({ textSize: size });
+  },
+
+  reducedMotionEnabled:
+    typeof window === 'undefined'
+      ? false
+      : localStorage.getItem('coup_reduced_motion') === 'true',
+  setReducedMotionEnabled: (enabled) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('coup_reduced_motion', String(enabled));
+    }
+    applyReducedMotionClass(enabled);
+    set({ reducedMotionEnabled: enabled });
   },
 }));

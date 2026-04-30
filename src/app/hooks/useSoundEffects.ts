@@ -68,6 +68,7 @@ export function useSoundEffects(): void {
   const activeReactions = useGameStore(s => s.activeReactions);
   const challengeReveal = useGameStore(s => s.challengeReveal);
   const isMuted = useGameStore(s => s.isMuted);
+  const mutedPlayerIds = useGameStore(s => s.mutedPlayerIds);
 
   // Timer warning interval
   useEffect(() => {
@@ -94,8 +95,9 @@ export function useSoundEffects(): void {
   // Main state-transition sound effects
   useEffect(() => {
     const sound = getSoundEngine();
-    const chatCount = chatMessages.length;
-    const reactionCount = activeReactions.size;
+    const audibleChatMessages = chatMessages.filter(msg => !mutedPlayerIds.includes(msg.playerId));
+    const reactionCount = Array.from(activeReactions.keys()).filter(playerId => !mutedPlayerIds.includes(playerId)).length;
+    const chatCount = audibleChatMessages.length;
     const curr = snapshotState(gameState, chatCount, reactionCount, challengeReveal);
 
     // Skip all sounds on first render / initial load
@@ -253,7 +255,7 @@ export function useSoundEffects(): void {
 
     // ─── Chat messages (skip own) ───
     if (curr.chatCount > prev.chatCount) {
-      const latest = chatMessages[chatMessages.length - 1];
+      const latest = audibleChatMessages[audibleChatMessages.length - 1];
       if (latest && latest.playerId !== myId) {
         sound.play('chatMessage');
       }
@@ -263,5 +265,5 @@ export function useSoundEffects(): void {
     if (curr.reactionCount > prev.reactionCount) {
       sound.play('reaction');
     }
-  }, [gameState, chatMessages, activeReactions, challengeReveal, isMuted]);
+  }, [gameState, chatMessages, activeReactions, challengeReveal, isMuted, mutedPlayerIds]);
 }

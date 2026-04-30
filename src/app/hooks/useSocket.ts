@@ -144,6 +144,18 @@ export function useSocket() {
       errorTimers.push(setTimeout(() => setError(null), 3000));
     };
 
+    const onRoomRemoved = (data: { message: string }) => {
+      sessionStorage.setItem('coup_removed_message', data.message);
+      sessionStorage.removeItem('coup_room');
+      sessionStorage.removeItem('coup_player');
+      sessionStorage.removeItem('coup_session_token');
+      sessionStorage.removeItem('coup_spectator');
+      sessionStorage.removeItem('coup_player_name');
+      useGameStore.getState().clearRoom();
+      setError(data.message);
+      window.location.assign('/');
+    };
+
     const onChatMessage = (data: ChatMessage) => {
       addChatMessage(data);
     };
@@ -194,6 +206,7 @@ export function useSocket() {
     socket.on('game:state', onGameState);
     socket.on('game:error', onGameError);
     socket.on('room:error', onRoomError);
+    socket.on('room:removed', onRoomRemoved);
     socket.on('chat:message', onChatMessage);
     socket.on('chat:history', onChatHistory);
     socket.on('game:rematch_to_lobby', onRematchToLobby);
@@ -214,6 +227,7 @@ export function useSocket() {
       socket.off('game:state', onGameState);
       socket.off('game:error', onGameError);
       socket.off('room:error', onRoomError);
+      socket.off('room:removed', onRoomRemoved);
       socket.off('chat:message', onChatMessage);
       socket.off('chat:history', onChatHistory);
       socket.off('game:rematch_to_lobby', onRematchToLobby);
@@ -314,6 +328,30 @@ export function useSocket() {
     }));
   }, []);
 
+  const removePlayer = useCallback((targetPlayerId: string): Promise<void> => {
+    return withTimeout(new Promise((resolve, reject) => {
+      socketRef.current.emit('room:remove_player', { playerId: targetPlayerId }, (response) => {
+        if (response.success) {
+          resolve();
+        } else {
+          reject(new Error(response.error || 'Failed to remove player'));
+        }
+      });
+    }));
+  }, []);
+
+  const removeSpectator = useCallback((spectatorId: string): Promise<void> => {
+    return withTimeout(new Promise((resolve, reject) => {
+      socketRef.current.emit('room:remove_spectator', { spectatorId }, (response) => {
+        if (response.success) {
+          resolve();
+        } else {
+          reject(new Error(response.error || 'Failed to remove spectator'));
+        }
+      });
+    }));
+  }, []);
+
   const sendReaction = useCallback((reactionId: string) => {
     socketRef.current.emit('reaction:send', { reactionId });
   }, []);
@@ -360,6 +398,8 @@ export function useSocket() {
     rematch,
     addBot,
     removeBot,
+    removePlayer,
+    removeSpectator,
     updateRoomSettings,
     spectateRoom,
     stopSpectating,

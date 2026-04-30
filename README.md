@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Node.js-18%2B-339933?logo=nodedotjs&logoColor=white" alt="Node.js 18+">
+  <img src="https://img.shields.io/badge/Node.js-20.19%2B-339933?logo=nodedotjs&logoColor=white" alt="Node.js 20.19+">
   <img src="https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
   <img src="https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs" alt="Next.js 15">
   <img src="https://img.shields.io/badge/Socket.io-realtime-010101?logo=socketdotio" alt="Socket.io">
@@ -25,7 +25,7 @@
 
 ---
 
-Play Coup with 2–6 friends from any device — no app install, no accounts. Create a room, share the code, and start bluffing. The server enforces every rule so nobody can cheat, and the mobile-first UI keeps the game moving with timed challenge and block windows.
+Play Coup with 2–6 players from any device — no app install, no accounts. Create a room, share the code or QR link, add bots if you want, and start bluffing. The server enforces every rule so nobody can cheat, and the mobile-first UI keeps the game moving with timed challenge, block, and turn windows.
 
 ## Features
 
@@ -33,9 +33,14 @@ Play Coup with 2–6 friends from any device — no app install, no accounts. Cr
 - **Real-time WebSocket gameplay** — instant action broadcasts via Socket.io
 - **Server-authoritative** — all game logic runs server-side; clients never see hidden cards
 - **Room codes** — 4-letter codes for easy sharing, no accounts required
+- **Public/private rooms** — browse public lobbies, join open games, or watch live games as a spectator
+- **QR sharing** — lobby share button opens a scannable room link
+- **Practice vs Bot** — first-time players can start a private tutorial game against a conservative bot from the home screen or tutorial
 - **Computer players** — add 1–5 AI opponents with 7 personality types (Aggressive, Conservative, Vengeful, Deceptive, Analytical, Optimal, Random)
-- **Reconnection** — drop and rejoin mid-game without losing your seat
-- **Auto-cleanup** — stale rooms expire after 24 hours
+- **Reconnection** — signed session tokens let players rejoin mid-game without losing their seat
+- **Host moderation** — hosts can remove lobby players or spectators before the game starts
+- **Disconnect recovery** — disconnected in-game players are replaced by an optimal bot after 60 seconds
+- **Auto-cleanup** — rooms expire after 24 hours; abandoned in-progress games with no connected humans are removed after 120 seconds
 
 ### Game Rules
 - **Complete 2012 base game** — Income, Foreign Aid, Tax, Steal, Assassinate, Exchange, Coup
@@ -43,24 +48,29 @@ Play Coup with 2–6 friends from any device — no app install, no accounts. Cr
 - **Full challenge system** — any player can call a bluff; failed challenges cost an influence
 - **Block and counter-block** — Duke blocks Foreign Aid, Contessa blocks Assassination, Captain/Ambassador/Inquisitor block Steal
 - **Forced Coup** — 10+ coins means you must Coup
-- **Timed responses** — 15-second windows for challenges and blocks keep the pace up
+- **Timed responses** — configurable 10–60 second action windows and 15–90 second turn windows keep the pace up
 
 ### Interface
 - **Mobile-first** — portrait-optimized touch UI with 48px+ tap targets
 - **Dark table theme** — generated tabletop backgrounds, compact illustrated cards, readable role/action labels, and character-colored borders
 - **Haptic feedback** — vibration on taps for mobile devices (with iOS Safari fallback), togglable in settings
-- **Settings modal** — accessible from home, lobby, and in-game via gear icon. Controls for sound, haptic feedback (touch devices only), and text size (Normal / Large / Extra Large)
+- **Settings modal** — accessible from home, lobby, and in-game via gear icon. Controls for sound, haptic feedback (touch devices only), reduced animation, and text size (Normal / Large / Extra Large)
+- **Player stats** — local lifetime stats, awards, and match history are available from the home screen
 - **Live activity stats** — players online and games in progress shown on the home page
 - **Sound effects** — synthesized audio cues for game events (your turn, coup, challenges, etc.) with mute toggle
 - **Emoji reactions** — 12 reactions (GG, LOL, Nice bluff!, RIP, etc.) visible to all players. Bots fire context-aware reactions driven by per-bot personality traits (emotiveness and meanness)
 - **Phase status banner** — always shows what's happening and what you need to do
+- **Rules and Reformation guides** — built-in rules include a quick-start Reformation guide for factions, Convert, Embezzle, and Inquisitor
 - **Urgency-coded prompts** — red for threats (assassination), gold for decisions, gray for waiting
 - **Action log** — scrollable history of every action, challenge, and block
-- **Contextual game over screen** — winners and losers get personalized flavor text based on how they actually played (e.g. "You read them like an open book" for winning via challenges, "That one bluff cost you everything" for getting caught). Up to 4 post-game awards highlight standout moments like Pants on Fire (most bluffs caught), Eagle Eye (best challenge accuracy), Smooth Operator (many claims, never caught), and more
+- **Contextual game over screen** — winners and losers get personalized flavor text, staged winning-hand/table-truth reveal, recap cards, up to 4 awards, and copy/download recap export
+- **Truth reveal** — post-game summaries show who bluffed, who stayed honest, which bluffs got away, and key table reads
+- **Player mute controls** — locally hide a player's chat messages and reaction bubbles without changing the table for everyone else
+- **PWA polish** — install prompt, app icons, standalone display metadata, and production asset caching for weak Wi-Fi
 
 ## Requirements
 
-- Node.js 18+ (LTS recommended)
+- Node.js 20.19+ (or 22.12+) to satisfy the current Vite/Vitest toolchain
 
 ## Getting Started
 
@@ -77,10 +87,11 @@ The server starts at [http://localhost:3000](http://localhost:3000). Open it in 
 
 1. Click **Create Room** and enter your name
 2. Share the 4-letter room code with friends
-3. Friends click **Join Room** and enter the code
-4. Optionally, the host can click **Add Computer Player** to fill seats with AI opponents
-5. The host clicks **Start Game** once 2–6 players have joined
-6. Bluff, challenge, and eliminate your way to victory
+3. Friends click **Join Room**, enter the code, or scan the QR link
+4. Optionally, make the room public so others can find it in **Browse Public Games**
+5. Optionally, the host can click **Add Computer Player** to fill seats with AI opponents
+6. The host clicks **Start Game** once 2–6 players have joined
+7. Bluff, challenge, and eliminate your way to victory
 
 ### Computer Players
 
@@ -193,6 +204,7 @@ Coup/
 │   ├── ASSETS.md                   # Visual asset generation notes and prompts
 │   ├── CONTRIBUTING.md             # Contribution guidelines
 │   ├── PRD.md                      # Product requirements document
+│   ├── ROADMAP.md                  # Prioritized post-main product polish and follow-ups
 │   └── REFORMATION_PLAN.md         # Reformation expansion implementation plan
 ├── public/                         # PWA icons, Open Graph image, and generated game art
 │   ├── assets/                     # Card, banner, and table background raster assets
@@ -201,6 +213,7 @@ Coup/
 │   ├── coup-logo-transparent.png   # Transparent-corner icon for docs/social art
 │   ├── embed-image.png             # Twitter/large-card social preview
 │   ├── favicon.ico                 # Browser favicon
+│   ├── sw.js                       # Production service worker for static game assets
 │   └── og-image.png                # Open Graph social preview
 ├── tests/                          # Test suite
 │   ├── engine/                     # Engine unit tests
@@ -223,6 +236,7 @@ Coup/
 │   │   ├── RoomManager.ts          # Room CRUD, player tracking, TTL cleanup
 │   │   ├── SocketHandler.ts        # Routes socket events to engine
 │   │   ├── BotController.ts        # Bot timing/execution: delays + engine calls
+│   │   ├── ContentFilter.ts        # Name/chat sanitization and moderation checks
 │   │   └── StateSerializer.ts     # Per-player state filtering
 │   │
 │   └── app/                        # Next.js App Router (client UI)
@@ -232,8 +246,10 @@ Coup/
 │       ├── hooks/useSocket.ts      # Socket.io client with auto-reconnect
 │       ├── stores/
 │       │   ├── gameStore.ts        # Zustand store: connection, room, game state
-│       │   └── settingsStore.ts    # Zustand store: text size, haptic preferences
+│       │   ├── statsStore.ts       # Local player stats persisted in localStorage
+│       │   └── settingsStore.ts    # Zustand store: text size, haptic, motion prefs
 │       ├── utils/haptic.ts         # Haptic feedback (vibration + iOS fallback)
+│       ├── utils/statsRecorder.ts  # Local post-game stat recording
 │       ├── audio/SoundEngine.ts    # Synthesized sound effects (Web Audio API)
 │       └── components/             # GameTable, ActionBar, prompts, settings, cards
 ```
@@ -245,12 +261,16 @@ Coup/
 | `npm run dev` | Start dev server (Express + Next.js + Socket.io) |
 | `npm run build` | Build for production |
 | `npm start` | Run production build |
-| `npm test` | Run test suite (542 tests across 19 files) |
+| `npm test` | Run test suite (550 tests across 21 files) |
+| `npm run test:e2e` | Run socket browser-flow E2E tests |
 | `npm run test:watch` | Run tests in watch mode |
 
 ```sh
 # Run all tests
 npm test
+
+# Run browser-flow E2E tests
+npm run test:e2e
 
 # Watch mode during development
 npm run test:watch

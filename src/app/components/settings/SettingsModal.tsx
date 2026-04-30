@@ -25,6 +25,8 @@ export function SettingsModal({ open, onClose, onOpenTutorial }: SettingsModalPr
   const setHapticEnabled = useSettingsStore(s => s.setHapticEnabled);
   const textSize = useSettingsStore(s => s.textSize);
   const setTextSize = useSettingsStore(s => s.setTextSize);
+  const reducedMotionEnabled = useSettingsStore(s => s.reducedMotionEnabled);
+  const setReducedMotionEnabled = useSettingsStore(s => s.setReducedMotionEnabled);
 
   const [isTouchDevice, setIsTouchDevice] = useState(false);
 
@@ -68,6 +70,22 @@ export function SettingsModal({ open, onClose, onOpenTutorial }: SettingsModalPr
             </button>
           </div>
         )}
+
+        {/* Reduced Animation */}
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-sm text-gray-300">Reduced Animation</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={reducedMotionEnabled}
+            onClick={() => { haptic(); setReducedMotionEnabled(!reducedMotionEnabled); }}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${reducedMotionEnabled ? 'bg-coup-accent' : 'bg-gray-600'}`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${reducedMotionEnabled ? 'translate-x-6' : 'translate-x-1'}`}
+            />
+          </button>
+        </div>
 
         {/* Text Size */}
         <div>

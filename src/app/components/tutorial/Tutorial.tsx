@@ -9,6 +9,8 @@ import { CardArtwork, CardBackArtwork, CharacterCardBadge } from '../game/CardAr
 interface TutorialProps {
   open: boolean;
   onClose: () => void;
+  onPracticeBot?: () => void;
+  practiceLoading?: boolean;
 }
 
 const TOTAL_STEPS = 8;
@@ -92,7 +94,7 @@ const characterData = [
   },
 ];
 
-export function Tutorial({ open, onClose }: TutorialProps) {
+export function Tutorial({ open, onClose, onPracticeBot, practiceLoading }: TutorialProps) {
   const [step, setStep] = useState(0);
   const [animKey, setAnimKey] = useState(0);
   const [selectedChar, setSelectedChar] = useState(0);
@@ -185,7 +187,7 @@ export function Tutorial({ open, onClose }: TutorialProps) {
 
       {/* Navigation */}
       <div className="px-6 pb-6 pt-2 flex justify-center gap-3 max-w-sm mx-auto w-full">
-        {step > 0 && (
+        {step > 0 && !(step === TOTAL_STEPS - 1 && onPracticeBot) && (
           <button className="btn-secondary flex-1" onClick={prev}>
             Back
           </button>
@@ -194,6 +196,22 @@ export function Tutorial({ open, onClose }: TutorialProps) {
           <button className={`btn-primary ${step === 0 ? 'w-full' : 'flex-1'}`} onClick={next}>
             {step === 0 ? "Let's Go" : 'Next'}
           </button>
+        ) : onPracticeBot ? (
+          <div className="flex flex-col gap-2 w-full">
+            <button
+              className="btn-primary w-full"
+              onClick={() => { haptic(80); onPracticeBot(); }}
+              disabled={practiceLoading}
+            >
+              {practiceLoading ? 'Starting Practice...' : 'Practice vs Bot'}
+            </button>
+            <button
+              className="btn-secondary w-full"
+              onClick={() => { haptic(); onClose(); }}
+            >
+              Back to Menu
+            </button>
+          </div>
         ) : (
           <button
             className="btn-primary flex-1"
@@ -771,7 +789,7 @@ function ReadyStep() {
         <p className="text-coup-accent font-bold text-sm mb-1">Remember</p>
         <p className="text-gray-400 text-xs">
           Bluffing is not just allowed &mdash; it&apos;s essential!
-          <br />Read your opponents. Trust no one.
+          <br />Try a practice round against a bot before teaching friends.
         </p>
       </div>
     </div>

@@ -1,181 +1,144 @@
 # Security Audit Report: Coup Online
 
-**Date:** 2026-03-02
-**Audited by:** Claude Code
-**Status:** Pending remediation
+**Last Updated:** April 2026
+**Audited State:** `origin/dev` release-candidate state
+**Status:** Major socket/game hardening complete; no high/critical npm audit findings remain
 
 ---
 
-## Dependency Scan
+## Current Posture
 
-- `npm audit`: **0 vulnerabilities**
-- `.env` properly gitignored
-- No hardcoded secrets found in source
+The project keeps the most important security property intact: the server is authoritative for deck state, hidden cards, timers, phase transitions, and outcomes. Clients send intents and receive filtered state through `StateSerializer`.
+
+Recent hardening in `dev` has addressed the highest-risk findings from the previous audit:
+
+- Production Socket.io CORS now rejects cross-origin connections when `CORS_ORIGIN` is unset.
+- Express sets security headers, including frame denial, nosniff, referrer policy, HSTS in production, and a production CSP.
+- `server.set('trust proxy', 1)` is configured.
+- Room create/join, bot add, and game action socket paths are rate-limited.
+- Chat and reactions are rate-limited and bounded.
+- Socket payloads are validated for action enum values, target types, block characters, bot personalities, settings shape, exchange indices, influence-loss indices, and examine decisions.
+- Room rejoin now requires the player's random session token.
+- Room codes, session tokens, deck shuffle, starting player, timeout target selection, faction-start selection, and Inquisitor hidden-card selection use Node crypto randomness.
+- Player, bot, chat, and spectator IDs use Node `crypto.randomUUID()`; the external `uuid` package has been removed.
+- Vite is pinned to `7.3.2`, clearing the previous high-severity Vite dev-server advisories.
+- Names and chat messages are sanitized and profanity-checked by `ContentFilter`.
 
 ---
 
-## CRITICAL Issues
+## Verification Snapshot
 
-### 1. Permissive CORS in Production
+- `npm test`: 550 tests passed across 21 files.
+- `npm run test:e2e`: socket browser-flow E2E passed for create/join/start/action/rematch.
+- `npm run build`: production Next.js build and server TypeScript build passed.
+- `npm audit`: 2 moderate findings remain. Both are the current Next.js package's nested PostCSS advisory; `npm audit fix --force` suggests a breaking downgrade to `next@9.3.3`, so it is not an acceptable automatic fix.
+- Dependabot triage: React, React DOM, Zustand, Autoprefixer, direct PostCSS, and Vitest updates were safe to apply. Tailwind 4 fails the current PostCSS setup as-is, and Next 16 passes build/tests in a temporary copy but does not clear the nested Next/PostCSS advisory, so both should stay separate follow-up PRs.
 
-**File:** `server.ts:29`
-**Risk:** Any website can establish WebSocket connections to the server, enabling cross-site WebSocket hijacking.
+---
 
-If `CORS_ORIGIN` env var is unset, defaults to `true` (allows any origin):
+## Resolved Findings
 
-```typescript
-origin: dev ? '*' : (process.env.CORS_ORIGIN || true),
+| Original Priority | Finding | Current Status |
+|-------------------|---------|----------------|
+| P0 | Permissive production CORS | Resolved. Production uses `process.env.CORS_ORIGIN || false`; missing config rejects cross-origin connections. |
+| P0 | Missing security headers | Mostly resolved. Manual Express middleware sets the important headers and a production CSP. |
+| P1 | `Math.random()` for deck shuffle/room codes/starting player/timeout target | Resolved for game-critical server randomness. Remaining `Math.random()` uses are bot behavior, client UI convenience, tests, and scripts. |
+| P1 | Vulnerable `uuid` dependency | Resolved by replacing it with Node `crypto.randomUUID()`. |
+| P1 | Missing trust proxy config | Resolved with `server.set('trust proxy', 1)`. |
+| P1 | No rejoin authentication | Resolved with per-player random session tokens checked on `room:rejoin`. |
+| P2 | Rate limiting gaps | Mostly resolved for room create/join, bot add, gameplay events, chat, and reactions. |
+| P2 | Socket input validation gaps | Mostly resolved at SocketHandler boundaries. |
+| P2 | Missing CSP | Partially resolved. CSP exists in production, but still allows inline/eval for framework compatibility. |
+| P3 | Bot personality/block character validation | Resolved. |
+
+---
+
+## Remaining Risks
+
+### 1. CSP Is Still Permissive
+
+**Severity:** Medium
+**Files:** `server.ts`, `src/app/layout.tsx`
+
+The production CSP includes `'unsafe-inline'` and `'unsafe-eval'`. This is common during Next.js integration, but it limits CSP's ability to contain XSS. The inline text-size bootstrap script in `layout.tsx` is hardcoded and low-risk, but it is still a blocker to a strict no-inline CSP.
+
+**Recommended follow-up:** Move toward nonce/hash-based script allowance and test production builds under a stricter CSP.
+
+### 2. Rejoin Token Storage Is Client-Readable
+
+**Severity:** Medium
+**Files:** `src/app/hooks/useSocket.ts`, `src/server/RoomManager.ts`
+
+Session tokens materially improve rejoin security, but they are stored in `sessionStorage`. Any future XSS could still read `coup_session_token` and hijack a room session.
+
+**Recommended follow-up:** Consider httpOnly same-site cookies or short-lived HMAC session proofs if room/session security needs to withstand XSS.
+
+### 3. Gameplay Rate Limits Are Per Socket
+
+**Severity:** Medium
+**Files:** `src/server/SocketHandler.ts`
+
+Gameplay events share a 500ms per-socket limiter. This prevents accidental double-click floods but does not replace deployment-level IP/edge rate limiting against many sockets or distributed clients.
+
+**Recommended follow-up:** Add platform/edge rate limits and consider per-IP connection caps if the deployment is public.
+
+### 4. Production CORS Fails Closed But Does Not Fail Startup
+
+**Severity:** Low
+**File:** `server.ts`
+
+If `CORS_ORIGIN` is missing in production, the server warns and rejects cross-origin Socket.io connections. This is safe, but operationally easy to miss.
+
+**Recommended follow-up:** Fail startup in production when `CORS_ORIGIN` is missing, or document the deployment environment variable prominently.
+
+### 5. Next.js Nested PostCSS Audit Advisory
+
+**Severity:** Medium
+**Files:** `package-lock.json`
+
+`npm audit` still reports a moderate PostCSS advisory through Next.js' nested `postcss@8.4.31`. The suggested forced fix downgrades Next.js to `9.3.3`, which is not viable for this app. Direct project `postcss` is updated to a patched version, and the remaining advisory should be monitored for a patched Next.js release.
+
+**Recommended follow-up:** Re-run `npm audit` before release and update Next.js when a compatible patched version is available.
+
+### 6. In-Memory Rooms And Local Stats
+
+**Severity:** Low
+**Files:** `src/server/RoomManager.ts`, `src/app/stores/statsStore.ts`
+
+Rooms are in memory and player stats live in browser `localStorage`. This is acceptable for the current no-account model, but restarts clear active rooms and stats are not portable across browsers/devices.
+
+**Recommended follow-up:** Use Redis or another shared store before running multiple server instances.
+
+---
+
+## Good Findings
+
+- Hidden cards and deck contents are filtered by `StateSerializer`.
+- Exchange and Examine private state are sent only to the acting player.
+- Spectator state never exposes unrevealed cards.
+- Socket IDs and session tokens are stripped from room broadcasts.
+- Room host-only actions are checked server-side.
+- Bots use public game state through the same engine API and do not receive socket-only privileges.
+- Chat history is capped to 50 messages and message length is capped to 200 characters.
+- Room cleanup covers both 24-hour TTL and abandoned in-progress games with no connected humans.
+
+---
+
+## Before Main Push
+
+Run:
+
+```bash
+npm audit --audit-level=high
+npm test
+npm run build
 ```
 
-**Fix:** Require `CORS_ORIGIN` to be explicitly set; fail loudly if missing in production.
+`npm audit` without an audit level currently reports the known moderate Next.js/PostCSS advisory described above.
 
----
+Then smoke-test:
 
-### 2. No Security Headers
-
-**File:** `server.ts`
-**Risk:** Clickjacking, MIME-sniffing, XSS amplification.
-
-No `helmet` middleware. Missing `X-Frame-Options`, `X-Content-Type-Options`, `Strict-Transport-Security`, `Content-Security-Policy`.
-
-**Fix:** `npm install helmet` and add `app.use(helmet())`.
-
----
-
-### 3. `Math.random()` for Deck Shuffle and Other Randomness
-
-**Files:**
-- `src/engine/Deck.ts:21-27` -- Fisher-Yates shuffle
-- `src/engine/Game.ts:46` -- starting player selection
-- `src/server/RoomManager.ts:25-35` -- room code generation
-- `src/engine/GameEngine.ts:266` -- timeout target selection
-
-**Risk:** `Math.random()` is not cryptographically secure. V8's xorshift128+ is non-trivial to predict remotely, but for a card game where hidden information matters, this is a design weakness.
-
-**Fix:** Replace with `crypto.randomInt()` or `crypto.getRandomValues()`.
-
----
-
-## HIGH Issues
-
-### 4. No Socket.io Session Authentication
-
-**File:** `src/server/SocketHandler.ts:114-152`
-**Risk:** If a playerId is leaked (e.g., via XSS), an attacker could hijack a session by calling `room:rejoin` with the stolen roomCode + playerId.
-
-`room:rejoin` only validates that roomCode + playerId exist, with no cryptographic proof the socket owns that player:
-
-```typescript
-socket.on('room:rejoin', (data, callback) => {
-  const code = data.roomCode?.trim().toUpperCase();
-  if (!code || !data.playerId) { ... }
-  const result = this.roomManager.rejoinRoom(code, data.playerId, socket.id);
-});
-```
-
-**Mitigating factor:** playerId is a UUID (practically unguessable).
-
-**Fix:** Issue a signed session token (JWT or HMAC) on join, require it on rejoin.
-
----
-
-### 5. Missing Trust Proxy Configuration
-
-**File:** `server.ts`
-**Risk:** Behind a reverse proxy (Cloudflare, nginx), all connections appear from the same IP, breaking per-IP rate limiting. Attackers can also spoof `X-Forwarded-For` headers.
-
-`SocketHandler.ts:24-35` extracts IPs from `X-Forwarded-For` / `CF-Connecting-IP` for rate limiting, but Express is not configured to trust proxy headers.
-
-**Fix:** Add `app.set('trust proxy', 1)` in `server.ts`.
-
----
-
-### 6. Rate Limiting Gaps
-
-**File:** `src/server/SocketHandler.ts`
-**Risk:** DoS via flooding. The engine rejects invalid actions but still burns CPU processing them.
-
-Chat and reactions are rate-limited, but these are **not**:
-- `room:create` / `room:join` -- room creation spam
-- `game:action` / `game:challenge` / `game:block` -- rapid-fire game actions
-- `bot:add` -- bot spam
-
-**Fix:** Implement per-socket or per-IP rate limiting for all socket events.
-
----
-
-### 7. Missing Input Validation at Socket Layer
-
-**Files:**
-- `src/server/SocketHandler.ts:432` -- `game:block`: `data.character` not validated against `Character` enum
-- `src/server/SocketHandler.ts:408` -- `game:action`: `data.targetId` type not validated (could be object/number)
-- `src/server/SocketHandler.ts:192` -- `bot:add`: `data.personality` not validated against `BotPersonality` enum values
-
-**Risk:** The engine catches invalid values downstream, but defense-in-depth says validate at the boundary.
-
-**Fix:** Add enum/type validation before passing data to the engine.
-
----
-
-## MEDIUM Issues
-
-### 8. No Content Security Policy
-
-**Risk:** Without CSP, the application is more vulnerable to inline script injection and external script loading.
-
-No CSP headers configured in Next.js or Express. Additionally, `layout.tsx:55-57` uses `dangerouslySetInnerHTML` (hardcoded and safe today, but a risky pattern).
-
-**Fix:** Add CSP headers via `next.config.ts` headers config or helmet.
-
----
-
-### 9. Session Data in sessionStorage
-
-**File:** `src/app/hooks/useSocket.ts:54-55`
-**Risk:** If XSS is achieved, `coup_room` and `coup_player` can be exfiltrated to hijack sessions (ties into issue #4).
-
-**Fix:** Consider memory-only storage or signed httpOnly cookies.
-
----
-
-### 10. Client-Side Player Name Validation
-
-**File:** `src/app/page.tsx:161-168`
-**Risk:** Low -- server validates via `validateName()`, but the client only enforces `maxLength={20}` with no character restrictions.
-
-**Fix:** Add client-side regex validation to match server rules.
-
----
-
-## LOW Issues / Good Findings
-
-**Things done well (no action needed):**
-- Server-authoritative architecture -- clients cannot cheat on game logic
-- `StateSerializer` properly hides opponent cards and deck contents
-- Exchange state only sent to the exchanging player
-- Socket IDs stripped from broadcasts
-- Chat bounded to 50 messages, 200 chars max
-- Room cleanup: 24h TTL + 120s inactive cleanup
-- Player limits enforced (2-6)
-- Bot brain does not peek at hidden state
-- React JSX auto-escapes rendered text (chat messages, player names are not XSS-vulnerable)
-- Authorization checks on host-only operations (start, rematch, settings, bots)
-- No race conditions in disconnect/reconnect flow
-- Proper disconnect timer management
-
----
-
-## Priority Fix List
-
-| Priority | Issue | Effort | Status |
-|----------|-------|--------|--------|
-| **P0** | Set explicit CORS origin in production | 5 min | TODO |
-| **P0** | Add helmet middleware | 10 min | TODO |
-| **P1** | Replace `Math.random()` with `crypto.randomInt()` | 30 min | TODO |
-| **P1** | Add trust proxy configuration | 2 min | TODO |
-| **P1** | Add session tokens for rejoin auth | 1-2 hrs | TODO |
-| **P2** | Rate limit all socket events | 1 hr | TODO |
-| **P2** | Add input validation to all socket handlers | 30 min | TODO |
-| **P2** | Add CSP headers | 30 min | TODO |
-| **P3** | Validate bot personality, block character at socket layer | 15 min | TODO |
-| **P3** | Add client-side name validation | 10 min | TODO |
+- Private create/join/start/game-over/rematch with two browser sessions.
+- Public room browser join flow.
+- Public live-game spectator flow.
+- Reformation with Inquisitor: Convert, Embezzle, Examine, and same-faction target restrictions.

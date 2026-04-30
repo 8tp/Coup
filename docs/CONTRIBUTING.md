@@ -33,7 +33,7 @@ Feature suggestions are welcome! Use the [Feedback / Feature Request template](h
 
 ### Prerequisites
 
-- Node.js 18+ (LTS recommended)
+- Node.js 20.19+ (or 22.12+) to satisfy the current Vite/Vitest toolchain
 - npm (comes with Node.js)
 - Git
 
@@ -41,8 +41,8 @@ Feature suggestions are welcome! Use the [Feedback / Feature Request template](h
 
 ```bash
 # Fork and clone the repository
-git clone https://github.com/your-username/coup-online.git
-cd coup-online
+git clone https://github.com/your-username/Coup.git
+cd Coup
 
 # Install dependencies
 npm install
@@ -53,6 +53,9 @@ npm run dev
 # Run tests
 npm test
 
+# Run browser-flow E2E tests
+npm run test:e2e
+
 # Run tests in watch mode
 npm run test:watch
 ```
@@ -62,7 +65,7 @@ The development server runs at `http://localhost:3000` with hot reloading for bo
 ### Project Layout
 
 - `docs/` -- project documentation (CONTRIBUTING.md, PRD.md, BOT-STRATEGY.md)
-- `tests/` -- test suite mirroring `src/` structure (`tests/engine/`, `tests/server/`, `tests/app/`)
+- `tests/` -- test suite mirroring `src/` structure (`tests/engine/`, `tests/server/`, `tests/app/`, `tests/e2e/`)
 - `src/shared/` -- types, constants, and protocol definitions shared between client and server
 - `src/engine/` -- pure game logic with no I/O dependencies (start here if working on rules)
 - `src/server/` -- Socket.io handlers, room management, state serialization
@@ -105,21 +108,23 @@ The development server runs at `http://localhost:3000` with hot reloading for bo
 
 ## Pull Request Process
 
-1. **Create a branch** from `main` with a descriptive name:
+1. **Create a branch** from `dev` with a descriptive name. `main` is the release branch; day-to-day changes should merge through `dev`.
    - `feature/add-spectator-mode`
    - `fix/steal-zero-coins-crash`
    - `refactor/extract-timer-logic`
 
 2. **Make your changes** with clear, focused commits
 
-3. **Run tests** and make sure they pass:
+3. **Run tests and build** and make sure they pass:
    ```bash
    npm test
+   npm run test:e2e
+   npm run build
    ```
 
 4. **Test manually** with at least 2 browser tabs to verify multiplayer behavior
 
-5. **Open a Pull Request** against `main` with:
+5. **Open a Pull Request** against `dev` with:
    - A clear title summarizing the change
    - A description of what changed and why
    - Screenshots or recordings for UI changes
@@ -130,7 +135,8 @@ The development server runs at `http://localhost:3000` with hot reloading for bo
 ### PR Checklist
 
 - [ ] Tests pass (`npm test`)
-- [ ] No TypeScript errors (`npx tsc --noEmit`)
+- [ ] Browser-flow E2E tests pass (`npm run test:e2e`)
+- [ ] Production build passes (`npm run build`)
 - [ ] Tested with multiple players in the browser
 - [ ] No console errors or warnings in the browser
 - [ ] Game rules remain accurate (if engine code changed)

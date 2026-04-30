@@ -41,6 +41,14 @@ function revealCard(game: Game, playerId: string, index: number): void {
   player.influences[index].revealed = true;
 }
 
+function seededRandom(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state / 0x100000000;
+  };
+}
+
 function decide(
   game: Game,
   botId: string,
@@ -920,6 +928,7 @@ describe('BotBrain', () => {
 
       for (const pName of ['aggressive', 'conservative', 'deceptive', 'analytical'] as const) {
         let bluffs = 0;
+        const randomSpy = vi.spyOn(Math, 'random').mockImplementation(seededRandom(0xC0A9));
         for (let i = 0; i < trials; i++) {
           const result = decide(game, 'p2', BOT_PERSONALITIES[pName]);
           if (result?.type === 'action') {
@@ -927,6 +936,7 @@ describe('BotBrain', () => {
             if (claimable.includes(result.action)) bluffs++;
           }
         }
+        randomSpy.mockRestore();
         bluffCounts[pName] = bluffs;
       }
 

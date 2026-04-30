@@ -20,6 +20,11 @@
     background-attachment: fixed;
   }
 
+  :focus-visible {
+    outline: 2px solid #d6a12a;
+    outline-offset: 2px;
+  }
+
   @media (max-width: 640px) {
     body {
       background-image:
@@ -395,6 +400,134 @@
   .card-flip-back-face.animate-card-flip-reveal {
     animation: cardFlipBack 0.7s ease-in-out forwards;
     transform-style: preserve-3d;
+  }
+
+  @keyframes cardSwapIn {
+    0% {
+      transform: translateY(-18px) scale(0.92) rotate(-4deg);
+      opacity: 0;
+      filter: brightness(1.35);
+    }
+    70% {
+      transform: translateY(3px) scale(1.04) rotate(1deg);
+      opacity: 1;
+      filter: brightness(1.15);
+    }
+    100% {
+      transform: translateY(0) scale(1) rotate(0deg);
+      opacity: 1;
+      filter: brightness(1);
+    }
+  }
+
+  .animate-card-swap-in {
+    animation: cardSwapIn 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+    transform-origin: center;
+  }
+
+  .coin-change-burst {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 20;
+  }
+
+  .coin-change-label {
+    position: absolute;
+    right: -0.45rem;
+    top: -1.1rem;
+    font-size: 0.75rem;
+    font-weight: 900;
+    line-height: 1;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+    animation: coinLabelFloat 0.9s ease-out forwards;
+  }
+
+  .coin-motion-token {
+    position: absolute;
+    right: 0.05rem;
+    top: 0.05rem;
+    color: rgb(242, 199, 68);
+    opacity: 0;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.55));
+    animation-delay: var(--coin-delay);
+  }
+
+  .coin-motion-gain {
+    animation: coinArcIn 0.8s cubic-bezier(0.19, 1, 0.22, 1) forwards;
+    animation-delay: var(--coin-delay);
+  }
+
+  .coin-motion-loss {
+    animation: coinArcOut 0.8s ease-in forwards;
+    animation-delay: var(--coin-delay);
+  }
+
+  @keyframes coinLabelFloat {
+    0% {
+      transform: translateY(4px) scale(0.9);
+      opacity: 0;
+    }
+    20% {
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(-20px) scale(1);
+      opacity: 0;
+    }
+  }
+
+  @keyframes coinArcIn {
+    0% {
+      transform: translate(calc(-26px - var(--coin-offset)), 22px) scale(0.55) rotate(-30deg);
+      opacity: 0;
+    }
+    25% {
+      opacity: 1;
+    }
+    70% {
+      transform: translate(calc(-6px - var(--coin-offset)), -12px) scale(1.05) rotate(12deg);
+      opacity: 1;
+    }
+    100% {
+      transform: translate(0, 0) scale(0.7) rotate(0deg);
+      opacity: 0;
+    }
+  }
+
+  @keyframes coinArcOut {
+    0% {
+      transform: translate(0, 0) scale(0.8) rotate(0deg);
+      opacity: 1;
+    }
+    55% {
+      transform: translate(calc(10px + var(--coin-offset)), -12px) scale(1) rotate(18deg);
+      opacity: 1;
+    }
+    100% {
+      transform: translate(calc(30px + var(--coin-offset)), -30px) scale(0.55) rotate(42deg);
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-card-swap-in,
+    .coin-change-label,
+    .coin-motion-gain,
+    .coin-motion-loss {
+      animation-duration: 0.01ms;
+      animation-iteration-count: 1;
+    }
+  }
+
+  html.reduce-motion *,
+  html.reduce-motion *::before,
+  html.reduce-motion *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 
   .input-field {
