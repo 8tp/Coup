@@ -3,6 +3,7 @@ import './globals.css';
 
 export const viewport: Viewport = {
   viewportFit: 'cover',
+  themeColor: '#090d0e',
 };
 
 export const metadata: Metadata = {
@@ -10,6 +11,11 @@ export const metadata: Metadata = {
   description: 'Play Coup with friends online — bluff, challenge, and steal your way to victory in this multiplayer card game.',
   applicationName: 'Coup Online',
   keywords: ['coup', 'card game', 'multiplayer', 'board game', 'bluffing', 'online game', 'strategy', 'free'],
+  appleWebApp: {
+    capable: true,
+    title: 'Coup Online',
+    statusBarStyle: 'black-translucent',
+  },
   metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || 'https://coup.chuds.dev'),
   alternates: {
     canonical: '/',
@@ -17,9 +23,10 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: '32x32' },
-      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
     ],
-    apple: '/coup-logo.png',
+    apple: '/apple-touch-icon.png',
   },
   openGraph: {
     title: 'Coup Online',
@@ -39,7 +46,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Coup Online',
     description: 'Play Coup with friends online — bluff, challenge, and steal your way to victory in this multiplayer card game.',
-    images: ['/og-image.png'],
+    images: ['/embed-image.png'],
   },
 };
 

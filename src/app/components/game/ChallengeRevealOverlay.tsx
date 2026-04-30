@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useGameStore } from '../../stores/gameStore';
-import { CHARACTER_SVG_ICONS } from '../icons';
 import { Character } from '@/shared/types';
+import { CardArtwork, CardBackArtwork, CharacterCardBadge } from './CardArtwork';
 
 const characterColors: Record<Character, string> = {
   [Character.Duke]: 'border-purple-500 bg-purple-900/60',
@@ -61,7 +61,6 @@ export function ChallengeRevealOverlay() {
   if (!challengeReveal || phase === 'done') return null;
 
   const { challengerName, challengedName, character, wasGenuine } = challengeReveal;
-  const Icon = CHARACTER_SVG_ICONS[character];
   const cardStyle = characterColors[character];
 
   return (
@@ -71,15 +70,16 @@ export function ChallengeRevealOverlay() {
         {wasGenuine ? (
           <div
             className={`
-              w-28 h-40 rounded-xl border-2 flex flex-col items-center justify-center gap-2 shadow-2xl
+              relative w-28 h-40 overflow-hidden rounded-xl border-2 shadow-2xl
               ${cardStyle}
               ${phase === 'reveal' ? 'animate-challenge-card-in' : ''}
               ${phase === 'card-to-deck' ? 'animate-challenge-card-out' : ''}
               ${phase === 'new-card' ? 'hidden' : ''}
             `}
           >
-            <Icon size={48} />
-            <span className="text-white font-bold text-sm">{character}</span>
+            <CardArtwork character={character} variant="focus" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/25" />
+            <CharacterCardBadge character={character} />
           </div>
         ) : (
           <div
@@ -96,8 +96,10 @@ export function ChallengeRevealOverlay() {
 
         {/* New card from deck (phase 3) */}
         {phase === 'new-card' && (
-          <div className="w-28 h-40 rounded-xl border-2 border-gray-600 bg-coup-surface flex items-center justify-center shadow-2xl animate-card-from-deck">
-            <span className="text-gray-400 text-2xl font-bold">?</span>
+          <div className="relative w-28 h-40 overflow-hidden rounded-xl border-2 border-gray-600 bg-coup-surface shadow-2xl animate-card-from-deck">
+            <CardBackArtwork variant="focus" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10" />
+            <span className="sr-only">New hidden influence</span>
           </div>
         )}
 

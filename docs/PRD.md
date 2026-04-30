@@ -86,7 +86,7 @@ Coup is a fast-paced (15 min) bluffing / social deduction game for 2–6 players
 **Tech UI Guidelines**
 - Tailwind CSS + responsive (mobile portrait first: max 480px wide layout).
 - Large touch targets (≥48px).
-- Dark theme with vibrant card art (use SVG icons or simple emoji placeholders initially; later AI-generated or public domain art).
+- Dark theme with generated raster card art for influence cards; reserve SVG/CSS for functional controls, badges, timers, and exact text.
 - Smooth CSS/Framer-Motion style animations (card flips, coin counters, confetti on win).
 - PWA support (installable on homescreen).
 
@@ -171,10 +171,10 @@ Coup is a fast-paced (15 min) bluffing / social deduction game for 2–6 players
 4. **Phase 4:** Mobile-first UI + animations.
 5. **Phase 5:** Polish (log, timers, confetti, PWA).
 
-**Appendix: Card Visuals Suggestion**
-- Use simple colored borders + role icons (Duke = crown, Assassin = dagger, etc.).
-- Or generate with Grok Imagine / DALL·E later.
-- Face-up cards show full art + name.
+**Appendix: Card Visuals**
+- Use generated raster portraits for influence cards and table/background atmosphere.
+- Keep SVG/CSS for functional controls, role icons, faction badges, timers, and exact UI text.
+- Face-up cards show portrait art with HTML/CSS role/action labels for readability and accessibility.
 
 **Rules Reference Links (for verification)**
 - Official-style rulebook summaries used above.

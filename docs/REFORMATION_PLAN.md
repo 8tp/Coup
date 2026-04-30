@@ -143,7 +143,7 @@ Examine flow:
 - `Tutorial.tsx` -- Add Reformation steps
 - `icons/index.ts` -- Export `InquisitorIcon`, add to `CHARACTER_SVG_ICONS`
 
-### Phase 6: New SVG Assets
+### Phase 6: Visual Assets
 
 **InquisitorIcon:** All-seeing eye with magnifying glass
 - Outer: Diamond-shaped frame (teal #0d9488 stroke)
@@ -151,6 +151,8 @@ Examine flow:
 - Magnifying glass handle extending from bottom-right
 - Color: Teal primary (#0d9488), light teal highlights (#5eead4)
 - Animated: iris slowly pulses, magnifying glass has subtle gleam sweep
+
+**Generated influence card art:** Reformation-enabled decks should use the same raster card-face pipeline as the base game, including `public/assets/cards/inquisitor-v2.webp` for the Inquisitor influence card. Keep the SVG `InquisitorIcon` for compact action/block controls where exact symbol readability matters.
 
 **FactionBadge SVGs:**
 - Loyalist: Blue shield with crown silhouette (#3b82f6)

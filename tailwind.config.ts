@@ -8,16 +8,16 @@ const config: Config = {
     extend: {
       colors: {
         coup: {
-          bg: '#0f1419',
-          surface: '#1a2332',
-          card: '#243447',
-          accent: '#e6a817',
+          bg: '#090d0e',
+          surface: '#17231f',
+          card: '#22302b',
+          accent: '#d6a12a',
           duke: '#9b59b6',
           assassin: '#2c3e50',
           captain: '#2980b9',
           ambassador: '#27ae60',
           contessa: '#e74c3c',
-          gold: '#f1c40f',
+          gold: '#f2c744',
         },
       },
       animation: {

@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import { Character } from '@/shared/types';
 import { CHARACTER_DESCRIPTIONS } from '@/shared/constants';
-import { CHARACTER_SVG_ICONS } from '../icons';
 import { Modal } from '../ui/Modal';
 import { haptic } from '../../utils/haptic';
+import { CardArtwork, CharacterCardBadge } from '../game/CardArtwork';
 
 const tabs = ['Overview', 'Characters', 'Actions & Rules', 'Reformation'] as const;
 type Tab = typeof tabs[number];
@@ -124,15 +124,16 @@ function CharactersTab() {
   return (
     <div className="grid gap-3">
       {characters.map(char => {
-        const Icon = CHARACTER_SVG_ICONS[char];
         const theme = characterThemes[char];
         return (
           <div
             key={char}
             className={`flex items-center gap-3 p-3 rounded-lg border ${theme.bg} ${theme.border}`}
           >
-            <div className="shrink-0">
-              <Icon size={36} />
+            <div className={`relative h-14 w-10 shrink-0 overflow-hidden rounded-md border ${theme.border}`}>
+              <CardArtwork character={char} variant="focus" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
+              <CharacterCardBadge character={char} />
             </div>
             <div>
               <div className={`font-bold ${theme.label}`}>{char}</div>
