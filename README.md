@@ -1,17 +1,18 @@
 <p align="center">
-  <img src="public/coup-logo-transparent.png" alt="Coup Online app icon" width="128">
-</p>
-
-<p align="center">
   <img src="public/assets/brand/coup-online-banner.png" alt="Coup Online" width="420">
 </p>
 
 <p align="center">
-  A real-time multiplayer web adaptation of the classic bluffing card game.
+  <img src="public/assets/cards/duke-v2.webp" alt="Duke card" width="70">
+  <img src="public/assets/cards/assassin-v2.webp" alt="Assassin card" width="70">
+  <img src="public/assets/cards/captain-v2.webp" alt="Captain card" width="70">
+  <img src="public/assets/cards/ambassador-v2.webp" alt="Ambassador card" width="70">
+  <img src="public/assets/cards/contessa-v2.webp" alt="Contessa card" width="70">
+  <img src="public/assets/cards/inquisitor-v2.webp" alt="Inquisitor card" width="70">
 </p>
 
 <p align="center">
-  <img src="public/embed-image.png" alt="Coup Online preview image" width="720">
+  A real-time multiplayer web adaptation of the classic bluffing card game.
 </p>
 
 <p align="center">

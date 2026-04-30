@@ -70,7 +70,7 @@ export function ChallengeRevealOverlay() {
         {wasGenuine ? (
           <div
             className={`
-              relative w-28 h-40 overflow-hidden rounded-xl border-2 shadow-2xl
+              card-reveal-face relative w-28 h-40 overflow-hidden rounded-xl border-2 shadow-2xl
               ${cardStyle}
               ${phase === 'reveal' ? 'animate-challenge-card-in' : ''}
               ${phase === 'card-to-deck' ? 'animate-challenge-card-out' : ''}
