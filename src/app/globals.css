@@ -149,15 +149,13 @@
   }
 
   .card-character-label.card-label-extra-long {
-    font-size: 4.7px;
-    transform: scaleX(0.92);
-    transform-origin: center;
+    font-size: 4.6px;
+    letter-spacing: -0.05em;
   }
 
   .card-action-label.card-label-medium {
-    font-size: 5.8px;
-    transform: scaleX(0.95);
-    transform-origin: center;
+    font-size: 5.7px;
+    letter-spacing: -0.03em;
   }
 
   .card-face-sm .card-label-plate {
@@ -181,13 +179,13 @@
   }
 
   .card-face-sm .card-character-label.card-label-extra-long {
-    font-size: 5.4px;
-    transform: scaleX(0.88);
+    font-size: 5.2px;
+    letter-spacing: -0.06em;
   }
 
   .card-face-sm .card-action-label.card-label-medium {
-    font-size: 6.2px;
-    transform: scaleX(0.92);
+    font-size: 6px;
+    letter-spacing: -0.04em;
   }
 
   .card-face-md .card-label-plate {
@@ -212,13 +210,13 @@
   }
 
   .card-face-md .card-character-label.card-label-extra-long {
-    font-size: 6.7px;
-    transform: scaleX(0.9);
+    font-size: 6.4px;
+    letter-spacing: -0.05em;
   }
 
   .card-face-md .card-action-label.card-label-medium {
-    font-size: 7.8px;
-    transform: scaleX(0.92);
+    font-size: 7.5px;
+    letter-spacing: -0.04em;
   }
 
   .card-face-lg .card-label-plate {
@@ -243,13 +241,13 @@
   }
 
   .card-face-lg .card-character-label.card-label-extra-long {
-    font-size: 8.5px;
-    transform: scaleX(0.92);
+    font-size: 8.2px;
+    letter-spacing: -0.04em;
   }
 
   .card-face-lg .card-action-label.card-label-medium {
-    font-size: 10.6px;
-    transform: scaleX(0.95);
+    font-size: 10.4px;
+    letter-spacing: -0.02em;
   }
 
   .card-reveal-face .card-label-plate {
@@ -274,13 +272,13 @@
   }
 
   .card-reveal-face .card-character-label.card-label-extra-long {
-    font-size: 10.2px;
-    transform: scaleX(0.95);
+    font-size: 10px;
+    letter-spacing: -0.03em;
   }
 
   .card-reveal-face .card-action-label.card-label-medium {
-    font-size: 12.8px;
-    transform: scaleX(0.98);
+    font-size: 12.6px;
+    letter-spacing: -0.01em;
   }
 
   .card-preview-face .card-label-plate {
@@ -305,13 +303,13 @@
   }
 
   .card-preview-face .card-character-label.card-label-extra-long {
-    font-size: 10.5px;
-    transform: scaleX(0.98);
+    font-size: 10.3px;
+    letter-spacing: -0.02em;
   }
 
   .card-preview-face .card-action-label.card-label-medium {
     font-size: 13px;
-    transform: none;
+    letter-spacing: 0;
   }
 
   .card-face-sm {

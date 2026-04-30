@@ -121,6 +121,7 @@ function serializeExamineState(state: GameState, playerId: string): ClientExamin
 }
 
 function serializeExchangeState(state: GameState, playerId: string): ClientExchangeState | null {
+  if (state.turnPhase === TurnPhase.GameOver) return null;
   if (!state.exchangeState) return null;
   if (state.exchangeState.playerId !== playerId) return null;
 
