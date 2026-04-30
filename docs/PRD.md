@@ -116,7 +116,7 @@ The app is designed for low-friction play:
 
 1. First-time player opens the tutorial or home screen and chooses Practice vs Bot.
 2. The app creates a private room, adds a conservative bot, and starts the game immediately.
-3. Player can leave or rematch like any other game.
+3. Player can leave or return home after the game; practice games do not return to a lobby and are not recorded in local stats.
 
 ### Join
 

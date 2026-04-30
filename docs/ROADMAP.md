@@ -22,7 +22,7 @@ Started in the current release-readiness branch:
 - Clearer lobby room-code and invite-link copy feedback.
 - More specific unavailable-action and invalid-target explanations.
 - Named waiting cues and browser-title attention states for key game phases.
-- Lobby table-readiness summary, host presets, and an always-reachable rules shortcut.
+- Always-reachable rules shortcuts in the lobby and game.
 - A compact latest-event strip and expandable "why did this happen?" log explanations.
 - Richer game-over recap cards for winner standing, decisive moment, biggest coin move, bluff table, and challenge reads.
 - Card replacement/deal movement and animated coin movement on player seats and the local hand.
@@ -43,9 +43,8 @@ These are small enough to ship incrementally and have direct player value.
 
 ### Lobby And Sharing
 
-- Add host-only lobby presets for "Table Classic", "Fast Lunch", and "Reformation".
-- Show a compact room readiness summary: player count, connected people, bots, spectators, mode, timers, and privacy.
 - Add a host-only "shuffle bot personalities" action before start.
+- Keep room setup compact and focused on the player list, sharing controls, and settings people actually change at the table.
 
 ### Turn Clarity
 

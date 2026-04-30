@@ -8,7 +8,6 @@ import { MIN_PLAYERS, MAX_PLAYERS, MIN_ACTION_TIMER, MAX_ACTION_TIMER, MIN_TURN_
 import { GameMode, GameStatus } from '@/shared/types';
 import { ChatPanel } from '../../components/chat/ChatPanel';
 import { AddBotModal } from '../../components/lobby/AddBotModal';
-import { LobbyReadiness, presetSettings, type PresetId } from '../../components/lobby/LobbyReadiness';
 import { QRShareModal } from '../../components/lobby/QRShareModal';
 import { SettingsModal } from '../../components/settings/SettingsModal';
 import { HowToPlay } from '../../components/home/HowToPlay';
@@ -154,16 +153,6 @@ export default function LobbyPage() {
     }
   };
 
-  const handleApplyPreset = async (presetId: PresetId) => {
-    if (!roomSettings) return;
-    haptic(80);
-    try {
-      await updateRoomSettings(presetSettings(presetId, roomSettings));
-    } catch {
-      // Room error banner handles failures.
-    }
-  };
-
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-6">
       <div className="max-w-sm lg:max-w-2xl w-full">
@@ -235,17 +224,6 @@ export default function LobbyPage() {
           <div className="bg-red-900/50 border border-red-600 rounded-xl p-3 mb-4 text-sm animate-fade-in">
             {error}
           </div>
-        )}
-
-        {roomSettings && (
-          <LobbyReadiness
-            players={roomPlayers}
-            spectators={spectators}
-            settings={roomSettings}
-            isHost={isHost}
-            canStart={canStart}
-            onApplyPreset={handleApplyPreset}
-          />
         )}
 
         <div className="lg:grid lg:grid-cols-2 lg:gap-6">

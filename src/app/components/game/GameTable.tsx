@@ -34,10 +34,12 @@ interface GameTableProps {
   isHost: boolean;
   onRematch: () => void;
   isSpectator?: boolean;
+  isPracticeRoom?: boolean;
+  onExitPractice?: () => void;
   onStopSpectating?: () => void;
 }
 
-export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction, isHost, onRematch, isSpectator, onStopSpectating }: GameTableProps) {
+export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction, isHost, onRematch, isSpectator, isPracticeRoom, onExitPractice, onStopSpectating }: GameTableProps) {
   useSoundEffects();
   const isMuted = useGameStore(s => s.isMuted);
   const setMuted = useGameStore(s => s.setMuted);
@@ -259,7 +261,14 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
         </div>
       )}
 
-      <GameOverOverlay gameState={gameState} isHost={isHost && !isSpectator} onRematch={onRematch} isSpectator={isSpectator} />
+      <GameOverOverlay
+        gameState={gameState}
+        isHost={isHost && !isSpectator}
+        onRematch={onRematch}
+        isSpectator={isSpectator}
+        isPracticeRoom={isPracticeRoom}
+        onExitPractice={onExitPractice}
+      />
       <ChallengeRevealOverlay />
       <HowToPlay open={showRules} onClose={() => setShowRules(false)} />
       <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />

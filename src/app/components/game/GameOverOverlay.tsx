@@ -43,6 +43,8 @@ interface GameOverOverlayProps {
   isHost: boolean;
   onRematch: () => void;
   isSpectator?: boolean;
+  isPracticeRoom?: boolean;
+  onExitPractice?: () => void;
 }
 
 function buildReplayExport(gameState: ClientGameState): string {
@@ -73,7 +75,7 @@ function buildReplayExport(gameState: ClientGameState): string {
   return lines.join('\n');
 }
 
-export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator }: GameOverOverlayProps) {
+export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isPracticeRoom, onExitPractice }: GameOverOverlayProps) {
   const [showLog, setShowLog] = useState(false);
   const challengeReveal = useGameStore(s => s.challengeReveal);
   const roomPlayers = useGameStore(s => s.roomPlayers);
@@ -90,11 +92,12 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator }: G
   const totalBluffs = useMemo(() => bluffSummary.reduce((sum, e) => sum + e.bluffs, 0), [bluffSummary]);
 
   useEffect(() => {
-    if (gameState.turnPhase === TurnPhase.GameOver && !challengeReveal && !statsRecorded && !isSpectator) {
+    const isPracticeSession = isPracticeRoom || sessionStorage.getItem('coup_practice_room') === 'true';
+    if (gameState.turnPhase === TurnPhase.GameOver && !challengeReveal && !statsRecorded && !isSpectator && !isPracticeSession) {
       recordGame(gameState);
       setStatsRecorded(true);
     }
-  }, [gameState, challengeReveal, statsRecorded, recordGame, isSpectator]);
+  }, [gameState, challengeReveal, statsRecorded, recordGame, isSpectator, isPracticeRoom]);
 
   useEffect(() => {
     if (gameState.turnPhase !== TurnPhase.GameOver || challengeReveal) return;
@@ -375,7 +378,11 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator }: G
 
         {/* Action */}
         <div className="px-6 pb-6">
-          {isSpectator ? (
+          {isPracticeRoom ? (
+            <button className="btn-primary w-full" onClick={() => { haptic(80); onExitPractice?.(); }} disabled={!onExitPractice}>
+              Back Home
+            </button>
+          ) : isSpectator ? (
             <p className="text-purple-400 text-sm text-center">
               Spectating
             </p>
