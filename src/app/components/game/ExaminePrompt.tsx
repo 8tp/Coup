@@ -1,10 +1,10 @@
 'use client';
 
 import { ClientGameState, TurnPhase } from '@/shared/types';
-import { CHARACTER_SVG_ICONS } from '../icons';
 import { Timer } from '../ui/Timer';
 import { getSocket } from '../../hooks/useSocket';
 import { haptic, hapticHeavy } from '../../utils/haptic';
+import { CardArtwork, CharacterCardBadge } from './CardArtwork';
 
 interface ExaminePromptProps {
   gameState: ClientGameState;
@@ -17,7 +17,6 @@ export function ExaminePrompt({ gameState }: ExaminePromptProps) {
   if (!examineState || turnPhase !== TurnPhase.AwaitingExamineDecision) return null;
 
   const target = gameState.players.find(p => p.id === examineState.targetId);
-  const Icon = CHARACTER_SVG_ICONS[examineState.revealedCard];
 
   return (
     <div className="prompt-action">
@@ -26,9 +25,10 @@ export function ExaminePrompt({ gameState }: ExaminePromptProps) {
         {target?.name}&apos;s card:
       </p>
       <div className="flex justify-center mb-3">
-        <div className="border-2 border-teal-500 bg-teal-900/40 rounded-xl p-3 flex flex-col items-center gap-1">
-          <Icon size={48} />
-          <span className="text-teal-300 font-bold text-sm">{examineState.revealedCard}</span>
+        <div className="relative h-32 w-24 overflow-hidden rounded-xl border-2 border-teal-500 bg-teal-900/40">
+          <CardArtwork character={examineState.revealedCard} variant="focus" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20" />
+          <CharacterCardBadge character={examineState.revealedCard} />
         </div>
       </div>
       <p className="text-center text-gray-400 text-xs mb-3">

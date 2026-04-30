@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { Character } from '@/shared/types';
-import { CHARACTER_SVG_ICONS, CardBack, CoinIcon } from '../icons';
+import { CoinIcon } from '../icons';
 import { haptic, hapticHeavy } from '../../utils/haptic';
+import { CardArtwork, CardBackArtwork, CharacterCardBadge } from '../game/CardArtwork';
 
 interface TutorialProps {
   open: boolean;
@@ -13,8 +14,34 @@ interface TutorialProps {
 const TOTAL_STEPS = 8;
 
 function CharIcon({ char, size }: { char: Character; size: number }) {
-  const Icon = CHARACTER_SVG_ICONS[char];
-  return <Icon size={size} />;
+  return (
+    <span
+      className="relative inline-block overflow-hidden rounded-md border border-white/10 align-middle"
+      style={{ width: size, height: size }}
+    >
+      <CardArtwork character={char} variant="focus" />
+      <span className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-black/15" />
+    </span>
+  );
+}
+
+function TutorialCardArt({ char }: { char: Character }) {
+  return (
+    <>
+      <CardArtwork character={char} variant="focus" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
+      <CharacterCardBadge character={char} />
+    </>
+  );
+}
+
+function TutorialCardBack() {
+  return (
+    <>
+      <CardBackArtwork variant="focus" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10" />
+    </>
+  );
 }
 
 const characterData = [
@@ -199,9 +226,9 @@ function WelcomeStep() {
               }}
             >
               <div
-                className={`w-14 h-20 rounded-lg border-2 ${c.borderClass} ${c.bgClass} flex items-center justify-center`}
+                className={`relative w-14 h-20 overflow-hidden rounded-lg border-2 ${c.borderClass} ${c.bgClass}`}
               >
-                <CharIcon char={c.char} size={28} />
+                <TutorialCardArt char={c.char} />
               </div>
             </div>
           );
@@ -226,8 +253,8 @@ function InfluenceStep({ revealed }: { revealed: boolean }) {
       <div className="flex justify-center gap-5 mb-8">
         {/* Card 1 - stays face-down */}
         <div className="relative">
-          <div className="w-20 h-28 rounded-xl bg-coup-card border-2 border-coup-accent/50 flex items-center justify-center shadow-lg shadow-coup-accent/10">
-            <CardBack size={40} />
+          <div className="relative w-20 h-28 overflow-hidden rounded-xl bg-coup-card border-2 border-coup-accent/50 shadow-lg shadow-coup-accent/10">
+            <TutorialCardBack />
           </div>
           <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-xs text-coup-accent font-bold whitespace-nowrap">
             Secret
@@ -246,20 +273,20 @@ function InfluenceStep({ revealed }: { revealed: boolean }) {
           >
             {/* Front */}
             <div
-              className="absolute inset-0 rounded-xl bg-coup-card border-2 border-coup-accent/50 flex items-center justify-center"
+              className="absolute inset-0 overflow-hidden rounded-xl bg-coup-card border-2 border-coup-accent/50 flex items-center justify-center"
               style={{ backfaceVisibility: 'hidden' }}
             >
-              <CardBack size={40} />
+              <TutorialCardBack />
             </div>
             {/* Back - revealed/lost */}
             <div
-              className="absolute inset-0 rounded-xl bg-gray-800/80 border-2 border-red-500/60 flex flex-col items-center justify-center"
+              className="absolute inset-0 overflow-hidden rounded-xl bg-gray-800/80 border-2 border-red-500/60 flex flex-col items-center justify-center"
               style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
             >
-              <div className="opacity-40">
-                <CharIcon char={Character.Duke} size={32} />
+              <div className="absolute inset-0 opacity-40">
+                <TutorialCardArt char={Character.Duke} />
               </div>
-              <div className="text-red-400 text-[10px] font-bold mt-1">REVEALED</div>
+              <div className="relative text-red-400 text-[10px] font-bold mt-1">REVEALED</div>
             </div>
           </div>
           <div
@@ -311,7 +338,9 @@ function CharactersStep({ selected, onSelect }: { selected: number; onSelect: (i
                   : 'border-gray-700 bg-coup-card/50 opacity-50 hover:opacity-75'
               }`}
             >
-              <CharIcon char={ch.char} size={24} />
+              <div className="relative h-full w-full overflow-hidden rounded-md">
+                <TutorialCardArt char={ch.char} />
+              </div>
             </button>
           );
         })}
@@ -323,7 +352,9 @@ function CharactersStep({ selected, onSelect }: { selected: number; onSelect: (i
         className={`rounded-xl border-2 ${c.borderClass} ${c.bgClass} p-5 animate-fade-in`}
       >
         <div className="flex items-center justify-center gap-3 mb-3">
-          <CharIcon char={c.char} size={40} />
+          <span className={`relative h-14 w-10 overflow-hidden rounded-md border ${c.borderClass}`}>
+            <TutorialCardArt char={c.char} />
+          </span>
           <div className="text-left">
             <div className={`text-xl font-bold ${c.textClass}`}>{c.char}</div>
             <div className="text-gray-500 text-xs">{c.desc}</div>
@@ -540,18 +571,18 @@ function ChallengeStep({
           >
             {/* Front */}
             <div
-              className="absolute inset-0 rounded-lg bg-coup-card border-2 border-gray-600 flex items-center justify-center"
+              className="absolute inset-0 overflow-hidden rounded-lg bg-coup-card border-2 border-gray-600 flex items-center justify-center"
               style={{ backfaceVisibility: 'hidden' }}
             >
-              <CardBack size={32} />
+              <TutorialCardBack />
             </div>
             {/* Back - Captain revealed (not Duke!) */}
             <div
-              className="absolute inset-0 rounded-lg bg-blue-900/40 border-2 border-red-500 flex flex-col items-center justify-center"
+              className="absolute inset-0 overflow-hidden rounded-lg bg-blue-900/40 border-2 border-red-500 flex flex-col items-center justify-center"
               style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
             >
-              <CharIcon char={Character.Captain} size={28} />
-              <span className="text-blue-300 text-[10px] font-bold mt-0.5">Captain</span>
+              <TutorialCardArt char={Character.Captain} />
+              <span className="absolute bottom-1 left-1 right-1 text-center text-blue-100 text-[10px] font-bold drop-shadow">Captain</span>
             </div>
           </div>
         </div>

@@ -1,9 +1,17 @@
 <p align="center">
-  <img src="public/coup-logo.png" alt="Coup Online" width="400">
+  <img src="public/coup-logo-transparent.png" alt="Coup Online app icon" width="128">
+</p>
+
+<p align="center">
+  <img src="public/assets/brand/coup-online-banner.png" alt="Coup Online" width="420">
 </p>
 
 <p align="center">
   A real-time multiplayer web adaptation of the classic bluffing card game.
+</p>
+
+<p align="center">
+  <img src="public/embed-image.png" alt="Coup Online preview image" width="720">
 </p>
 
 <p align="center">
@@ -18,14 +26,12 @@
 
 Play Coup with 2–6 friends from any device — no app install, no accounts. Create a room, share the code, and start bluffing. The server enforces every rule so nobody can cheat, and the mobile-first UI keeps the game moving with timed challenge and block windows.
 
-<!-- ![Coup Online screenshot](docs/screenshot.png) -->
-
 ## Features
 
 ### Multiplayer
 - **Real-time WebSocket gameplay** — instant action broadcasts via Socket.io
 - **Server-authoritative** — all game logic runs server-side; clients never see hidden cards
-- **Room codes** — 6-character codes for easy sharing, no accounts required
+- **Room codes** — 4-letter codes for easy sharing, no accounts required
 - **Computer players** — add 1–5 AI opponents with 7 personality types (Aggressive, Conservative, Vengeful, Deceptive, Analytical, Optimal, Random)
 - **Reconnection** — drop and rejoin mid-game without losing your seat
 - **Auto-cleanup** — stale rooms expire after 24 hours
@@ -40,7 +46,7 @@ Play Coup with 2–6 friends from any device — no app install, no accounts. Cr
 
 ### Interface
 - **Mobile-first** — portrait-optimized touch UI with 48px+ tap targets
-- **Dark theme** — compact icon-only cards with character-colored borders and hover tooltips
+- **Dark table theme** — generated tabletop backgrounds, compact illustrated cards, readable role/action labels, and character-colored borders
 - **Haptic feedback** — vibration on taps for mobile devices (with iOS Safari fallback), togglable in settings
 - **Settings modal** — accessible from home, lobby, and in-game via gear icon. Controls for sound, haptic feedback (touch devices only), and text size (Normal / Large / Extra Large)
 - **Live activity stats** — players online and games in progress shown on the home page
@@ -69,7 +75,7 @@ The server starts at [http://localhost:3000](http://localhost:3000). Open it in 
 ### How to Play
 
 1. Click **Create Room** and enter your name
-2. Share the 6-character room code with friends
+2. Share the 4-letter room code with friends
 3. Friends click **Join Room** and enter the code
 4. Optionally, the host can click **Add Computer Player** to fill seats with AI opponents
 5. The host clicks **Start Game** once 2–6 players have joined
@@ -183,9 +189,18 @@ Coup/
 ├── server.ts                       # Express + Socket.io + Next.js entry point
 ├── docs/                           # Project documentation
 │   ├── BOT-STRATEGY.md             # AI strategy research and tuning methodology
+│   ├── ASSETS.md                   # Visual asset generation notes and prompts
 │   ├── CONTRIBUTING.md             # Contribution guidelines
 │   ├── PRD.md                      # Product requirements document
 │   └── REFORMATION_PLAN.md         # Reformation expansion implementation plan
+├── public/                         # PWA icons, Open Graph image, and generated game art
+│   ├── assets/                     # Card, banner, and table background raster assets
+│   ├── icons/                      # PWA install icons
+│   ├── coup-logo.png               # Project/app icon used in docs
+│   ├── coup-logo-transparent.png   # Transparent-corner icon for docs/social art
+│   ├── embed-image.png             # Twitter/large-card social preview
+│   ├── favicon.ico                 # Browser favicon
+│   └── og-image.png                # Open Graph social preview
 ├── tests/                          # Test suite
 │   ├── engine/                     # Engine unit tests
 │   └── server/                     # Server unit tests
@@ -229,7 +244,7 @@ Coup/
 | `npm run dev` | Start dev server (Express + Next.js + Socket.io) |
 | `npm run build` | Build for production |
 | `npm start` | Run production build |
-| `npm test` | Run test suite (465 tests across 14 files) |
+| `npm test` | Run test suite (542 tests across 19 files) |
 | `npm run test:watch` | Run tests in watch mode |
 
 ```sh
