@@ -26,7 +26,7 @@ export function ExaminePrompt({ gameState }: ExaminePromptProps) {
       </p>
       <div className="flex justify-center mb-3">
         <div className="relative h-32 w-24 overflow-hidden rounded-xl border-2 border-teal-500 bg-teal-900/40">
-          <CardArtwork character={examineState.revealedCard} variant="focus" />
+          <CardArtwork character={examineState.revealedCard} variant="focus" priority />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20" />
           <CharacterCardBadge character={examineState.revealedCard} />
         </div>

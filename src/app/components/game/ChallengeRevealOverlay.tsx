@@ -70,14 +70,14 @@ export function ChallengeRevealOverlay() {
         {wasGenuine ? (
           <div
             className={`
-              relative w-28 h-40 overflow-hidden rounded-xl border-2 shadow-2xl
+              card-reveal-face relative w-28 h-40 overflow-hidden rounded-xl border-2 shadow-2xl
               ${cardStyle}
               ${phase === 'reveal' ? 'animate-challenge-card-in' : ''}
               ${phase === 'card-to-deck' ? 'animate-challenge-card-out' : ''}
               ${phase === 'new-card' ? 'hidden' : ''}
             `}
           >
-            <CardArtwork character={character} variant="focus" />
+            <CardArtwork character={character} variant="focus" priority />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/25" />
             <CharacterCardBadge character={character} />
           </div>
@@ -97,7 +97,7 @@ export function ChallengeRevealOverlay() {
         {/* New card from deck (phase 3) */}
         {phase === 'new-card' && (
           <div className="relative w-28 h-40 overflow-hidden rounded-xl border-2 border-gray-600 bg-coup-surface shadow-2xl animate-card-from-deck">
-            <CardBackArtwork variant="focus" />
+            <CardBackArtwork variant="focus" priority />
             <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10" />
             <span className="sr-only">New hidden influence</span>
           </div>

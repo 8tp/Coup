@@ -1,5 +1,7 @@
 'use client';
 
+import { BRAND_BANNER_ART, BRAND_BANNER_DIMENSIONS } from '../../utils/assets';
+
 interface CoupLogoProps {
   className?: string;
 }
@@ -7,11 +9,14 @@ interface CoupLogoProps {
 export function CoupLogo({ className }: CoupLogoProps) {
   return (
     <img
-      src="/assets/brand/coup-online-banner.png"
+      src={BRAND_BANNER_ART}
       alt="Coup Online"
       className={className}
-      width={438}
-      height={180}
+      width={BRAND_BANNER_DIMENSIONS.width}
+      height={BRAND_BANNER_DIMENSIONS.height}
+      loading="eager"
+      decoding="async"
+      fetchPriority="high"
       draggable={false}
     />
   );

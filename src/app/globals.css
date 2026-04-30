@@ -155,64 +155,127 @@
     transform-origin: center;
   }
 
+  .card-face-sm .card-label-plate {
+    padding: 12px 2px 3px;
+  }
+
+  .card-face-sm .card-character-label {
+    font-size: 6.6px;
+  }
+
+  .card-face-sm .card-action-label {
+    font-size: 7px;
+  }
+
+  .card-face-sm .card-character-label.card-label-medium {
+    font-size: 6px;
+  }
+
+  .card-face-sm .card-character-label.card-label-long {
+    font-size: 5.5px;
+  }
+
+  .card-face-sm .card-character-label.card-label-extra-long {
+    font-size: 5.4px;
+    transform: scaleX(0.88);
+  }
+
+  .card-face-sm .card-action-label.card-label-medium {
+    font-size: 6.2px;
+    transform: scaleX(0.92);
+  }
+
   .card-face-md .card-label-plate {
-    padding: 13px 3px 4px;
+    padding: 15px 3px 4px;
     gap: 2px;
   }
 
   .card-face-md .card-character-label {
-    font-size: 7px;
+    font-size: 8.4px;
   }
 
   .card-face-md .card-action-label {
-    font-size: 7.5px;
+    font-size: 9.2px;
   }
 
   .card-face-md .card-character-label.card-label-medium {
-    font-size: 6.5px;
+    font-size: 7.6px;
   }
 
   .card-face-md .card-character-label.card-label-long {
-    font-size: 6px;
+    font-size: 7px;
   }
 
   .card-face-md .card-character-label.card-label-extra-long {
-    font-size: 5.9px;
-    transform: scaleX(0.92);
+    font-size: 6.7px;
+    transform: scaleX(0.9);
   }
 
   .card-face-md .card-action-label.card-label-medium {
-    font-size: 6.8px;
+    font-size: 7.8px;
+    transform: scaleX(0.92);
   }
 
   .card-face-lg .card-label-plate {
-    padding: 17px 4px 5px;
+    padding: 19px 4px 5px;
     gap: 2px;
   }
 
   .card-face-lg .card-character-label {
-    font-size: 9px;
+    font-size: 10.8px;
   }
 
   .card-face-lg .card-action-label {
-    font-size: 10px;
+    font-size: 12px;
   }
 
   .card-face-lg .card-character-label.card-label-medium {
-    font-size: 8.2px;
+    font-size: 9.8px;
   }
 
   .card-face-lg .card-character-label.card-label-long {
-    font-size: 7.5px;
+    font-size: 8.9px;
   }
 
   .card-face-lg .card-character-label.card-label-extra-long {
-    font-size: 7.2px;
-    transform: scaleX(0.95);
+    font-size: 8.5px;
+    transform: scaleX(0.92);
   }
 
   .card-face-lg .card-action-label.card-label-medium {
-    font-size: 9px;
+    font-size: 10.6px;
+    transform: scaleX(0.95);
+  }
+
+  .card-reveal-face .card-label-plate {
+    padding: 22px 6px 7px;
+    gap: 3px;
+  }
+
+  .card-reveal-face .card-character-label {
+    font-size: 12.8px;
+  }
+
+  .card-reveal-face .card-action-label {
+    font-size: 14.2px;
+  }
+
+  .card-reveal-face .card-character-label.card-label-medium {
+    font-size: 11.6px;
+  }
+
+  .card-reveal-face .card-character-label.card-label-long {
+    font-size: 10.8px;
+  }
+
+  .card-reveal-face .card-character-label.card-label-extra-long {
+    font-size: 10.2px;
+    transform: scaleX(0.95);
+  }
+
+  .card-reveal-face .card-action-label.card-label-medium {
+    font-size: 12.8px;
+    transform: scaleX(0.98);
   }
 
   .card-preview-face .card-label-plate {
