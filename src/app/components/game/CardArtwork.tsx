@@ -1,27 +1,13 @@
 'use client';
 
 import { Character } from '@/shared/types';
-
-export const CARD_BACK_ART = '/assets/cards/back.webp';
-export const CARD_BACK_FOCUS_ART = '/assets/cards/focus/back.webp';
-
-export const CHARACTER_CARD_ART: Record<Character, string> = {
-  [Character.Duke]: '/assets/cards/duke-v2.webp',
-  [Character.Assassin]: '/assets/cards/assassin-v2.webp',
-  [Character.Captain]: '/assets/cards/captain-v2.webp',
-  [Character.Ambassador]: '/assets/cards/ambassador-v2.webp',
-  [Character.Contessa]: '/assets/cards/contessa-v2.webp',
-  [Character.Inquisitor]: '/assets/cards/inquisitor-v2.webp',
-};
-
-export const CHARACTER_CARD_FOCUS_ART: Record<Character, string> = {
-  [Character.Duke]: '/assets/cards/focus/duke-v2.webp',
-  [Character.Assassin]: '/assets/cards/focus/assassin-v2.webp',
-  [Character.Captain]: '/assets/cards/focus/captain-v2.webp',
-  [Character.Ambassador]: '/assets/cards/focus/ambassador-v2.webp',
-  [Character.Contessa]: '/assets/cards/focus/contessa-v2.webp',
-  [Character.Inquisitor]: '/assets/cards/focus/inquisitor-v2.webp',
-};
+import {
+  CARD_ART_DIMENSIONS,
+  CARD_BACK_ART,
+  CARD_BACK_FOCUS_ART,
+  CHARACTER_CARD_ART,
+  CHARACTER_CARD_FOCUS_ART,
+} from '../../utils/assets';
 
 export const CHARACTER_CARD_BADGES: Record<Character, { name: string; action: string }> = {
   [Character.Duke]: { name: 'DUKE', action: 'TAX' },
@@ -36,15 +22,21 @@ interface CardArtworkProps {
   character: Character;
   className?: string;
   variant?: 'full' | 'focus';
+  priority?: boolean;
 }
 
-export function CardArtwork({ character, className = '', variant = 'full' }: CardArtworkProps) {
+export function CardArtwork({ character, className = '', variant = 'full', priority = false }: CardArtworkProps) {
   const src = variant === 'focus' ? CHARACTER_CARD_FOCUS_ART[character] : CHARACTER_CARD_ART[character];
 
   return (
     <img
       src={src}
       alt=""
+      width={CARD_ART_DIMENSIONS.width}
+      height={CARD_ART_DIMENSIONS.height}
+      loading={priority ? 'eager' : 'lazy'}
+      decoding="async"
+      fetchPriority={priority ? 'high' : 'auto'}
       className={`absolute inset-0 h-full w-full object-cover ${className}`}
       draggable={false}
     />
@@ -54,15 +46,21 @@ export function CardArtwork({ character, className = '', variant = 'full' }: Car
 interface CardBackArtworkProps {
   className?: string;
   variant?: 'full' | 'focus';
+  priority?: boolean;
 }
 
-export function CardBackArtwork({ className = '', variant = 'full' }: CardBackArtworkProps) {
+export function CardBackArtwork({ className = '', variant = 'full', priority = false }: CardBackArtworkProps) {
   const src = variant === 'focus' ? CARD_BACK_FOCUS_ART : CARD_BACK_ART;
 
   return (
     <img
       src={src}
       alt=""
+      width={CARD_ART_DIMENSIONS.width}
+      height={CARD_ART_DIMENSIONS.height}
+      loading={priority ? 'eager' : 'lazy'}
+      decoding="async"
+      fetchPriority={priority ? 'high' : 'auto'}
       className={`absolute inset-0 h-full w-full object-cover ${className}`}
       draggable={false}
     />

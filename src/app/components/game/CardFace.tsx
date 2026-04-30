@@ -60,10 +60,10 @@ function useCardFlip(influence: ClientInfluence) {
   return { flipping, flipFront };
 }
 
-function CardFaceImage({ character, variant = 'focus' }: { character: Character; variant?: 'full' | 'focus' }) {
+function CardFaceImage({ character, variant = 'focus', priority = false }: { character: Character; variant?: 'full' | 'focus'; priority?: boolean }) {
   return (
     <>
-      <CardArtwork character={character} variant={variant} />
+      <CardArtwork character={character} variant={variant} priority={priority} />
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
       <CharacterCardBadge character={character} />
       <span className="sr-only">{character}</span>
@@ -71,10 +71,10 @@ function CardFaceImage({ character, variant = 'focus' }: { character: Character;
   );
 }
 
-function CardBackImage() {
+function CardBackImage({ priority = false }: { priority?: boolean }) {
   return (
     <>
-      <CardBackArtwork variant="focus" />
+      <CardBackArtwork variant="focus" priority={priority} />
       <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10" />
       <span className="sr-only">Hidden influence</span>
     </>
@@ -121,9 +121,11 @@ interface CardFaceProps {
   selected?: boolean;
   /** Disable the click-to-preview behavior */
   disablePreview?: boolean;
+  /** Hint that this card is above-the-fold or immediately interactive. */
+  priority?: boolean;
 }
 
-export function CardFace({ influence, size = 'md', onClick, selected, disablePreview }: CardFaceProps) {
+export function CardFace({ influence, size = 'md', onClick, selected, disablePreview, priority = false }: CardFaceProps) {
   const [showPreview, setShowPreview] = useState(false);
   const sizeClass = cardSizeClasses[size];
   const { flipping, flipFront } = useCardFlip(influence);
@@ -152,12 +154,12 @@ export function CardFace({ influence, size = 'md', onClick, selected, disablePre
               ${canPreview ? 'cursor-pointer' : ''} ${flipClass}`}
             onClick={canPreview ? () => setShowPreview(true) : undefined}
           >
-            <CardFaceImage character={influence.character} />
+            <CardFaceImage character={influence.character} priority={priority} />
           </div>
           {/* Back face shown during first half of flip animation */}
           {flipping && flipFront === 'face' && (
             <div className={`card-face ${sizeClass} ${characterColors[influence.character]} card-flip-back-face ${flipClass}`}>
-              <CardFaceImage character={influence.character} />
+              <CardFaceImage character={influence.character} priority={priority} />
             </div>
           )}
         </div>
@@ -178,12 +180,12 @@ export function CardFace({ influence, size = 'md', onClick, selected, disablePre
               ${selected ? 'ring-2 ring-coup-accent scale-105' : ''} ${flipClass}`}
             onClick={onClick ?? (canPreview ? () => setShowPreview(true) : undefined)}
           >
-            <CardFaceImage character={influence.character} />
+            <CardFaceImage character={influence.character} priority={priority} />
           </div>
           {/* Card back shown during first half when flipping from back→face */}
           {flipping && flipFront === 'back' && (
             <div className={`card-face ${sizeClass} border-gray-600 bg-coup-surface card-back card-flip-back-face ${flipClass}`}>
-              <CardBackImage />
+              <CardBackImage priority={priority} />
             </div>
           )}
         </div>
@@ -195,7 +197,7 @@ export function CardFace({ influence, size = 'md', onClick, selected, disablePre
   return (
     <div className={`card-flip-wrapper ${sizeClass}`}>
       <div className={`card-face ${sizeClass} border-gray-600 bg-coup-surface card-back`}>
-        <CardBackImage />
+        <CardBackImage priority={priority} />
       </div>
     </div>
   );

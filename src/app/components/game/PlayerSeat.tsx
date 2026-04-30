@@ -130,7 +130,7 @@ export function PlayerSeat({
 
       <div className="flex gap-2 justify-center">
         {player.influences.map((inf, i) => (
-          <CardFace key={i} influence={inf} size={isMe ? "md" : "sm"} />
+          <CardFace key={i} influence={inf} size={isMe ? "md" : "sm"} priority={isMe} />
         ))}
       </div>
 

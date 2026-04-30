@@ -189,7 +189,7 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
           </div>
           <div className="flex gap-2 justify-center">
             {me.influences.map((inf, i) => (
-              <CardFace key={i} influence={inf} size="md" />
+              <CardFace key={i} influence={inf} size="md" priority />
             ))}
           </div>
           {!me.isAlive && (

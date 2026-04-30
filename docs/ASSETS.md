@@ -20,6 +20,13 @@ This app should use generated raster assets where they add mood, identity, or ca
 - **Small card labels** -- Role/action labels such as `CAPTAIN` / `STEAL`, `DUKE` / `TAX`, `ASSASSIN` / `KILL`, `AMBASSADOR` / `EXCHANGE`, and `CONTESSA` / `BLOCK` should stay in HTML/CSS over the art, not baked into generated images.
 - **QR codes and room codes** -- These should never be generated imagery.
 
+## Loading Strategy
+
+- Preload the home title banner and the viewport-specific table background from `src/app/layout.tsx`.
+- Prefetch the focus card faces and focus card back after the initial page so gameplay reveal/exchange surfaces can reuse the browser cache.
+- Card artwork uses fixed intrinsic dimensions, `decoding="async"`, lazy loading by default, and `fetchPriority="high"` only for immediately visible or interactive cards.
+- Production image responses from `public/` get a one-day browser cache with stale-while-revalidate; keep filenames versioned when replacing important assets that need instant cache busting.
+
 ## Generated Asset Prompts
 
 Generated with the built-in `image_gen` tool.

@@ -1,5 +1,11 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import {
+  CRITICAL_PRELOAD_IMAGES,
+  GAME_PREFETCH_IMAGES,
+  TABLE_BACKGROUND_ART,
+  TABLE_BACKGROUND_MOBILE_ART,
+} from './utils/assets';
 
 export const viewport: Viewport = {
   viewportFit: 'cover',
@@ -58,6 +64,14 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {CRITICAL_PRELOAD_IMAGES.map(href => (
+          <link key={href} rel="preload" href={href} as="image" fetchPriority="high" />
+        ))}
+        <link rel="preload" href={TABLE_BACKGROUND_ART} as="image" media="(min-width: 641px)" />
+        <link rel="preload" href={TABLE_BACKGROUND_MOBILE_ART} as="image" media="(max-width: 640px)" />
+        {GAME_PREFETCH_IMAGES.map(href => (
+          <link key={href} rel="prefetch" href={href} as="image" />
+        ))}
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var s=localStorage.getItem('coup_text_size');if(s==='large')document.documentElement.classList.add('text-size-large');else if(s==='xl')document.documentElement.classList.add('text-size-xl')}catch(e){}})()`,

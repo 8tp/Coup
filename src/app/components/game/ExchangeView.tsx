@@ -85,7 +85,7 @@ export function ExchangeView({ gameState }: ExchangeViewProps) {
               transition-all cursor-pointer hover:scale-105`}
             onClick={() => toggleCard(i)}
           >
-            <CardArtwork character={char} variant="focus" />
+            <CardArtwork character={char} variant="focus" priority />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
             <CharacterCardBadge character={char} />
             <span className="sr-only">{char}</span>
