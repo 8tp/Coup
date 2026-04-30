@@ -207,6 +207,7 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
           myName={me?.name ?? ''}
           onSendChat={onSendChat}
           turnPhase={gameState.turnPhase}
+          showLogExplanations={isPracticeRoom}
         />
 
         {/* Interactive prompts - only one shows at a time (hidden for spectators) */}

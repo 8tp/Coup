@@ -371,6 +371,7 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
                 log={gameState.actionLog}
                 myName={gameState.players.find(p => p.id === gameState.myId)?.name ?? ''}
                 turnPhase={gameState.turnPhase}
+                showExplanations={isPracticeRoom}
               />
             </div>
           )}

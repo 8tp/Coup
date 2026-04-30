@@ -16,9 +16,10 @@ interface GameCenterTabsProps {
   myName: string;
   onSendChat: (message: string) => void;
   turnPhase?: string;
+  showLogExplanations?: boolean;
 }
 
-export function GameCenterTabs({ log, chatMessages, myId, myName, onSendChat, turnPhase }: GameCenterTabsProps) {
+export function GameCenterTabs({ log, chatMessages, myId, myName, onSendChat, turnPhase, showLogExplanations = false }: GameCenterTabsProps) {
   const mutedPlayerIds = useGameStore(s => s.mutedPlayerIds);
   const visibleChatMessages = chatMessages.filter(msg => !mutedPlayerIds.includes(msg.playerId));
   const [activeTab, setActiveTab] = useState<'log' | 'chat'>('log');
@@ -77,7 +78,7 @@ export function GameCenterTabs({ log, chatMessages, myId, myName, onSendChat, tu
       {/* Tab content */}
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         {activeTab === 'log' ? (
-          <ActionLog log={log} myName={myName} turnPhase={turnPhase} />
+          <ActionLog log={log} myName={myName} turnPhase={turnPhase} showExplanations={showLogExplanations} />
         ) : (
           <ChatPanel messages={visibleChatMessages} myId={myId} onSend={onSendChat} />
         )}

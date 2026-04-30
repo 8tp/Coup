@@ -11,6 +11,7 @@ interface ActionLogProps {
   log: LogEntry[];
   myName: string;
   turnPhase?: string;
+  showExplanations?: boolean;
 }
 
 /** Log event types that represent claims (where wasBluff is meaningful) */
@@ -45,7 +46,7 @@ function getGroupBorderColor(group: LogEntry[]): string {
   return '#4b5563'; // gray-600 fallback
 }
 
-export function ActionLog({ log, myName, turnPhase }: ActionLogProps) {
+export function ActionLog({ log, myName, turnPhase, showExplanations = false }: ActionLogProps) {
   const isGameOver = turnPhase === TurnPhase.GameOver;
   const scrollRef = useRef<HTMLDivElement>(null);
   const [expandedEntryKey, setExpandedEntryKey] = useState<string | null>(null);
@@ -91,7 +92,7 @@ export function ActionLog({ log, myName, turnPhase }: ActionLogProps) {
                 const isLatestEntry = isLatestGroup && ei === group.length - 1;
                 const message = formatLogMessage(entry.message, myName);
                 const showBluffBadge = isGameOver && CLAIM_EVENT_TYPES.has(entry.eventType) && entry.wasBluff !== undefined;
-                const explanation = getLogExplanation(entry);
+                const explanation = showExplanations ? getLogExplanation(entry) : null;
                 const entryKey = `${entry.timestamp}-${entry.turnNumber}-${gi}-${ei}`;
                 const isExpanded = expandedEntryKey === entryKey;
 

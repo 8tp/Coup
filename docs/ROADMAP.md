@@ -23,7 +23,7 @@ Started in the current release-readiness branch:
 - More specific unavailable-action and invalid-target explanations.
 - Named waiting cues and browser-title attention states for key game phases.
 - Always-reachable rules shortcuts in the lobby and game.
-- A compact latest-event strip and expandable "why did this happen?" log explanations.
+- A compact latest-event strip and practice-only expandable "why did this happen?" log explanations.
 - Richer game-over recap cards for winner standing, decisive moment, biggest coin move, bluff table, and challenge reads.
 - Card replacement/deal movement and animated coin movement on player seats and the local hand.
 - Staged post-game truth reveal, showing the winning hand before the rest of the table.
