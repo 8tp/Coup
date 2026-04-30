@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { Character, ClientInfluence } from '@/shared/types';
 import { CHARACTER_DESCRIPTIONS } from '@/shared/constants';
@@ -29,15 +29,21 @@ function useCardFlip(influence: ClientInfluence) {
   const prevRevealedRef = useRef(influence.revealed);
   const prevCharRef = useRef(influence.character);
   const [flipping, setFlipping] = useState(false);
+  const [swapMotion, setSwapMotion] = useState(false);
   // Which face to show during the first half of flip (before the midpoint swap)
   const [flipFront, setFlipFront] = useState<'back' | 'face'>('face');
   const flipTimeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const swapTimeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   useEffect(() => {
     const wasRevealed = prevRevealedRef.current;
     const prevChar = prevCharRef.current;
     prevRevealedRef.current = influence.revealed;
     prevCharRef.current = influence.character;
+
+    if (flipTimeoutRef.current) clearTimeout(flipTimeoutRef.current);
+    if (swapTimeoutRef.current) clearTimeout(swapTimeoutRef.current);
+    setSwapMotion(false);
 
     // Card just got revealed (hidden→revealed) — flip from face to revealed
     if (!wasRevealed && influence.revealed && influence.character) {
@@ -51,13 +57,20 @@ function useCardFlip(influence: ClientInfluence) {
       setFlipping(true);
       flipTimeoutRef.current = setTimeout(() => setFlipping(false), 700);
     }
+    // Known card changed while still hidden to opponents / visible to owner.
+    // This happens after exchanges and challenge replacements.
+    else if (prevChar && influence.character && prevChar !== influence.character && !influence.revealed) {
+      setSwapMotion(true);
+      swapTimeoutRef.current = setTimeout(() => setSwapMotion(false), 650);
+    }
 
     return () => {
       if (flipTimeoutRef.current) clearTimeout(flipTimeoutRef.current);
+      if (swapTimeoutRef.current) clearTimeout(swapTimeoutRef.current);
     };
   }, [influence.revealed, influence.character]);
 
-  return { flipping, flipFront };
+  return { flipping, flipFront, swapMotion };
 }
 
 function CardFaceImage({ character, variant = 'focus', priority = false }: { character: Character; variant?: 'full' | 'focus'; priority?: boolean }) {
@@ -128,7 +141,7 @@ interface CardFaceProps {
 export function CardFace({ influence, size = 'md', onClick, selected, disablePreview, priority = false }: CardFaceProps) {
   const [showPreview, setShowPreview] = useState(false);
   const sizeClass = cardSizeClasses[size];
-  const { flipping, flipFront } = useCardFlip(influence);
+  const { flipping, flipFront, swapMotion } = useCardFlip(influence);
 
   // Auto-close preview when game state changes (phase transitions, etc.)
   // This prevents the modal from blocking game interactions
@@ -141,8 +154,24 @@ export function CardFace({ influence, size = 'md', onClick, selected, disablePre
 
   // Cards with a known character but no external onClick get click-to-preview
   const canPreview = !disablePreview && !onClick && !!influence.character;
+  const interactive = !!onClick || canPreview;
+  const activate = useCallback(() => {
+    if (onClick) {
+      onClick();
+      return;
+    }
+    if (canPreview) setShowPreview(true);
+  }, [canPreview, onClick]);
+  const handleKeyDown = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (!interactive) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      activate();
+    }
+  }, [activate, interactive]);
 
   const flipClass = flipping ? 'animate-card-flip-reveal' : '';
+  const motionClass = !flipping && swapMotion ? 'animate-card-swap-in' : '';
 
   if (influence.revealed && influence.character) {
     return (
@@ -150,9 +179,13 @@ export function CardFace({ influence, size = 'md', onClick, selected, disablePre
         <div className={`card-flip-wrapper ${sizeClass}`}>
           <div
             title={influence.character}
+            role={interactive ? 'button' : 'img'}
+            tabIndex={interactive ? 0 : undefined}
+            aria-label={`Revealed ${influence.character} influence`}
             className={`card-face ${sizeClass} ${characterColors[influence.character]} card-face-revealed
-              ${canPreview ? 'cursor-pointer' : ''} ${flipClass}`}
-            onClick={canPreview ? () => setShowPreview(true) : undefined}
+              ${canPreview ? 'cursor-pointer' : ''} ${flipClass} ${motionClass}`}
+            onClick={interactive ? activate : undefined}
+            onKeyDown={handleKeyDown}
           >
             <CardFaceImage character={influence.character} priority={priority} />
           </div>
@@ -174,11 +207,16 @@ export function CardFace({ influence, size = 'md', onClick, selected, disablePre
         <div className={`card-flip-wrapper ${sizeClass}`}>
           <div
             title={influence.character}
+            role={interactive ? 'button' : 'img'}
+            tabIndex={interactive ? 0 : undefined}
+            aria-label={`${influence.character} influence${selected ? ', selected' : ''}`}
+            aria-pressed={interactive ? !!selected : undefined}
             className={`card-face ${sizeClass} ${characterColors[influence.character]}
               ${onClick ? 'cursor-pointer hover:scale-105' : ''}
               ${canPreview ? 'cursor-pointer hover:scale-105' : ''}
-              ${selected ? 'ring-2 ring-coup-accent scale-105' : ''} ${flipClass}`}
-            onClick={onClick ?? (canPreview ? () => setShowPreview(true) : undefined)}
+              ${selected ? 'ring-2 ring-coup-accent scale-105' : ''} ${flipClass} ${motionClass}`}
+            onClick={interactive ? activate : undefined}
+            onKeyDown={handleKeyDown}
           >
             <CardFaceImage character={influence.character} priority={priority} />
           </div>
@@ -196,7 +234,7 @@ export function CardFace({ influence, size = 'md', onClick, selected, disablePre
 
   return (
     <div className={`card-flip-wrapper ${sizeClass}`}>
-      <div className={`card-face ${sizeClass} border-gray-600 bg-coup-surface card-back`}>
+      <div className={`card-face ${sizeClass} border-gray-600 bg-coup-surface card-back`} role="img" aria-label="Hidden influence">
         <CardBackImage priority={priority} />
       </div>
     </div>

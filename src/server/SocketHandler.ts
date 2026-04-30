@@ -205,6 +205,74 @@ export class SocketHandler {
       this.handleDisconnect(socket);
     });
 
+    socket.on('room:remove_player', (data, callback) => {
+      const found = this.roomManager.getPlayerRoom(socket.id);
+      if (!found) {
+        callback({ success: false, error: 'Not in a room' });
+        return;
+      }
+      if (found.player.id !== found.room.hostId) {
+        callback({ success: false, error: 'Only the host can remove players' });
+        return;
+      }
+      if (!data?.playerId || typeof data.playerId !== 'string') {
+        callback({ success: false, error: 'Invalid player' });
+        return;
+      }
+
+      const wasPublic = found.room.settings.isPublic;
+      const result = this.roomManager.removePlayer(found.room.code, data.playerId);
+      if ('error' in result) {
+        callback({ success: false, error: result.error });
+        return;
+      }
+
+      if (result.removedPlayer.socketId) {
+        this.io.to(result.removedPlayer.socketId).emit('room:removed', {
+          message: `You were removed from room ${found.room.code}.`,
+        });
+        this.io.sockets.sockets.get(result.removedPlayer.socketId)?.leave(found.room.code);
+      }
+
+      callback({ success: true });
+      this.broadcastRoomUpdate(found.room.code);
+      this.maybeBroadcastPublicRoomList(found.room, wasPublic);
+    });
+
+    socket.on('room:remove_spectator', (data, callback) => {
+      const found = this.roomManager.getPlayerRoom(socket.id);
+      if (!found) {
+        callback({ success: false, error: 'Not in a room' });
+        return;
+      }
+      if (found.player.id !== found.room.hostId) {
+        callback({ success: false, error: 'Only the host can remove spectators' });
+        return;
+      }
+      if (found.room.gameState) {
+        callback({ success: false, error: 'Game already in progress' });
+        return;
+      }
+      if (!data?.spectatorId || typeof data.spectatorId !== 'string') {
+        callback({ success: false, error: 'Invalid spectator' });
+        return;
+      }
+
+      const result = this.roomManager.removeSpectatorById(found.room.code, data.spectatorId);
+      if ('error' in result) {
+        callback({ success: false, error: result.error });
+        return;
+      }
+
+      this.io.to(result.spectator.socketId).emit('room:removed', {
+        message: `You were removed from room ${found.room.code}.`,
+      });
+      this.io.sockets.sockets.get(result.spectator.socketId)?.leave(found.room.code);
+
+      callback({ success: true });
+      this.broadcastRoomUpdate(found.room.code);
+    });
+
     // ─── Room Browser ───
 
     socket.on('browser:subscribe', () => {

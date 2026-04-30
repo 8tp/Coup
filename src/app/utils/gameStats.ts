@@ -1,4 +1,4 @@
-import { LogEntry, ClientGameState } from '@/shared/types';
+import { LogEntry, ClientGameState, LogEventType } from '@/shared/types';
 
 export interface PlayerStats {
   playerId: string;
@@ -21,6 +21,15 @@ export interface Award {
   title: string;
   playerName: string;
   description: string;
+}
+
+export type RecapTone = 'gold' | 'green' | 'red' | 'blue' | 'purple' | 'gray';
+
+export interface GameRecapItem {
+  label: string;
+  value: string;
+  detail: string;
+  tone: RecapTone;
 }
 
 export function computePlayerStats(log: LogEntry[], playerIds: string[], playerNames: Map<string, string>): Map<string, PlayerStats> {
@@ -473,6 +482,221 @@ export function computeBluffSummary(gameState: ClientGameState): BluffSummaryEnt
   // Sort by bluff count descending, then by total claims
   entries.sort((a, b) => b.bluffs - a.bluffs || b.totalClaims - a.totalClaims);
   return entries;
+}
+
+const DECISIVE_EVENT_TYPES = new Set<LogEventType>([
+  'coup',
+  'assassination',
+  'challenge_success',
+  'challenge_fail',
+  'block_challenge_success',
+  'block_challenge_fail',
+  'influence_loss',
+  'elimination',
+  'embezzle',
+  'examine_decision',
+  'action_resolve',
+  'convert',
+]);
+
+function plural(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? '' : 's'}`;
+}
+
+function displayName(gameState: ClientGameState, playerId: string | null | undefined, fallback = 'Unknown'): string {
+  if (!playerId) return fallback;
+  const player = gameState.players.find(p => p.id === playerId);
+  if (!player) return fallback;
+  return player.id === gameState.myId ? 'You' : player.name;
+}
+
+function decisiveTitle(entry: LogEntry, gameState: ClientGameState): string {
+  const actor = displayName(gameState, entry.actorId, entry.actorName ?? 'Someone');
+  const target = displayName(gameState, entry.targetId, 'the table');
+
+  switch (entry.eventType) {
+    case 'elimination':
+      return `${actor} was eliminated`;
+    case 'coup':
+      return `${actor} launched a Coup`;
+    case 'assassination':
+      return `${actor} landed an assassination`;
+    case 'challenge_success':
+      return `${actor} caught a bluff`;
+    case 'challenge_fail':
+      return `${actor} proved the claim`;
+    case 'block_challenge_success':
+      return `${actor} broke a block`;
+    case 'block_challenge_fail':
+      return `${actor} proved the block`;
+    case 'influence_loss':
+      return `${actor} lost influence`;
+    case 'embezzle':
+      return `${actor} took the reserve`;
+    case 'convert':
+      return `${actor} shifted factions`;
+    case 'examine_decision':
+      return `${actor} resolved an examine`;
+    case 'action_resolve':
+      if (entry.character) return `${actor} resolved ${entry.character}`;
+      if (entry.targetId) return `${actor} moved against ${target}`;
+      return `${actor} resolved an action`;
+    default:
+      return entry.actorName ?? 'Final move';
+  }
+}
+
+interface CoinMove {
+  amount: number;
+  playerName: string;
+  verb: string;
+  entry: LogEntry;
+}
+
+function embezzleAmount(log: LogEntry[], index: number, actorId: string | null): number {
+  for (let i = index - 1; i >= 0; i--) {
+    const entry = log[i];
+    if (entry.actorId !== actorId) continue;
+    const match = entry.message.match(/Treasury Reserve \((\d+) coins?\)/);
+    if (match) return Number(match[1]);
+  }
+  return 0;
+}
+
+function coinMoveForEntry(log: LogEntry[], index: number, gameState: ClientGameState): CoinMove | null {
+  const entry = log[index];
+  const playerName = displayName(gameState, entry.actorId, entry.actorName ?? 'Someone');
+
+  if (entry.eventType === 'income') {
+    return { amount: 1, playerName, verb: 'gained', entry };
+  }
+
+  if (entry.eventType === 'coup') {
+    return { amount: 7, playerName, verb: 'spent', entry };
+  }
+
+  if (entry.eventType === 'convert') {
+    const amount = Number(entry.message.match(/\((\d+) coins? to Treasury Reserve\)/)?.[1] ?? 0);
+    return amount > 0 ? { amount, playerName, verb: 'paid', entry } : null;
+  }
+
+  if (entry.eventType === 'embezzle') {
+    const amount = embezzleAmount(log, index, entry.actorId);
+    return amount > 0 ? { amount, playerName, verb: 'took', entry } : null;
+  }
+
+  if (entry.eventType !== 'action_resolve') return null;
+
+  const plusAmount = Number(entry.message.match(/\(\+(\d+) coins?\)/)?.[1] ?? 0);
+  if (plusAmount > 0) {
+    return { amount: plusAmount, playerName, verb: 'gained', entry };
+  }
+
+  const stealAmount = Number(entry.message.match(/steals (\d+) coin/)?.[1] ?? 0);
+  if (stealAmount > 0) {
+    return { amount: stealAmount, playerName, verb: 'stole', entry };
+  }
+
+  return null;
+}
+
+function biggestCoinMove(gameState: ClientGameState): CoinMove | null {
+  let biggest: CoinMove | null = null;
+
+  for (let i = 0; i < gameState.actionLog.length; i++) {
+    const move = coinMoveForEntry(gameState.actionLog, i, gameState);
+    if (!move) continue;
+    if (!biggest || move.amount > biggest.amount) {
+      biggest = move;
+    }
+  }
+
+  return biggest;
+}
+
+export function computeGameRecap(gameState: ClientGameState): GameRecapItem[] {
+  const items: GameRecapItem[] = [];
+  const winner = gameState.players.find(p => p.id === gameState.winnerId);
+  const playerIds = gameState.players.map(p => p.id);
+  const playerNames = new Map<string, string>();
+
+  for (const p of gameState.players) {
+    playerNames.set(p.id, p.id === gameState.myId ? 'You' : p.name);
+  }
+
+  const stats = computePlayerStats(gameState.actionLog, playerIds, playerNames);
+
+  if (winner) {
+    const influenceLeft = winner.influences.filter(influence => !influence.revealed).length;
+    items.push({
+      label: 'Winner standing',
+      value: `${displayName(gameState, winner.id)} kept ${plural(influenceLeft, 'influence')}`,
+      detail: `${winner.coins} coin${winner.coins === 1 ? '' : 's'} left after ${plural(gameState.turnNumber, 'turn')}.`,
+      tone: 'gold',
+    });
+  }
+
+  const decisiveEntry = [...gameState.actionLog]
+    .reverse()
+    .find(entry => DECISIVE_EVENT_TYPES.has(entry.eventType));
+  if (decisiveEntry) {
+    items.push({
+      label: 'Deciding moment',
+      value: decisiveTitle(decisiveEntry, gameState),
+      detail: decisiveEntry.message,
+      tone: 'purple',
+    });
+  }
+
+  const coinMove = biggestCoinMove(gameState);
+  if (coinMove) {
+    items.push({
+      label: 'Biggest coin move',
+      value: `${coinMove.playerName} ${coinMove.verb} ${plural(coinMove.amount, 'coin')}`,
+      detail: coinMove.entry.message,
+      tone: coinMove.verb === 'spent' || coinMove.verb === 'paid' ? 'red' : 'green',
+    });
+  }
+
+  const allStats = Array.from(stats.values());
+  const totalClaims = allStats.reduce((sum, s) => sum + s.actionsClaimed + s.blocksMade, 0);
+  const totalBluffs = allStats.reduce((sum, s) => sum + s.actualBluffs, 0);
+  const totalCaught = allStats.reduce((sum, s) => sum + s.timesCaughtBluffing, 0);
+  const biggestBluffer = allStats
+    .filter(s => s.actualBluffs > 0)
+    .sort((a, b) => b.actualBluffs - a.actualBluffs || b.actionsClaimed + b.blocksMade - (a.actionsClaimed + a.blocksMade))[0];
+
+  if (totalClaims > 0) {
+    items.push({
+      label: 'Bluff table',
+      value: totalBluffs > 0
+        ? `${totalBluffs}/${totalClaims} claims were bluffs`
+        : 'Every logged claim was honest',
+      detail: biggestBluffer
+        ? `${biggestBluffer.playerName} led with ${plural(biggestBluffer.actualBluffs, 'bluff')}; ${plural(totalCaught, 'bluff')} caught.`
+        : 'No one was marked as bluffing by the final truth reveal.',
+      tone: totalBluffs > 0 ? 'red' : 'green',
+    });
+  }
+
+  const totalChallenges = allStats.reduce((sum, s) => sum + s.challengesMade, 0);
+  const totalChallengeWins = allStats.reduce((sum, s) => sum + s.challengesWon, 0);
+  const bestReader = allStats
+    .filter(s => s.challengesWon > 0)
+    .sort((a, b) => b.challengesWon - a.challengesWon || a.challengesLost - b.challengesLost)[0];
+
+  if (totalChallenges > 0) {
+    items.push({
+      label: 'Challenge reads',
+      value: `${totalChallengeWins}/${totalChallenges} challenges hit`,
+      detail: bestReader
+        ? `${bestReader.playerName} had the sharpest read with ${plural(bestReader.challengesWon, 'correct challenge')}.`
+        : 'Every challenge at the table missed.',
+      tone: totalChallengeWins > 0 ? 'blue' : 'gray',
+    });
+  }
+
+  return items;
 }
 
 export function computeAwards(gameState: ClientGameState): Award[] {

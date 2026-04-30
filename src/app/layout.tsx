@@ -6,6 +6,7 @@ import {
   TABLE_BACKGROUND_ART,
   TABLE_BACKGROUND_MOBILE_ART,
 } from './utils/assets';
+import { PWAInstallPrompt } from './components/pwa/PWAInstallPrompt';
 
 export const viewport: Viewport = {
   viewportFit: 'cover',
@@ -74,12 +75,13 @@ export default function RootLayout({
         ))}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var s=localStorage.getItem('coup_text_size');if(s==='large')document.documentElement.classList.add('text-size-large');else if(s==='xl')document.documentElement.classList.add('text-size-xl')}catch(e){}})()`,
+            __html: `(function(){try{var s=localStorage.getItem('coup_text_size');if(s==='large')document.documentElement.classList.add('text-size-large');else if(s==='xl')document.documentElement.classList.add('text-size-xl');if(localStorage.getItem('coup_reduced_motion')==='true')document.documentElement.classList.add('reduce-motion')}catch(e){}})()`,
           }}
         />
       </head>
       <body className="bg-coup-bg text-white min-h-screen">
         {children}
+        <PWAInstallPrompt />
       </body>
     </html>
   );

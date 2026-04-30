@@ -1,180 +1,190 @@
-# Product Requirements Document (PRD): Web-Based Coup
+# Product Requirements Document: Coup Online
 
-**Project Name:** WebCoup (or Coup Online)  
-**Version:** 1.0 (MVP)  
-**Date:** February 2026  
-**Author:** Grok (research-based)  
-**Target Users:** Fans of social deduction games who want to play Coup with friends remotely or locally.  
-**Primary Focus:** Mobile-first (portrait orientation, touch-friendly), fully responsive for desktop.  
-**Scope:** Faithful digital adaptation of the base **Coup** card game (2012 rules by Rikki Tahta / La Mame Games / Indie Boards & Cards). No expansions initially.
+**Project Name:** Coup Online
+**Version:** 1.0 release candidate
+**Last Updated:** April 2026
+**Primary Users:** Friend groups playing Coup remotely or locally, often on mobile devices.
+**Primary Focus:** Fast no-account multiplayer with server-authoritative rules, mobile-first interaction, bots, and optional Reformation mechanics.
 
-## 1. Product Overview & Vision
-Coup is a fast-paced (15 min) bluffing / social deduction game for 2–6 players. Players control two secret character influences and use coins to eliminate opponents through actions, claims, challenges, and blocks.
+## 1. Product Overview
 
-**Vision:** A polished, real-time web app that captures the tension, bluffing, and table-talk of the physical game. Clean, modern UI with smooth animations, instant feedback, and zero setup friction. Works seamlessly on phones (primary) and desktops. Play with friends via shareable room codes — no accounts required for MVP.
+Coup Online is a real-time web adaptation of the 2012 bluffing card game Coup. Players create or join a room, receive two hidden influence cards, and use claims, bluffs, challenges, blocks, and coins to eliminate every other player.
 
-**Business Goals**
-- Delight players so they return and share rooms.
-- 100% rule-accurate (server-authoritative to prevent cheating).
-- Easy for Claude (or any LLM) to implement iteratively.
+The app is designed for low-friction play:
 
-**Success Metrics (MVP)**
-- 3–6 players can complete a full game without rule errors.
-- Responsive on iOS/Android Chrome/Safari (portrait primary).
-- < 2s latency for actions on good connections.
+- No accounts or app install required
+- 4-letter room codes and QR/share links
+- 2-6 player games with optional computer players
+- Public room browser for open lobbies and live spectator games
+- First-time practice path against a bot
+- Server-authoritative rules so hidden information never depends on the client
+- Mobile-first interface with desktop responsive layouts
 
-## 2. Game Rules Summary (Authoritative for Implementation)
-**Components (digital equivalents)**
-- 15 character cards: 3× Duke, Assassin, Captain, Ambassador, Contessa.
-- Court Deck (remaining cards after deal).
-- Coins (visual stack or counter per player + central treasury).
-- Each player: 2 face-down influences + coin count.
+## 2. Current Implemented Scope
 
-**Setup**
-- 2–6 players (recommend 3–6; optional 2-player variant noted).
-- Shuffle deck, deal 2 face-down influences per player.
-- Each player starts with 2 coins.
-- Random starting player (or host chooses).
+### Multiplayer
 
-**Player Turn (one action only)**
-1. **Income** – +1 coin (safe).
-2. **Foreign Aid** – +2 coins (blockable by Duke).
-3. **Coup** – Pay 7 coins, force target to lose 1 influence (mandatory if ≥10 coins at start of turn; unblockable/un-challengeable).
-4. **Character claims** (must declare character):
-   - **Duke (Tax)**: +3 coins.
-   - **Assassin (Assassinate)**: Pay 3 coins, force target to lose 1 influence (blockable by Contessa).
-   - **Captain (Steal)**: Take 2 coins from target (or all if <2; blockable by Captain/Ambassador).
-   - **Ambassador (Exchange)**: Draw 2 from Court Deck. Mix with your current influences. Return exactly 2 cards to deck (you keep the same number of face-down influences). Shuffle deck.
-   - **Contessa**: Only used for blocking assassination.
+- Real-time gameplay over Socket.io.
+- Rooms are hosted by the first player and can be private or public.
+- Public rooms appear in the home screen browser.
+- In-progress public games can be watched as a spectator.
+- Hosts can remove lobby players or spectators before the game starts.
+- Players can reconnect with a signed session token stored client-side.
+- Disconnected in-game human players are replaced by an optimal bot after 60 seconds.
+- Rooms expire after 24 hours; abandoned in-progress rooms with no connected human players are cleaned up after 120 seconds.
 
-**Challenges & Blocks (real-time sequential prompts)**
-- After any claim, **any** player can **Challenge** (“I think you’re bluffing!”).
-  - Challenged player must reveal the claimed card if they have it → return revealed card to Court Deck → shuffle → draw replacement (face-down). Challenger loses 1 influence.
-  - If they don’t have it (or refuse) → challenged player loses 1 influence. Action/counter fails (coins refunded).
-- For blockable actions, any player (usually target) can **Block** by claiming the blocking character → then the original actor can Challenge the block.
-- Challenges resolve **before** any block or action.
-- Loser of any challenge/block always chooses which of their face-down influences to flip face-up permanently (revealed to all, no longer usable).
+### Game Modes
 
-**Losing Influence**
-- Flipped face-up, stays visible in front of player.
-- If last influence lost → player eliminated immediately (coins returned to treasury, cards stay face-up).
+- **Classic**: Base Coup actions and characters.
+- **Reformation**: Optional lobby mode that adds factions, Convert, Embezzle, Treasury Reserve, and optional Inquisitor.
+- **Inquisitor toggle**: In Reformation mode, the host can replace Ambassador with Inquisitor before game start.
 
-**End Game**
-- Last player with ≥1 influence wins.
-- Game auto-ends and shows winner + stats.
+### Bots
 
-**Exact Edge Cases (must implement)**
-- Player with 1 influence doing Exchange: draws 2 → temporarily holds 3 → chooses 1 to keep face-down, returns 2.
-- Steal from player with 1 coin → steal 1.
-- Successful challenge on action → action fully cancelled, coins back.
-- 10+ coins → must Coup (UI forces it).
+- Host can add 1-5 bots before the game starts.
+- Bot personalities: Random, Aggressive, Conservative, Vengeful, Deceptive, Analytical, Optimal.
+- Bots use the same `GameEngine` API as human players.
+- Bot behavior includes card counting from public information, bluff persistence, demonstrated-claim tracking, faction-aware targeting, and endgame tactics.
+- Bots emit context-aware reactions with personality-specific emotiveness and meanness.
 
-## 3. User Personas & User Stories
-**Primary Persona:** “Mobile Friend Group” – 20–35yo, plays on phone during Discord calls or family gatherings. Wants quick room creation and smooth touch controls.
+### Table Experience
 
-**Key User Stories (MVP)**
-- As a player I can create a room with 6-digit code and share link.
-- As a player I can join via code or link (guest name entry).
-- As a player I see real-time player list, coins, and face-up influences.
-- As active player I see large action buttons and target selectors (tap players).
-- As any player I can instantly Challenge/Block/Pass with big prominent buttons and 15–30s timers (configurable).
-- As player I see my private hand (large, tappable cards) + animations (flip, slide coins, reveal).
-- As spectator (future) or eliminated player I can watch with chat.
+- Configurable action response timer: 10-60 seconds.
+- Configurable turn timer: 15-90 seconds for action choice, exchange, influence loss, and examine decisions.
+- Bot minimum reaction delay can be adjusted when bots are present.
+- Room chat works in lobby and game.
+- Emoji reactions are visible to all room participants and are also mirrored into chat history.
+- Players can locally mute another player's chat messages and reactions.
+- Sound, haptic, reduced-animation, and text-size settings are available from home, lobby, and game screens.
+- The app includes an install prompt and production service worker caching for core visual assets.
+- Local player stats, award counts, and match history are persisted in `localStorage`.
+- Game over includes winner/loser flavor text, staged winning-hand/table-truth reveal, recap cards, post-game awards, truth reveal, full log access, copy/download recap export, and rematch flow.
 
-## 4. Core Features & Screens (Mobile-First)
+## 3. Rules Requirements
 
-**Tech UI Guidelines**
-- Tailwind CSS + responsive (mobile portrait first: max 480px wide layout).
-- Large touch targets (≥48px).
-- Dark theme with generated raster card art for influence cards; reserve SVG/CSS for functional controls, badges, timers, and exact text.
-- Smooth CSS/Framer-Motion style animations (card flips, coin counters, confetti on win).
-- PWA support (installable on homescreen).
+### Base Game Components
 
-**Main Screens/Flows**
-1. **Home/Landing** – “Play Coup” button, rules quick-view, “Create Room”, “Join Room”.
-2. **Lobby** – Room code, player list (names + ready status), host controls (start when 3–6 ready), chat sidebar (collapsible on mobile).
-3. **Game Table** (core view)
-   - Circular/seated table layout (your seat at bottom on mobile).
-   - Opponent areas: name, coin stack (animated), 1–2 card slots (face-down or face-up revealed).
-   - Center: Court Deck count + treasury coin pile.
-   - Bottom panel (your area): Your 1–2 large face-down cards (tap to view), coin count, action bar.
-   - Action log (scrollable, timestamped, collapsible on mobile).
-   - Floating action buttons when it’s your turn.
-4. **Action Modals/Prompts** (full-screen on mobile)
-   - Choose action → select target (if needed) → confirm claim.
-   - “X claims Duke for Tax” banner → Challenge / Pass buttons for everyone.
-   - Block prompt for eligible players.
-   - Exchange screen: private view of your cards + drawn cards → drag/drop or tap to choose which 2 to return.
-   - Reveal animation (challenge resolution).
-5. **Game Over** – Winner celebration, full stats (most challenges won, etc.), “Play Again” (same room).
+- 3 copies each of Duke, Assassin, Captain, Ambassador, and Contessa.
+- 2 hidden influence cards per player.
+- 2 starting coins per player.
+- Last player with at least one unrevealed influence wins.
 
-**Accessibility**
-- High contrast, screen-reader friendly labels, keyboard navigation fallback.
+### Base Actions
 
-## 5. Multiplayer & Technical Requirements
-**Multiplayer Architecture (Server-Authoritative)**
-- Real-time via WebSockets (Socket.io recommended for simplicity).
-- Backend manages full game state: deck (shuffled array), each player’s hidden influences, coins, turn order, pending actions.
-- Clients receive only:
-  - Public info (coins, face-up cards, current turn, log).
-  - Own private hand.
-- Reconnection handling (player can rejoin same room).
-- Host can kick or restart.
+| Action | Cost | Effect | Claim | Blocked By |
+|--------|------|--------|-------|------------|
+| Income | 0 | Gain 1 coin | None | None |
+| Foreign Aid | 0 | Gain 2 coins | None | Duke |
+| Coup | 7 | Target loses influence | None | None |
+| Tax | 0 | Gain 3 coins | Duke | None |
+| Assassinate | 3 | Target loses influence | Assassin | Contessa |
+| Steal | 0 | Take up to 2 coins from target | Captain | Captain, Ambassador, or Inquisitor |
+| Exchange | 0 | Draw cards, choose cards to keep | Ambassador or Inquisitor | None |
 
-**Suggested Tech Stack (Claude-friendly)**
-- **Frontend:** Next.js 15 (App Router) + TypeScript + Tailwind + Zustand or React Context for local state + Socket.io-client.
-- **Backend:** Node.js + Express + Socket.io (or Supabase/Firebase for zero-server hassle).
-- **Deployment:** Vercel (frontend) + Render/ Railway / Supabase (backend) — free tier sufficient.
-- **State Persistence:** In-memory for MVP (restart on server crash); later Redis.
-- **No database needed** for MVP (rooms in memory with 24h TTL).
+### Required Edge Cases
 
-**Performance**
-- <100ms action broadcast.
-- Offline detection + reconnect.
+- At 10+ coins, a player must Coup.
+- Stealing from a player with fewer than 2 coins takes only what they have.
+- A successful challenge cancels the action or block being challenged.
+- A failed challenge causes the challenger to lose influence and lets the truthful player replace the revealed card.
+- Assassination cost remains spent when the assassination is blocked, matching the implemented rule comments in `ActionResolver`.
+- Exchange with one remaining influence still preserves the correct number of hidden cards.
+- Game over reveals all hidden cards to all clients.
 
-## 6. Non-Functional Requirements
-- Cross-browser: latest Chrome, Safari, Firefox, Edge.
-- Mobile: iOS 16+, Android 10+.
-- Security: No cheating possible (server hides cards); rate-limit joins.
-- Localization: English only (MVP).
-- Analytics: Optional (room completion rate).
+### Reformation Rules
 
-## 7. Out of Scope (MVP)
-- Accounts / friends list / matchmaking.
-- Expansions (Reformation, Rebellion).
-- Voice chat / video integration.
-- Monetization / ads.
-- Spectators (watch-only).
+- Players are assigned alternating Loyalist/Reformist factions at game start with a randomized starting faction.
+- Coup, Assassinate, Steal, and Examine cannot target same-faction players unless all alive players share one faction.
+- Challenges and blocks are not faction-restricted.
+- Convert pays 1 coin to switch self or 2 coins to switch another player. Coins go to the Treasury Reserve.
+- Embezzle takes the Treasury Reserve and uses inverse Duke challenge logic.
+- Inquisitor Exchange draws 1 card instead of Ambassador's 2.
+- Inquisitor Examine reveals one hidden target card to the examiner, then lets the examiner return it or force a deck swap.
 
-## 8. Implemented Post-MVP Features
-- **AI Bots** — 7 personality types (Aggressive/Conservative/Vengeful/Deceptive/Analytical/Optimal/Random). Each personality uses personality-calibrated parameters derived from the 689K Treason game dataset: Aggressive bluffs frequently and targets leaders. Conservative prefers safe actions with minimal bluffing. Vengeful retaliates against recent attackers. Deceptive has the highest bluff rates and avoids challenging. Analytical uses evidence-based challenge rates and strong leader targeting. Optimal uses card counting, bluff persistence, honest Contessa blocking, and 3P1L anti-tempo strategy — all tuned against 689,000+ real games from the treason dataset. Random assigns a hidden personality at game start. Host adds bots from lobby with a personality selector. Up to 5 bots per room.
-- **Bot emotes & personalities** — Each bot has randomized emotiveness (0–1) and meanness (0–1) traits. Bots fire context-aware emoji reactions (GG, LOL, RIP, etc.) based on game events, with bluff-safe filtering to avoid leaking information.
-- **Public/private rooms** — Room browser for public games.
-- **Room settings** — Configurable action timer (10–60s), bot min reaction time slider, public/private toggle.
-- **Chat** — Room-scoped chat in lobby and in-game with rate limiting.
-- **Rematch flow** — Host can restart from game over screen; bots, settings, and win counts preserved.
-- **Sound effects & reactions** — Synthesized audio cues (Web Audio API) for 21+ game events with mute toggle; 12 emoji reactions visible to all players in the room.
-- **Haptic feedback** — Vibration on taps for mobile devices with iOS Safari fallback (label+switch checkbox trick). Togglable in settings, on by default.
-- **Settings modal** — Gear icon on home, lobby, and in-game screens. Controls for sound, haptic feedback (touch devices only), text size (Normal/Large/Extra Large), and links to report bugs or send feedback via GitHub issue templates.
-- **Live server stats** — Home page displays real-time "players online" and "games in progress" counters via WebSocket.
-- **Game over awards** — Contextual flavor text and up to 4 post-game awards (Pants on Fire, Eagle Eye, Smooth Operator, etc.) based on actual play patterns.
+## 4. User Flows
 
-## 9. Future Enhancements
-- Reformation expansion.
-- Custom card art / themes.
-- Statistics dashboard.
+### Create And Play
 
-## 10. Implementation Roadmap for Claude
-1. **Phase 1:** Rules engine (pure JS/TS class for Game, Player, Deck, Action resolution).
-2. **Phase 2:** Local hotseat mode (test all rules).
-3. **Phase 3:** Socket.io multiplayer + rooms.
-4. **Phase 4:** Mobile-first UI + animations.
-5. **Phase 5:** Polish (log, timers, confetti, PWA).
+1. Player enters a name and creates a private or public room.
+2. Room code and QR share link are shown in the lobby.
+3. Host optionally changes room settings, enables Reformation, toggles Inquisitor, or adds bots.
+4. Host starts once 2-6 players are present.
+5. Players take turns until one player remains.
+6. Host starts a rematch; bots, settings, chat, win counts, and eligible spectators are preserved.
 
-**Appendix: Card Visuals**
-- Use generated raster portraits for influence cards and table/background atmosphere.
-- Keep SVG/CSS for functional controls, role icons, faction badges, timers, and exact UI text.
-- Face-up cards show portrait art with HTML/CSS role/action labels for readability and accessibility.
+### Practice
 
-**Rules Reference Links (for verification)**
-- Official-style rulebook summaries used above.
+1. First-time player opens the tutorial or home screen and chooses Practice vs Bot.
+2. The app creates a private room, adds a conservative bot, and starts the game immediately.
+3. Player can leave or rematch like any other game.
+
+### Join
+
+1. Player enters a name and room code, follows a QR/link, or joins from the public room browser.
+2. Server validates the name, room state, capacity, and duplicate-name rules.
+3. Player receives a session token for reconnect.
+
+### Spectate
+
+1. Viewer chooses a live public game and clicks Watch.
+2. Spectator receives a filtered game state with all unrevealed cards hidden.
+3. Spectator can chat/watch but cannot act.
+4. On rematch, spectators can be promoted into open player seats if there is room and no name conflict.
+
+## 5. Technical Requirements
+
+### Architecture
+
+- Next.js App Router frontend served by a custom Express server.
+- Socket.io handles all real-time room and game traffic.
+- Node.js 20.19+ is the supported development/runtime baseline because the current Vite/Vitest toolchain requires it.
+- Server owns all game state, deck state, timers, hidden cards, and rule outcomes.
+- Clients send intents only.
+- `ActionResolver` remains pure rule/state-machine logic and emits side effects as data.
+- `GameEngine` applies side effects, mutates `Game`, controls timers, and emits state changes.
+- `StateSerializer` filters state per player or spectator before broadcast.
+
+### Persistence
+
+- Room and game state are in memory.
+- Chat history is stored per room in memory, capped at 50 messages.
+- Player stats are local to each browser via `localStorage`.
+- No account system or shared persistent database is currently in scope.
+
+### Security And Validation
+
+- Production CORS rejects cross-origin connections unless `CORS_ORIGIN` is configured.
+- Security headers and production CSP are set by the Express server.
+- Trust proxy is enabled for proxy deployments.
+- Room create/join, bot add, game actions, chat, and reactions are rate-limited.
+- Player names and chat messages are sanitized and checked by `ContentFilter`.
+- Socket payloads are validated before reaching engine handlers.
+- Deck shuffle, room code generation, session tokens, and several server-authoritative random choices use Node crypto APIs.
+
+## 6. Release Readiness Criteria
+
+- `npm test` passes.
+- `npm run build` passes.
+- Manual smoke test covers at least two browser sessions through create, join, start, action, challenge/block pass, and game over.
+- Reformation smoke test covers Convert, Embezzle, and Inquisitor Examine when enabled.
+- Public room/spectator smoke test covers browse, watch, and rematch promotion.
+- Socket E2E coverage includes create/join/start/action/rematch, live spectators, reconnect, Reformation startup, rematch authorization, and lobby moderation.
+- Accessibility smoke review covers dialog semantics, keyboard-accessible cards, focus-visible styling, and non-color faction markers.
+- No stale docs claim implemented features are future work.
+
+## 7. Known Gaps And Follow-Ups
+
+- Inquisitor Examine currently picks one of the target's hidden cards server-side when the target has two hidden cards. The physical expansion has the target choose which card is examined; implementing that exactly would require a new target-choice prompt/phase.
+- Production CSP still allows `unsafe-inline` and `unsafe-eval` for current Next.js/client requirements. Tightening CSP would require nonce/hash work and verification.
+- Rejoin tokens are signed random tokens but are stored in `sessionStorage`, so an XSS would still expose them.
+- Socket rate limits are per socket for gameplay events; deployment-level IP or edge rate limiting would still be useful.
+- Game rooms are in memory only; server restarts clear active rooms.
+- The tutorial can launch a practice bot game and the rules modal includes a Reformation quick guide, but there is not yet a full interactive Reformation scenario.
+
+## 8. Out Of Scope For 1.0
+
+- User accounts, friend lists, matchmaking, rankings, or cloud-synced stats.
+- Voice/video chat.
+- Paid monetization or ads.
+- 7-10 player Reformation deck scaling.
+- Official publisher affiliation or official artwork.

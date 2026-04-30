@@ -4,6 +4,7 @@ import { useRef, useEffect, useState } from 'react';
 import { ChatMessage } from '@/shared/types';
 import { CHAT_MAX_MESSAGE_LENGTH } from '@/shared/constants';
 import { haptic } from '../../utils/haptic';
+import { useGameStore } from '../../stores/gameStore';
 
 interface ChatPanelProps {
   messages: ChatMessage[];
@@ -14,11 +15,13 @@ interface ChatPanelProps {
 export function ChatPanel({ messages, myId, onSend }: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState('');
+  const mutedPlayerIds = useGameStore(s => s.mutedPlayerIds);
+  const visibleMessages = messages.filter(msg => !mutedPlayerIds.includes(msg.playerId));
 
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages.length]);
+  }, [visibleMessages.length]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,10 +35,10 @@ export function ChatPanel({ messages, myId, onSend }: ChatPanelProps) {
   return (
     <div className="flex flex-col h-full">
       <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-1 px-3 py-2 min-h-0">
-        {messages.length === 0 && (
+        {visibleMessages.length === 0 && (
           <p className="text-xs text-gray-600 italic">No messages yet...</p>
         )}
-        {messages.map((msg) => {
+        {visibleMessages.map((msg) => {
           const isOwn = msg.playerId === myId;
           return (
             <div key={msg.id} className="text-xs">

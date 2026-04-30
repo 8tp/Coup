@@ -265,11 +265,21 @@ function ReformationTab() {
         </p>
       </div>
 
+      <div className="rounded-xl border border-coup-accent/30 bg-coup-accent/10 p-3">
+        <h3 className="text-coup-accent font-bold text-base mb-2">Quick Start</h3>
+        <ol className="list-decimal list-inside space-y-1.5 text-gray-300">
+          <li>Check faction markers before targeting: <span className="text-blue-300 font-bold">▲ LOY</span> and <span className="text-red-300 font-bold">◆ REF</span>.</li>
+          <li>Use Convert to fix targeting, rescue an ally, or put coins into the reserve.</li>
+          <li>Only Embezzle when the reserve is worth the challenge risk.</li>
+          <li>If Inquisitor is enabled, Exchange is smaller but Examine gives direct information.</li>
+        </ol>
+      </div>
+
       <div>
         <h3 className="text-coup-accent font-bold text-base mb-2">Factions</h3>
         <p className="text-gray-400 mb-2">
-          Each player is assigned to either the <span className="text-blue-300 font-medium">Loyalists</span> or{' '}
-          <span className="text-red-300 font-medium">Reformists</span>. You{' '}
+          Each player is assigned to either the <span className="text-blue-300 font-medium">▲ Loyalists</span> or{' '}
+          <span className="text-red-300 font-medium">◆ Reformists</span>. You{' '}
           <span className="text-white font-medium">cannot target</span> players in your own faction with
           Coup, Assassinate, Steal, or Examine. If all surviving players share the same faction,
           this restriction is lifted.

@@ -47,7 +47,7 @@ export class Game {
     this.treasuryReserve = 0;
 
     // Randomize which faction is assigned to the first player slot
-    const startWithLoyalist = Math.random() < 0.5;
+    const startWithLoyalist = randomInt(2) === 0;
 
     this.players = playerInfos.map((p, index) => {
       const player = new Player(p.id, p.name, index);

@@ -51,5 +51,27 @@ export function WaitingView({ gameState }: WaitingViewProps) {
     );
   }
 
+  if (turnPhase === TurnPhase.AwaitingExchange) {
+    const exchanger = players.find(p => p.id === gameState.pendingAction?.actorId);
+    return (
+      <div className="prompt-info">
+        <p className="text-center text-gray-400 text-sm">
+          Waiting for <span className="font-bold text-gray-300">{exchanger?.name ?? 'a player'}</span> to choose cards...
+        </p>
+      </div>
+    );
+  }
+
+  if (turnPhase === TurnPhase.AwaitingInfluenceLoss && gameState.influenceLossRequest?.playerId !== myId) {
+    const loser = players.find(p => p.id === gameState.influenceLossRequest?.playerId);
+    return (
+      <div className="prompt-info">
+        <p className="text-center text-gray-400 text-sm">
+          Waiting for <span className="font-bold text-gray-300">{loser?.name ?? 'a player'}</span> to reveal an influence...
+        </p>
+      </div>
+    );
+  }
+
   return null;
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Modal } from '../ui/Modal';
 import { haptic } from '../../utils/haptic';
@@ -13,18 +13,33 @@ interface QRShareModalProps {
 
 export function QRShareModal({ open, onClose, roomCode }: QRShareModalProps) {
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
+  const [url, setUrl] = useState(`https://coup.chuds.dev/lobby/${roomCode}`);
 
-  const url = `https://coup.chuds.dev/lobby/${roomCode}`;
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setUrl(`${window.location.origin}/lobby/${roomCode}`);
+    }
+  }, [roomCode]);
 
   const handleCopyLink = () => {
     haptic();
-    try {
-      navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard API not available
+    setCopied(true);
+    setCopyError(false);
+    setTimeout(() => setCopied(false), 2000);
+
+    if (!navigator.clipboard?.writeText) {
+      setCopyError(true);
+      setCopied(false);
+      setTimeout(() => setCopyError(false), 2000);
+      return;
     }
+
+    navigator.clipboard.writeText(url).catch(() => {
+      setCopyError(true);
+      setCopied(false);
+      setTimeout(() => setCopyError(false), 2000);
+    });
   };
 
   return (
@@ -37,6 +52,10 @@ export function QRShareModal({ open, onClose, roomCode }: QRShareModalProps) {
 
         {/* Link */}
         <p className="text-gray-400 text-sm text-center break-all">{url}</p>
+        <p className="min-h-4 text-xs text-center" aria-live="polite">
+          {copied && <span className="text-green-400">Invite link copied</span>}
+          {copyError && <span className="text-red-300">Copy failed - select the link above</span>}
+        </p>
 
         {/* Copy Link Button */}
         <button

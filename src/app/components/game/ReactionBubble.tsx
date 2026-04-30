@@ -10,6 +10,7 @@ interface ReactionBubbleProps {
 
 export function ReactionBubble({ playerId }: ReactionBubbleProps) {
   const active = useGameStore((s) => s.activeReactions.get(playerId));
+  const isMuted = useGameStore((s) => s.mutedPlayerIds.includes(playerId));
   const clearReaction = useGameStore((s) => s.clearReaction);
 
   useEffect(() => {
@@ -20,7 +21,7 @@ export function ReactionBubble({ playerId }: ReactionBubbleProps) {
     return () => clearTimeout(timer);
   }, [active?.timestamp, playerId, clearReaction]);
 
-  if (!active) return null;
+  if (!active || isMuted) return null;
 
   const reaction = REACTIONS.find((r) => r.id === active.reactionId);
   if (!reaction) return null;

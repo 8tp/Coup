@@ -1,3 +1,4 @@
+import { randomInt } from 'crypto';
 import {
   ActionType,
   Character,
@@ -903,7 +904,7 @@ export class ActionResolver {
         // If target has only 1 hidden card, examine that one. Otherwise pick random.
         const examIdx = hiddenIndices.length === 1
           ? hiddenIndices[0].i
-          : hiddenIndices[Math.floor(Math.random() * hiddenIndices.length)].i;
+          : hiddenIndices[randomInt(hiddenIndices.length)].i;
         const revealedCard = target.influences[examIdx].character;
 
         sideEffects.push({
