@@ -1238,5 +1238,33 @@ describe('ActionResolver', () => {
       const replaceEffect = result.sideEffects.find(e => e.type === 'replace_influence');
       expect(replaceEffect).toBeUndefined();
     });
+
+    it('action challenge — game-ending Exchange: does not enter AwaitingExchange when challenger is eliminated', () => {
+      // Regression: a losing challenge that eliminates the only opponent during
+      // Exchange used to still set up the exchange phase, leaving the picker UI
+      // open after the game was already over.
+      const p3 = game.getPlayer('p3')!;
+      p3.influences[0].revealed = true;
+      p3.influences[1].revealed = true;
+
+      setCards(game, 'p1', [Character.Ambassador, Character.Contessa]);
+      const p2 = game.getPlayer('p2')!;
+      p2.influences[0].revealed = true; // 1 alive influence — losing the challenge eliminates p2
+
+      const declareResult = resolver.declareAction(game, 'p1', ActionType.Exchange);
+      if (isError(declareResult)) return;
+
+      const result = resolver.challenge(
+        game, 'p2', declareResult.pendingAction!, declareResult.challengeState!,
+      );
+      expect(isError(result)).toBe(false);
+      if (isError(result)) return;
+
+      expect(result.newPhase).toBe(TurnPhase.ActionResolved);
+      expect(result.exchangeState).toBeNull();
+      expect(result.sideEffects.find(e => e.type === 'start_exchange')).toBeUndefined();
+      expect(result.sideEffects.find(e => e.type === 'win_check')).toBeDefined();
+      expect(result.sideEffects.find(e => e.type === 'advance_turn')).toBeDefined();
+    });
   });
 });

@@ -303,6 +303,15 @@ export class ActionResolver {
         sideEffects.push({ type: 'reveal_influence', playerId: challengerId, influenceIndex: idx });
         sideEffects.push({ type: 'eliminate_check', playerId: challengerId });
 
+        // If this challenge ends the game, resolve immediately — don't start the action
+        // (otherwise actions like Exchange would still set up their phase, leaving the UI
+        // open after the winner is decided).
+        if (isGameEnding) {
+          sideEffects.push({ type: 'win_check' });
+          sideEffects.push({ type: 'advance_turn' });
+          return this.resolved(sideEffects);
+        }
+
         // Action still proceeds — move to block phase or resolve
         return this.afterSuccessfulActionChallengeDefense(game, pendingAction, sideEffects, challengerId);
       }

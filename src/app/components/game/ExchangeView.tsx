@@ -75,12 +75,12 @@ export function ExchangeView({ gameState }: ExchangeViewProps) {
       <p className="text-center text-gray-400 text-xs mb-4">
         Tap {keepCount} card{keepCount > 1 ? 's' : ''} to keep. The rest go back to the deck.
       </p>
-      <div className="flex flex-wrap gap-3 justify-center mb-4">
+      <div className="flex flex-wrap gap-2 sm:gap-3 justify-center mb-4">
         {availableCards.map((char, i) => (
           <button
             key={i}
             title={char}
-            className={`card-face card-face-lg ${characterColors[char]}
+            className={`card-face card-face-md sm:card-face-lg ${characterColors[char]}
               ${selectedIndices.includes(i) ? 'ring-2 ring-coup-accent scale-105' : 'opacity-60'}
               transition-all cursor-pointer hover:scale-105`}
             onClick={() => toggleCard(i)}
