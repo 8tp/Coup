@@ -91,14 +91,14 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
 
   return (
     <div className={wrapperClass}>
-      <p className={`text-center font-bold text-lg mb-1 ${isAssassination ? 'text-red-300' : 'text-white'}`}>
+      <p className={`text-center font-bold text-base sm:text-lg mb-0.5 sm:mb-1 leading-tight ${isAssassination ? 'text-red-300' : 'text-white'}`}>
         {headline}
       </p>
-      <p className="text-center text-gray-400 text-xs mb-2">
+      <p className="text-center text-gray-400 text-xs mb-1.5 sm:mb-2 leading-snug">
         {subtext}
       </p>
       <Timer expiresAt={gameState.timerExpiry} />
-      <div className="flex flex-col gap-2 mt-3">
+      <div className="flex flex-col gap-1.5 sm:gap-2 mt-2 sm:mt-3">
         {def.blockedBy
           .filter(char => {
             // Hide Ambassador in Inquisitor mode and vice versa

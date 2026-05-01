@@ -210,9 +210,12 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
           showLogExplanations={isPracticeRoom}
         />
 
-        {/* Interactive prompts - only one shows at a time (hidden for spectators) */}
+        {/* Interactive prompts - only one shows at a time (hidden for spectators).
+            min-h-0 + overflow-y-auto lets a tall prompt (e.g. BlockPrompt) scroll
+            within its share of the column instead of spilling into the log above
+            or being clipped by the hand below. */}
         {!isSpectator && (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 min-h-0 overflow-y-auto">
             <ActionBar gameState={gameState} />
             <ChallengePrompt gameState={gameState} />
             <BlockPrompt gameState={gameState} />

@@ -39,7 +39,11 @@ export function GameCenterTabs({ log, chatMessages, myId, myName, onSendChat, tu
   }, [visibleChatMessages.length, activeTab]);
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col bg-coup-bg/60 rounded-lg border border-gray-800">
+    // min-h-[60px] keeps the tab headers + "Latest" strip visible even when a
+    // tall prompt below (e.g. BlockPrompt) is consuming most of the column.
+    // Without it, flex collapses this to 0 and its content overflows into the
+    // prompt area, causing visible overlap on small screens.
+    <div className="flex-1 min-h-[60px] flex flex-col bg-coup-bg/60 rounded-lg border border-gray-800 overflow-hidden">
       {/* Tab headers */}
       <div className="flex border-b border-gray-800 relative">
         <button
