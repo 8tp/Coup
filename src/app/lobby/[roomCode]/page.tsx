@@ -37,7 +37,7 @@ export default function LobbyPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'code' | 'link' | 'error'>('idle');
-  const [inviteUrl, setInviteUrl] = useState(`https://coup.chuds.dev/lobby/${roomCode}`);
+  const [inviteUrl, setInviteUrl] = useState(`https://coup.8tp.dev/lobby/${roomCode}`);
 
   const isHost = playerId === hostId;
   const canStart = roomPlayers.length >= MIN_PLAYERS && roomPlayers.length <= MAX_PLAYERS;

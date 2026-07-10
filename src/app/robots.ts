@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: '/',
       disallow: ['/lobby/*', '/game/*'],
     },
-    sitemap: 'https://coup.chuds.dev/sitemap.xml',
+    sitemap: 'https://coup.8tp.dev/sitemap.xml',
   };
 }

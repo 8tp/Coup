@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     title: 'Coup Online',
     statusBarStyle: 'black-translucent',
   },
-  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || 'https://coup.chuds.dev'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || 'https://coup.8tp.dev'),
   alternates: {
     canonical: '/',
   },

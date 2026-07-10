@@ -3,7 +3,7 @@ import type { MetadataRoute } from 'next';
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
-      url: 'https://coup.chuds.dev',
+      url: 'https://coup.8tp.dev',
       lastModified: new Date(),
       changeFrequency: 'weekly',
       priority: 1.0,

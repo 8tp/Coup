@@ -14,7 +14,7 @@ interface QRShareModalProps {
 export function QRShareModal({ open, onClose, roomCode }: QRShareModalProps) {
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
-  const [url, setUrl] = useState(`https://coup.chuds.dev/lobby/${roomCode}`);
+  const [url, setUrl] = useState(`https://coup.8tp.dev/lobby/${roomCode}`);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
