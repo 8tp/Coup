@@ -19,7 +19,7 @@ import { serializeForPlayer } from '@/server/StateSerializer';
 
 function resolvePersonality(type: BotPersonality): PersonalityParams {
   if (type === 'random') {
-    const choices: BotPersonality[] = ['aggressive', 'conservative', 'vengeful', 'deceptive', 'analytical', 'optimal'];
+    const choices: Exclude<BotPersonality, 'random'>[] = ['aggressive', 'conservative', 'vengeful', 'deceptive', 'analytical', 'optimal'];
     return BOT_PERSONALITIES[choices[Math.floor(Math.random() * choices.length)]];
   }
   return BOT_PERSONALITIES[type];

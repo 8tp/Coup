@@ -156,7 +156,9 @@ describe('BotBrain — Reformation', () => {
         claimedCharacter: Character.Duke,
       };
       const challengeState: ChallengeState = {
-        eligiblePlayerIds: ['p2', 'p3', 'p4'],
+        challengerId: 'p2',
+        challengedPlayerId: 'p1',
+        claimedCharacter: Character.Duke,
         passedPlayerIds: [],
       };
 
@@ -184,6 +186,7 @@ describe('BotBrain — Reformation', () => {
         actorId: 'p1',
         actorName: 'Alice',
         timestamp: Date.now(),
+        turnNumber: game.turnNumber,
       });
       game.actionLog.push({
         message: 'Tax resolves.',
@@ -192,6 +195,7 @@ describe('BotBrain — Reformation', () => {
         actorId: 'p1',
         actorName: 'Alice',
         timestamp: Date.now(),
+        turnNumber: game.turnNumber,
       });
 
       const pendingAction: PendingAction = {
@@ -200,7 +204,9 @@ describe('BotBrain — Reformation', () => {
         claimedCharacter: Character.Duke,
       };
       const challengeState: ChallengeState = {
-        eligiblePlayerIds: ['p2', 'p3', 'p4'],
+        challengerId: 'p2',
+        challengedPlayerId: 'p1',
+        claimedCharacter: Character.Duke,
         passedPlayerIds: [],
       };
 
