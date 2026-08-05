@@ -82,7 +82,16 @@ export class SocketHandler {
     });
 
     socket.on('room:create', (data, callback) => {
+      if (typeof callback !== 'function') return;
       try {
+        if (this.roomManager.hasSocketMembership(socket.id)) {
+          callback({ success: false, error: 'Socket is already a room member' });
+          return;
+        }
+        if (!data || typeof data.playerName !== 'string') {
+          callback({ success: false, error: 'Invalid player name' });
+          return;
+        }
         if (!this.checkRateLimit(socket.id, 'room:create', RATE_LIMIT_ROOM_CREATE_MS)) {
           callback({ success: false, error: 'Too many requests, please wait' });
           return;
@@ -114,7 +123,16 @@ export class SocketHandler {
     });
 
     socket.on('room:join', (data, callback) => {
+      if (typeof callback !== 'function') return;
       try {
+        if (!data || typeof data.playerName !== 'string' || typeof data.roomCode !== 'string') {
+          callback({ success: false, error: 'Invalid join data' });
+          return;
+        }
+        if (this.roomManager.hasSocketMembership(socket.id)) {
+          callback({ success: false, error: 'Socket is already a room member' });
+          return;
+        }
         if (!this.checkRateLimit(socket.id, 'room:join', RATE_LIMIT_ROOM_JOIN_MS)) {
           callback({ success: false, error: 'Too many requests, please wait' });
           return;
@@ -156,13 +174,19 @@ export class SocketHandler {
     });
 
     socket.on('room:rejoin', (data, callback) => {
+      if (typeof callback !== 'function') return;
       try {
+        if (!data || typeof data.roomCode !== 'string' || typeof data.playerId !== 'string') {
+          callback({ success: false, error: 'Invalid rejoin data' });
+          return;
+        }
         const code = data.roomCode?.trim().toUpperCase();
         if (!code || !data.playerId) {
           callback({ success: false, error: 'Invalid rejoin data' });
           return;
         }
 
+        const previousSocketId = this.roomManager.getRoom(code)?.players.find(player => player.id === data.playerId)?.socketId;
         const result = this.roomManager.rejoinRoom(code, data.playerId, socket.id, data.sessionToken);
         if ('error' in result) {
           callback({ success: false, error: result.error });
@@ -174,6 +198,9 @@ export class SocketHandler {
         this.roomManager.touchRoom(code);
 
         socket.join(result.room.code);
+        if (previousSocketId && previousSocketId !== socket.id) {
+          this.io.sockets.sockets.get(previousSocketId)?.leave(result.room.code);
+        }
         console.log(`Player ${result.player.name} rejoined room ${result.room.code}`);
         callback({
           success: true,
@@ -206,6 +233,7 @@ export class SocketHandler {
     });
 
     socket.on('room:remove_player', (data, callback) => {
+      if (typeof callback !== 'function') return;
       const found = this.roomManager.getPlayerRoom(socket.id);
       if (!found) {
         callback({ success: false, error: 'Not in a room' });
@@ -240,6 +268,7 @@ export class SocketHandler {
     });
 
     socket.on('room:remove_spectator', (data, callback) => {
+      if (typeof callback !== 'function') return;
       const found = this.roomManager.getPlayerRoom(socket.id);
       if (!found) {
         callback({ success: false, error: 'Not in a room' });
@@ -249,10 +278,8 @@ export class SocketHandler {
         callback({ success: false, error: 'Only the host can remove spectators' });
         return;
       }
-      if (found.room.gameState) {
-        callback({ success: false, error: 'Game already in progress' });
-        return;
-      }
+      // No game-state guard here: spectators can only ever join a live game, so
+      // gating removal on `!room.gameState` would make host moderation unreachable.
       if (!data?.spectatorId || typeof data.spectatorId !== 'string') {
         callback({ success: false, error: 'Invalid spectator' });
         return;
@@ -291,7 +318,16 @@ export class SocketHandler {
     // ─── Spectators ───
 
     socket.on('room:spectate', (data, callback) => {
+      if (typeof callback !== 'function') return;
       try {
+        if (!data || typeof data.playerName !== 'string' || typeof data.roomCode !== 'string') {
+          callback({ success: false, error: 'Invalid spectate data' });
+          return;
+        }
+        if (this.roomManager.hasSocketMembership(socket.id)) {
+          callback({ success: false, error: 'Socket is already a room member' });
+          return;
+        }
         if (!this.checkRateLimit(socket.id, 'room:spectate', RATE_LIMIT_ROOM_JOIN_MS)) {
           callback({ success: false, error: 'Too many requests, please wait' });
           return;
@@ -356,6 +392,11 @@ export class SocketHandler {
     // ─── Bots ───
 
     socket.on('bot:add', (data, callback) => {
+      if (typeof callback !== 'function') return;
+      if (!data || typeof data.name !== 'string' || typeof data.personality !== 'string') {
+        callback({ success: false, error: 'Invalid bot data' });
+        return;
+      }
       if (!this.checkRateLimit(socket.id, 'bot:add', RATE_LIMIT_BOT_ADD_MS)) {
         callback({ success: false, error: 'Too many requests, please wait' });
         return;
@@ -394,6 +435,11 @@ export class SocketHandler {
     });
 
     socket.on('bot:remove', (data, callback) => {
+      if (typeof callback !== 'function') return;
+      if (!data || typeof data.botId !== 'string') {
+        callback({ success: false, error: 'Invalid bot' });
+        return;
+      }
       const found = this.roomManager.getPlayerRoom(socket.id);
       if (!found) {
         callback({ success: false, error: 'Not in a room' });
@@ -416,6 +462,7 @@ export class SocketHandler {
     });
 
     socket.on('room:update_settings', (data, callback) => {
+      if (typeof callback !== 'function') return;
       const found = this.roomManager.getPlayerRoom(socket.id);
       if (!found) {
         callback({ success: false, error: 'Not in a room' });

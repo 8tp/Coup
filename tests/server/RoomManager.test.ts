@@ -893,4 +893,198 @@ describe('RoomManager', () => {
       expect(updated!.hostId).toBe(bobResult.playerId);
     });
   });
+
+  describe('addSpectator() visibility boundary', () => {
+    /** A public room with a live game — the only state that may be spectated. */
+    function livePublicRoom() {
+      const { room } = manager.createRoom('Alice', 'socket1', true);
+      manager.joinRoom(room.code, 'Bob', 'socket2');
+      manager.startGame(room.code);
+      return room;
+    }
+
+    it('allows spectating a public in-progress game', () => {
+      const room = livePublicRoom();
+      const result = manager.addSpectator(room.code, 'Watcher', 'socketW');
+      expect('error' in result).toBe(false);
+      expect(manager.getSpectators(room.code)).toHaveLength(1);
+    });
+
+    it('rejects spectating a private room even while its game is live', () => {
+      const { room } = manager.createRoom('Alice', 'socket1', false);
+      manager.joinRoom(room.code, 'Bob', 'socket2');
+      manager.startGame(room.code);
+
+      expect(manager.addSpectator(room.code, 'Watcher', 'socketW')).toEqual({
+        error: 'Spectating is only available for public live games',
+      });
+      expect(manager.getSpectators(room.code)).toHaveLength(0);
+    });
+
+    it('rejects spectating a public room that has not started', () => {
+      const { room } = manager.createRoom('Alice', 'socket1', true);
+      manager.joinRoom(room.code, 'Bob', 'socket2');
+
+      expect(manager.addSpectator(room.code, 'Watcher', 'socketW')).toEqual({
+        error: 'Spectating is only available for public live games',
+      });
+      expect(manager.getSpectators(room.code)).toHaveLength(0);
+    });
+
+    it('still allows spectating a finished game, matching the browser\'s Watch affordance', () => {
+      // `PublicRoomInfo.hasGame` stays true until the host rematches, so the room
+      // browser keeps offering "Watch" during the post-game window. The server
+      // must not refuse it, or that button would be dead.
+      const room = livePublicRoom();
+      (manager.getEngine(room.code)!.game as any).status = GameStatus.Finished;
+
+      expect('error' in manager.addSpectator(room.code, 'Watcher', 'socketW')).toBe(false);
+      expect(manager.getSpectators(room.code)).toHaveLength(1);
+    });
+
+    it('rejects spectating again once the host has rematched back to the lobby', () => {
+      const room = livePublicRoom();
+      (manager.getEngine(room.code)!.game as any).status = GameStatus.Finished;
+      manager.resetToLobby(room.code);
+
+      expect(manager.addSpectator(room.code, 'Watcher', 'socketW')).toEqual({
+        error: 'Spectating is only available for public live games',
+      });
+      expect(manager.getSpectators(room.code)).toHaveLength(0);
+    });
+
+    it('rejects spectating a room that does not exist', () => {
+      expect(manager.addSpectator('ZZZZ', 'Watcher', 'socketW')).toEqual({ error: 'Room not found' });
+    });
+
+    it('still enforces the per-room spectator cap', () => {
+      const room = livePublicRoom();
+      for (let i = 0; i < 10; i++) {
+        expect('error' in manager.addSpectator(room.code, `Watcher${i}`, `socketW${i}`)).toBe(false);
+      }
+      expect(manager.addSpectator(room.code, 'OneTooMany', 'socketW10')).toEqual({ error: 'Too many spectators' });
+      expect(manager.getSpectators(room.code)).toHaveLength(10);
+    });
+  });
+
+  describe('one authoritative membership per socket', () => {
+    function livePublicRoom(hostName: string, hostSocket: string) {
+      const { room } = manager.createRoom(hostName, hostSocket, true);
+      manager.joinRoom(room.code, `${hostName}Guest`, `${hostSocket}-guest`);
+      manager.startGame(room.code);
+      return room;
+    }
+
+    it('reports membership for players and spectators alike', () => {
+      const room = livePublicRoom('Alice', 'socket1');
+      manager.addSpectator(room.code, 'Watcher', 'socketW');
+
+      expect(manager.hasSocketMembership('socket1')).toBe(true);
+      expect(manager.hasSocketMembership('socketW')).toBe(true);
+      expect(manager.hasSocketMembership('socketUnknown')).toBe(false);
+    });
+
+    it('rejects joining a second room from a socket that is already a player', () => {
+      const { room: first } = manager.createRoom('Alice', 'socket1');
+      const { room: second } = manager.createRoom('Carol', 'socket3');
+
+      expect(manager.joinRoom(second.code, 'Alice Again', 'socket1')).toEqual({
+        error: 'Socket is already a room member',
+      });
+      expect(manager.getPlayerRoom('socket1')?.room.code).toBe(first.code);
+      expect(second.players).toHaveLength(1);
+    });
+
+    it('rejects joining a room from a socket that is already a spectator', () => {
+      const live = livePublicRoom('Alice', 'socket1');
+      manager.addSpectator(live.code, 'Watcher', 'socketW');
+      const { room: lobby } = manager.createRoom('Carol', 'socket3');
+
+      expect(manager.joinRoom(lobby.code, 'Watcher', 'socketW')).toEqual({
+        error: 'Socket is already a room member',
+      });
+      expect(lobby.players).toHaveLength(1);
+    });
+
+    it('rejects spectating from a socket that is already a player', () => {
+      const live = livePublicRoom('Alice', 'socket1');
+
+      expect(manager.addSpectator(live.code, 'Alice Watching', 'socket1')).toEqual({
+        error: 'Socket is already a room member',
+      });
+      expect(manager.getSpectators(live.code)).toHaveLength(0);
+    });
+
+    it('rejects spectating twice from the same socket', () => {
+      const live = livePublicRoom('Alice', 'socket1');
+      expect('error' in manager.addSpectator(live.code, 'Watcher', 'socketW')).toBe(false);
+
+      expect(manager.addSpectator(live.code, 'Watcher Again', 'socketW')).toEqual({
+        error: 'Socket is already a room member',
+      });
+      expect(manager.getSpectators(live.code)).toHaveLength(1);
+    });
+
+    it('rejects rejoin from a socket that is a player in another room', () => {
+      const { room: target, playerId } = manager.createRoom('Alice', 'socket1');
+      manager.joinRoom(target.code, 'Bob', 'socket2');
+      manager.createRoom('Carol', 'socket3');
+
+      expect(manager.rejoinRoom(target.code, playerId, 'socket3')).toEqual({
+        error: 'Socket is already a room member',
+      });
+      expect(target.players.find(p => p.id === playerId)?.socketId).toBe('socket1');
+    });
+
+    it('rejects rejoin from a socket that is a spectator', () => {
+      const live = livePublicRoom('Alice', 'socket1');
+      const hostId = live.hostId;
+      manager.addSpectator(live.code, 'Watcher', 'socketW');
+
+      expect(manager.rejoinRoom(live.code, hostId, 'socketW')).toEqual({
+        error: 'Socket is already a room member',
+      });
+      expect(live.players.find(p => p.id === hostId)?.socketId).toBe('socket1');
+    });
+
+    it('rejects rejoin as a different player in the room the socket already owns', () => {
+      const { room } = manager.createRoom('Alice', 'socket1');
+      const bob = manager.joinRoom(room.code, 'Bob', 'socket2');
+      if ('error' in bob) return;
+
+      // socket1 is Alice; it must not be able to take over Bob's seat.
+      expect(manager.rejoinRoom(room.code, bob.playerId, 'socket1')).toEqual({
+        error: 'Socket is already a room member',
+      });
+      expect(room.players.find(p => p.id === bob.playerId)?.socketId).toBe('socket2');
+    });
+
+    it('transfers the membership to the new socket on a legitimate rejoin', () => {
+      const { room, playerId, sessionToken } = manager.createRoom('Alice', 'socket1');
+      manager.joinRoom(room.code, 'Bob', 'socket2');
+      manager.startGame(room.code);
+      manager.leaveRoom(room.code, playerId);
+      expect(room.players.find(p => p.id === playerId)?.connected).toBe(false);
+
+      const result = manager.rejoinRoom(room.code, playerId, 'socket1b', sessionToken);
+      expect('error' in result).toBe(false);
+      expect(manager.getPlayerRoom('socket1b')?.player.id).toBe(playerId);
+      expect(manager.getPlayerRoom('socket1')).toBeNull();
+      expect(manager.hasSocketMembership('socket1')).toBe(false);
+    });
+
+    it('frees the socket for reuse once its spectator slot is released', () => {
+      const live = livePublicRoom('Alice', 'socket1');
+      const added = manager.addSpectator(live.code, 'Watcher', 'socketW');
+      if ('error' in added) return;
+
+      expect(manager.removeSpectatorById(live.code, added.spectatorId)).toMatchObject({
+        spectator: { socketId: 'socketW' },
+      });
+      expect(manager.hasSocketMembership('socketW')).toBe(false);
+
+      const { room: lobby } = manager.createRoom('Carol', 'socket3');
+      expect('error' in manager.joinRoom(lobby.code, 'Watcher', 'socketW')).toBe(false);
+    });
+  });
 });
