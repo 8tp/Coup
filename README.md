@@ -261,9 +261,14 @@ Coup/
 | `npm run dev` | Start dev server (Express + Next.js + Socket.io) |
 | `npm run build` | Build for production |
 | `npm start` | Run production build |
-| `npm test` | Run test suite (550 tests across 21 files) |
+| `npm run typecheck` | Typecheck the app, custom server, and tests |
+| `npm test` | Run test suite (578 tests across 21 files) |
 | `npm run test:e2e` | Run socket browser-flow E2E tests |
 | `npm run test:watch` | Run tests in watch mode |
+
+Tests use `tsconfig.test.json` because Next's app typecheck excludes test files. The
+dedicated config keeps test fixtures and assertions under the same strict TypeScript
+rules without mixing Vitest types into the production app build.
 
 ```sh
 # Run all tests

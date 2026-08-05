@@ -385,7 +385,7 @@ describe('browser socket E2E flow', () => {
 
     // The removed spectator must lose its Socket.io subscription and its membership,
     // so it is free to become an authoritative member elsewhere.
-    expect(roomManager.getSpectatorRoom(spectator.id)).toBeNull();
+    expect(roomManager.getSpectatorRoom(spectator.id!)).toBeNull();
     const reused = await emitAck<RoomResponse>(spectator, 'room:create', { playerName: 'Freed Watcher' });
     expect(reused.success).toBe(true);
   });
@@ -440,8 +440,8 @@ describe('browser socket E2E flow', () => {
     expect(rejoin.success).toBe(true);
 
     // Exactly one authoritative membership: the replacement socket owns it.
-    expect(roomManager.getPlayerRoom(replacement.id)?.player.id).toBe(hostId);
-    expect(roomManager.getPlayerRoom(host.id)).toBeNull();
+    expect(roomManager.getPlayerRoom(replacement.id!)?.player.id).toBe(hostId);
+    expect(roomManager.getPlayerRoom(host.id!)).toBeNull();
 
     // The superseded socket must be unsubscribed from the room channel.
     let staleUpdates = 0;
@@ -457,7 +457,7 @@ describe('browser socket E2E flow', () => {
     const otherRoom = await emitAck<RoomResponse>(otherHost, 'room:create', { playerName: 'Other Host' });
     const reused = await emitAck<RoomResponse>(host, 'room:join', { roomCode: otherRoom.roomCode, playerName: 'Freed Host' });
     expect(reused.success).toBe(true);
-    expect(roomManager.getPlayerRoom(host.id)?.room.code).toBe(otherRoom.roomCode);
+    expect(roomManager.getPlayerRoom(host.id!)?.room.code).toBe(otherRoom.roomCode);
   });
 
   it('rejects spectators for private rooms and pre-game public rooms', async () => {
@@ -492,7 +492,7 @@ describe('browser socket E2E flow', () => {
     const secondRoom = await emitAck<RoomResponse>(secondHost, 'room:create', { playerName: 'Second Host', isPublic: true });
     const duplicateCreate = await emitAck<RoomResponse>(firstHost, 'room:create', { playerName: 'Other Host' });
     expect(duplicateCreate).toMatchObject({ success: false, error: 'Socket is already a room member' });
-    expect(roomManager.getPlayerRoom(firstHost.id)?.room.code).toBe(firstRoom.roomCode);
+    expect(roomManager.getPlayerRoom(firstHost.id!)?.room.code).toBe(firstRoom.roomCode);
 
     const joined = await emitAck<RoomResponse>(guest, 'room:join', { roomCode: firstRoom.roomCode, playerName: 'Guest' });
     expect(joined.success).toBe(true);
@@ -542,7 +542,7 @@ describe('browser socket E2E flow', () => {
     raw.emit('room:create', { playerName: 'No Ack' });
     raw.emit('room:create', { playerName: 'Bad Ack' }, { not: 'callable' });
     await delay(50);
-    expect(roomManager.getPlayerRoom(socket.id)).toBeNull();
+    expect(roomManager.getPlayerRoom(socket.id!)).toBeNull();
 
     const created = await emitAck<RoomResponse>(socket, 'room:create', { playerName: 'Valid Host' });
     expect(created.success).toBe(true);
@@ -606,7 +606,7 @@ describe('browser socket E2E flow', () => {
     expect(roomManager.getRoom(roomCode)?.players).toHaveLength(1);
     expect(roomManager.getRoom(roomCode)?.settings).toEqual(originalSettings);
     expect(roomManager.getSpectators(roomCode)).toHaveLength(0);
-    expect(roomManager.getPlayerRoom(host.id)?.player.id).toBe(created.playerId);
+    expect(roomManager.getPlayerRoom(host.id!)?.player.id).toBe(created.playerId);
   }
 
   it('rejects malformed payloads on every acknowledgement handler before mutating state', async () => {
@@ -652,7 +652,7 @@ describe('browser socket E2E flow', () => {
     // Rejections must not consume rate-limit quota or mutate state.
     expect(roomManager.getRoom(roomCode)?.players).toHaveLength(1);
     expect(roomManager.getRoom(roomCode)?.settings).toEqual(originalSettings);
-    expect(roomManager.getPlayerRoom(outsider.id)).toBeNull();
+    expect(roomManager.getPlayerRoom(outsider.id!)).toBeNull();
     const stillWorks = await emitAck<RoomResponse>(outsider, 'room:join', { roomCode, playerName: 'Late Guest' });
     expect(stillWorks.success).toBe(true);
   });
