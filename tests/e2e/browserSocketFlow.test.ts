@@ -242,7 +242,7 @@ describe('browser socket E2E flow', () => {
     const guest = await connectClient();
     const spectator = await connectClient();
 
-    const createResponse = await emitAck<RoomResponse>(host, 'room:create', { playerName: 'Host' });
+    const createResponse = await emitAck<RoomResponse>(host, 'room:create', { playerName: 'Host', isPublic: true });
     const roomCode = createResponse.roomCode!;
     await emitAck<RoomResponse>(guest, 'room:join', { roomCode, playerName: 'Guest' });
 
@@ -330,31 +330,13 @@ describe('browser socket E2E flow', () => {
     await error;
   });
 
-  it('lets hosts remove lobby players and spectators before start', async () => {
+  it('lets hosts remove lobby players before start', async () => {
     const host = await connectClient();
     const guest = await connectClient();
-    const spectator = await connectClient();
 
     const createResponse = await emitAck<RoomResponse>(host, 'room:create', { playerName: 'Host' });
     const roomCode = createResponse.roomCode!;
     const joinResponse = await emitAck<RoomResponse>(guest, 'room:join', { roomCode, playerName: 'Guest' });
-    const spectateResponse = await emitAck<{ success: boolean; roomCode?: string; spectatorId?: string; error?: string }>(
-      spectator,
-      'room:spectate',
-      { roomCode, playerName: 'Watcher' },
-    );
-    expect(spectateResponse.success).toBe(true);
-
-    const spectatorRemoved = waitForEvent(spectator, 'room:removed', 'spectator removed');
-    const spectatorUpdate = waitForRoomUpdate(host, data => (data.spectators ?? []).length === 0, 'spectator list empty');
-    const removeSpectatorResponse = await emitAck<{ success: boolean; error?: string }>(
-      host,
-      'room:remove_spectator',
-      { spectatorId: spectateResponse.spectatorId },
-    );
-    expect(removeSpectatorResponse.success).toBe(true);
-    await spectatorRemoved;
-    await spectatorUpdate;
 
     const playerRemoved = waitForEvent(guest, 'room:removed', 'player removed');
     const playerUpdate = waitForRoomUpdate(host, data => data.players.every(player => player.id !== joinResponse.playerId), 'player removed');
@@ -367,5 +349,311 @@ describe('browser socket E2E flow', () => {
     await playerRemoved;
     await playerUpdate;
     expect(roomManager.getRoom(roomCode)?.players).toHaveLength(1);
+  });
+
+  it('lets hosts remove a spectator from a live public game', async () => {
+    const host = await connectClient();
+    const guest = await connectClient();
+    const spectator = await connectClient();
+
+    const createResponse = await emitAck<RoomResponse>(host, 'room:create', { playerName: 'Host', isPublic: true });
+    const roomCode = createResponse.roomCode!;
+    await emitAck<RoomResponse>(guest, 'room:join', { roomCode, playerName: 'Guest' });
+
+    host.emit('game:start');
+    await waitForState(host, state => state.status === GameStatus.InProgress, 'host game start');
+
+    const spectateResponse = await emitAck<{ success: boolean; spectatorId?: string; error?: string }>(
+      spectator,
+      'room:spectate',
+      { roomCode, playerName: 'Watcher' },
+    );
+    expect(spectateResponse.success).toBe(true);
+    expect(roomManager.getSpectators(roomCode)).toHaveLength(1);
+
+    const spectatorRemoved = waitForEvent(spectator, 'room:removed', 'spectator removed');
+    const spectatorUpdate = waitForRoomUpdate(host, data => (data.spectators ?? []).length === 0, 'spectator list empty');
+    const removeResponse = await emitAck<{ success: boolean; error?: string }>(
+      host,
+      'room:remove_spectator',
+      { spectatorId: spectateResponse.spectatorId },
+    );
+    expect(removeResponse).toMatchObject({ success: true });
+    await spectatorRemoved;
+    await spectatorUpdate;
+    expect(roomManager.getSpectators(roomCode)).toHaveLength(0);
+
+    // The removed spectator must lose its Socket.io subscription and its membership,
+    // so it is free to become an authoritative member elsewhere.
+    expect(roomManager.getSpectatorRoom(spectator.id)).toBeNull();
+    const reused = await emitAck<RoomResponse>(spectator, 'room:create', { playerName: 'Freed Watcher' });
+    expect(reused.success).toBe(true);
+  });
+
+  it('rejects non-host attempts to remove a spectator from a live game', async () => {
+    const host = await connectClient();
+    const guest = await connectClient();
+    const spectator = await connectClient();
+
+    const createResponse = await emitAck<RoomResponse>(host, 'room:create', { playerName: 'Host', isPublic: true });
+    const roomCode = createResponse.roomCode!;
+    await emitAck<RoomResponse>(guest, 'room:join', { roomCode, playerName: 'Guest' });
+
+    host.emit('game:start');
+    await waitForState(host, state => state.status === GameStatus.InProgress, 'host game start');
+
+    const spectateResponse = await emitAck<{ success: boolean; spectatorId?: string }>(
+      spectator,
+      'room:spectate',
+      { roomCode, playerName: 'Watcher' },
+    );
+    expect(spectateResponse.success).toBe(true);
+
+    const nonHost = await emitAck<{ success: boolean; error?: string }>(
+      guest,
+      'room:remove_spectator',
+      { spectatorId: spectateResponse.spectatorId },
+    );
+    expect(nonHost).toMatchObject({ success: false, error: 'Only the host can remove spectators' });
+
+    const bySpectator = await emitAck<{ success: boolean; error?: string }>(
+      spectator,
+      'room:remove_spectator',
+      { spectatorId: spectateResponse.spectatorId },
+    );
+    expect(bySpectator).toMatchObject({ success: false, error: 'Not in a room' });
+    expect(roomManager.getSpectators(roomCode)).toHaveLength(1);
+  });
+
+  it('transfers a live socket membership on rejoin and unsubscribes the superseded socket', async () => {
+    const host = await connectClient();
+    const guest = await connectClient();
+
+    const createResponse = await emitAck<RoomResponse>(host, 'room:create', { playerName: 'Host' });
+    const roomCode = createResponse.roomCode!;
+    const hostId = createResponse.playerId!;
+    const sessionToken = createResponse.sessionToken!;
+
+    // Rejoin from a second socket while the original socket is still connected.
+    const replacement = await connectClient();
+    const rejoin = await emitAck<RoomResponse>(replacement, 'room:rejoin', { roomCode, playerId: hostId, sessionToken });
+    expect(rejoin.success).toBe(true);
+
+    // Exactly one authoritative membership: the replacement socket owns it.
+    expect(roomManager.getPlayerRoom(replacement.id)?.player.id).toBe(hostId);
+    expect(roomManager.getPlayerRoom(host.id)).toBeNull();
+
+    // The superseded socket must be unsubscribed from the room channel.
+    let staleUpdates = 0;
+    host.on('room:updated', () => { staleUpdates += 1; });
+    const freshUpdate = waitForRoomUpdate(replacement, data => data.players.length === 2, 'guest joined');
+    await emitAck<RoomResponse>(guest, 'room:join', { roomCode, playerName: 'Guest' });
+    await freshUpdate;
+    await delay(50);
+    expect(staleUpdates).toBe(0);
+
+    // Having lost its membership, the superseded socket may become a member elsewhere.
+    const otherHost = await connectClient();
+    const otherRoom = await emitAck<RoomResponse>(otherHost, 'room:create', { playerName: 'Other Host' });
+    const reused = await emitAck<RoomResponse>(host, 'room:join', { roomCode: otherRoom.roomCode, playerName: 'Freed Host' });
+    expect(reused.success).toBe(true);
+    expect(roomManager.getPlayerRoom(host.id)?.room.code).toBe(otherRoom.roomCode);
+  });
+
+  it('rejects spectators for private rooms and pre-game public rooms', async () => {
+    const privateHost = await connectClient();
+    const publicHost = await connectClient();
+    const privateSpectator = await connectClient();
+    const lobbySpectator = await connectClient();
+
+    const privateRoom = await emitAck<RoomResponse>(privateHost, 'room:create', { playerName: 'Private Host' });
+    const privateResponse = await emitAck<{ success: boolean; error?: string }>(privateSpectator, 'room:spectate', {
+      roomCode: privateRoom.roomCode,
+      playerName: 'Watcher',
+    });
+    expect(privateResponse).toMatchObject({ success: false, error: 'Spectating is only available for public live games' });
+    expect(roomManager.getSpectators(privateRoom.roomCode!)).toHaveLength(0);
+
+    const publicRoom = await emitAck<RoomResponse>(publicHost, 'room:create', { playerName: 'Public Host', isPublic: true });
+    const lobbyResponse = await emitAck<{ success: boolean; error?: string }>(lobbySpectator, 'room:spectate', {
+      roomCode: publicRoom.roomCode,
+      playerName: 'Watcher',
+    });
+    expect(lobbyResponse).toMatchObject({ success: false, error: 'Spectating is only available for public live games' });
+    expect(roomManager.getSpectators(publicRoom.roomCode!)).toHaveLength(0);
+  });
+
+  it('rejects a socket joining multiple rooms or holding player and spectator roles', async () => {
+    const firstHost = await connectClient();
+    const secondHost = await connectClient();
+    const guest = await connectClient();
+
+    const firstRoom = await emitAck<RoomResponse>(firstHost, 'room:create', { playerName: 'First Host' });
+    const secondRoom = await emitAck<RoomResponse>(secondHost, 'room:create', { playerName: 'Second Host', isPublic: true });
+    const duplicateCreate = await emitAck<RoomResponse>(firstHost, 'room:create', { playerName: 'Other Host' });
+    expect(duplicateCreate).toMatchObject({ success: false, error: 'Socket is already a room member' });
+    expect(roomManager.getPlayerRoom(firstHost.id)?.room.code).toBe(firstRoom.roomCode);
+
+    const joined = await emitAck<RoomResponse>(guest, 'room:join', { roomCode: firstRoom.roomCode, playerName: 'Guest' });
+    expect(joined.success).toBe(true);
+
+    const secondJoin = await emitAck<RoomResponse>(guest, 'room:join', { roomCode: secondRoom.roomCode, playerName: 'Duplicate' });
+    expect(secondJoin).toMatchObject({ success: false, error: 'Socket is already a room member' });
+    expect(roomManager.getRoom(firstRoom.roomCode!)?.players.some(player => player.socketId === guest.id)).toBe(true);
+    expect(roomManager.getRoom(secondRoom.roomCode!)?.players.some(player => player.socketId === guest.id)).toBe(false);
+
+    const secondGuest = await connectClient();
+    await emitAck<RoomResponse>(secondGuest, 'room:join', { roomCode: secondRoom.roomCode, playerName: 'Starter' });
+    secondHost.emit('game:start');
+    await waitForState(secondHost, state => state.status === GameStatus.InProgress, 'public game start');
+
+    const spectate = await emitAck<{ success: boolean; error?: string }>(guest, 'room:spectate', {
+      roomCode: secondRoom.roomCode,
+      playerName: 'Player Watcher',
+    });
+    expect(spectate).toMatchObject({ success: false, error: 'Socket is already a room member' });
+    expect(roomManager.getSpectators(secondRoom.roomCode!)).toHaveLength(0);
+  });
+
+  it('rejects rejoin from a socket already authoritative in another room', async () => {
+    const original = await connectClient();
+    const keeper = await connectClient();
+    const occupied = await connectClient();
+    const target = await emitAck<RoomResponse>(original, 'room:create', { playerName: 'Original' });
+    await emitAck<RoomResponse>(keeper, 'room:join', { roomCode: target.roomCode, playerName: 'Keeper' });
+    original.disconnect();
+    await delay(50);
+    const occupiedRoom = await emitAck<RoomResponse>(occupied, 'room:create', { playerName: 'Occupied' });
+
+    const response = await emitAck<RoomResponse>(occupied, 'room:rejoin', {
+      roomCode: target.roomCode,
+      playerId: target.playerId,
+      sessionToken: target.sessionToken,
+    });
+    expect(response).toMatchObject({ success: false, error: 'Socket is already a room member' });
+    expect(roomManager.getRoom(occupiedRoom.roomCode!)?.players.some(player => player.socketId === occupied.id)).toBe(true);
+    expect(roomManager.getRoom(target.roomCode!)?.players.find(player => player.id === target.playerId)?.socketId).not.toBe(occupied.id);
+  });
+
+  it('does not mutate room state when acknowledgements are missing or non-callable', async () => {
+    const socket = await connectClient();
+    const raw = socket as unknown as { emit: (...args: unknown[]) => void };
+
+    raw.emit('room:create', { playerName: 'No Ack' });
+    raw.emit('room:create', { playerName: 'Bad Ack' }, { not: 'callable' });
+    await delay(50);
+    expect(roomManager.getPlayerRoom(socket.id)).toBeNull();
+
+    const created = await emitAck<RoomResponse>(socket, 'room:create', { playerName: 'Valid Host' });
+    expect(created.success).toBe(true);
+    const room = roomManager.getRoom(created.roomCode!)!;
+    const originalSettings = { ...room.settings };
+    raw.emit('room:update_settings', { settings: { ...room.settings, isPublic: true } });
+    raw.emit('bot:add', { name: 'Bad Bot', personality: 'random' }, 42);
+    await delay(50);
+    expect(room.settings).toEqual(originalSettings);
+    expect(room.players).toHaveLength(1);
+  });
+
+  it('survives every acknowledgement handler being called without a usable acknowledgement', async () => {
+    // Missing/non-callable acknowledgements must be dropped, not turned into a
+    // `callback is not a function` throw that escapes the Socket.io listener.
+    const uncaught: unknown[] = [];
+    const onUncaught = (err: unknown) => uncaught.push(err);
+    process.on('uncaughtException', onUncaught);
+
+    try {
+      await exerciseUnusableAcknowledgements();
+    } finally {
+      process.off('uncaughtException', onUncaught);
+    }
+    expect(uncaught.map(err => (err instanceof Error ? err.message : String(err)))).toEqual([]);
+  });
+
+  async function exerciseUnusableAcknowledgements(): Promise<void> {
+    const host = await connectClient();
+    const raw = host as unknown as { emit: (...args: unknown[]) => void };
+
+    const created = await emitAck<RoomResponse>(host, 'room:create', { playerName: 'Ack Host' });
+    expect(created.success).toBe(true);
+    const roomCode = created.roomCode!;
+    const room = roomManager.getRoom(roomCode)!;
+    const originalSettings = { ...room.settings };
+
+    // Every acknowledgement-based event, with a well-formed payload but an
+    // unusable acknowledgement. None may throw or mutate state.
+    const payloads: Array<[string, unknown]> = [
+      ['room:create', { playerName: 'Second' }],
+      ['room:join', { roomCode, playerName: 'Joiner' }],
+      ['room:rejoin', { roomCode, playerId: created.playerId, sessionToken: created.sessionToken }],
+      ['room:spectate', { roomCode, playerName: 'Watcher' }],
+      ['room:remove_player', { playerId: created.playerId }],
+      ['room:remove_spectator', { spectatorId: 'nope' }],
+      ['room:update_settings', { settings: { ...room.settings, isPublic: true } }],
+      ['bot:add', { name: 'Bot One', personality: 'optimal' }],
+      ['bot:remove', { botId: 'nope' }],
+    ];
+    for (const [event, data] of payloads) {
+      raw.emit(event, data);                    // acknowledgement omitted
+      raw.emit(event, data, null);              // acknowledgement not callable
+      raw.emit(event, data, 'ack');
+      raw.emit(event, undefined);               // payload omitted too
+    }
+    await delay(100);
+
+    // The socket is still alive and its single membership is untouched.
+    expect(host.connected).toBe(true);
+    expect(roomManager.getRoom(roomCode)?.players).toHaveLength(1);
+    expect(roomManager.getRoom(roomCode)?.settings).toEqual(originalSettings);
+    expect(roomManager.getSpectators(roomCode)).toHaveLength(0);
+    expect(roomManager.getPlayerRoom(host.id)?.player.id).toBe(created.playerId);
+  }
+
+  it('rejects malformed payloads on every acknowledgement handler before mutating state', async () => {
+    const host = await connectClient();
+    const created = await emitAck<RoomResponse>(host, 'room:create', { playerName: 'Payload Host' });
+    const roomCode = created.roomCode!;
+    const room = roomManager.getRoom(roomCode)!;
+    const originalSettings = { ...room.settings };
+
+    // Handlers reachable as the room host.
+    const hostCases: Array<[string, unknown, string]> = [
+      ['room:rejoin', undefined, 'Invalid rejoin data'],
+      ['room:rejoin', { roomCode }, 'Invalid rejoin data'],
+      ['room:remove_player', undefined, 'Invalid player'],
+      ['room:remove_player', { playerId: 7 }, 'Invalid player'],
+      ['room:remove_spectator', undefined, 'Invalid spectator'],
+      ['room:update_settings', undefined, 'Invalid settings'],
+      ['room:update_settings', { settings: 'nope' }, 'Invalid settings'],
+      ['bot:add', undefined, 'Invalid bot data'],
+      ['bot:add', { name: 'Bot', personality: 5 }, 'Invalid bot data'],
+      ['bot:remove', undefined, 'Invalid bot'],
+    ];
+    for (const [event, data, expectedError] of hostCases) {
+      const response = await emitAck<{ success: boolean; error?: string }>(host, event, data);
+      expect(response, `${event} with ${JSON.stringify(data)}`).toMatchObject({ success: false, error: expectedError });
+    }
+
+    // Handlers reachable from a socket with no membership.
+    const outsider = await connectClient();
+    const outsiderCases: Array<[string, unknown, string]> = [
+      ['room:create', undefined, 'Invalid player name'],
+      ['room:create', { playerName: 42 }, 'Invalid player name'],
+      ['room:join', undefined, 'Invalid join data'],
+      ['room:join', { roomCode }, 'Invalid join data'],
+      ['room:spectate', undefined, 'Invalid spectate data'],
+      ['room:spectate', { roomCode }, 'Invalid spectate data'],
+    ];
+    for (const [event, data, expectedError] of outsiderCases) {
+      const response = await emitAck<{ success: boolean; error?: string }>(outsider, event, data);
+      expect(response, `${event} with ${JSON.stringify(data)}`).toMatchObject({ success: false, error: expectedError });
+    }
+
+    // Rejections must not consume rate-limit quota or mutate state.
+    expect(roomManager.getRoom(roomCode)?.players).toHaveLength(1);
+    expect(roomManager.getRoom(roomCode)?.settings).toEqual(originalSettings);
+    expect(roomManager.getPlayerRoom(outsider.id)).toBeNull();
+    const stillWorks = await emitAck<RoomResponse>(outsider, 'room:join', { roomCode, playerName: 'Late Guest' });
+    expect(stillWorks.success).toBe(true);
   });
 });

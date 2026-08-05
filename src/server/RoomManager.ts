@@ -73,6 +73,7 @@ export class RoomManager {
     playerName: string,
     socketId: string,
   ): { room: Room; playerId: string; sessionToken: string } | { error: string } {
+    if (this.hasSocketMembership(socketId)) return { error: 'Socket is already a room member' };
     const room = this.rooms.get(roomCode.toUpperCase());
     if (!room) return { error: 'Room not found' };
     if (room.gameState) return { error: 'Game already in progress' };
@@ -166,6 +167,11 @@ export class RoomManager {
     socketId: string,
     sessionToken?: string,
   ): { room: Room; player: RoomPlayer } | { error: string } {
+    const existing = this.getPlayerRoom(socketId);
+    const existingSpectator = this.getSpectatorRoom(socketId);
+    if (existingSpectator || (existing && (existing.room.code !== roomCode.toUpperCase() || existing.player.id !== playerId))) {
+      return { error: 'Socket is already a room member' };
+    }
     const room = this.rooms.get(roomCode.toUpperCase());
     if (!room) return { error: 'Room not found' };
 
@@ -500,12 +506,25 @@ export class RoomManager {
     return null;
   }
 
+  hasSocketMembership(socketId: string): boolean {
+    return this.getPlayerRoom(socketId) !== null || this.getSpectatorRoom(socketId) !== null;
+  }
+
   // ─── Spectators ───
 
   addSpectator(roomCode: string, name: string, socketId: string): { spectatorId: string } | { error: string } {
+    if (this.hasSocketMembership(socketId)) return { error: 'Socket is already a room member' };
     const code = roomCode.toUpperCase();
     const room = this.rooms.get(code);
     if (!room) return { error: 'Room not found' };
+    // Spectating is limited to public rooms that have actually started a game:
+    // private rooms and pre-game lobbies must not be observable. The condition
+    // mirrors `PublicRoomInfo.hasGame` (engine present until resetToLobby), so
+    // the room browser never offers a "Watch" button the server would refuse.
+    const engine = this.engines.get(code);
+    if (!room.settings.isPublic || !engine) {
+      return { error: 'Spectating is only available for public live games' };
+    }
 
     let spectators = this.spectators.get(code);
     if (!spectators) {
