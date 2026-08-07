@@ -7,7 +7,7 @@
  * Usage: npx tsx scripts/simulate-human.ts [--games 200] [--players 5]
  */
 
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import { GameEngine } from '../src/engine/GameEngine';
 import { BotBrain, BotDecision } from '../src/engine/BotBrain';
 import {
@@ -90,7 +90,7 @@ function runGame(playerCount: number, personality: PersonalityParams): {
   }>;
   engine: GameEngine;
 } {
-  const roomCode = 'SIM' + uuidv4().slice(0, 4).toUpperCase();
+  const roomCode = 'SIM' + randomUUID().slice(0, 4).toUpperCase();
   const engine = new GameEngine(roomCode);
   const decisions: Array<{
     botId: string;
@@ -106,7 +106,7 @@ function runGame(playerCount: number, personality: PersonalityParams): {
   const playerInfos: Array<{ id: string; name: string }> = [];
 
   for (let i = 0; i < playerCount; i++) {
-    const id = uuidv4();
+    const id = randomUUID();
     const name = BOT_NAMES[i % BOT_NAMES.length];
     bots.push({
       id, name,
@@ -461,13 +461,13 @@ function main() {
   let winCardTotal = 0;
 
   for (let g = 0; g < games; g++) {
-    const roomCode = 'MIX' + uuidv4().slice(0, 4).toUpperCase();
+    const roomCode = 'MIX' + randomUUID().slice(0, 4).toUpperCase();
     const engine = new GameEngine(roomCode);
     const bots: SimBot[] = [];
     const playerInfos: Array<{ id: string; name: string }> = [];
 
     for (let i = 0; i < players; i++) {
-      const id = uuidv4();
+      const id = randomUUID();
       const name = BOT_NAMES[i % BOT_NAMES.length];
       const pType = BOT_PERSONALITY_TYPES[Math.floor(Math.random() * BOT_PERSONALITY_TYPES.length)];
       bots.push({

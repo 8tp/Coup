@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Use Node.js 20.19
+        uses: actions/setup-node@v7
+        with:
+          node-version: 20.19.0
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Typecheck app, server, tests, and scripts
+        run: npm run typecheck
+
+      - name: Run test suite
+        run: npm test
+
+      - name: Build production app and server
+        run: npm run build
+
+      - name: Check production dependencies for high-severity advisories
+        run: npm audit --omit=dev --audit-level=high

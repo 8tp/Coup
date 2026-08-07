@@ -5,7 +5,7 @@
  * Usage: npx tsx scripts/analyze-bot-challenges.ts [numGames]
  */
 
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import { GameEngine } from '../src/engine/GameEngine';
 import { BotBrain, BotDecision } from '../src/engine/BotBrain';
 import {
@@ -109,12 +109,12 @@ function ensureTracker(action: string): ActionTracker {
 }
 
 for (let gi = 0; gi < NUM_GAMES; gi++) {
-  const engine = new GameEngine();
+  const engine = new GameEngine(`SIM-${gi}`);
   const bots: SimBot[] = [];
   const playerInfos: { id: string; name: string }[] = [];
 
   for (let j = 0; j < PLAYER_COUNT; j++) {
-    const id = uuidv4();
+    const id = randomUUID();
     const name = BOT_NAMES[j] || `Bot${j}`;
     bots.push({ id, name, personality: personalityParams, deckMemory: new Map(), lastProcessedLogLength: 0 });
     playerInfos.push({ id, name });

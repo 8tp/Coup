@@ -18,7 +18,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Node.js-20.19%2B-339933?logo=nodedotjs&logoColor=white" alt="Node.js 20.19+">
   <img src="https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
-  <img src="https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs" alt="Next.js 15">
+  <img src="https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs" alt="Next.js 16">
   <img src="https://img.shields.io/badge/Socket.io-realtime-010101?logo=socketdotio" alt="Socket.io">
   <img src="https://img.shields.io/github/license/8tp/Coup" alt="MIT License">
 </p>
@@ -35,7 +35,7 @@ Play Coup with 2–6 players from any device — no app install, no accounts. Cr
 - **Room codes** — 4-letter codes for easy sharing, no accounts required
 - **Public/private rooms** — browse public lobbies, join open games, or watch live games as a spectator
 - **QR sharing** — lobby share button opens a scannable room link
-- **Practice vs Bot** — first-time players can start a disposable private tutorial game against a conservative bot from main menu settings, without affecting local stats
+- **Practice vs Bot** — first-time players can start a disposable private game against a conservative bot, with contextual coaching that explains claims, challenges, blocks, influence loss, and hand-building without prescribing every move
 - **Computer players** — add 1–5 AI opponents with 7 personality types (Aggressive, Conservative, Vengeful, Deceptive, Analytical, Optimal, Random)
 - **Reconnection** — signed session tokens let players rejoin mid-game without losing their seat
 - **Host moderation** — hosts can remove lobby players or spectators before the game starts
@@ -262,7 +262,7 @@ Coup/
 | `npm run build` | Build for production |
 | `npm start` | Run production build |
 | `npm run typecheck` | Typecheck the app, custom server, and tests |
-| `npm test` | Run test suite (578 tests across 21 files) |
+| `npm test` | Run test suite (584 tests across 22 files) |
 | `npm run test:e2e` | Run socket browser-flow E2E tests |
 | `npm run test:watch` | Run tests in watch mode |
 

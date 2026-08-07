@@ -108,7 +108,7 @@ The development server runs at `http://localhost:3000` with hot reloading for bo
 
 ## Pull Request Process
 
-1. **Create a branch** from `dev` with a descriptive name. `main` is the release branch; day-to-day changes should merge through `dev`.
+1. **Create a branch** from the latest `main` with a descriptive name.
    - `feature/add-spectator-mode`
    - `fix/steal-zero-coins-crash`
    - `refactor/extract-timer-logic`
@@ -124,7 +124,7 @@ The development server runs at `http://localhost:3000` with hot reloading for bo
 
 4. **Test manually** with at least 2 browser tabs to verify multiplayer behavior
 
-5. **Open a Pull Request** against `dev` with:
+5. **Open a Pull Request** against `main` with:
    - A clear title summarizing the change
    - A description of what changed and why
    - Screenshots or recordings for UI changes

@@ -8,7 +8,7 @@
  *   npm run simulate -- --games 50 --players 5 --personality optimal
  */
 
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import { GameEngine } from '../src/engine/GameEngine';
 import { BotBrain, BotDecision } from '../src/engine/BotBrain';
 import { GameLogger } from '../src/server/GameLogger';
@@ -213,7 +213,7 @@ function runGame(playerCount: number, personality: PersonalityParams): {
   const roomPlayers: RoomPlayer[] = [];
 
   for (let i = 0; i < playerCount; i++) {
-    const id = uuidv4();
+    const id = randomUUID();
     const name = BOT_NAMES[i % BOT_NAMES.length];
     bots.push({
       id, name, personality,

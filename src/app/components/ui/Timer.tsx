@@ -36,14 +36,18 @@ export function Timer({ expiresAt }: TimerProps) {
   const isLow = seconds <= 5;
 
   return (
-    <div className="flex items-center gap-3 justify-center my-2">
-      <div className="w-32 h-2.5 bg-gray-700 rounded-full overflow-hidden">
+    <div
+      className="flex items-center gap-3 justify-center my-2"
+      role="timer"
+      aria-label={`${seconds} second${seconds === 1 ? '' : 's'} remaining`}
+    >
+      <div className="w-32 h-2.5 bg-gray-700 rounded-full overflow-hidden" aria-hidden="true">
         <div
           className={`h-full rounded-full transition-all duration-100 ${isLow ? 'bg-red-500' : 'bg-coup-accent'}`}
           style={{ width: `${fraction * 100}%` }}
         />
       </div>
-      <span className={`text-sm font-bold w-8 text-right ${isLow ? 'text-red-400' : 'text-gray-300'}`}>
+      <span className={`text-sm font-bold w-8 text-right ${isLow ? 'timer-low text-red-400' : 'text-gray-300'}`}>
         {seconds}s
       </span>
     </div>

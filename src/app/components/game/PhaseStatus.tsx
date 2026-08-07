@@ -145,7 +145,12 @@ export function PhaseStatus({ gameState }: PhaseStatusProps) {
   }
 
   return (
-    <div className={`rounded-lg px-3 py-2 text-center text-sm font-bold ${color}`}>
+    <div
+      className={`phase-status-enter rounded-lg px-3 py-2 text-center text-sm font-bold ${color}`}
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    >
       {text}
     </div>
   );
