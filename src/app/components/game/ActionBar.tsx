@@ -320,7 +320,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
     <div className="prompt-action">
       <Timer expiresAt={gameState.timerExpiry} />
       <div className="grid grid-cols-2 gap-2">
-        {actionConfig.map(a => {
+        {actionConfig.map((a, index) => {
           const def = ACTION_DEFINITIONS[a.type];
           let canAfford = me.coins >= def.cost;
           let costReason = def.cost > 0 ? `Need ${coinLabel(def.cost)}` : '';
@@ -362,7 +362,8 @@ export function ActionBar({ gameState }: ActionBarProps) {
               key={a.type}
               className={`bg-coup-surface rounded-lg p-2 text-left border border-gray-700 relative
                 ${disabled ? 'opacity-40 cursor-not-allowed' : 'hover:border-coup-accent cursor-pointer active:scale-[0.97]'}
-                transition-all`}
+                transition-all action-choice-enter`}
+              style={{ '--action-delay': `${index * 45}ms` } as React.CSSProperties}
               onClick={() => !disabled && handleAction(a.type)}
               disabled={disabled}
               title={disabled ? disabledReason : ''}

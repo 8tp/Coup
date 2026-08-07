@@ -1,8 +1,8 @@
 # Security Audit Report: Coup Online
 
-**Last Updated:** April 2026
-**Audited State:** `origin/dev` release-candidate state
-**Status:** Major socket/game hardening complete; no high/critical npm audit findings remain
+**Last Updated:** August 2026
+**Audited State:** `main` after the Next.js 16.3 upgrade
+**Status:** Major socket/game hardening complete; `npm audit` reports no known vulnerabilities
 
 ---
 
@@ -10,7 +10,7 @@
 
 The project keeps the most important security property intact: the server is authoritative for deck state, hidden cards, timers, phase transitions, and outcomes. Clients send intents and receive filtered state through `StateSerializer`.
 
-Recent hardening in `dev` has addressed the highest-risk findings from the previous audit:
+Recent hardening on `main` has addressed the highest-risk findings from the previous audit:
 
 - Production Socket.io CORS now rejects cross-origin connections when `CORS_ORIGIN` is unset.
 - Express sets security headers, including frame denial, nosniff, referrer policy, HSTS in production, and a production CSP.
@@ -21,18 +21,19 @@ Recent hardening in `dev` has addressed the highest-risk findings from the previ
 - Room rejoin now requires the player's random session token.
 - Room codes, session tokens, deck shuffle, starting player, timeout target selection, faction-start selection, and Inquisitor hidden-card selection use Node crypto randomness.
 - Player, bot, chat, and spectator IDs use Node `crypto.randomUUID()`; the external `uuid` package has been removed.
-- Vite is pinned to `7.3.2`, clearing the previous high-severity Vite dev-server advisories.
+- Vite resolves to a patched 7.3.x release, clearing the previous high-severity dev-server advisories.
 - Names and chat messages are sanitized and profanity-checked by `ContentFilter`.
 
 ---
 
 ## Verification Snapshot
 
-- `npm test`: 550 tests passed across 21 files.
-- `npm run test:e2e`: socket browser-flow E2E passed for create/join/start/action/rematch.
-- `npm run build`: production Next.js build and server TypeScript build passed.
-- `npm audit`: 2 moderate findings remain. Both are the current Next.js package's nested PostCSS advisory; `npm audit fix --force` suggests a breaking downgrade to `next@9.3.3`, so it is not an acceptable automatic fix.
-- Dependabot triage: React, React DOM, Zustand, Autoprefixer, direct PostCSS, and Vitest updates were safe to apply. Tailwind 4 fails the current PostCSS setup as-is, and Next 16 passes build/tests in a temporary copy but does not clear the nested Next/PostCSS advisory, so both should stay separate follow-up PRs.
+- `npm test`: 584 tests passed across 22 files.
+- `npm run test:e2e`: all 15 socket browser-flow E2E tests passed.
+- `npm run typecheck`: app, custom server, tests, and maintenance scripts pass strict TypeScript checks.
+- `npm run build`: the production Next.js 16.3 build and server TypeScript build pass.
+- `npm audit`: 0 known vulnerabilities.
+- Dependabot triage: patch/minor updates continue automatically; Express, Tailwind, Vite, and TypeScript majors remain dedicated migrations rather than mechanical dependency bumps.
 
 ---
 
@@ -91,16 +92,7 @@ If `CORS_ORIGIN` is missing in production, the server warns and rejects cross-or
 
 **Recommended follow-up:** Fail startup in production when `CORS_ORIGIN` is missing, or document the deployment environment variable prominently.
 
-### 5. Next.js Nested PostCSS Audit Advisory
-
-**Severity:** Medium
-**Files:** `package-lock.json`
-
-`npm audit` still reports a moderate PostCSS advisory through Next.js' nested `postcss@8.4.31`. The suggested forced fix downgrades Next.js to `9.3.3`, which is not viable for this app. Direct project `postcss` is updated to a patched version, and the remaining advisory should be monitored for a patched Next.js release.
-
-**Recommended follow-up:** Re-run `npm audit` before release and update Next.js when a compatible patched version is available.
-
-### 6. In-Memory Rooms And Local Stats
+### 5. In-Memory Rooms And Local Stats
 
 **Severity:** Low
 **Files:** `src/server/RoomManager.ts`, `src/app/stores/statsStore.ts`

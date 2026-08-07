@@ -1,10 +1,10 @@
 # Coup Online Roadmap
 
-This roadmap captures user-facing improvements worth considering after the current main release. The game is already in a solid release-candidate state: the highest-value work now is polish that reduces confusion, improves table feel, and makes it easier for new players to get into a game.
+This roadmap captures user-facing improvements worth considering after the current v1 release. The game is live and feature-complete for its current 2-6 player scope; the highest-value work now is polish that reduces confusion, improves table feel, and makes it easier for new players to get into a game.
 
 ## Release Position
 
-Ready for main:
+Shipped on `main`:
 
 - Core Classic and Reformation flows are implemented.
 - Private/public rooms, spectators, rematch, reconnect, bots, chat, reactions, sound, haptics, and stats are present.
@@ -14,10 +14,9 @@ Do not block the current main push on:
 
 - Accounts, ranked play, matchmaking, or persistent cloud profiles.
 - Tailwind 4 migration.
-- Next 16 migration.
 - 7-10 player Reformation deck scaling.
 
-Started in the current release-readiness branch:
+Included in the current release:
 
 - Clearer lobby room-code and invite-link copy feedback.
 - More specific unavailable-action and invalid-target explanations.
@@ -29,6 +28,7 @@ Started in the current release-readiness branch:
 - Staged post-game truth reveal, showing the winning hand before the rest of the table.
 - Explicit reduced-animation setting in the Settings modal.
 - First-time practice flow tucked into main menu settings, creating a disposable private bot game.
+- Lightweight contextual coaching during practice for claims, challenges, blocks, influence loss, exchange decisions, and Coup timing.
 - Reformation quick-start guide covering faction markers, Convert, Embezzle, and Inquisitor.
 - Shareable post-game recap export from the final table state and full action log.
 - Host lobby moderation for removing players or spectators before start.
@@ -48,15 +48,11 @@ These are small enough to ship incrementally and have direct player value.
 
 ### Turn Clarity
 
-- Highlight who is expected to respond during challenge/block/influence-loss/exchange phases.
-- Show "waiting for..." names in the center prompt instead of only showing the phase.
-- Add disabled-action explanations in the action bar, especially for forced Coup, faction restrictions, and insufficient coins.
-- Show the exact block/challenge window countdown near the decision buttons.
-- Add a subtle "your turn" browser title change and notification sound variant.
+- Continue testing phase and action clarity with first-time players, especially around the difference between challenging a claim and blocking an action.
+- Tune contextual practice tips based on observed confusion rather than turning practice into a scripted walkthrough.
 
 ### Learning And Onboarding
 
-- Add a guided in-game coaching overlay for the first practice match.
 - Add a full Reformation walkthrough scenario that demonstrates a faction block, Convert, Embezzle, and Examine in sequence.
 
 ### Table Feel

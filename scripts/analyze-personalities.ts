@@ -273,8 +273,10 @@ function extractProfile(
         // Check if target is the coin leader
         const lastTurn = playerCards.get(turnCount - 1);
         if (lastTurn) {
-          const prevSot = events.findLast((e, idx) =>
-            idx < i && e.type === 'start_of_turn') as StartOfTurnEvent | undefined;
+          const prevSot = events
+            .slice(0, i)
+            .reverse()
+            .find((event): event is StartOfTurnEvent => event.type === 'start_of_turn');
           if (prevSot) {
             const maxCoins = Math.max(...prevSot.playerStates
               .filter((_, idx) => idx !== playerIndex - 1)

@@ -22,6 +22,7 @@ import { HowToPlay } from '../home/HowToPlay';
 import { ReactionBubble } from './ReactionBubble';
 import { ReactionPicker } from './ReactionPicker';
 import { SettingsModal } from '../settings/SettingsModal';
+import { PracticeCoach } from './PracticeCoach';
 import { useSoundEffects } from '../../hooks/useSoundEffects';
 import { useGameStore } from '../../stores/gameStore';
 import { haptic } from '../../utils/haptic';
@@ -50,6 +51,10 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
   const me = isSpectator ? undefined : gameState.players.find(p => p.id === gameState.myId);
   const opponents = isSpectator ? gameState.players : gameState.players.filter(p => p.id !== gameState.myId);
   const currentPlayerId = gameState.players[gameState.currentPlayerIndex]?.id;
+  const isMyActionTurn = !isSpectator
+    && me?.isAlive
+    && currentPlayerId === gameState.myId
+    && gameState.turnPhase === TurnPhase.AwaitingAction;
 
   // Determine which player should show the timer bar on their seat
   const timerPlayerId = gameState.influenceLossRequest?.playerId
@@ -180,8 +185,17 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
 
       {/* Phase status banner */}
       <div className="mb-3">
-        <PhaseStatus gameState={gameState} />
+        <PhaseStatus
+          key={`${gameState.turnNumber}-${gameState.turnPhase}-${gameState.pendingAction?.type ?? 'none'}-${gameState.pendingBlock?.claimedCharacter ?? 'none'}`}
+          gameState={gameState}
+        />
       </div>
+
+      {isPracticeRoom && !isSpectator && (
+        <div className="mb-3 shrink-0">
+          <PracticeCoach gameState={gameState} onOpenRules={() => setShowRules(true)} />
+        </div>
+      )}
 
       {/* Opponents */}
       <div className={`grid gap-2 mb-3 ${opponents.length <= 2 ? 'grid-cols-2' : opponents.length <= 4 ? 'grid-cols-2' : 'grid-cols-3'}`}>
@@ -230,12 +244,17 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
         <div className="relative mt-2">
           <ReactionBubble playerId={me.id} />
         <div className={`card-container !px-3 !py-2.5 ${!me.isAlive ? 'opacity-50' : 'border-coup-accent/30'} ${
+          isMyActionTurn ? 'turn-ready-ring' : ''
+        } ${
           me.faction === 'Loyalist' ? 'border-l-[3px] border-l-blue-400 bg-blue-500/[0.07]' :
           me.faction === 'Reformist' ? 'border-l-[3px] border-l-red-400 bg-red-500/[0.07]' : ''
         }`}>
           <div className="flex items-center justify-between mb-1.5">
             <span className="font-bold text-coup-accent text-sm lg:text-base flex items-center gap-1.5">
               Your Hand
+              {isMyActionTurn && (
+                <span className="your-move-chip">Your move</span>
+              )}
               {me.faction && (
                 <span className={`text-xs font-medium ${
                   me.faction === 'Loyalist' ? 'text-blue-300' : 'text-red-300'

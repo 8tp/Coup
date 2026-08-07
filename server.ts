@@ -23,6 +23,7 @@ const handle = app.getRequestHandler();
 app.prepare().then(() => {
   const server = express();
   const httpServer = createServer(server);
+  server.disable('x-powered-by');
 
   if (!dev && !process.env.CORS_ORIGIN) {
     console.warn('WARNING: CORS_ORIGIN is not set in production. Cross-origin requests will be rejected.');

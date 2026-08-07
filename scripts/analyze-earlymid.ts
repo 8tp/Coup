@@ -13,7 +13,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import { GameEngine } from '../src/engine/GameEngine';
 import { BotBrain, BotDecision } from '../src/engine/BotBrain';
 import { DecisionRecord } from '../src/shared/gameLogTypes';
@@ -151,7 +151,7 @@ function runGame(playerCount: number, personality: PersonalityParams): {
   const playerInfos: Array<{ id: string; name: string }> = [];
 
   for (let i = 0; i < playerCount; i++) {
-    const id = uuidv4();
+    const id = randomUUID();
     const name = BOT_NAMES[i % BOT_NAMES.length];
     bots.push({ id, name, personality, deckMemory: new Map(), lastProcessedLogLength: 0 });
     playerInfos.push({ id, name });

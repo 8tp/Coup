@@ -120,6 +120,7 @@ function HomeContent() {
   const handlePracticeBot = async () => {
     haptic(80);
     const practiceName = name.trim() || 'Player';
+    sessionStorage.removeItem('coup_practice_coach_hidden');
     setLoading(true);
     try {
       const result = await createRoom(practiceName, false);
