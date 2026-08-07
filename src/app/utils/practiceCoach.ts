@@ -1,5 +1,5 @@
 import { ACTION_DEFINITIONS, ACTION_DISPLAY_NAMES } from '@/shared/constants';
-import { ActionType, Character, ClientGameState, TurnPhase } from '@/shared/types';
+import { ActionType, Character, ClientGameState, GameMode, TurnPhase } from '@/shared/types';
 
 export type PracticeCoachTone = 'gold' | 'blue' | 'red' | 'green';
 
@@ -82,7 +82,9 @@ export function getPracticeCoachTip(gameState: ClientGameState): PracticeCoachTi
       id: 'challenge-claim',
       label: 'Read the claim',
       title: `Challenge means betting ${actor?.name ?? 'the bot'} is lying`,
-      body: `If they are truthful about ${claim}, you lose an influence. Passing is often smart; challenge when their story or the revealed cards make the claim unlikely.`,
+      body: pendingAction.type === ActionType.Embezzle
+        ? `Embezzle claims ${actor?.name ?? 'the bot'} does not hold Duke. Challenge only if you believe a Duke is in their hand; if none is found, you lose an influence.`
+        : `If they are truthful about ${claim}, you lose an influence. Passing is often smart; challenge when their story or the revealed cards make the claim unlikely.`,
       tone: 'blue',
     };
   }
@@ -130,6 +132,57 @@ export function getPracticeCoachTip(gameState: ClientGameState): PracticeCoachTi
           ? 'At 10 or more coins, Coup is mandatory. Pick the opponent whose remaining influence is the biggest threat.'
           : 'Seven coins buys certainty. You can Coup now, or keep building coins if the risk is worth it.',
         tone: 'red',
+      };
+    }
+
+    if (gameState.gameMode === GameMode.Reformation) {
+      const aliveFactions = new Set(
+        gameState.players
+          .filter(player => player.isAlive && player.faction)
+          .map(player => player.faction),
+      );
+
+      if (aliveFactions.size === 1) {
+        return {
+          id: 'reformation-free-for-all',
+          label: 'Faction reset',
+          title: 'One surviving faction means free-for-all targeting',
+          body: 'Coup, Assassinate, Steal, and Examine may target anyone again until another Convert splits the table.',
+          tone: 'blue',
+        };
+      }
+
+      if (gameState.turnNumber <= 2) {
+        return {
+          id: 'reformation-factions',
+          label: 'Read the table',
+          title: 'Target across faction lines',
+          body: 'Your faction marker controls Coup, Assassinate, Steal, and Examine targets. Challenges and blocks can still cross—or stay within—either faction.',
+          tone: 'blue',
+        };
+      }
+
+      if (gameState.treasuryReserve > 0) {
+        const holdsDuke = me.influences.some(influence => (
+          !influence.revealed && influence.character === Character.Duke
+        ));
+        return {
+          id: 'reformation-embezzle',
+          label: `${gameState.treasuryReserve} in reserve`,
+          title: 'Embezzle is an inverse Duke claim',
+          body: holdsDuke
+            ? 'Embezzle claims you do not have Duke—but your hidden Duke would make a challenge succeed. Bluff only if the reserve is worth that risk.'
+            : 'Embezzle claims you do not have Duke. If challenged, your current hand supports that claim; the challenger would lose an influence.',
+          tone: 'gold',
+        };
+      }
+
+      return {
+        id: 'reformation-convert',
+        label: 'Move the map',
+        title: 'Convert changes factions and seeds the reserve',
+        body: 'Pay 1 coin to switch yourself or 2 to switch another player. It cannot be challenged or blocked, and the cost becomes available to Embezzle later.',
+        tone: 'green',
       };
     }
 

@@ -28,7 +28,7 @@ Recent hardening on `main` has addressed the highest-risk findings from the prev
 
 ## Verification Snapshot
 
-- `npm test`: 584 tests passed across 22 files.
+- `npm test`: 588 tests passed across 22 files.
 - `npm run test:e2e`: all 15 socket browser-flow E2E tests passed.
 - `npm run typecheck`: app, custom server, tests, and maintenance scripts pass strict TypeScript checks.
 - `npm run build`: the production Next.js 16.3 build and server TypeScript build pass.

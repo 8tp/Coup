@@ -5,12 +5,13 @@ import { Modal } from '../ui/Modal';
 import { useGameStore } from '../../stores/gameStore';
 import { useSettingsStore, TextSize } from '../../stores/settingsStore';
 import { haptic } from '../../utils/haptic';
+import { GameMode } from '@/shared/types';
 
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
   onOpenTutorial?: () => void;
-  onPracticeBot?: () => void;
+  onPracticeBot?: (gameMode: GameMode) => void;
   practiceLoading?: boolean;
 }
 
@@ -123,13 +124,24 @@ export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, pr
                 </button>
               )}
               {onPracticeBot && (
-                <button
-                  className="w-full py-2.5 px-3 rounded-lg border border-gray-600 text-sm text-gray-300 hover:border-coup-accent hover:text-coup-accent transition text-center font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={() => { haptic(80); onClose(); onPracticeBot(); }}
-                  disabled={practiceLoading}
-                >
-                  {practiceLoading ? 'Starting Practice...' : 'Practice vs Bot'}
-                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    className="rounded-lg border border-gray-600 px-3 py-2.5 text-center text-sm font-medium text-gray-300 transition hover:border-coup-accent hover:text-coup-accent disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={() => { haptic(80); onClose(); onPracticeBot(GameMode.Classic); }}
+                    disabled={practiceLoading}
+                  >
+                    <span className="block">Classic</span>
+                    <span className="mt-0.5 block text-[10px] font-normal text-gray-500">Practice vs Bot</span>
+                  </button>
+                  <button
+                    className="rounded-lg border border-teal-600/70 px-3 py-2.5 text-center text-sm font-medium text-teal-300 transition hover:border-teal-400 hover:bg-teal-950/40 disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={() => { haptic(80); onClose(); onPracticeBot(GameMode.Reformation); }}
+                    disabled={practiceLoading}
+                  >
+                    <span className="block">Reformation</span>
+                    <span className="mt-0.5 block text-[10px] font-normal text-gray-500">Guided Bot Game</span>
+                  </button>
+                </div>
               )}
             </div>
           </div>

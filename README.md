@@ -35,7 +35,7 @@ Play Coup with 2–6 players from any device — no app install, no accounts. Cr
 - **Room codes** — 4-letter codes for easy sharing, no accounts required
 - **Public/private rooms** — browse public lobbies, join open games, or watch live games as a spectator
 - **QR sharing** — lobby share button opens a scannable room link
-- **Practice vs Bot** — first-time players can start a disposable private game against a conservative bot, with contextual coaching that explains claims, challenges, blocks, influence loss, and hand-building without prescribing every move
+- **Practice vs Bot** — first-time players can start a disposable Classic or Reformation game against a conservative bot, with contextual coaching for claims, challenges, blocks, factions, influence loss, and hand-building
 - **Computer players** — add 1–5 AI opponents with 7 personality types (Aggressive, Conservative, Vengeful, Deceptive, Analytical, Optimal, Random)
 - **Reconnection** — signed session tokens let players rejoin mid-game without losing their seat
 - **Host moderation** — hosts can remove lobby players or spectators before the game starts
@@ -60,7 +60,7 @@ Play Coup with 2–6 players from any device — no app install, no accounts. Cr
 - **Sound effects** — synthesized audio cues for game events (your turn, coup, challenges, etc.) with mute toggle
 - **Emoji reactions** — 12 reactions (GG, LOL, Nice bluff!, RIP, etc.) visible to all players. Bots fire context-aware reactions driven by per-bot personality traits (emotiveness and meanness)
 - **Phase status banner** — always shows what's happening and what you need to do
-- **Rules and Reformation guides** — built-in rules include a quick-start Reformation guide for factions, Convert, Embezzle, and Inquisitor
+- **Rules and Reformation guides** — built-in rules include an interactive Reformation scenario for faction targeting, Convert, Embezzle, and Inquisitor Examine
 - **Urgency-coded prompts** — red for threats (assassination), gold for decisions, gray for waiting
 - **Action log** — scrollable history of every action, challenge, and block
 - **Contextual game over screen** — winners and losers get personalized flavor text, staged winning-hand/table-truth reveal, recap cards, up to 4 awards, and copy/download recap export
@@ -262,7 +262,7 @@ Coup/
 | `npm run build` | Build for production |
 | `npm start` | Run production build |
 | `npm run typecheck` | Typecheck the app, custom server, and tests |
-| `npm test` | Run test suite (584 tests across 22 files) |
+| `npm test` | Run test suite (588 tests across 22 files) |
 | `npm run test:e2e` | Run socket browser-flow E2E tests |
 | `npm run test:watch` | Run tests in watch mode |
 
