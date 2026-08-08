@@ -987,6 +987,7 @@ describe('BotBrain', () => {
       let aggChallenges = 0;
       let conChallenges = 0;
       const trials = 500;
+      const randomSpy = vi.spyOn(Math, 'random').mockImplementation(seededRandom(0xC0A9));
 
       for (let i = 0; i < trials; i++) {
         const aggResult = decide(game, 'p2', BOT_PERSONALITIES.aggressive, {
@@ -999,6 +1000,7 @@ describe('BotBrain', () => {
         });
         if (conResult?.type === 'challenge') conChallenges++;
       }
+      randomSpy.mockRestore();
 
       // Aggressive should challenge more than conservative
       expect(aggChallenges).toBeGreaterThan(conChallenges);
