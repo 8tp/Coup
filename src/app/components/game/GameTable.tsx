@@ -142,8 +142,8 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
           <button
             onClick={() => { haptic(); setMuted(!isMuted); }}
             className="w-9 h-9 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition text-xs flex items-center justify-center"
-            title={isMuted ? 'Unmute sounds' : 'Mute sounds'}
-            aria-label={isMuted ? 'Unmute sounds' : 'Mute sounds'}
+            title={isMuted ? 'Unmute sound effects' : 'Mute sound effects'}
+            aria-label={isMuted ? 'Unmute sound effects' : 'Mute sound effects'}
             aria-pressed={isMuted}
           >
             {isMuted ? '🔇' : '🔊'}

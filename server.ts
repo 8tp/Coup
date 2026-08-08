@@ -55,7 +55,7 @@ app.prepare().then(() => {
   server.use(express.static('public', {
     fallthrough: true,
     setHeaders: (res, filePath) => {
-      if (/\.(?:ico|png|svg|webp)$/i.test(filePath)) {
+      if (/\.(?:ico|mp3|png|svg|webp)$/i.test(filePath)) {
         res.setHeader(
           'Cache-Control',
           dev ? 'public, max-age=0' : 'public, max-age=86400, stale-while-revalidate=604800',

@@ -5,6 +5,9 @@ import { create } from 'zustand';
 export type TextSize = 'normal' | 'large' | 'xl';
 
 interface SettingsStore {
+  musicEnabled: boolean;
+  setMusicEnabled: (enabled: boolean) => void;
+
   hapticEnabled: boolean;
   setHapticEnabled: (enabled: boolean) => void;
 
@@ -29,6 +32,20 @@ function applyReducedMotionClass(enabled: boolean): void {
 }
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
+  musicEnabled:
+    typeof window === 'undefined'
+      ? true
+      : localStorage.getItem('coup_music_enabled') !== 'false',
+  setMusicEnabled: (enabled) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('coup_music_enabled', String(enabled));
+    }
+    import('../audio/SoundEngine').then(({ getSoundEngine }) => {
+      getSoundEngine().setMusicEnabled(enabled);
+    });
+    set({ musicEnabled: enabled });
+  },
+
   hapticEnabled:
     typeof window === 'undefined'
       ? true

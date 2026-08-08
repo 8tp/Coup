@@ -21,6 +21,9 @@ const ASSET_URLS = [
   '/assets/cards/focus/ambassador-v3.webp',
   '/assets/cards/focus/contessa-v3.webp',
   '/assets/cards/focus/inquisitor-v3.webp',
+  '/audio/velvet-court.mp3',
+  '/audio/court-crowned.mp3',
+  '/audio/plot-unraveled.mp3',
 ];
 
 self.addEventListener('install', event => {
@@ -46,7 +49,7 @@ self.addEventListener('fetch', event => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-  if (!url.pathname.startsWith('/assets/') && !url.pathname.startsWith('/icons/') && !url.pathname.startsWith('/apple-touch-icon')) return;
+  if (!url.pathname.startsWith('/assets/') && !url.pathname.startsWith('/audio/') && !url.pathname.startsWith('/icons/') && !url.pathname.startsWith('/apple-touch-icon')) return;
 
   event.respondWith(
     caches.match(request).then(cached => {
