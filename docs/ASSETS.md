@@ -6,9 +6,9 @@ This app should use generated raster assets where they add mood, identity, or ca
 
 - **Home title banner** -- The first screen benefits from a branded raster masthead instead of plain SVG text. Current asset: `public/assets/brand/coup-online-banner-v2.webp`.
 - **Influence card faces** -- Character portraits make known and revealed cards feel like real influence cards. Current UI assets: `public/assets/cards/{duke,assassin,captain,ambassador,contessa,inquisitor}-v3.webp`.
-- **Small-card close crops** -- Tiny mobile cards should use face/prop-forward crops instead of the full portrait composition. Current UI assets: `public/assets/cards/focus/{duke,assassin,captain,ambassador,contessa,inquisitor}-v3.webp`.
+- **Small-card close crops** -- Tiny mobile cards should use face/prop-forward crops instead of the full portrait composition. Duke, Assassin, Captain, and Inquisitor use v3 focus assets; Ambassador and Contessa use the refined v4 focus crops.
 - **Influence card back** -- Hidden cards need one recognizable card-back treatment. Current assets: `public/assets/cards/back-v2.webp` and `public/assets/cards/focus/back-v2.webp`.
-- **Game table backgrounds** -- The shared app background can use subtle raster tabletops because they add atmosphere without carrying gameplay state. Current assets: `public/assets/backgrounds/game-table-v2.webp` and `public/assets/backgrounds/game-table-mobile-v2.webp`.
+- **Game table backgrounds** -- The shared app background can use subtle raster tabletops because they add atmosphere without carrying gameplay state. Current assets: `public/assets/backgrounds/game-table-v2.webp` and `public/assets/backgrounds/game-table-mobile-v2.webp`; responsive CSS fading layers mute their contrast behind the UI.
 - **App/project icon** -- Home-screen/PWA icons need a strong raster emblem that reads at 16-512 px. The 1024 px master is `public/assets/brand/app-icon-v2.png`; versioned PWA, Apple touch, maskable, and favicon derivatives live under `public/icons/` and `public/`.
 - **Social/share imagery** -- Open Graph, README screenshots, and store/promotional surfaces can use composed raster art because they are not interactive controls. Current assets: `public/og-image-v3.png` and `public/embed-image-v3.png`.
 
@@ -107,8 +107,8 @@ Each source was a 1792×2688 four-up grid. The approved 896×1344 quadrant was e
 | Duke | `0bfa152b…`, top-left | `120, 0, 720, 1080` | Plum and antique gold; silver-haired corporate ruler at an obsidian council dais |
 | Assassin | `ae7ca449…`, top-left | `32, 0, 832, 1248` | Slate and electric blue; female operative with a blunt fringe and sculptural platinum ponytail |
 | Captain | `879c6c0f…`, top-left | `64, 0, 768, 1152` | Cobalt and brass; naval commander over a tactical display |
-| Ambassador | `22544db9…`, bottom-right | `128, 0, 768, 1152` | Chartreuse and amber; diplomat with a translation visor in an embassy concourse |
-| Contessa | `c4aeb41c…`, top-left | `64, 0, 768, 1152` | Crimson and gold; aristocratic protector with a strong heraldic silhouette |
+| Ambassador | `22544db9…`, bottom-right | `128, 0, 640, 960` | Chartreuse and amber; diplomat with a translation visor in an embassy concourse |
+| Contessa | `c4aeb41c…`, top-left | `16, 0, 864, 1296` | Crimson and gold; aristocratic protector with a strong heraldic silhouette |
 | Inquisitor | `e450c4c8…`, top-left | `64, 0, 768, 1152` | Deep teal and pale cyan; watchful investigator with an optical device |
 
 The prompt structure kept the renderer, era, finish, and framing consistent while varying each role's casting, silhouette, location, palette, and readable prop:
@@ -130,7 +130,7 @@ Role prompts should describe the character rather than name an existing actor or
 
 1. Download the original Midjourney grid, not an HD reinterpretation, so the approved variation remains exact.
 2. Crop the selected quadrant losslessly at 896×1344.
-3. Create the full asset by scaling the quadrant to 512×768 and encode it as WebP at quality 84.
+3. Create the full asset by scaling the quadrant to 512×768 and encode it as WebP at quality 86.
 4. Create a separate 2:3 focus crop around the face and role prop, then scale and encode it with the same settings. Leave extra vertical safety for the UI's `object-cover` card containers.
 5. Update both maps in `src/app/utils/assets.ts`, the service-worker precache list, README thumbnails, social previews, and this document.
 6. Bump versioned filenames and `CACHE_NAME` in `public/sw.js` together so installed clients do not retain the previous portraits.

@@ -201,7 +201,7 @@ function HomeContent() {
       />
 
       <div className="max-w-xs sm:max-w-sm lg:max-w-md w-full text-center relative">
-        <CoupLogo className="w-64 lg:w-72 h-auto mx-auto mb-2" />
+        <CoupLogo className="brand-wordmark w-64 lg:w-72 h-auto mx-auto mb-2" />
         <p className="text-gray-400 mb-1 text-sm">The classic bluffing game</p>
         <p className="text-gray-500 text-xs mb-6">
           {playersOnline} player{playersOnline !== 1 ? 's' : ''} online · {gamesInProgress} game{gamesInProgress !== 1 ? 's' : ''} in progress
