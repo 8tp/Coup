@@ -57,6 +57,19 @@ export function getPracticeCoachTip(gameState: ClientGameState): PracticeCoachTi
     };
   }
 
+  if (
+    turnPhase === TurnPhase.AwaitingExamineSelection
+    && gameState.examineSelectionState?.targetId === myId
+  ) {
+    return {
+      id: 'examine-selection',
+      label: 'Your information choice',
+      title: 'You choose which card the Inquisitor sees',
+      body: 'Present the influence you can best afford to have returned or forced out of your hand. Only the examiner learns what it is.',
+      tone: 'green',
+    };
+  }
+
   if (turnPhase === TurnPhase.AwaitingExamineDecision && gameState.examineState) {
     return {
       id: 'examine-decision',
@@ -157,7 +170,7 @@ export function getPracticeCoachTip(gameState: ClientGameState): PracticeCoachTi
           id: 'reformation-factions',
           label: 'Read the table',
           title: 'Target across faction lines',
-          body: 'Your faction marker controls Coup, Assassinate, Steal, and Examine targets. Challenges and blocks can still cross—or stay within—either faction.',
+          body: 'Your faction marker controls Coup, Assassinate, Steal, and Examine targets. Challenges ignore factions; Foreign Aid may only be blocked across faction lines while both factions remain.',
           tone: 'blue',
         };
       }

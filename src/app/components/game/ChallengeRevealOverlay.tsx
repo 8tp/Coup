@@ -78,25 +78,31 @@ export function ChallengeRevealOverlay() {
 
   const { challengerName, challengedName, character, wasGenuine } = challengeReveal;
   const showReplacement = wasGenuine && challengeReveal.replacementDrawn !== false;
-  const cardStyle = characterColors[character];
+  const inverseClaim = challengeReveal.inverseClaim === true;
+  const revealedCharacters = challengeReveal.revealedCharacters ?? [character];
+  const showCardFaces = wasGenuine || inverseClaim;
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 animate-fade-in">
       <div className="flex flex-col items-center gap-4">
         {/* Card */}
-        {wasGenuine ? (
-          <div
-            className={`
-              card-reveal-face relative w-28 h-40 overflow-hidden rounded-xl border-2 shadow-2xl
-              ${cardStyle}
-              ${phase === 'reveal' ? 'animate-challenge-card-in' : ''}
-              ${phase === 'card-to-deck' ? 'animate-challenge-card-out' : ''}
-              ${phase === 'new-card' ? 'hidden' : ''}
-            `}
-          >
-            <CardArtwork character={character} variant="focus" priority />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/25" />
-            <CharacterCardBadge character={character} />
+        {showCardFaces ? (
+          <div className={`flex gap-3 ${phase === 'new-card' ? 'hidden' : ''}`}>
+            {revealedCharacters.map((revealedCharacter, index) => (
+              <div
+                key={`${revealedCharacter}-${index}`}
+                className={`
+                  card-reveal-face relative h-40 w-28 overflow-hidden rounded-xl border-2 shadow-2xl
+                  ${characterColors[revealedCharacter]}
+                  ${phase === 'reveal' ? 'animate-challenge-card-in' : ''}
+                  ${phase === 'card-to-deck' ? 'animate-challenge-card-out' : ''}
+                `}
+              >
+                <CardArtwork character={revealedCharacter} variant="focus" priority />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/25" />
+                <CharacterCardBadge character={revealedCharacter} />
+              </div>
+            ))}
           </div>
         ) : (
           <div
@@ -113,10 +119,14 @@ export function ChallengeRevealOverlay() {
 
         {/* New card from deck (phase 3) */}
         {phase === 'new-card' && showReplacement && (
-          <div className="relative w-28 h-40 overflow-hidden rounded-xl border-2 border-gray-600 bg-coup-surface shadow-2xl animate-card-from-deck">
-            <CardBackArtwork variant="focus" priority />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10" />
-            <span className="sr-only">New hidden influence</span>
+          <div className="flex gap-3">
+            {revealedCharacters.map((_, index) => (
+              <div key={index} className="relative h-40 w-28 overflow-hidden rounded-xl border-2 border-gray-600 bg-coup-surface shadow-2xl animate-card-from-deck">
+                <CardBackArtwork variant="focus" priority />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10" />
+                <span className="sr-only">New hidden influence</span>
+              </div>
+            ))}
           </div>
         )}
 
@@ -125,7 +135,11 @@ export function ChallengeRevealOverlay() {
           {phase === 'reveal' && (
             <>
               <p className="text-white text-lg font-bold">
-                {wasGenuine
+                {inverseClaim && wasGenuine
+                  ? <>{challengedName} shows every card: <span className="text-coup-accent">no Duke</span>!</>
+                  : inverseClaim
+                    ? <>{challengedName} reveals <span className="text-coup-accent">Duke</span>!</>
+                    : wasGenuine
                   ? <>{challengedName} reveals <span className="text-coup-accent">{character}</span>!</>
                   : <>{challengedName} does not have <span className="text-coup-accent">{character}</span>!</>
                 }
@@ -142,12 +156,12 @@ export function ChallengeRevealOverlay() {
           )}
           {phase === 'card-to-deck' && (
             <p className="text-gray-400 text-sm animate-fade-in">
-              Card returned to the deck...
+              {revealedCharacters.length > 1 ? 'Shown cards returned to the deck...' : 'Card returned to the deck...'}
             </p>
           )}
           {phase === 'new-card' && (
             <p className="text-gray-400 text-sm animate-fade-in">
-              New card drawn from the deck.
+              {revealedCharacters.length > 1 ? 'Replacement cards drawn from the deck.' : 'New card drawn from the deck.'}
             </p>
           )}
         </div>

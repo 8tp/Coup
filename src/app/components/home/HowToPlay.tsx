@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState, type RefObject } from 'react';
 import { Character } from '@/shared/types';
 import { CHARACTER_DESCRIPTIONS } from '@/shared/constants';
 import { Modal } from '../ui/Modal';
@@ -28,6 +28,12 @@ interface HowToPlayProps {
 export function HowToPlay({ open, onClose }: HowToPlayProps) {
   const [activeTab, setActiveTab] = useState<Tab>('Overview');
   const [showReformationTutorial, setShowReformationTutorial] = useState(false);
+  const walkthroughTriggerRef = useRef<HTMLButtonElement>(null);
+
+  const closeReformationTutorial = () => {
+    setShowReformationTutorial(false);
+    requestAnimationFrame(() => walkthroughTriggerRef.current?.focus());
+  };
 
   return (
     <>
@@ -61,12 +67,15 @@ export function HowToPlay({ open, onClose }: HowToPlayProps) {
         {activeTab === 'Characters' && <CharactersTab />}
         {activeTab === 'Actions & Rules' && <RulesTab />}
         {activeTab === 'Reformation' && (
-          <ReformationTab onOpenWalkthrough={() => setShowReformationTutorial(true)} />
+          <ReformationTab
+            walkthroughTriggerRef={walkthroughTriggerRef}
+            onOpenWalkthrough={() => setShowReformationTutorial(true)}
+          />
         )}
       </Modal>
       <ReformationTutorial
         open={showReformationTutorial}
-        onClose={() => setShowReformationTutorial(false)}
+        onClose={closeReformationTutorial}
       />
     </>
   );
@@ -263,7 +272,13 @@ function RulesTab() {
   );
 }
 
-function ReformationTab({ onOpenWalkthrough }: { onOpenWalkthrough: () => void }) {
+function ReformationTab({
+  onOpenWalkthrough,
+  walkthroughTriggerRef,
+}: {
+  onOpenWalkthrough: () => void;
+  walkthroughTriggerRef: RefObject<HTMLButtonElement | null>;
+}) {
   return (
     <div className="space-y-5 text-sm">
       <div>
@@ -284,6 +299,7 @@ function ReformationTab({ onOpenWalkthrough }: { onOpenWalkthrough: () => void }
           <li>If Inquisitor is enabled, Exchange is smaller but Examine gives direct information.</li>
         </ol>
         <button
+          ref={walkthroughTriggerRef}
           type="button"
           className="mt-3 w-full rounded-lg border border-coup-accent/50 bg-coup-bg/50 px-3 py-2 text-sm font-bold text-coup-accent transition hover:bg-coup-accent/10"
           onClick={() => { haptic(80); onOpenWalkthrough(); }}
@@ -300,6 +316,7 @@ function ReformationTab({ onOpenWalkthrough }: { onOpenWalkthrough: () => void }
           <span className="text-white font-medium">cannot target</span> players in your own faction with
           Coup, Assassinate, Steal, or Examine. If all surviving players share the same faction,
           this restriction is lifted.
+          While both factions remain, Foreign Aid may only be blocked by a player from the opposing faction.
         </p>
       </div>
 
@@ -318,8 +335,8 @@ function ReformationTab({ onOpenWalkthrough }: { onOpenWalkthrough: () => void }
             if you actually <em>do</em> have a Duke.
           </div>
           <div>
-            <span className="text-teal-300 font-medium">Examine</span> &mdash; Look at one of a
-            target&apos;s face-down cards (claims Inquisitor). You can then force them to swap it
+            <span className="text-teal-300 font-medium">Examine</span> &mdash; The target chooses one of their
+            face-down cards for you to inspect (claims Inquisitor). You can then force them to swap it
             for a random card from the deck, or return it unchanged.
           </div>
         </div>

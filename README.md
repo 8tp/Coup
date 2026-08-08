@@ -145,13 +145,13 @@ Bots make decisions with realistic randomized delays (1.5–3.5s for actions, 0.
 
 The host can enable Reformation mode in the lobby settings. This adds factions, new actions, and the Inquisitor character.
 
-**Factions** — Players are assigned to Loyalists (blue) or Reformists (red). You cannot target same-faction players with Coup, Assassinate, Steal, or Examine. Challenges and blocks are unrestricted. When all surviving players share a faction, restrictions lift.
+**Factions** — Players are assigned to Loyalists (blue) or Reformists (red). You cannot target same-faction players with Coup, Assassinate, Steal, or Examine, and Foreign Aid can only be blocked across faction lines. Challenges are unrestricted. When all surviving players share a faction, restrictions lift.
 
 | Action | Cost | Effect |
 |--------|------|--------|
 | **Convert** | 1 (self) / 2 (other) | Switch a player's faction. Coins go to Treasury Reserve |
-| **Embezzle** | 0 | Take all coins from the Treasury Reserve. Inverse challenge: challenger wins if you DO have Duke |
-| **Examine** | 0 | Look at an opponent's card (claim Inquisitor). Force swap it or return it |
+| **Embezzle** | 0 | Take all coins from the Treasury Reserve. Inverse challenge: challenger wins if you DO have Duke; a defended hand is shown and replaced |
+| **Examine** | 0 | Target chooses a card for the Inquisitor to inspect. Force swap it or return it |
 
 ### Core Mechanics
 
@@ -186,7 +186,8 @@ AwaitingAction
   │   └─> AwaitingActionChallenge
   │         ├─ Challenge ──> resolve
   │         └─ All Pass ──> AwaitingBlock (if blockable)
-  │                          or AwaitingExamineDecision (Examine)
+  │                          or AwaitingExamineSelection (Examine target chooses)
+  │                               └─> AwaitingExamineDecision
   │                          or resolve
   └─ ForeignAid
       └─> AwaitingBlock

@@ -314,6 +314,50 @@ describe('browser socket E2E flow', () => {
     expect(state.players.every(player => player.faction)).toBe(true);
   });
 
+  it('atomically creates the complete three-player Reformation practice table', async () => {
+    const host = await connectClient();
+    const createResponse = await emitAck<RoomResponse>(host, 'room:create', { playerName: 'Practice Player' });
+    const roomCode = createResponse.roomCode!;
+    const room = roomManager.getRoom(roomCode)!;
+
+    const settingsResponse = await emitAck<{ success: boolean; error?: string }>(
+      host,
+      'room:update_settings',
+      { settings: { ...room.settings, gameMode: GameMode.Reformation, useInquisitor: true } },
+    );
+    expect(settingsResponse.success).toBe(true);
+
+    const botsResponse = await emitAck<{ success: boolean; botIds?: string[]; error?: string }>(
+      host,
+      'bot:add_many',
+      {
+        bots: [
+          { name: 'Tutor Bot', personality: 'conservative' },
+          { name: 'Morgan Bot', personality: 'analytical' },
+        ],
+      },
+    );
+    expect(botsResponse).toMatchObject({ success: true });
+    expect(botsResponse.botIds).toHaveLength(2);
+    expect(roomManager.getRoom(roomCode)?.players.map(player => player.name)).toEqual([
+      'Practice Player',
+      'Tutor Bot',
+      'Morgan Bot',
+    ]);
+
+    const practiceState = waitForState(
+      host,
+      state => state.status === GameStatus.InProgress && state.players.length === 3,
+      'three-player Reformation practice start',
+    );
+    host.emit('game:start');
+    const state = await practiceState;
+
+    expect(state.gameMode).toBe(GameMode.Reformation);
+    expect(state.useInquisitor).toBe(true);
+    expect(new Set(state.players.map(player => player.faction)).size).toBe(2);
+  });
+
   it('rejects non-host rematch requests', async () => {
     const host = await connectClient();
     const guest = await connectClient();
@@ -591,6 +635,7 @@ describe('browser socket E2E flow', () => {
       ['room:remove_spectator', { spectatorId: 'nope' }],
       ['room:update_settings', { settings: { ...room.settings, isPublic: true } }],
       ['bot:add', { name: 'Bot One', personality: 'optimal' }],
+      ['bot:add_many', { bots: [{ name: 'Bot One', personality: 'optimal' }] }],
       ['bot:remove', { botId: 'nope' }],
     ];
     for (const [event, data] of payloads) {
@@ -627,6 +672,8 @@ describe('browser socket E2E flow', () => {
       ['room:update_settings', { settings: 'nope' }, 'Invalid settings'],
       ['bot:add', undefined, 'Invalid bot data'],
       ['bot:add', { name: 'Bot', personality: 5 }, 'Invalid bot data'],
+      ['bot:add_many', undefined, 'Invalid bot data'],
+      ['bot:add_many', { bots: 'nope' }, 'Invalid bot data'],
       ['bot:remove', undefined, 'Invalid bot'],
     ];
     for (const [event, data, expectedError] of hostCases) {

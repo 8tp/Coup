@@ -36,6 +36,7 @@ function executeDecision(engine: GameEngine, botId: string, decision: BotDecisio
     case 'pass_challenge_block': return engine.handlePassChallengeBlock(botId);
     case 'choose_influence_loss': return engine.handleChooseInfluenceLoss(botId, decision.influenceIndex);
     case 'choose_exchange': return engine.handleChooseExchange(botId, decision.keepIndices);
+    case 'choose_examine_influence': return engine.handleChooseExamineInfluence(botId, decision.influenceIndex);
     case 'examine_decision': return engine.handleExamineDecision(botId, decision.forceSwap);
     case 'convert': return engine.handleConvert(botId, decision.targetId);
     default: return 'Unknown';
@@ -71,6 +72,7 @@ function runGame(playerCount: number): GameEngine | null {
         state.influenceLossRequest, state.exchangeState,
         state.blockPassedPlayerIds, deckMemories[botId],
         state.examineState ?? undefined,
+        state.examineSelectionState ?? undefined,
       );
       if (!decision) continue;
       if (!executeDecision(engine, botId, decision)) { acted = true; break; }

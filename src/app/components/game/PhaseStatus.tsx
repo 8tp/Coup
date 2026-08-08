@@ -1,6 +1,6 @@
 'use client';
 
-import { ClientGameState, TurnPhase } from '@/shared/types';
+import { ActionType, ClientGameState, GameMode, TurnPhase } from '@/shared/types';
 import { ACTION_DISPLAY_NAMES } from '@/shared/constants';
 
 interface PhaseStatusProps {
@@ -34,8 +34,24 @@ function remainingBlockNames(gameState: ClientGameState): string[] {
     return target ? [target.name] : [];
   }
 
+  const actor = gameState.players.find(player => player.id === pendingAction.actorId);
+  const aliveFactions = new Set(
+    gameState.players.filter(player => player.isAlive && player.faction).map(player => player.faction),
+  );
+
   return gameState.players
-    .filter(p => p.isAlive && !passed.has(p.id))
+    .filter(p => {
+      if (!p.isAlive || passed.has(p.id)) return false;
+      if (
+        pendingAction.type === ActionType.ForeignAid &&
+        gameState.gameMode === GameMode.Reformation &&
+        aliveFactions.size > 1 &&
+        p.faction === actor?.faction
+      ) {
+        return false;
+      }
+      return true;
+    })
     .map(p => p.name);
 }
 
@@ -110,6 +126,18 @@ export function PhaseStatus({ gameState }: PhaseStatusProps) {
         color = 'bg-red-900/40 text-red-300 border border-red-600/50';
       } else {
         text = `${loser?.name} is choosing an influence to lose`;
+      }
+      break;
+    }
+
+    case TurnPhase.AwaitingExamineSelection: {
+      const target = gameState.players.find(p => p.id === gameState.examineSelectionState?.targetId);
+      const examiner = gameState.players.find(p => p.id === gameState.examineSelectionState?.examinerId);
+      if (target?.id === myId) {
+        text = `Choose a card to show ${examiner?.name ?? 'the Inquisitor'}`;
+        color = 'bg-teal-900/40 text-teal-300 border border-teal-600/50';
+      } else {
+        text = `${target?.name ?? 'The target'} is choosing a card for ${examiner?.name ?? 'the Inquisitor'} to examine`;
       }
       break;
     }

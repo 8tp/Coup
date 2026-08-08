@@ -3,8 +3,6 @@
 **Status:** Implemented in the current `dev` branch for 2-6 player rooms. This document is retained as architecture notes and follow-up tracking, not as an unstarted plan.
 
 **Implemented deviations / remaining follow-ups:**
-- Faction restrictions apply to targeted hostile actions (`Coup`, `Assassinate`, `Steal`, `Examine`), not to Foreign Aid blocks.
-- Inquisitor `Examine` currently selects one hidden target card server-side when the target has two hidden cards. The physical expansion has the target choose which card is examined; matching that exactly would require an additional target-choice prompt/phase.
 - 7-10 player Reformation deck scaling remains future work.
 
 ## Rules Summary
@@ -13,6 +11,7 @@
 - Each player is either **Loyalist** or **Reformist** (alternating at game start, randomized starting faction)
 - **Targeting restriction**: You CANNOT Coup, Assassinate, Steal, or Examine a player on your **same** faction
 - You **CAN** always challenge anyone regardless of faction
+- While both factions remain, you can only block Foreign Aid for a player on the **opposing** faction
 - When **all remaining players share the same faction**, restrictions lift -- free-for-all resumes
 
 ### Conversion (new general action, no character claim)
@@ -25,11 +24,12 @@
 - Take **all coins** from the Treasury Reserve
 - Can only be done by a player who does **NOT** have Duke
 - Challengeable -- if challenged and player **has** Duke, they lose (they lied about not having Duke); if they truly don't have Duke, challenger loses
+- A truthful challenged player shows every hidden influence, returns those cards to the deck, and draws replacements
 - This is an **inverse challenge** -- the opposite of normal (you prove you DON'T have a card)
 
 ### Inquisitor (replaces Ambassador, optional)
 - **Exchange**: Draw **1 card** from deck (not 2 like Ambassador), choose whether to swap with one of your hidden cards, return 1 card to deck
-- **Examine**: Look at one of an opponent's face-down cards. Either return it, OR force them to draw a new card from deck and return the examined card to deck. Cannot examine same-faction unless all same faction.
+- **Examine**: The target chooses one face-down card for the Inquisitor to inspect. The Inquisitor either returns it, OR forces them to draw a new card from deck and return the examined card to deck. Cannot examine same-faction unless all same faction.
 - **Blocks Stealing** (same as Ambassador)
 - Replaces Ambassador entirely -- Ambassador cards removed from deck, Inquisitor cards added
 
@@ -85,7 +85,7 @@
 - Add `declareAction` handling for Convert, Embezzle, Examine
 - Add faction validation (reject same-faction targeting)
 - Add Embezzlement inverse-challenge flow
-- Add Examine phase flow (new `TurnPhase.AwaitingExamineDecision`)
+- Add Examine phase flow (`TurnPhase.AwaitingExamineSelection` then `TurnPhase.AwaitingExamineDecision`)
 - Modify Exchange to draw 1 card when Inquisitor mode
 - Add `resolveExamine()` method
 
@@ -107,18 +107,20 @@
 
 | Phase | Purpose |
 |-------|---------|
+| `AwaitingExamineSelection` | Examine target chooses which hidden card to present |
 | `AwaitingExamineDecision` | After Inquisitor sees opponent's card -- choose return or force-swap |
 
 Examine flow:
 1. Player declares Examine -> `AwaitingActionChallenge`
-2. If unchallenged -> server reveals one of target's cards to the Inquisitor only
-3. `AwaitingExamineDecision` -- Inquisitor decides: return card or force swap
-4. -> `ActionResolved`
+2. If unchallenged -> `AwaitingExamineSelection` -- target chooses one hidden card
+3. The selected card is revealed to the Inquisitor only
+4. `AwaitingExamineDecision` -- Inquisitor decides: return card or force swap
+5. -> `ActionResolved`
 
 ### Phase 4: Server (`src/server/`)
 
 **SocketHandler.ts:**
-- Add handlers for `game:convert`, `game:embezzle`, `game:examine_decision`
+- Add handlers for `game:convert`, `game:embezzle`, `game:choose_examine_influence`, `game:examine_decision`
 - Add faction validation on all targeted actions
 
 **StateSerializer.ts:**
@@ -137,6 +139,7 @@ Examine flow:
 - `InquisitorIcon.tsx` -- SVG icon (eye/magnifying glass theme, teal)
 - `FactionBadge.tsx` -- Small colored badge for Loyalist (blue) / Reformist (red)
 - `TreasuryReserve.tsx` -- Central coin pool display for Almshouse coins
+- `ExamineSelectionPrompt.tsx` -- Target chooses which hidden card to present
 - `ExaminePrompt.tsx` -- Inquisitor sees target's card, chooses Return or Force Swap
 - `ConvertPrompt.tsx` -- Choose self-convert or target-convert (if Reformation mode)
 

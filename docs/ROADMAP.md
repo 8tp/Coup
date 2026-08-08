@@ -88,7 +88,6 @@ These are useful, but they have broader design or infrastructure implications.
 - Public room directory filters for mode, player count, and spectators allowed.
 - Custom rule presets: timers, starting coins, bots allowed, open spectators, and Reformation options.
 - Friendlier bot-fill flow when a human disconnects mid-game.
-- Inquisitor Examine rule parity where the target chooses which card is examined.
 - 7-10 player Reformation support with the larger deck composition.
 
 ## Technical Follow-Ups

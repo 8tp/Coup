@@ -49,6 +49,7 @@ export function ReformationTutorial({ open, onClose }: ReformationTutorialProps)
   const [examined, setExamined] = useState(false);
   const [examineDecision, setExamineDecision] = useState<'return' | 'swap' | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -66,7 +67,32 @@ export function ReformationTutorial({ open, onClose }: ReformationTutorialProps)
   useEffect(() => {
     if (!open) return;
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+
+      const focusable = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ) ?? []);
+      if (focusable.length === 0) {
+        event.preventDefault();
+        headingRef.current?.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      const activeIndex = focusable.indexOf(active as HTMLElement);
+      if (event.shiftKey && activeIndex <= 0) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (activeIndex === -1 || active === last)) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -87,7 +113,8 @@ export function ReformationTutorial({ open, onClose }: ReformationTutorialProps)
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex flex-col bg-coup-bg"
+      ref={dialogRef}
+      className="reformation-tutorial fixed inset-0 z-[70] flex flex-col bg-coup-bg"
       role="dialog"
       aria-modal="true"
       aria-labelledby="reformation-tutorial-title"
@@ -130,8 +157,9 @@ export function ReformationTutorial({ open, onClose }: ReformationTutorialProps)
             ref={headingRef}
             tabIndex={-1}
             className="sr-only"
+            aria-live="polite"
           >
-            Reformation guided walkthrough
+            Reformation walkthrough: {STEP_LABELS[step]}
           </h2>
 
           {step === 0 && <FactionsStep />}
@@ -183,7 +211,7 @@ function FactionsStep() {
     <div className="text-center">
       <h3 className="mb-2 text-2xl font-bold text-white">Read the table by faction</h3>
       <p className="mb-6 text-sm text-gray-400">
-        Targeted actions normally cross faction lines. Challenges and blocks still ignore factions.
+        Targeted actions normally cross faction lines. Challenges ignore factions; Foreign Aid blocks must cross faction lines too.
       </p>
 
       <div className="grid grid-cols-3 gap-2">
@@ -276,8 +304,8 @@ function EmbezzleStep({ resolved, onEmbezzle }: { resolved: boolean; onEmbezzle:
         </div>
 
         <div className="mb-4 flex justify-center gap-3">
-          <MiniCard character={Character.Captain} />
-          <MiniCard character={Character.Inquisitor} />
+          <MiniCard character={Character.Captain} hidden={resolved} />
+          <MiniCard character={Character.Inquisitor} hidden={resolved} />
         </div>
 
         {!resolved ? (
@@ -290,7 +318,8 @@ function EmbezzleStep({ resolved, onEmbezzle }: { resolved: boolean; onEmbezzle:
           </button>
         ) : (
           <div className="rounded-lg border border-green-500/40 bg-green-950/40 p-3 text-sm text-green-200 animate-fade-in">
-            Tutor Bot challenged, but your hand has no Duke. The challenge fails and you collect all 4 reserve coins.
+            Tutor Bot challenged, but your hand has no Duke. The challenge fails, both shown cards are replaced,
+            and you collect all 4 reserve coins.
           </div>
         )}
       </div>
@@ -313,7 +342,7 @@ function ExamineStep({
     <div className="text-center">
       <h3 className="mb-2 text-2xl font-bold text-white">Inquisitor turns information into pressure</h3>
       <p className="mb-5 text-sm text-gray-400">
-        Examine claims Inquisitor. After challenges resolve, inspect one hidden card and decide what happens to it.
+        Examine claims Inquisitor. After challenges resolve, the target chooses which hidden card to show you.
       </p>
 
       <div className="rounded-xl border border-teal-500/40 bg-teal-950/20 p-4">
@@ -331,11 +360,11 @@ function ExamineStep({
             className="w-full rounded-xl border-2 border-teal-500 bg-teal-950/60 py-3 text-sm font-bold text-teal-200 transition hover:bg-teal-900/60"
             onClick={onExamine}
           >
-            Examine Tutor Bot
+            Ask Tutor Bot to choose a card
           </button>
         ) : decision === null ? (
           <div className="animate-fade-in">
-            <p className="mb-3 text-sm text-gray-300">You found a Duke. Keep that information or disrupt the hand?</p>
+            <p className="mb-3 text-sm text-gray-300">Tutor Bot chose to show a Duke. Keep that information or disrupt the hand?</p>
             <div className="flex gap-2">
               <button type="button" className="btn-secondary flex-1" onClick={() => onDecide('return')}>
                 Return it
@@ -366,7 +395,7 @@ function ReadyStep() {
     ['1', 'Read factions', 'Target across faction lines unless every survivor matches.'],
     ['2', 'Convert', 'Move players and feed coins into the reserve.'],
     ['3', 'Embezzle', 'Claim you do not hold Duke and take the whole reserve.'],
-    ['4', 'Examine', 'Inspect a card, then preserve the read or force a swap.'],
+    ['4', 'Examine', 'The target presents a card; preserve the read or force a swap.'],
   ];
 
   return (

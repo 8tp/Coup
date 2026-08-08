@@ -23,6 +23,7 @@ export interface ClientToServerEvents {
   // Reformation expansion
   'game:convert': (data: { targetId?: string }) => void;
   'game:embezzle': () => void;
+  'game:choose_examine_influence': (data: { influenceIndex: number }) => void;
   'game:examine_decision': (data: { forceSwap: boolean }) => void;
 
   // Chat
@@ -36,6 +37,7 @@ export interface ClientToServerEvents {
 
   // Bots
   'bot:add': (data: { name: string; personality: BotPersonality }, callback: (response: { success: boolean; botId?: string; error?: string }) => void) => void;
+  'bot:add_many': (data: { bots: Array<{ name: string; personality: BotPersonality }> }, callback: (response: { success: boolean; botIds?: string[]; error?: string }) => void) => void;
   'bot:remove': (data: { botId: string }, callback: (response: { success: boolean; error?: string }) => void) => void;
 
   // Room settings

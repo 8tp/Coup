@@ -265,8 +265,11 @@ describe('GameEngine — E2E Game Flows', () => {
       engine.handlePassChallenge('p3');
       engine.handlePassChallenge('p4');
 
+      expect(engine.game.turnPhase).toBe(TurnPhase.AwaitingExamineSelection);
+      expect(engine.handleChooseExamineInfluence('p2', 1)).toBeNull();
       expect(engine.game.turnPhase).toBe(TurnPhase.AwaitingExamineDecision);
       expect(engine.examineState).toBeDefined();
+      expect(engine.examineState?.revealedCard).toBe(Character.Assassin);
 
       const decError = engine.handleExamineDecision('p1', true);
       expect(decError).toBeNull();

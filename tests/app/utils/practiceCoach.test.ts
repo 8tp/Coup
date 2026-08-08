@@ -40,6 +40,7 @@ function gameState(overrides: Partial<ClientGameState> = {}): ClientGameState {
     challengeState: null,
     influenceLossRequest: null,
     exchangeState: null,
+    examineSelectionState: null,
     examineState: null,
     blockPassedPlayerIds: [],
     actionLog: [],
@@ -129,7 +130,21 @@ describe('getPracticeCoachTip', () => {
     const tip = getPracticeCoachTip(state);
 
     expect(tip?.id).toBe('reformation-factions');
-    expect(tip?.body).toContain('Challenges and blocks');
+    expect(tip?.body).toContain('Challenges ignore factions');
+    expect(tip?.body).toContain('Foreign Aid');
+  });
+
+  it('explains that an Examine target chooses which card to present', () => {
+    const tip = getPracticeCoachTip(gameState({
+      gameMode: GameMode.Reformation,
+      useInquisitor: true,
+      turnPhase: TurnPhase.AwaitingExamineSelection,
+      pendingAction: { type: ActionType.Examine, actorId: 'bot', targetId: 'me' },
+      examineSelectionState: { examinerId: 'bot', targetId: 'me' },
+    }));
+
+    expect(tip?.id).toBe('examine-selection');
+    expect(tip?.title).toContain('You choose');
   });
 
   it('clarifies the inverse Duke claim when the reserve can be embezzled', () => {

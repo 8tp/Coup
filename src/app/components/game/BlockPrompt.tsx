@@ -1,6 +1,6 @@
 'use client';
 
-import { Character, ClientGameState, TurnPhase, ActionType } from '@/shared/types';
+import { Character, ClientGameState, GameMode, TurnPhase, ActionType } from '@/shared/types';
 import { ACTION_DEFINITIONS, ACTION_DISPLAY_NAMES } from '@/shared/constants';
 import { CHARACTER_SVG_ICONS } from '../icons';
 import { Timer } from '../ui/Timer';
@@ -48,6 +48,28 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
           <span className="font-bold">{actor?.name}</span> uses {ACTION_DISPLAY_NAMES[pendingAction.type]} on{' '}
           <span className="font-bold">{target?.name}</span>.
           Waiting for their response...
+        </p>
+        <Timer expiresAt={gameState.timerExpiry} />
+      </div>
+    );
+  }
+
+  const aliveFactions = new Set(
+    gameState.players.filter(player => player.isAlive && player.faction).map(player => player.faction),
+  );
+  const sameFactionForeignAid =
+    pendingAction.type === ActionType.ForeignAid &&
+    gameState.gameMode === GameMode.Reformation &&
+    aliveFactions.size > 1 &&
+    me.faction !== undefined &&
+    me.faction === actor?.faction;
+
+  if (sameFactionForeignAid) {
+    return (
+      <div className="prompt-info">
+        <p className="text-center text-gray-400 text-sm">
+          You cannot block <span className="font-bold text-gray-300">{actor?.name}</span>&apos;s Foreign Aid
+          while you share a faction and both factions remain.
         </p>
         <Timer expiresAt={gameState.timerExpiry} />
       </div>

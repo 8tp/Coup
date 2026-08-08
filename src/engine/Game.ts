@@ -210,6 +210,7 @@ export class Game {
       challengeState: null,
       influenceLossRequest: null,
       exchangeState: null,
+      examineSelectionState: null,
       examineState: null,
       blockPassedPlayerIds: [],
       actionLog: [...this.actionLog],

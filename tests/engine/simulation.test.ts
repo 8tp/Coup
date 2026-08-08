@@ -90,6 +90,7 @@ function simulateGame(
         state.blockPassedPlayerIds,
         deckMemories[botId],
         state.examineState ?? undefined,
+        state.examineSelectionState ?? undefined,
       );
 
       if (!decision) continue;
@@ -172,6 +173,8 @@ function executeDecision(engine: GameEngine, botId: string, decision: BotDecisio
       return engine.handleChooseInfluenceLoss(botId, decision.influenceIndex);
     case 'choose_exchange':
       return engine.handleChooseExchange(botId, decision.keepIndices);
+    case 'choose_examine_influence':
+      return engine.handleChooseExamineInfluence(botId, decision.influenceIndex);
     case 'examine_decision':
       return engine.handleExamineDecision(botId, decision.forceSwap);
     case 'convert':

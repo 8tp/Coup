@@ -24,8 +24,8 @@ export default function Home() {
 function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { createRoom, joinRoom, spectateRoom, addBot, startGame, updateRoomSettings, subscribeToBrowser, unsubscribeFromBrowser } = useSocket();
-  const { error, setError, setRoom, publicRooms, playersOnline, gamesInProgress } = useGameStore();
+  const { createRoom, joinRoom, spectateRoom, addBot, addBots, startGame, leaveRoom, updateRoomSettings, subscribeToBrowser, unsubscribeFromBrowser } = useSocket();
+  const { error, setError, setRoom, clearRoom, publicRooms, playersOnline, gamesInProgress } = useGameStore();
   const joinCode = searchParams.get('join');
   const [mode, setMode] = useState<'idle' | 'create' | 'join' | 'browse'>(joinCode ? 'join' : 'idle');
   const [name, setName] = useState('');
@@ -123,19 +123,32 @@ function HomeContent() {
     const practiceName = name.trim() || 'Player';
     sessionStorage.removeItem('coup_practice_coach_hidden');
     setLoading(true);
+    let practiceRoomCreated = false;
     try {
       const result = await createRoom(practiceName, false);
+      practiceRoomCreated = true;
       setRoom(result.roomCode, result.playerId);
       await updateRoomSettings({
         ...DEFAULT_ROOM_SETTINGS,
         gameMode,
         useInquisitor: gameMode === GameMode.Reformation,
       });
-      await addBot('Tutor Bot', 'conservative');
+      if (gameMode === GameMode.Reformation) {
+        await addBots([
+          { name: 'Tutor Bot', personality: 'conservative' },
+          { name: 'Morgan Bot', personality: 'analytical' },
+        ]);
+      } else {
+        await addBot('Tutor Bot', 'conservative');
+      }
       sessionStorage.setItem('coup_practice_room', 'true');
       startGame();
       router.push(`/game/${result.roomCode}`);
     } catch (e: unknown) {
+      if (practiceRoomCreated) {
+        leaveRoom();
+        clearRoom();
+      }
       setError(e instanceof Error ? e.message : 'Could not start practice game');
     } finally {
       setLoading(false);
