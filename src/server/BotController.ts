@@ -312,11 +312,14 @@ export class BotController {
         const delay = BOT_EMOTE_DELAY_MIN + Math.random() * (BOT_EMOTE_DELAY_MAX - BOT_EMOTE_DELAY_MIN);
         const botId = bot.id;
         const botName = bot.name;
-        bot.lastEmoteTime = now;
-
         this.pendingEmoteTimeout = setTimeout(() => {
           if (this.destroyed) return;
           this.pendingEmoteTimeout = null;
+          // Cooldown is defined between audible/visible emotes, not between the
+          // times they were scheduled. Random delivery delays can differ, so
+          // recording `now` above could let two emitted reactions land closer
+          // together than BOT_EMOTE_COOLDOWN_MS.
+          bot.lastEmoteTime = Date.now();
           this.onBotEmote?.(botId, botName, reactionId);
         }, delay);
 
