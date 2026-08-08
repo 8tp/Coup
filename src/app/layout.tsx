@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     siteName: 'Coup Online',
     images: [
       {
-        url: '/og-image.png',
+        url: '/og-image-v2.png',
         width: 1200,
         height: 630,
         alt: 'Coup Online — Multiplayer Bluffing Card Game',
@@ -53,7 +53,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Coup Online',
     description: 'Play Coup with friends online — bluff, challenge, and steal your way to victory in this multiplayer card game.',
-    images: ['/embed-image.png'],
+    images: ['/embed-image-v2.png'],
   },
 };
 

@@ -5,12 +5,12 @@ This app should use generated raster assets where they add mood, identity, or ca
 ## Good Imagegen Targets
 
 - **Home title banner** -- The first screen benefits from a branded raster masthead instead of plain SVG text. Current asset: `public/assets/brand/coup-online-banner.png`.
-- **Influence card faces** -- Character portraits make known and revealed cards feel like real influence cards. Current UI assets: `public/assets/cards/{duke,assassin,captain,ambassador,contessa,inquisitor}-v2.webp`.
-- **Small-card close crops** -- Tiny mobile cards should use face/prop-forward crops instead of the full portrait composition. Current UI assets: `public/assets/cards/focus/{duke,assassin,captain,ambassador,contessa,inquisitor}-v2.webp`.
+- **Influence card faces** -- Character portraits make known and revealed cards feel like real influence cards. Current UI assets: `public/assets/cards/{duke,assassin,captain,ambassador,contessa,inquisitor}-v3.webp`.
+- **Small-card close crops** -- Tiny mobile cards should use face/prop-forward crops instead of the full portrait composition. Current UI assets: `public/assets/cards/focus/{duke,assassin,captain,ambassador,contessa,inquisitor}-v3.webp`.
 - **Influence card back** -- Hidden cards need one recognizable card-back treatment. Current assets: `public/assets/cards/back.webp` and `public/assets/cards/focus/back.webp`.
 - **Game table backgrounds** -- The shared app background can use subtle raster tabletops because they add atmosphere without carrying gameplay state. Current assets: `public/assets/backgrounds/game-table.webp` and `public/assets/backgrounds/game-table-mobile.webp`.
 - **App/project icon** -- Home-screen/PWA icons need a strong raster emblem that reads at 16-512 px. Current assets: `public/coup-logo.png`, `public/coup-logo-transparent.png`, `public/icons/icon-192.png`, `public/icons/icon-512.png`, `public/icons/icon-maskable-512.png`, `public/apple-touch-icon.png`, `public/favicon-16x16.png`, `public/favicon-32x32.png`, and `public/favicon.ico`.
-- **Social/share imagery** -- Open Graph, README screenshots, and store/promotional surfaces can use composed raster art because they are not interactive controls. Current assets: `public/og-image.png` and `public/embed-image.png`.
+- **Social/share imagery** -- Open Graph, README screenshots, and store/promotional surfaces can use composed raster art because they are not interactive controls. Current assets: `public/og-image-v2.png` and `public/embed-image-v2.png`.
 
 ## Keep Code-Native
 
@@ -29,7 +29,7 @@ This app should use generated raster assets where they add mood, identity, or ca
 
 ## Generated Asset Prompts
 
-Generated with the built-in `image_gen` tool.
+The foundational assets below were generated with the built-in `image_gen` tool. The v3 character-card set is the documented Midjourney exception.
 
 ### App Icon
 
@@ -48,7 +48,7 @@ Constraints: no text, no letters, no numbers, no watermark, no official Coup art
 Avoid: words, initials, QR codes, busy background, full card faces, overly complex heraldry, cartoon style
 ```
 
-The social card was composed from generated project assets so display text remains exact: `public/assets/backgrounds/game-table.webp`, `public/assets/brand/coup-online-banner.png`, `public/coup-logo-transparent.png`, and selected `*-v2.webp` character-card portraits.
+The social card was composed from generated project assets so display text remains exact: `public/assets/backgrounds/game-table.webp`, `public/assets/brand/coup-online-banner.png`, `public/coup-logo-transparent.png`, and the selected `*-v3.webp` character-card portraits.
 
 ### Title Banner
 
@@ -119,28 +119,41 @@ Avoid: a zoomed-in crop, neon colors, purple-blue gradient background, ornate cl
 
 ### Character Cards
 
-The v2 character cards intentionally mirror the SVG/action palette so card identity is readable before the text label:
+The v3 character cards are original Midjourney illustrations made for this project. They reinterpret the game's six roles as a cohesive retro-futurist dystopian court: editorial portrait framing, screen-printed paper texture, hard graphic shadows, restrained geometric architecture, and a distinct role color. No official game artwork was supplied as an image reference or bundled in the repository.
 
-- Duke: royal purple and antique gold for `TAX`
-- Assassin: slate gray and cold silver for `KILL`
-- Captain: royal blue and brass for `STEAL`
-- Ambassador: emerald green and gold for `EXCHANGE`
-- Contessa: crimson red and gold for `BLOCK`
-- Inquisitor: deep teal and pale teal for `EXAMINE`
+Each source was a 1792×2688 four-up grid. The approved 896×1344 quadrant was exported to a 512×768 WebP for normal cards, then reframed into a tighter crop at the same output size for small gameplay surfaces.
 
-Base v2 prompt shape used for each character:
+| Role | Selected variation | Focus crop `(x, y, w, h)` | Visual identity |
+| --- | --- | --- | --- |
+| Duke | `0bfa152b…`, top-left | `120, 0, 720, 1080` | Plum and antique gold; silver-haired corporate ruler at an obsidian council dais |
+| Assassin | `ea618a21…`, top-left | `32, 0, 832, 1248` | Slate and electric blue; female operative with a severe ice-blonde silhouette |
+| Captain | `879c6c0f…`, top-left | `64, 0, 768, 1152` | Cobalt and brass; naval commander over a tactical display |
+| Ambassador | `22544db9…`, bottom-right | `128, 0, 768, 1152` | Chartreuse and amber; diplomat with a translation visor in an embassy concourse |
+| Contessa | `c4aeb41c…`, top-left | `64, 0, 768, 1152` | Crimson and gold; aristocratic protector with a strong heraldic silhouette |
+| Inquisitor | `e450c4c8…`, top-left | `64, 0, 768, 1152` | Deep teal and pale cyan; watchful investigator with an optical device |
+
+The prompt structure kept the renderer, era, finish, and framing consistent while varying each role's casting, silhouette, location, palette, and readable prop:
 
 ```text
-Use case: stylized-concept
-Asset type: vertical 2:3 influence card face portrait for Coup Online, <character> v2
-Primary request: create an original <character> portrait that is immediately distinct from the other roles and strongly communicates the <role color> / <action> action color system
-Subject: <character-specific court-intrigue bust portrait with one readable action prop>
-Style/medium: polished semi-realistic digital board-game card illustration, premium dark court-intrigue style, cohesive with a multiplayer bluffing card game
-Composition/framing: vertical 2:3 portrait, head and shoulders large, role prop clearly readable at tiny mobile card size, central bust silhouette, crop-safe, full-bleed art with no border
-Lighting/mood: dramatic lighting matching the character and action
-Color palette: dominant character/action color from the SVG icon, secondary highlight color, antique gold only as accent
-Materials/textures: period clothing, metal, parchment or role-specific props, subtle painterly paper grain
-Text (verbatim): none
-Constraints: original art only; no text, no letters, no numbers, no watermark, no border, no official Coup artwork; role must read through color and props even when displayed very small
-Avoid: generic brown palette, modern clothing, extra characters, busy background, text labels, card frame, logo
+Retro-futurist dystopian board-game character illustration of <role and casting>,
+<distinctive face, hair, clothing and one readable role prop>, <role-specific setting>,
+editorial 1960s/1970s science-fiction paperback art, screen-printed gouache and ink,
+subtle aged paper grain, hard graphic shadows, elegant geometric architecture,
+limited <role palette>, centered three-quarter portrait, waist-up, strong silhouette,
+generous crop-safe space around the head, premium tabletop card art, no text,
+no letters, no numbers, no logo, no watermark, no card border, no split panels,
+no collage --ar 2:3 --v 8.2 --raw --s 150 --c 15
 ```
+
+Role prompts should describe the character rather than name an existing actor or artist. Keep the shared style clause and parameters unchanged between roles; vary pose and setting deliberately so the set stays related without becoming six palette swaps. Generated grids may drift from the requested casting, so selection is based on the artwork itself rather than prompt wording alone.
+
+### Character Card Production
+
+1. Download the original Midjourney grid, not an HD reinterpretation, so the approved variation remains exact.
+2. Crop the selected quadrant losslessly at 896×1344.
+3. Create the full asset by scaling the quadrant to 512×768 and encode it as WebP at quality 84.
+4. Create a separate 2:3 focus crop around the face and role prop, then scale and encode it with the same settings. Leave extra vertical safety for the UI's `object-cover` card containers.
+5. Update both maps in `src/app/utils/assets.ts`, the service-worker precache list, README thumbnails, social previews, and this document.
+6. Bump versioned filenames and `CACHE_NAME` in `public/sw.js` together so installed clients do not retain the previous portraits.
+
+Do not bake names, action labels, borders, or icons into the raster art. Those remain code-native so they stay sharp, accessible, and consistent across full cards, compact cards, reveal overlays, tutorials, Exchange, Examine, and post-game views.

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'coup-assets-v1';
+const CACHE_NAME = 'coup-assets-v2';
 const ASSET_URLS = [
   '/icons/icon-192.png',
   '/icons/icon-512.png',
@@ -9,18 +9,18 @@ const ASSET_URLS = [
   '/assets/brand/coup-online-banner.png',
   '/assets/cards/back.webp',
   '/assets/cards/focus/back.webp',
-  '/assets/cards/duke-v2.webp',
-  '/assets/cards/assassin-v2.webp',
-  '/assets/cards/captain-v2.webp',
-  '/assets/cards/ambassador-v2.webp',
-  '/assets/cards/contessa-v2.webp',
-  '/assets/cards/inquisitor-v2.webp',
-  '/assets/cards/focus/duke-v2.webp',
-  '/assets/cards/focus/assassin-v2.webp',
-  '/assets/cards/focus/captain-v2.webp',
-  '/assets/cards/focus/ambassador-v2.webp',
-  '/assets/cards/focus/contessa-v2.webp',
-  '/assets/cards/focus/inquisitor-v2.webp',
+  '/assets/cards/duke-v3.webp',
+  '/assets/cards/assassin-v3.webp',
+  '/assets/cards/captain-v3.webp',
+  '/assets/cards/ambassador-v3.webp',
+  '/assets/cards/contessa-v3.webp',
+  '/assets/cards/inquisitor-v3.webp',
+  '/assets/cards/focus/duke-v3.webp',
+  '/assets/cards/focus/assassin-v3.webp',
+  '/assets/cards/focus/captain-v3.webp',
+  '/assets/cards/focus/ambassador-v3.webp',
+  '/assets/cards/focus/contessa-v3.webp',
+  '/assets/cards/focus/inquisitor-v3.webp',
 ];
 
 self.addEventListener('install', event => {
