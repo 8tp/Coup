@@ -32,12 +32,14 @@ export default function GamePage() {
 
   // Unlock AudioContext on first user gesture (required for mobile Safari)
   useEffect(() => {
-    const unlock = () => getSoundEngine().unlock();
+    const sound = getSoundEngine();
+    const unlock = () => sound.unlock();
     document.addEventListener('click', unlock, { once: true });
     document.addEventListener('touchstart', unlock, { once: true });
     return () => {
       document.removeEventListener('click', unlock);
       document.removeEventListener('touchstart', unlock);
+      sound.stopMusic();
     };
   }, []);
 

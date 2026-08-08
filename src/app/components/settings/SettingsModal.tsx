@@ -24,6 +24,8 @@ const TEXT_SIZE_OPTIONS: { value: TextSize; label: string }[] = [
 export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, practiceLoading }: SettingsModalProps) {
   const isMuted = useGameStore(s => s.isMuted);
   const setMuted = useGameStore(s => s.setMuted);
+  const musicEnabled = useSettingsStore(s => s.musicEnabled);
+  const setMusicEnabled = useSettingsStore(s => s.setMusicEnabled);
   const hapticEnabled = useSettingsStore(s => s.hapticEnabled);
   const setHapticEnabled = useSettingsStore(s => s.setHapticEnabled);
   const textSize = useSettingsStore(s => s.textSize);
@@ -40,9 +42,9 @@ export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, pr
   return (
     <Modal open={open} onClose={onClose} title="Settings" maxWidth="max-w-sm">
       <div className="space-y-5">
-        {/* Sound */}
+        {/* Sound effects */}
         <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-300">Sound</span>
+          <span className="text-sm text-gray-300">Sound Effects</span>
           <button
             type="button"
             role="switch"
@@ -52,6 +54,23 @@ export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, pr
           >
             <span
               className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${!isMuted ? 'translate-x-6' : 'translate-x-1'}`}
+            />
+          </button>
+        </div>
+
+        {/* Music */}
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-gray-300">Music</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={musicEnabled}
+            aria-label="Background music"
+            onClick={() => { haptic(); setMusicEnabled(!musicEnabled); }}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${musicEnabled ? 'bg-coup-accent' : 'bg-gray-600'}`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${musicEnabled ? 'translate-x-6' : 'translate-x-1'}`}
             />
           </button>
         </div>
