@@ -126,7 +126,7 @@ Each source was a 1792×2688 four-up grid. The approved 896×1344 quadrant was e
 | Role | Selected variation | Focus crop `(x, y, w, h)` | Visual identity |
 | --- | --- | --- | --- |
 | Duke | `0bfa152b…`, top-left | `120, 0, 720, 1080` | Plum and antique gold; silver-haired corporate ruler at an obsidian council dais |
-| Assassin | `ea618a21…`, top-left | `32, 0, 832, 1248` | Slate and electric blue; female operative with a severe ice-blonde silhouette |
+| Assassin | `ae7ca449…`, top-left | `32, 0, 832, 1248` | Slate and electric blue; female operative with a blunt fringe and sculptural platinum ponytail |
 | Captain | `879c6c0f…`, top-left | `64, 0, 768, 1152` | Cobalt and brass; naval commander over a tactical display |
 | Ambassador | `22544db9…`, bottom-right | `128, 0, 768, 1152` | Chartreuse and amber; diplomat with a translation visor in an embassy concourse |
 | Contessa | `c4aeb41c…`, top-left | `64, 0, 768, 1152` | Crimson and gold; aristocratic protector with a strong heraldic silhouette |
