@@ -143,7 +143,7 @@ export const useGameStore = create<GameStore>((set) => ({
     }
     // Sync to SoundEngine lazily to avoid circular import at module load
     import('../audio/SoundEngine').then(({ getSoundEngine }) => {
-      getSoundEngine().muted = muted;
+      getSoundEngine().setMuted(muted);
     });
     set({ isMuted: muted });
   },

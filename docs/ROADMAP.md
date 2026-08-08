@@ -25,6 +25,7 @@ Included in the current release:
 - A compact latest-event strip and practice-only expandable "why did this happen?" log explanations.
 - Richer game-over recap cards for winner standing, decisive moment, biggest coin move, bluff table, and challenge reads.
 - Card replacement/deal movement and animated coin movement on player seats and the local hand.
+- A mastered court-intrigue gameplay loop, independent music/SFX controls, automatic cue ducking, and generated endgame stingers.
 - Staged post-game truth reveal, showing the winning hand before the rest of the table.
 - Explicit reduced-animation setting in the Settings modal.
 - First-time practice flow tucked into main menu settings, creating a disposable private bot game.
@@ -35,7 +36,7 @@ Included in the current release:
 - Host lobby moderation for removing players or spectators before start.
 - Local per-player mute for chat and reactions.
 - Accessibility pass for dialog semantics, card keyboard access, focus-visible styling, screen-reader labels, and non-color faction markers.
-- PWA install prompt plus production asset caching for core icons, table backgrounds, and card art.
+- PWA install prompt plus production asset caching for core icons, table backgrounds, card art, and audio.
 - Socket browser-flow E2E coverage for create/join/start/action/rematch, spectators, reconnect, Reformation, rematch authorization, and lobby moderation.
 
 ## Near-Term User Niceties
