@@ -13,8 +13,8 @@
     background-image:
       radial-gradient(circle at top, rgba(214,161,42,0.10), transparent 34rem),
       radial-gradient(circle at bottom left, rgba(95,20,28,0.18), transparent 28rem),
-      linear-gradient(rgba(9,13,14,0.68), rgba(9,13,14,0.78)),
-      url('/assets/backgrounds/game-table.webp');
+      linear-gradient(rgba(9,13,14,0.42), rgba(9,13,14,0.56)),
+      url('/assets/backgrounds/game-table-v2.webp');
     background-size: auto, auto, auto, cover;
     background-position: center;
     background-attachment: fixed;
@@ -30,8 +30,8 @@
       background-image:
         radial-gradient(circle at top, rgba(214,161,42,0.08), transparent 22rem),
         radial-gradient(circle at bottom left, rgba(95,20,28,0.16), transparent 20rem),
-        linear-gradient(rgba(9,13,14,0.58), rgba(9,13,14,0.70)),
-        url('/assets/backgrounds/game-table-mobile.webp');
+        linear-gradient(rgba(9,13,14,0.36), rgba(9,13,14,0.50)),
+        url('/assets/backgrounds/game-table-mobile-v2.webp');
       background-size: auto, auto, auto, cover;
       background-position: center;
       background-attachment: scroll;

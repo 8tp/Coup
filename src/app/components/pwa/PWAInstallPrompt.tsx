@@ -60,7 +60,7 @@ export function PWAInstallPrompt() {
   return (
     <div className="fixed inset-x-3 bottom-3 z-[55] mx-auto max-w-md rounded-xl border border-coup-accent/40 bg-coup-surface/95 p-3 shadow-xl backdrop-blur">
       <div className="flex items-center gap-3">
-        <img src="/icons/icon-192.png" alt="" className="h-10 w-10 rounded-lg" aria-hidden="true" />
+        <img src="/icons/icon-192-v2.png" alt="" className="h-10 w-10 rounded-lg" aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold text-gray-100">Install Coup</p>
           <p className="text-xs text-gray-400">Faster launch and cached game assets on spotty Wi-Fi.</p>

@@ -1,14 +1,14 @@
 <p align="center">
-  <img src="public/assets/brand/coup-online-banner.png" alt="Coup Online" width="420">
+  <img src="public/assets/brand/coup-online-banner-v2.webp" alt="Coup Online" width="420">
 </p>
 
 <p align="center">
-  <img src="public/assets/cards/duke-v2.webp" alt="Duke card" width="70">
-  <img src="public/assets/cards/assassin-v2.webp" alt="Assassin card" width="70">
-  <img src="public/assets/cards/captain-v2.webp" alt="Captain card" width="70">
-  <img src="public/assets/cards/ambassador-v2.webp" alt="Ambassador card" width="70">
-  <img src="public/assets/cards/contessa-v2.webp" alt="Contessa card" width="70">
-  <img src="public/assets/cards/inquisitor-v2.webp" alt="Inquisitor card" width="70">
+  <img src="public/assets/cards/duke-v3.webp" alt="Duke card" width="70">
+  <img src="public/assets/cards/assassin-v3.webp" alt="Assassin card" width="70">
+  <img src="public/assets/cards/captain-v3.webp" alt="Captain card" width="70">
+  <img src="public/assets/cards/ambassador-v3.webp" alt="Ambassador card" width="70">
+  <img src="public/assets/cards/contessa-v3.webp" alt="Contessa card" width="70">
+  <img src="public/assets/cards/inquisitor-v3.webp" alt="Inquisitor card" width="70">
 </p>
 
 <p align="center">
@@ -52,7 +52,7 @@ Play Coup with 2–6 players from any device — no app install, no accounts. Cr
 
 ### Interface
 - **Mobile-first** — portrait-optimized touch UI with 48px+ tap targets
-- **Dark table theme** — generated tabletop backgrounds, compact illustrated cards, readable role/action labels, and character-colored borders
+- **Retro-futurist table theme** — original generated character portraits, atmospheric tabletop backgrounds, readable role/action labels, and character-colored borders
 - **Haptic feedback** — vibration on taps for mobile devices (with iOS Safari fallback), togglable in settings
 - **Settings modal** — accessible from home, lobby, and in-game via gear icon. Controls for sound, haptic feedback (touch devices only), reduced animation, and text size (Normal / Large / Extra Large)
 - **Player stats** — local lifetime stats, awards, and match history are available from the home screen
@@ -208,14 +208,12 @@ Coup/
 │   ├── ROADMAP.md                  # Prioritized post-main product polish and follow-ups
 │   └── REFORMATION_PLAN.md         # Reformation expansion implementation plan
 ├── public/                         # PWA icons, Open Graph image, and generated game art
-│   ├── assets/                     # Card, banner, and table background raster assets
+│   ├── assets/                     # Versioned cards, tables, wordmark, and app-icon master
 │   ├── icons/                      # PWA install icons
-│   ├── coup-logo.png               # Project/app icon used in docs
-│   ├── coup-logo-transparent.png   # Transparent-corner icon for docs/social art
-│   ├── embed-image.png             # Twitter/large-card social preview
-│   ├── favicon.ico                 # Browser favicon
+│   ├── embed-image-v3.png          # Twitter/large-card social preview
+│   ├── favicon-v2.ico              # Browser favicon
 │   ├── sw.js                       # Production service worker for static game assets
-│   └── og-image.png                # Open Graph social preview
+│   └── og-image-v3.png             # Open Graph social preview
 ├── tests/                          # Test suite
 │   ├── engine/                     # Engine unit tests
 │   └── server/                     # Server unit tests

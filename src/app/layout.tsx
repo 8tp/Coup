@@ -29,11 +29,11 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: '/favicon.ico', sizes: '32x32' },
-      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
-      { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/favicon-v2.ico', sizes: '16x16 32x32 48x48' },
+      { url: '/favicon-32x32-v2.png', sizes: '32x32', type: 'image/png' },
+      { url: '/icons/icon-192-v2.png', sizes: '192x192', type: 'image/png' },
     ],
-    apple: '/apple-touch-icon.png',
+    apple: '/apple-touch-icon-v2.png',
   },
   openGraph: {
     title: 'Coup Online',
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     siteName: 'Coup Online',
     images: [
       {
-        url: '/og-image.png',
+        url: '/og-image-v3.png',
         width: 1200,
         height: 630,
         alt: 'Coup Online — Multiplayer Bluffing Card Game',
@@ -53,7 +53,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Coup Online',
     description: 'Play Coup with friends online — bluff, challenge, and steal your way to victory in this multiplayer card game.',
-    images: ['/embed-image.png'],
+    images: ['/embed-image-v3.png'],
   },
 };
 

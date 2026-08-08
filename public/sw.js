@@ -1,26 +1,26 @@
-const CACHE_NAME = 'coup-assets-v2';
+const CACHE_NAME = 'coup-assets-v3';
 const ASSET_URLS = [
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-  '/icons/icon-maskable-512.png',
-  '/apple-touch-icon.png',
-  '/assets/backgrounds/game-table.webp',
-  '/assets/backgrounds/game-table-mobile.webp',
-  '/assets/brand/coup-online-banner.png',
-  '/assets/cards/back.webp',
-  '/assets/cards/focus/back.webp',
-  '/assets/cards/duke-v2.webp',
-  '/assets/cards/assassin-v2.webp',
-  '/assets/cards/captain-v2.webp',
-  '/assets/cards/ambassador-v2.webp',
-  '/assets/cards/contessa-v2.webp',
-  '/assets/cards/inquisitor-v2.webp',
-  '/assets/cards/focus/duke-v2.webp',
-  '/assets/cards/focus/assassin-v2.webp',
-  '/assets/cards/focus/captain-v2.webp',
-  '/assets/cards/focus/ambassador-v2.webp',
-  '/assets/cards/focus/contessa-v2.webp',
-  '/assets/cards/focus/inquisitor-v2.webp',
+  '/icons/icon-192-v2.png',
+  '/icons/icon-512-v2.png',
+  '/icons/icon-maskable-512-v2.png',
+  '/apple-touch-icon-v2.png',
+  '/assets/backgrounds/game-table-v2.webp',
+  '/assets/backgrounds/game-table-mobile-v2.webp',
+  '/assets/brand/coup-online-banner-v2.webp',
+  '/assets/cards/back-v2.webp',
+  '/assets/cards/focus/back-v2.webp',
+  '/assets/cards/duke-v3.webp',
+  '/assets/cards/assassin-v3.webp',
+  '/assets/cards/captain-v3.webp',
+  '/assets/cards/ambassador-v3.webp',
+  '/assets/cards/contessa-v3.webp',
+  '/assets/cards/inquisitor-v3.webp',
+  '/assets/cards/focus/duke-v3.webp',
+  '/assets/cards/focus/assassin-v3.webp',
+  '/assets/cards/focus/captain-v3.webp',
+  '/assets/cards/focus/ambassador-v3.webp',
+  '/assets/cards/focus/contessa-v3.webp',
+  '/assets/cards/focus/inquisitor-v3.webp',
   '/audio/velvet-court.mp3',
   '/audio/court-crowned.mp3',
   '/audio/plot-unraveled.mp3',
@@ -49,7 +49,7 @@ self.addEventListener('fetch', event => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-  if (!url.pathname.startsWith('/assets/') && !url.pathname.startsWith('/audio/') && !url.pathname.startsWith('/icons/') && url.pathname !== '/apple-touch-icon.png') return;
+  if (!url.pathname.startsWith('/assets/') && !url.pathname.startsWith('/audio/') && !url.pathname.startsWith('/icons/') && !url.pathname.startsWith('/apple-touch-icon')) return;
 
   event.respondWith(
     caches.match(request).then(cached => {
