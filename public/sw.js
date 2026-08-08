@@ -1,4 +1,4 @@
-const CACHE_NAME = 'coup-assets-v1';
+const CACHE_NAME = 'coup-assets-v2';
 const ASSET_URLS = [
   '/icons/icon-192.png',
   '/icons/icon-512.png',
@@ -21,6 +21,9 @@ const ASSET_URLS = [
   '/assets/cards/focus/ambassador-v2.webp',
   '/assets/cards/focus/contessa-v2.webp',
   '/assets/cards/focus/inquisitor-v2.webp',
+  '/audio/velvet-court.mp3',
+  '/audio/court-crowned.mp3',
+  '/audio/plot-unraveled.mp3',
 ];
 
 self.addEventListener('install', event => {
@@ -46,7 +49,7 @@ self.addEventListener('fetch', event => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-  if (!url.pathname.startsWith('/assets/') && !url.pathname.startsWith('/icons/') && url.pathname !== '/apple-touch-icon.png') return;
+  if (!url.pathname.startsWith('/assets/') && !url.pathname.startsWith('/audio/') && !url.pathname.startsWith('/icons/') && url.pathname !== '/apple-touch-icon.png') return;
 
   event.respondWith(
     caches.match(request).then(cached => {
