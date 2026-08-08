@@ -12,6 +12,7 @@ import { BlockPrompt } from './BlockPrompt';
 import { BlockChallengePrompt } from './BlockChallengePrompt';
 import { InfluenceLossPrompt } from './InfluenceLossPrompt';
 import { ExchangeView } from './ExchangeView';
+import { ExamineSelectionPrompt } from './ExamineSelectionPrompt';
 import { ExaminePrompt } from './ExaminePrompt';
 import { GameCenterTabs } from './GameCenterTabs';
 import { GameOverOverlay } from './GameOverOverlay';
@@ -58,7 +59,10 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
 
   // Determine which player should show the timer bar on their seat
   const timerPlayerId = gameState.influenceLossRequest?.playerId
-    ?? ((gameState.turnPhase === 'AwaitingExchange' || gameState.turnPhase === 'AwaitingExamineDecision')
+    ?? (gameState.turnPhase === TurnPhase.AwaitingExamineSelection
+      ? gameState.examineSelectionState?.targetId
+      : null)
+    ?? ((gameState.turnPhase === TurnPhase.AwaitingExchange || gameState.turnPhase === TurnPhase.AwaitingExamineDecision)
         && gameState.pendingAction?.actorId
       ? gameState.pendingAction.actorId
       : currentPlayerId);
@@ -103,6 +107,11 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
         title = `Reveal influence | ${titleSuffix}`;
       } else if (gameState.turnPhase === TurnPhase.AwaitingExchange && gameState.exchangeState) {
         title = `Choose cards | ${titleSuffix}`;
+      } else if (
+        gameState.turnPhase === TurnPhase.AwaitingExamineSelection &&
+        gameState.examineSelectionState?.targetId === gameState.myId
+      ) {
+        title = `Choose a card | ${titleSuffix}`;
       } else if (gameState.turnPhase === TurnPhase.AwaitingExamineDecision && gameState.examineState) {
         title = `Examine card | ${titleSuffix}`;
       }
@@ -233,6 +242,7 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
             <BlockChallengePrompt gameState={gameState} />
             <InfluenceLossPrompt gameState={gameState} />
             <ExchangeView gameState={gameState} />
+            <ExamineSelectionPrompt gameState={gameState} />
             <ExaminePrompt gameState={gameState} />
             <WaitingView gameState={gameState} />
           </div>

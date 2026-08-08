@@ -162,6 +162,7 @@ export class BotController {
         state.blockPassedPlayerIds,
         bot.deckMemory,
         state.examineState ?? undefined,
+        state.examineSelectionState ?? undefined,
       );
 
       if (decision) {
@@ -197,6 +198,7 @@ export class BotController {
     const isActive = decision.type === 'action'
       || decision.type === 'choose_exchange'
       || decision.type === 'choose_influence_loss'
+      || decision.type === 'choose_examine_influence'
       || decision.type === 'examine_decision'
       || decision.type === 'convert';
 
@@ -236,6 +238,9 @@ export class BotController {
         break;
       case 'choose_influence_loss':
         error = this.engine.handleChooseInfluenceLoss(botId, decision.influenceIndex);
+        break;
+      case 'choose_examine_influence':
+        error = this.engine.handleChooseExamineInfluence(botId, decision.influenceIndex);
         break;
       case 'examine_decision':
         error = this.engine.handleExamineDecision(botId, decision.forceSwap);

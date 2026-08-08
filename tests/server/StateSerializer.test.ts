@@ -60,6 +60,7 @@ function createMockGameState(overrides: Partial<GameState> = {}): GameState {
     challengeState: null,
     influenceLossRequest: null,
     exchangeState: null,
+    examineSelectionState: null,
     examineState: null,
     blockPassedPlayerIds: [],
     actionLog: [],
@@ -302,6 +303,19 @@ describe('StateSerializer', () => {
       });
       const clientState = serializeForSpectator(state, 'spec-1');
       expect(clientState.examineState).toBeNull();
+    });
+
+    it('shares the pending Examine selection without revealing a card', () => {
+      const examineSelectionState = { examinerId: 'p1', targetId: 'p2' };
+      const state = createMockGameState({
+        examineSelectionState,
+        turnPhase: TurnPhase.AwaitingExamineSelection,
+      });
+
+      expect(serializeForPlayer(state, 'p1').examineSelectionState).toEqual(examineSelectionState);
+      expect(serializeForPlayer(state, 'p2').examineSelectionState).toEqual(examineSelectionState);
+      expect(serializeForSpectator(state, 'spec-1').examineSelectionState).toEqual(examineSelectionState);
+      expect(serializeForSpectator(state, 'spec-1').examineState).toBeNull();
     });
 
     it('myId is the spectator ID', () => {

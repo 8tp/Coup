@@ -1,6 +1,7 @@
 import {
   ActionType,
   Character,
+  ExamineSelectionState,
   ExamineState,
   PersonalityParams,
   TurnPhase,
@@ -32,6 +33,7 @@ export type BotDecision =
   | { type: 'pass_challenge_block' }
   | { type: 'choose_influence_loss'; influenceIndex: number }
   | { type: 'choose_exchange'; keepIndices: number[] }
+  | { type: 'choose_examine_influence'; influenceIndex: number }
   | { type: 'examine_decision'; forceSwap: boolean }
   | { type: 'convert'; targetId?: string };
 
@@ -60,6 +62,7 @@ export class BotBrain {
     blockPassedPlayerIds: string[],
     deckMemory?: Map<Character, number>,
     examineState?: ExamineState | null,
+    examineSelectionState?: ExamineSelectionState | null,
   ): BotDecision | null {
     const bot = game.getPlayer(botId);
     if (!bot || !bot.isAlive) return null;
@@ -95,6 +98,21 @@ export class BotBrain {
       case TurnPhase.AwaitingExamineDecision:
         if (examineState?.examinerId === botId) {
           return this.decideExamine(game, botId, personality, examineState);
+        }
+        return null;
+
+      case TurnPhase.AwaitingExamineSelection:
+        if (examineSelectionState?.targetId === botId) {
+          const hiddenIndices = bot.influences
+            .map((influence, index) => ({ influence, index }))
+            .filter(({ influence }) => !influence.revealed)
+            .map(({ index }) => index);
+          if (hiddenIndices.length > 0) {
+            return {
+              type: 'choose_examine_influence',
+              influenceIndex: hiddenIndices[Math.floor(Math.random() * hiddenIndices.length)],
+            };
+          }
         }
         return null;
 
@@ -893,6 +911,13 @@ export class BotBrain {
 
     const bot = game.getPlayer(botId)!;
     if (!bot.isAlive) return null;
+
+    if (
+      pendingAction.type === ActionType.ForeignAid &&
+      game.isFactionRestricted(botId, pendingAction.actorId)
+    ) {
+      return { type: 'pass_block' };
+    }
 
     const def = ACTION_DEFINITIONS[pendingAction.type];
     if (def.blockedBy.length === 0) return { type: 'pass_block' };

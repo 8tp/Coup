@@ -95,11 +95,11 @@ The app is designed for low-friction play:
 
 - Players are assigned alternating Loyalist/Reformist factions at game start with a randomized starting faction.
 - Coup, Assassinate, Steal, and Examine cannot target same-faction players unless all alive players share one faction.
-- Challenges and blocks are not faction-restricted.
+- Challenges are not faction-restricted. Foreign Aid can only be blocked across faction lines unless all alive players share one faction.
 - Convert pays 1 coin to switch self or 2 coins to switch another player. Coins go to the Treasury Reserve.
-- Embezzle takes the Treasury Reserve and uses inverse Duke challenge logic.
+- Embezzle takes the Treasury Reserve and uses inverse Duke challenge logic. A claimant who proves they have no Duke returns all shown hidden influences to the deck and draws replacements.
 - Inquisitor Exchange draws 1 card instead of Ambassador's 2.
-- Inquisitor Examine reveals one hidden target card to the examiner, then lets the examiner return it or force a deck swap.
+- Inquisitor Examine lets the target choose one hidden card to reveal to the examiner, then lets the examiner return it or force a deck swap.
 
 ## 4. User Flows
 
@@ -114,8 +114,8 @@ The app is designed for low-friction play:
 
 ### Practice
 
-1. First-time player opens main menu settings and chooses Practice vs Bot.
-2. The app creates a private room, adds a conservative bot, and starts the game immediately.
+1. First-time player opens main menu settings and chooses Classic or Reformation practice.
+2. The app creates a private room, configures the selected mode, adds a conservative bot, and starts the game immediately.
 3. Player can leave or return home after the game; practice games do not return to a lobby and are not recorded in local stats.
 
 ### Join
@@ -174,12 +174,11 @@ The app is designed for low-friction play:
 
 ## 7. Known Gaps And Follow-Ups
 
-- Inquisitor Examine currently picks one of the target's hidden cards server-side when the target has two hidden cards. The physical expansion has the target choose which card is examined; implementing that exactly would require a new target-choice prompt/phase.
 - Production CSP still allows `unsafe-inline` and `unsafe-eval` for current Next.js/client requirements. Tightening CSP would require nonce/hash work and verification.
 - Rejoin tokens are signed random tokens but are stored in `sessionStorage`, so an XSS would still expose them.
 - Socket rate limits are per socket for gameplay events; deployment-level IP or edge rate limiting would still be useful.
 - Game rooms are in memory only; server restarts clear active rooms.
-- Practice vs Bot is available from main menu settings and the rules modal includes a Reformation quick guide, but there is not yet a full interactive Reformation scenario.
+- Practice vs Bot supports Classic and Reformation games, the live coach covers expansion-specific decisions, and the rules modal includes an interactive Reformation scenario.
 
 ## 8. Out Of Scope For 1.0
 

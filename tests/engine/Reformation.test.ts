@@ -87,6 +87,31 @@ describe('Reformation Expansion', () => {
       const error = engine.handleAction('p1', ActionType.Coup, 'p3');
       expect(error).toBeNull();
     });
+
+    it('only lets opposing-faction players block Foreign Aid while both factions remain', () => {
+      const engine = createReformationEngine(4);
+      const actorCoins = engine.game.getPlayer('p1')!.coins;
+
+      expect(engine.handleAction('p1', ActionType.ForeignAid)).toBeNull();
+      expect(engine.handleBlock('p3', Character.Duke)).toContain('same faction');
+
+      expect(engine.handlePassBlock('p2')).toBeNull();
+      expect(engine.game.turnPhase).toBe(TurnPhase.AwaitingBlock);
+      expect(engine.handlePassBlock('p4')).toBeNull();
+
+      expect(engine.game.getPlayer('p1')!.coins).toBe(actorCoins + 2);
+      expect(engine.game.turnPhase).toBe(TurnPhase.AwaitingAction);
+    });
+
+    it('allows same-faction Foreign Aid blocks when every survivor shares a faction', () => {
+      const engine = createReformationEngine(4);
+      engine.game.getPlayer('p2')!.influences.forEach(influence => { influence.revealed = true; });
+      engine.game.getPlayer('p4')!.influences.forEach(influence => { influence.revealed = true; });
+
+      expect(engine.handleAction('p1', ActionType.ForeignAid)).toBeNull();
+      expect(engine.handleBlock('p3', Character.Duke)).toBeNull();
+      expect(engine.game.turnPhase).toBe(TurnPhase.AwaitingBlockChallenge);
+    });
   });
 
   describe('Conversion', () => {
@@ -192,6 +217,43 @@ describe('Reformation Expansion', () => {
       const state = engine.getFullState();
       expect(state.influenceLossRequest?.playerId).toBe('p2');
     });
+
+    it('shows and replaces both hidden influences after a defended challenge', () => {
+      const engine = createReformationEngine(4);
+      engine.game.treasuryReserve = 5;
+      setCards(engine, 'p1', [Character.Captain, Character.Assassin]);
+      const deckSizeBefore = engine.game.deck.size;
+
+      engine.handleEmbezzle('p1');
+      engine.handleChallenge('p2');
+
+      expect(engine.lastChallengeReveal).toMatchObject({
+        inverseClaim: true,
+        replacementDrawn: true,
+        revealedCharacters: [Character.Captain, Character.Assassin],
+      });
+      expect(engine.game.getPlayer('p1')!.aliveInfluenceCount).toBe(2);
+      expect(engine.game.deck.size).toBe(deckSizeBefore);
+    });
+
+    it('shows and replaces the only hidden influence after a defended challenge', () => {
+      const engine = createReformationEngine(4);
+      engine.game.treasuryReserve = 5;
+      setCards(engine, 'p1', [Character.Captain, Character.Assassin]);
+      engine.game.getPlayer('p1')!.influences[1].revealed = true;
+      const deckSizeBefore = engine.game.deck.size;
+
+      engine.handleEmbezzle('p1');
+      engine.handleChallenge('p2');
+
+      expect(engine.lastChallengeReveal?.revealedCharacters).toEqual([Character.Captain]);
+      expect(engine.lastChallengeReveal?.replacementDrawn).toBe(true);
+      expect(engine.game.getPlayer('p1')!.influences[1]).toEqual({
+        character: Character.Assassin,
+        revealed: true,
+      });
+      expect(engine.game.deck.size).toBe(deckSizeBefore);
+    });
   });
 
   describe('Inquisitor / Deck Configuration', () => {
@@ -239,10 +301,14 @@ describe('Reformation Expansion', () => {
       engine.handlePassChallenge('p3');
       engine.handlePassChallenge('p4');
 
-      // Should be in examine decision phase
+      // The target chooses which hidden card to present.
+      expect(engine.game.turnPhase).toBe(TurnPhase.AwaitingExamineSelection);
+      expect(engine.handleChooseExamineInfluence('p2', 1)).toBeNull();
       expect(engine.game.turnPhase).toBe(TurnPhase.AwaitingExamineDecision);
       expect(engine.examineState).toBeTruthy();
       expect(engine.examineState!.targetId).toBe('p2');
+      expect(engine.examineState!.revealedCard).toBe(Character.Assassin);
+      expect(engine.examineState!.influenceIndex).toBe(1);
 
       // Force swap
       const decError = engine.handleExamineDecision('p1', true);
@@ -266,12 +332,43 @@ describe('Reformation Expansion', () => {
       engine.handlePassChallenge('p3');
       engine.handlePassChallenge('p4');
 
+      expect(engine.handleChooseExamineInfluence('p2', 0)).toBeNull();
+
       const p2CardsBefore = engine.game.getPlayer('p2')!.influences.map(i => i.character);
 
       engine.handleExamineDecision('p1', false); // Return
 
       const p2CardsAfter = engine.game.getPlayer('p2')!.influences.map(i => i.character);
       expect(p2CardsAfter).toEqual(p2CardsBefore);
+    });
+
+    it('rejects a card choice from anyone except the Examine target', () => {
+      const engine = createReformationEngine(4, true);
+      setCards(engine, 'p1', [Character.Inquisitor, Character.Duke]);
+      setCards(engine, 'p2', [Character.Captain, Character.Assassin]);
+
+      engine.handleAction('p1', ActionType.Examine, 'p2');
+      engine.handlePassChallenge('p2');
+      engine.handlePassChallenge('p3');
+      engine.handlePassChallenge('p4');
+
+      expect(engine.handleChooseExamineInfluence('p1', 0)).toContain('Not your');
+      expect(engine.game.turnPhase).toBe(TurnPhase.AwaitingExamineSelection);
+    });
+
+    it('automatically presents a hidden card when the target timer expires', () => {
+      const engine = createReformationEngine(4, true);
+      setCards(engine, 'p1', [Character.Inquisitor, Character.Duke]);
+      setCards(engine, 'p2', [Character.Captain, Character.Assassin]);
+
+      engine.handleAction('p1', ActionType.Examine, 'p2');
+      engine.handlePassChallenge('p2');
+      engine.handlePassChallenge('p3');
+      engine.handlePassChallenge('p4');
+      engine.handleTimerExpiry();
+
+      expect(engine.game.turnPhase).toBe(TurnPhase.AwaitingExamineDecision);
+      expect(engine.examineState?.targetId).toBe('p2');
     });
 
     it('prevents examining same-faction player', () => {

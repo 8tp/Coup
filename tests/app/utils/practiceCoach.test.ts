@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ActionType, Character, ClientGameState, GameMode, GameStatus, TurnPhase } from '@/shared/types';
+import { ActionType, Character, ClientGameState, Faction, GameMode, GameStatus, TurnPhase } from '@/shared/types';
 import { getPracticeCoachTip } from '@/app/utils/practiceCoach';
 
 function gameState(overrides: Partial<ClientGameState> = {}): ClientGameState {
@@ -40,6 +40,7 @@ function gameState(overrides: Partial<ClientGameState> = {}): ClientGameState {
     challengeState: null,
     influenceLossRequest: null,
     exchangeState: null,
+    examineSelectionState: null,
     examineState: null,
     blockPassedPlayerIds: [],
     actionLog: [],
@@ -119,6 +120,77 @@ describe('getPracticeCoachTip', () => {
 
     expect(tip?.id).toBe('coup-ready');
     expect(tip?.body).toContain('mandatory');
+  });
+
+  it('explains faction targeting at the start of Reformation practice', () => {
+    const state = gameState({ gameMode: GameMode.Reformation });
+    state.players[0].faction = Faction.Loyalist;
+    state.players[1].faction = Faction.Reformist;
+
+    const tip = getPracticeCoachTip(state);
+
+    expect(tip?.id).toBe('reformation-factions');
+    expect(tip?.body).toContain('Challenges ignore factions');
+    expect(tip?.body).toContain('Foreign Aid');
+  });
+
+  it('explains that an Examine target chooses which card to present', () => {
+    const tip = getPracticeCoachTip(gameState({
+      gameMode: GameMode.Reformation,
+      useInquisitor: true,
+      turnPhase: TurnPhase.AwaitingExamineSelection,
+      pendingAction: { type: ActionType.Examine, actorId: 'bot', targetId: 'me' },
+      examineSelectionState: { examinerId: 'bot', targetId: 'me' },
+    }));
+
+    expect(tip?.id).toBe('examine-selection');
+    expect(tip?.title).toContain('You choose');
+  });
+
+  it('clarifies the inverse Duke claim when the reserve can be embezzled', () => {
+    const state = gameState({
+      gameMode: GameMode.Reformation,
+      treasuryReserve: 4,
+      turnNumber: 4,
+    });
+    state.players[0].faction = Faction.Loyalist;
+    state.players[1].faction = Faction.Reformist;
+
+    const tip = getPracticeCoachTip(state);
+
+    expect(tip?.id).toBe('reformation-embezzle');
+    expect(tip?.body).toContain('hidden Duke');
+    expect(tip?.body).toContain('challenge succeed');
+  });
+
+  it('explains the inverse claim when the bot attempts to Embezzle', () => {
+    const tip = getPracticeCoachTip(gameState({
+      currentPlayerIndex: 1,
+      turnPhase: TurnPhase.AwaitingActionChallenge,
+      gameMode: GameMode.Reformation,
+      pendingAction: {
+        type: ActionType.Embezzle,
+        actorId: 'bot',
+      },
+      challengeState: {
+        challengerId: '',
+        challengedPlayerId: 'bot',
+        claimedCharacter: Character.Duke,
+        passedPlayerIds: ['bot'],
+      },
+    }));
+
+    expect(tip?.id).toBe('challenge-claim');
+    expect(tip?.body).toContain('does not hold Duke');
+    expect(tip?.body).toContain('if none is found');
+  });
+
+  it('explains that targeting unlocks when one faction remains', () => {
+    const state = gameState({ gameMode: GameMode.Reformation, turnNumber: 4 });
+    state.players[0].faction = Faction.Reformist;
+    state.players[1].faction = Faction.Reformist;
+
+    expect(getPracticeCoachTip(state)?.id).toBe('reformation-free-for-all');
   });
 
   it('does not coach eliminated players or game-over states', () => {

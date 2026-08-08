@@ -312,6 +312,18 @@ export function useSocket() {
     }));
   }, []);
 
+  const addBots = useCallback((bots: Array<{ name: string; personality: BotPersonality }>): Promise<string[]> => {
+    return withTimeout(new Promise((resolve, reject) => {
+      socketRef.current.emit('bot:add_many', { bots }, (response) => {
+        if (response.success && response.botIds) {
+          resolve(response.botIds);
+        } else {
+          reject(new Error(response.error || 'Failed to add bots'));
+        }
+      });
+    }));
+  }, []);
+
   const updateRoomSettings = useCallback((settings: RoomSettings): Promise<void> => {
     return withTimeout(new Promise((resolve, reject) => {
       socketRef.current.emit('room:update_settings', { settings }, (response) => {
@@ -407,6 +419,7 @@ export function useSocket() {
     sendReaction,
     rematch,
     addBot,
+    addBots,
     removeBot,
     removePlayer,
     removeSpectator,

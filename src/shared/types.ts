@@ -43,6 +43,7 @@ export enum TurnPhase {
   AwaitingBlockChallenge = 'AwaitingBlockChallenge',
   AwaitingInfluenceLoss = 'AwaitingInfluenceLoss',
   AwaitingExchange = 'AwaitingExchange',
+  AwaitingExamineSelection = 'AwaitingExamineSelection',
   AwaitingExamineDecision = 'AwaitingExamineDecision',
   ActionResolved = 'ActionResolved',
   GameOver = 'GameOver',
@@ -105,6 +106,11 @@ export interface InfluenceLossRequest {
 }
 
 // ─── Examine State (Inquisitor) ───
+export interface ExamineSelectionState {
+  examinerId: string;
+  targetId: string;
+}
+
 export interface ExamineState {
   examinerId: string;
   targetId: string;
@@ -140,6 +146,7 @@ export interface GameState {
   challengeState: ChallengeState | null;
   influenceLossRequest: InfluenceLossRequest | null;
   exchangeState: ExchangeState | null;
+  examineSelectionState: ExamineSelectionState | null;
   examineState: ExamineState | null;
 
   // Block pass tracking
@@ -208,6 +215,8 @@ export interface ClientGameState {
   exchangeState: ClientExchangeState | null;
   /** Only set if the current client is the one examining */
   examineState: ClientExamineState | null;
+  /** Public pending selection state; the target chooses which hidden card to present. */
+  examineSelectionState: ExamineSelectionState | null;
   blockPassedPlayerIds: string[];
   actionLog: LogEntry[];
   timerExpiry: number | null;
@@ -363,6 +372,10 @@ export interface ChallengeRevealEvent {
   wasGenuine: boolean; // true = challenged player had the card (challenge fails)
   /** True when a proven card was actually shuffled back and replaced. */
   replacementDrawn?: boolean;
+  /** Embezzle challenges reveal every hidden card rather than a single claimed role. */
+  revealedCharacters?: Character[];
+  /** True for Embezzle's inverted claim: proving the absence of Duke defeats the challenge. */
+  inverseClaim?: boolean;
 }
 
 // ─── Reactions ───

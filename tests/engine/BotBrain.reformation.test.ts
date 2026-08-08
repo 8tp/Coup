@@ -4,6 +4,7 @@ import { Game } from '@/engine/Game';
 import {
   ActionType,
   Character,
+  ExamineSelectionState,
   ExamineState,
   Faction,
   GameMode,
@@ -46,6 +47,7 @@ function decide(
     pendingAction?: PendingAction | null;
     challengeState?: ChallengeState | null;
     examineState?: ExamineState | null;
+    examineSelectionState?: ExamineSelectionState | null;
   },
 ): BotDecision | null {
   return BotBrain.decide(
@@ -60,6 +62,7 @@ function decide(
     [], // blockPassedPlayerIds
     undefined, // deckMemory
     overrides?.examineState ?? null,
+    overrides?.examineSelectionState ?? null,
   );
 }
 
@@ -407,6 +410,23 @@ describe('BotBrain — Reformation', () => {
   // ─── Examine Decision ───
 
   describe('Examine decision (force swap vs return)', () => {
+    it('lets a bot target choose one of its hidden influences', () => {
+      const game = createReformationGame();
+      game.turnPhase = TurnPhase.AwaitingExamineSelection;
+      setCards(game, 'p2', [Character.Captain, Character.Assassin]);
+      const examineSelectionState: ExamineSelectionState = {
+        examinerId: 'p1',
+        targetId: 'p2',
+      };
+
+      const result = decide(game, 'p2', BOT_PERSONALITIES.optimal, { examineSelectionState });
+
+      expect(result?.type).toBe('choose_examine_influence');
+      if (result?.type === 'choose_examine_influence') {
+        expect([0, 1]).toContain(result.influenceIndex);
+      }
+    });
+
     it('force swaps strong cards (Duke, Captain)', () => {
       const game = createReformationGame();
       game.turnPhase = TurnPhase.AwaitingExamineDecision;
@@ -557,6 +577,21 @@ describe('BotBrain — Reformation', () => {
           }
         }
       }
+    });
+
+    it('passes on blocking same-faction Foreign Aid while both factions remain', () => {
+      const game = createReformationGame();
+      game.turnPhase = TurnPhase.AwaitingBlock;
+      setCards(game, 'p2', [Character.Duke, Character.Captain]);
+      const pendingAction: PendingAction = {
+        type: ActionType.ForeignAid,
+        actorId: 'p4',
+      };
+
+      const result = decide(game, 'p2', BOT_PERSONALITIES.optimal, { pendingAction });
+
+      expect(game.getPlayer('p2')?.faction).toBe(game.getPlayer('p4')?.faction);
+      expect(result).toEqual({ type: 'pass_block' });
     });
   });
 });

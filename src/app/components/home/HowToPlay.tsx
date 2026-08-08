@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState, type RefObject } from 'react';
 import { Character } from '@/shared/types';
 import { CHARACTER_DESCRIPTIONS } from '@/shared/constants';
 import { Modal } from '../ui/Modal';
 import { haptic } from '../../utils/haptic';
 import { CardArtwork, CharacterCardBadge } from '../game/CardArtwork';
+import { ReformationTutorial } from '../tutorial/ReformationTutorial';
 
 const tabs = ['Overview', 'Characters', 'Actions & Rules', 'Reformation'] as const;
 type Tab = typeof tabs[number];
@@ -26,39 +27,57 @@ interface HowToPlayProps {
 
 export function HowToPlay({ open, onClose }: HowToPlayProps) {
   const [activeTab, setActiveTab] = useState<Tab>('Overview');
+  const [showReformationTutorial, setShowReformationTutorial] = useState(false);
+  const walkthroughTriggerRef = useRef<HTMLButtonElement>(null);
+
+  const closeReformationTutorial = () => {
+    setShowReformationTutorial(false);
+    requestAnimationFrame(() => walkthroughTriggerRef.current?.focus());
+  };
 
   return (
-    <Modal open={open} onClose={onClose} maxWidth="max-w-2xl" scrollable>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold">How to Play</h2>
-        <button
-          className="text-gray-500 hover:text-white text-2xl leading-none px-1"
-          onClick={() => { haptic(); onClose(); }}
-        >
-          &times;
-        </button>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
-        {tabs.map(tab => (
+    <>
+      <Modal open={open && !showReformationTutorial} onClose={onClose} maxWidth="max-w-2xl" scrollable>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold">How to Play</h2>
           <button
-            key={tab}
-            className="how-to-play-tab"
-            data-active={activeTab === tab ? 'true' : 'false'}
-            onClick={() => { haptic(); setActiveTab(tab); }}
+            className="text-gray-500 hover:text-white text-2xl leading-none px-1"
+            onClick={() => { haptic(); onClose(); }}
           >
-            {tab}
+            &times;
           </button>
-        ))}
-      </div>
+        </div>
 
-      {/* Tab content */}
-      {activeTab === 'Overview' && <OverviewTab />}
-      {activeTab === 'Characters' && <CharactersTab />}
-      {activeTab === 'Actions & Rules' && <RulesTab />}
-      {activeTab === 'Reformation' && <ReformationTab />}
-    </Modal>
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
+          {tabs.map(tab => (
+            <button
+              key={tab}
+              className="how-to-play-tab"
+              data-active={activeTab === tab ? 'true' : 'false'}
+              onClick={() => { haptic(); setActiveTab(tab); }}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab content */}
+        {activeTab === 'Overview' && <OverviewTab />}
+        {activeTab === 'Characters' && <CharactersTab />}
+        {activeTab === 'Actions & Rules' && <RulesTab />}
+        {activeTab === 'Reformation' && (
+          <ReformationTab
+            walkthroughTriggerRef={walkthroughTriggerRef}
+            onOpenWalkthrough={() => setShowReformationTutorial(true)}
+          />
+        )}
+      </Modal>
+      <ReformationTutorial
+        open={showReformationTutorial}
+        onClose={closeReformationTutorial}
+      />
+    </>
   );
 }
 
@@ -253,7 +272,13 @@ function RulesTab() {
   );
 }
 
-function ReformationTab() {
+function ReformationTab({
+  onOpenWalkthrough,
+  walkthroughTriggerRef,
+}: {
+  onOpenWalkthrough: () => void;
+  walkthroughTriggerRef: RefObject<HTMLButtonElement | null>;
+}) {
   return (
     <div className="space-y-5 text-sm">
       <div>
@@ -273,6 +298,14 @@ function ReformationTab() {
           <li>Only Embezzle when the reserve is worth the challenge risk.</li>
           <li>If Inquisitor is enabled, Exchange is smaller but Examine gives direct information.</li>
         </ol>
+        <button
+          ref={walkthroughTriggerRef}
+          type="button"
+          className="mt-3 w-full rounded-lg border border-coup-accent/50 bg-coup-bg/50 px-3 py-2 text-sm font-bold text-coup-accent transition hover:bg-coup-accent/10"
+          onClick={() => { haptic(80); onOpenWalkthrough(); }}
+        >
+          Try the Guided Walkthrough
+        </button>
       </div>
 
       <div>
@@ -283,6 +316,7 @@ function ReformationTab() {
           <span className="text-white font-medium">cannot target</span> players in your own faction with
           Coup, Assassinate, Steal, or Examine. If all surviving players share the same faction,
           this restriction is lifted.
+          While both factions remain, Foreign Aid may only be blocked by a player from the opposing faction.
         </p>
       </div>
 
@@ -301,8 +335,8 @@ function ReformationTab() {
             if you actually <em>do</em> have a Duke.
           </div>
           <div>
-            <span className="text-teal-300 font-medium">Examine</span> &mdash; Look at one of a
-            target&apos;s face-down cards (claims Inquisitor). You can then force them to swap it
+            <span className="text-teal-300 font-medium">Examine</span> &mdash; The target chooses one of their
+            face-down cards for you to inspect (claims Inquisitor). You can then force them to swap it
             for a random card from the deck, or return it unchanged.
           </div>
         </div>

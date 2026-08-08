@@ -17,9 +17,9 @@ Recent hardening on `main` has addressed the highest-risk findings from the prev
 - `server.set('trust proxy', 1)` is configured.
 - Room create/join, bot add, and game action socket paths are rate-limited.
 - Chat and reactions are rate-limited and bounded.
-- Socket payloads are validated for action enum values, target types, block characters, bot personalities, settings shape, exchange indices, influence-loss indices, and examine decisions.
+- Socket payloads are validated for action enum values, target types, block characters, bot personalities, settings shape, exchange indices, influence-loss indices, Examine selections, and Examine decisions.
 - Room rejoin now requires the player's random session token.
-- Room codes, session tokens, deck shuffle, starting player, timeout target selection, faction-start selection, and Inquisitor hidden-card selection use Node crypto randomness.
+- Room codes, session tokens, deck shuffle, starting player, timeout target selection, and faction-start selection use Node crypto randomness.
 - Player, bot, chat, and spectator IDs use Node `crypto.randomUUID()`; the external `uuid` package has been removed.
 - Vite resolves to a patched 7.3.x release, clearing the previous high-severity dev-server advisories.
 - Names and chat messages are sanitized and profanity-checked by `ContentFilter`.
@@ -28,7 +28,7 @@ Recent hardening on `main` has addressed the highest-risk findings from the prev
 
 ## Verification Snapshot
 
-- `npm test`: 584 tests passed across 22 files.
+- `npm test`: 588 tests passed across 22 files.
 - `npm run test:e2e`: all 15 socket browser-flow E2E tests passed.
 - `npm run typecheck`: app, custom server, tests, and maintenance scripts pass strict TypeScript checks.
 - `npm run build`: the production Next.js 16.3 build and server TypeScript build pass.
@@ -106,7 +106,7 @@ Rooms are in memory and player stats live in browser `localStorage`. This is acc
 ## Good Findings
 
 - Hidden cards and deck contents are filtered by `StateSerializer`.
-- Exchange and Examine private state are sent only to the acting player.
+- Exchange details and the examined card are sent only to the acting player; pending Examine target selection contains no card data.
 - Spectator state never exposes unrevealed cards.
 - Socket IDs and session tokens are stripped from room broadcasts.
 - Room host-only actions are checked server-side.

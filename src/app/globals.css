@@ -509,6 +509,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .animate-fade-in,
     .animate-card-swap-in,
     .coin-change-label,
     .coin-motion-gain,
@@ -523,6 +524,16 @@
       animation-duration: 0.01ms;
       animation-iteration-count: 1;
       animation-delay: 0ms;
+    }
+
+    .reformation-tutorial *,
+    .reformation-tutorial *::before,
+    .reformation-tutorial *::after {
+      animation-duration: 0.01ms !important;
+      animation-delay: 0ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
     }
   }
 

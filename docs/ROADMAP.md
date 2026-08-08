@@ -30,6 +30,7 @@ Included in the current release:
 - First-time practice flow tucked into main menu settings, creating a disposable private bot game.
 - Lightweight contextual coaching during practice for claims, challenges, blocks, influence loss, exchange decisions, and Coup timing.
 - Reformation quick-start guide covering faction markers, Convert, Embezzle, and Inquisitor.
+- Interactive Reformation walkthrough plus guided Reformation bot practice with faction, Convert, Embezzle, and Inquisitor coaching.
 - Shareable post-game recap export from the final table state and full action log.
 - Host lobby moderation for removing players or spectators before start.
 - Local per-player mute for chat and reactions.
@@ -53,7 +54,7 @@ These are small enough to ship incrementally and have direct player value.
 
 ### Learning And Onboarding
 
-- Add a full Reformation walkthrough scenario that demonstrates a faction block, Convert, Embezzle, and Examine in sequence.
+- Playtest the Reformation walkthrough and guided bot game with first-time expansion players, then tune the sequence and coach timing around observed confusion.
 
 ### Table Feel
 
@@ -87,7 +88,6 @@ These are useful, but they have broader design or infrastructure implications.
 - Public room directory filters for mode, player count, and spectators allowed.
 - Custom rule presets: timers, starting coins, bots allowed, open spectators, and Reformation options.
 - Friendlier bot-fill flow when a human disconnects mid-game.
-- Inquisitor Examine rule parity where the target chooses which card is examined.
 - 7-10 player Reformation support with the larger deck composition.
 
 ## Technical Follow-Ups

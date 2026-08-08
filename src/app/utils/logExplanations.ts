@@ -51,11 +51,11 @@ export function getLogExplanation(entry: LogEntry): string | null {
     case 'convert':
       return 'Convert changes faction. Self-convert costs 1 coin; converting someone else costs 2 coins. The coins go to the reserve.';
     case 'faction_change':
-      return 'Faction restrictions affect Coup, Assassinate, Steal, and Examine unless all alive players share a faction.';
+      return 'Faction restrictions affect Coup, Assassinate, Steal, Examine, and Foreign Aid blocks unless all alive players share a faction.';
     case 'embezzle':
-      return 'Embezzle takes the whole reserve. It is an inverse Duke claim: challengers win only if the embezzler actually has Duke.';
+      return 'Embezzle takes the whole reserve. It is an inverse Duke claim: challengers win only if the embezzler has Duke; a defended hand is shown and replaced.';
     case 'examine':
-      return 'Examine claims Inquisitor to look at one hidden card from the target before choosing whether to force a swap.';
+      return 'Examine claims Inquisitor. The target chooses a hidden card to show before the examiner decides whether to force a swap.';
     case 'examine_decision':
       return 'The Inquisitor either returned the card unchanged or forced it to be swapped with the deck.';
     default:

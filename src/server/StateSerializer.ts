@@ -29,6 +29,7 @@ export function serializeForSpectator(state: GameState, spectatorId: string, roo
     challengeState: state.challengeState ? serializeChallengeState(state.challengeState) : null,
     influenceLossRequest: state.influenceLossRequest,
     exchangeState: null, // Spectators never see exchange details
+    examineSelectionState: state.examineSelectionState,
     examineState: null, // Spectators never see examine details
     blockPassedPlayerIds: state.blockPassedPlayerIds || [],
     actionLog: isGameOver
@@ -63,6 +64,7 @@ export function serializeForPlayer(state: GameState, playerId: string, roomPlaye
     challengeState: state.challengeState ? serializeChallengeState(state.challengeState) : null,
     influenceLossRequest: state.influenceLossRequest,
     exchangeState: serializeExchangeState(state, playerId),
+    examineSelectionState: state.examineSelectionState,
     examineState: serializeExamineState(state, playerId),
     blockPassedPlayerIds: state.blockPassedPlayerIds || [],
     actionLog: isGameOver

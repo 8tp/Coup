@@ -39,6 +39,7 @@ function makeGameState(overrides: Partial<ClientGameState> = {}): ClientGameStat
     challengeState: null,
     influenceLossRequest: null,
     exchangeState: null,
+    examineSelectionState: null,
     examineState: null,
     blockPassedPlayerIds: [],
     actionLog: [],

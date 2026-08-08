@@ -1,7 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import { ClientToServerEvents, ServerToClientEvents } from '../shared/protocol';
 import { ActionType, BotPersonality, Character, GameState, GameStatus, TurnPhase } from '../shared/types';
-import { REACTIONS, RATE_LIMIT_ROOM_CREATE_MS, RATE_LIMIT_ROOM_JOIN_MS, RATE_LIMIT_GAME_ACTION_MS, RATE_LIMIT_BOT_ADD_MS } from '../shared/constants';
+import { MAX_PLAYERS, REACTIONS, RATE_LIMIT_ROOM_CREATE_MS, RATE_LIMIT_ROOM_JOIN_MS, RATE_LIMIT_GAME_ACTION_MS, RATE_LIMIT_BOT_ADD_MS } from '../shared/constants';
 import { validateName, validateChatMessage } from './ContentFilter';
 import { RoomManager } from './RoomManager';
 import { serializeForPlayer, serializeForSpectator } from './StateSerializer';
@@ -434,6 +434,75 @@ export class SocketHandler {
       this.maybeBroadcastPublicRoomList(found.room);
     });
 
+    socket.on('bot:add_many', (data, callback) => {
+      if (typeof callback !== 'function') return;
+      if (!data || !Array.isArray(data.bots) || data.bots.length < 1 || data.bots.length >= MAX_PLAYERS) {
+        callback({ success: false, error: 'Invalid bot data' });
+        return;
+      }
+      if (!this.checkRateLimit(socket.id, 'bot:add', RATE_LIMIT_BOT_ADD_MS)) {
+        callback({ success: false, error: 'Too many requests, please wait' });
+        return;
+      }
+
+      const found = this.roomManager.getPlayerRoom(socket.id);
+      if (!found) {
+        callback({ success: false, error: 'Not in a room' });
+        return;
+      }
+      if (found.player.id !== found.room.hostId) {
+        callback({ success: false, error: 'Only the host can add bots' });
+        return;
+      }
+      if (found.room.players.length + data.bots.length > MAX_PLAYERS) {
+        callback({ success: false, error: 'Room is full' });
+        return;
+      }
+
+      const existingNames = new Set(found.room.players.map(player => player.name.toLowerCase()));
+      const validatedBots: Array<{ name: string; personality: BotPersonality }> = [];
+      for (const bot of data.bots) {
+        if (!bot || typeof bot.name !== 'string' || typeof bot.personality !== 'string') {
+          callback({ success: false, error: 'Invalid bot data' });
+          return;
+        }
+        if (!VALID_BOT_PERSONALITIES.has(bot.personality)) {
+          callback({ success: false, error: 'Invalid bot personality' });
+          return;
+        }
+        const nameResult = validateName(bot.name);
+        if (!nameResult.valid) {
+          callback({ success: false, error: nameResult.error });
+          return;
+        }
+        const normalizedName = nameResult.sanitized.toLowerCase();
+        if (existingNames.has(normalizedName)) {
+          callback({ success: false, error: 'Name already taken in this room' });
+          return;
+        }
+        existingNames.add(normalizedName);
+        validatedBots.push({
+          name: nameResult.sanitized,
+          personality: bot.personality as BotPersonality,
+        });
+      }
+
+      const botIds: string[] = [];
+      for (const bot of validatedBots) {
+        const result = this.roomManager.addBot(found.room.code, bot.name, bot.personality);
+        if ('error' in result) {
+          for (const botId of botIds) this.roomManager.removeBot(found.room.code, botId);
+          callback({ success: false, error: result.error });
+          return;
+        }
+        botIds.push(result.botId);
+      }
+
+      callback({ success: true, botIds });
+      this.broadcastRoomUpdate(found.room.code);
+      this.maybeBroadcastPublicRoomList(found.room);
+    });
+
     socket.on('bot:remove', (data, callback) => {
       if (typeof callback !== 'function') return;
       if (!data || typeof data.botId !== 'string') {
@@ -841,6 +910,24 @@ export class SocketHandler {
       if (!ctx) return;
 
       const error = ctx.engine.handleEmbezzle(ctx.player.id);
+      if (error) socket.emit('game:error', { message: error });
+    });
+
+    socket.on('game:choose_examine_influence', (data) => {
+      if (!this.checkRateLimit(socket.id, 'game:action', RATE_LIMIT_GAME_ACTION_MS)) {
+        socket.emit('game:error', { message: 'Too many requests, please wait' });
+        return;
+      }
+
+      const ctx = this.getGameContext(socket);
+      if (!ctx) return;
+
+      if (!data || !Number.isInteger(data.influenceIndex)) {
+        socket.emit('game:error', { message: 'Invalid examine influence' });
+        return;
+      }
+
+      const error = ctx.engine.handleChooseExamineInfluence(ctx.player.id, data.influenceIndex);
       if (error) socket.emit('game:error', { message: error });
     });
 

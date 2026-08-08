@@ -1,7 +1,7 @@
-import { randomInt } from 'crypto';
 import {
   ActionType,
   Character,
+  ExamineSelectionState,
   ExamineState,
   Faction,
   TurnPhase,
@@ -37,6 +37,7 @@ export type SideEffect =
   | { type: 'transfer_coins'; fromId: string; toId: string; amount: number }
   | { type: 'reveal_influence'; playerId: string; influenceIndex: number }
   | { type: 'replace_influence'; playerId: string; oldCharacter: Character; newCharacter: Character }
+  | { type: 'replace_hidden_influences'; playerId: string }
   | { type: 'eliminate_check'; playerId: string }
   | { type: 'advance_turn' }
   | { type: 'set_timer'; durationMs: number }
@@ -44,7 +45,7 @@ export type SideEffect =
   | { type: 'log'; message: string; eventType: LogEventType; character: Character | null; actorId: string | null; actorName: string | null; targetId?: string | null; wasBluff?: boolean }
   | { type: 'start_exchange'; playerId: string; drawnCards: Character[] }
   | { type: 'win_check' }
-  | { type: 'challenge_reveal'; challengerName: string; challengedName: string; character: Character; wasGenuine: boolean; replacementDrawn?: boolean }
+  | { type: 'challenge_reveal'; challengerName: string; challengedName: string; character: Character; wasGenuine: boolean; replacementDrawn?: boolean; revealedCharacters?: Character[]; inverseClaim?: boolean }
   // Reformation expansion
   | { type: 'transfer_to_reserve'; playerId: string; amount: number }
   | { type: 'take_from_reserve'; playerId: string }
@@ -57,6 +58,7 @@ export interface ResolverResult {
   challengeState: ChallengeState | null;
   influenceLossRequest: InfluenceLossRequest | null;
   exchangeState: ExchangeState | null;
+  examineSelectionState?: ExamineSelectionState | null;
   examineState?: ExamineState | null;
   sideEffects: SideEffect[];
   /** Players who should be auto-passed in the block phase (e.g., a challenger who already chose to challenge cannot also block) */
@@ -448,6 +450,13 @@ export class ActionResolver {
     const def = ACTION_DEFINITIONS[pendingAction.type];
     if (!def.blockedBy.includes(claimedCharacter)) {
       return { error: `${claimedCharacter} cannot block ${pendingAction.type}` };
+    }
+
+    if (
+      pendingAction.type === ActionType.ForeignAid &&
+      game.isFactionRestricted(blockerId, pendingAction.actorId)
+    ) {
+      return { error: 'Cannot block Foreign Aid for a player on your same faction' };
     }
 
     // For Steal/Assassinate blocks, only the target can block (Contessa) or any player (Captain/Ambassador for steal)
@@ -900,13 +909,12 @@ export class ActionResolver {
       }
 
       case ActionType.Examine: {
-        // Inquisitor examines one of target's face-down cards
+        // The target presents one face-down card to the Inquisitor.
         const target = game.getPlayer(pendingAction.targetId!)!;
         if (!target.isAlive) {
           sideEffects.push({ type: 'advance_turn' });
           return this.resolved(sideEffects);
         }
-        // Pick the first unrevealed influence (in real game, target chooses — simplified to first)
         const hiddenIndices = target.influences
           .map((inf, i) => ({ inf, i }))
           .filter(({ inf }) => !inf.revealed);
@@ -914,15 +922,36 @@ export class ActionResolver {
           sideEffects.push({ type: 'advance_turn' });
           return this.resolved(sideEffects);
         }
-        // If target has only 1 hidden card, examine that one. Otherwise pick random.
-        const examIdx = hiddenIndices.length === 1
-          ? hiddenIndices[0].i
-          : hiddenIndices[randomInt(hiddenIndices.length)].i;
+        if (hiddenIndices.length > 1) {
+          sideEffects.push({
+            type: 'log',
+            message: `${actor.name} asks ${target.name} to present a card for examination.`,
+            eventType: 'examine',
+            character: Character.Inquisitor,
+            actorId: actor.id,
+            actorName: actor.name,
+            targetId: target.id,
+          });
+
+          return {
+            newPhase: TurnPhase.AwaitingExamineSelection,
+            pendingAction,
+            pendingBlock: null,
+            challengeState: null,
+            influenceLossRequest: null,
+            exchangeState: null,
+            examineSelectionState: { examinerId: actor.id, targetId: target.id },
+            examineState: null,
+            sideEffects,
+          };
+        }
+
+        const examIdx = hiddenIndices[0].i;
         const revealedCard = target.influences[examIdx].character;
 
         sideEffects.push({
           type: 'log',
-          message: `${actor.name} examines one of ${target.name}'s cards.`,
+          message: `${target.name} presents a card for ${actor.name} to examine.`,
           eventType: 'examine',
           character: Character.Inquisitor,
           actorId: actor.id,
@@ -937,6 +966,7 @@ export class ActionResolver {
           challengeState: null,
           influenceLossRequest: null,
           exchangeState: null,
+          examineSelectionState: null,
           examineState: {
             examinerId: actor.id,
             targetId: target.id,
@@ -1113,6 +1143,7 @@ export class ActionResolver {
         character: Character.Duke,
         wasGenuine: false, // They claimed not to have Duke but did
         replacementDrawn: false,
+        inverseClaim: true,
       });
       sideEffects.push({
         type: 'log',
@@ -1150,16 +1181,19 @@ export class ActionResolver {
         challengedName: challenged.name,
         character: Character.Duke,
         wasGenuine: true, // They truthfully don't have Duke
-        replacementDrawn: false,
+        replacementDrawn: true,
+        revealedCharacters: [...challenged.hiddenCharacters],
+        inverseClaim: true,
       });
       sideEffects.push({
         type: 'log',
-        message: `${challenged.name} does NOT have Duke — challenge fails! ${challenger.name} must lose an influence. Embezzle proceeds.`,
+        message: `${challenged.name} shows every hidden influence and has no Duke — challenge fails! Their shown cards are replaced, ${challenger.name} must lose an influence, and Embezzle proceeds.`,
         eventType: 'challenge_fail',
         character: Character.Duke,
         actorId: challenged.id,
         actorName: challenged.name,
       });
+      sideEffects.push({ type: 'replace_hidden_influences', playerId: challenged.id });
 
       if (challenger.aliveInfluenceCount === 1) {
         const idx = challenger.influences.findIndex(inf => !inf.revealed);
@@ -1194,6 +1228,64 @@ export class ActionResolver {
   }
 
   /**
+   * The Examine target chooses which face-down influence to present.
+   */
+  chooseExamineInfluence(
+    game: Game,
+    playerId: string,
+    influenceIndex: number,
+    examineSelectionState: ExamineSelectionState,
+    pendingAction: PendingAction,
+  ): ResolverResult | { error: string } {
+    if (examineSelectionState.targetId !== playerId) return { error: 'Not your examine selection' };
+    if (pendingAction.type !== ActionType.Examine) return { error: 'No pending Examine action' };
+    if (
+      pendingAction.actorId !== examineSelectionState.examinerId ||
+      pendingAction.targetId !== examineSelectionState.targetId
+    ) {
+      return { error: 'Examine state does not match the pending action' };
+    }
+
+    const target = game.getPlayer(playerId);
+    const examiner = game.getPlayer(examineSelectionState.examinerId);
+    if (!target || !target.isAlive || !examiner || !examiner.isAlive) {
+      return { error: 'Invalid Examine player' };
+    }
+    if (!Number.isInteger(influenceIndex) || influenceIndex < 0 || influenceIndex >= target.influences.length) {
+      return { error: 'Invalid influence index' };
+    }
+    const influence = target.influences[influenceIndex];
+    if (influence.revealed) return { error: 'Cannot present a revealed influence' };
+
+    const sideEffects: SideEffect[] = [{
+      type: 'log',
+      message: `${target.name} presents a card for ${examiner.name} to examine.`,
+      eventType: 'examine',
+      character: Character.Inquisitor,
+      actorId: examiner.id,
+      actorName: examiner.name,
+      targetId: target.id,
+    }];
+
+    return {
+      newPhase: TurnPhase.AwaitingExamineDecision,
+      pendingAction,
+      pendingBlock: null,
+      challengeState: null,
+      influenceLossRequest: null,
+      exchangeState: null,
+      examineSelectionState: null,
+      examineState: {
+        examinerId: examiner.id,
+        targetId: target.id,
+        revealedCard: influence.character,
+        influenceIndex,
+      },
+      sideEffects,
+    };
+  }
+
+  /**
    * Resolve the Inquisitor's examine decision.
    * forceSwap = true: target's card goes to deck, target draws a new one.
    * forceSwap = false: return the card (no change).
@@ -1211,11 +1303,12 @@ export class ActionResolver {
     const sideEffects: SideEffect[] = [];
 
     if (forceSwap) {
-      // Return examined card to deck, draw new one for target
+      // Return and shuffle the examined card before drawing its replacement.
       const oldChar = examineState.revealedCard;
+      game.deck.returnCard(oldChar);
+      game.deck.shuffle();
       const newCard = game.deck.draw();
       if (newCard) {
-        game.deck.returnAndShuffle(oldChar);
         target.influences[examineState.influenceIndex].character = newCard;
         sideEffects.push({
           type: 'log',

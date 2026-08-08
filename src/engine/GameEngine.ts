@@ -3,6 +3,7 @@ import {
   ActionType,
   ChallengeRevealEvent,
   Character,
+  ExamineSelectionState,
   ExamineState,
   GameMode,
   TurnPhase,
@@ -30,6 +31,7 @@ export class GameEngine {
   challengeState: ChallengeState | null = null;
   influenceLossRequest: InfluenceLossRequest | null = null;
   exchangeState: ExchangeState | null = null;
+  examineSelectionState: ExamineSelectionState | null = null;
   examineState: ExamineState | null = null;
   timerExpiry: number | null = null;
   lastChallengeReveal: ChallengeRevealEvent | null = null;
@@ -75,6 +77,7 @@ export class GameEngine {
     state.challengeState = this.challengeState;
     state.influenceLossRequest = this.influenceLossRequest;
     state.exchangeState = this.exchangeState;
+    state.examineSelectionState = this.examineSelectionState;
     state.examineState = this.examineState;
     state.timerExpiry = this.timerExpiry;
     state.blockPassedPlayerIds = this.blockPassedPlayerIds
@@ -157,7 +160,10 @@ export class GameEngine {
     let potentialBlockers: string[];
     if (this.pendingAction.type === ActionType.ForeignAid) {
       potentialBlockers = this.game.getAlivePlayers()
-        .filter(p => p.id !== this.pendingAction!.actorId)
+        .filter(p =>
+          p.id !== this.pendingAction!.actorId &&
+          !this.game.isFactionRestricted(p.id, this.pendingAction!.actorId),
+        )
         .map(p => p.id);
     } else {
       // For targeted actions (Steal, Assassinate), only target can block
@@ -247,6 +253,22 @@ export class GameEngine {
     return null;
   }
 
+  handleChooseExamineInfluence(playerId: string, influenceIndex: number): string | null {
+    if (!this.examineSelectionState || !this.pendingAction) return 'No pending examine selection';
+    if (this.game.turnPhase !== TurnPhase.AwaitingExamineSelection) return 'Not in examine selection phase';
+
+    const result = this.resolver.chooseExamineInfluence(
+      this.game,
+      playerId,
+      influenceIndex,
+      this.examineSelectionState,
+      this.pendingAction,
+    );
+    if ('error' in result) return result.error;
+    this.applyResult(result);
+    return null;
+  }
+
   handleConvert(actorId: string, targetId?: string): string | null {
     const result = this.resolver.declareAction(this.game, actorId, ActionType.Convert, targetId);
     if ('error' in result) return result.error;
@@ -282,6 +304,8 @@ export class GameEngine {
       this.handleExchangeTimeout();
     } else if (phase === TurnPhase.AwaitingInfluenceLoss) {
       this.handleInfluenceLossTimeout();
+    } else if (phase === TurnPhase.AwaitingExamineSelection) {
+      this.handleExamineSelectionTimeout();
     } else if (phase === TurnPhase.AwaitingExamineDecision) {
       this.handleExamineTimeout();
     }
@@ -330,6 +354,16 @@ export class GameEngine {
     this.handleExamineDecision(this.examineState.examinerId, false);
   }
 
+  private handleExamineSelectionTimeout(): void {
+    if (!this.examineSelectionState) return;
+    const target = this.game.getPlayer(this.examineSelectionState.targetId);
+    if (!target) return;
+    const influenceIndex = target.influences.findIndex(influence => !influence.revealed);
+    if (influenceIndex >= 0) {
+      this.handleChooseExamineInfluence(target.id, influenceIndex);
+    }
+  }
+
   private handleInfluenceLossTimeout(): void {
     if (!this.influenceLossRequest) return;
     const player = this.game.getPlayer(this.influenceLossRequest.playerId);
@@ -356,6 +390,7 @@ export class GameEngine {
     this.challengeState = result.challengeState;
     this.influenceLossRequest = result.influenceLossRequest;
     this.exchangeState = result.exchangeState;
+    this.examineSelectionState = result.examineSelectionState ?? null;
     this.examineState = result.examineState ?? null;
 
     // Clear block tracking when leaving block phase
@@ -412,6 +447,7 @@ export class GameEngine {
       this.turnTimerMs > 0 &&
       (result.newPhase === TurnPhase.AwaitingExchange ||
        result.newPhase === TurnPhase.AwaitingInfluenceLoss ||
+       result.newPhase === TurnPhase.AwaitingExamineSelection ||
        result.newPhase === TurnPhase.AwaitingExamineDecision)
     ) {
       this.clearTimer();
@@ -459,6 +495,26 @@ export class GameEngine {
           // Return old card to deck, give new card
           this.game.deck.returnAndShuffle(effect.oldCharacter);
           player.replaceInfluence(effect.oldCharacter, effect.newCharacter);
+        }
+        break;
+      }
+      case 'replace_hidden_influences': {
+        const player = this.game.getPlayer(effect.playerId);
+        if (player) {
+          const hiddenIndices = player.influences
+            .map((influence, index) => ({ influence, index }))
+            .filter(({ influence }) => !influence.revealed)
+            .map(({ index }) => index);
+          const shownCards = hiddenIndices.map(index => player.influences[index].character);
+          this.game.deck.returnCards(shownCards);
+          this.game.deck.shuffle();
+          const replacementCards = this.game.deck.drawMultiple(shownCards.length);
+          hiddenIndices.forEach((index, replacementIndex) => {
+            const replacement = replacementCards[replacementIndex];
+            if (replacement !== undefined) {
+              player.influences[index].character = replacement;
+            }
+          });
         }
         break;
       }
@@ -520,6 +576,8 @@ export class GameEngine {
           character: effect.character,
           wasGenuine: effect.wasGenuine,
           replacementDrawn: effect.replacementDrawn,
+          revealedCharacters: effect.revealedCharacters,
+          inverseClaim: effect.inverseClaim,
         };
         break;
       }
@@ -557,6 +615,7 @@ export class GameEngine {
     this.challengeState = null;
     this.influenceLossRequest = null;
     this.exchangeState = null;
+    this.examineSelectionState = null;
     this.examineState = null;
     this.blockPassedPlayerIds = null;
     this.clearTimer();

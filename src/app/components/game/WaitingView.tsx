@@ -38,6 +38,20 @@ export function WaitingView({ gameState }: WaitingViewProps) {
   }
 
   // Show waiting message during examine phase for non-examiners
+  if (turnPhase === TurnPhase.AwaitingExamineSelection && gameState.examineSelectionState) {
+    const examiner = players.find(p => p.id === gameState.examineSelectionState?.examinerId);
+    const target = players.find(p => p.id === gameState.examineSelectionState?.targetId);
+    if (target?.id === myId) return null;
+    return (
+      <div className="prompt-info">
+        <p className="text-center text-gray-400 text-sm">
+          <span className="font-bold text-gray-300">{target?.name}</span> is choosing a card to show{' '}
+          <span className="font-bold text-gray-300">{examiner?.name}</span>...
+        </p>
+      </div>
+    );
+  }
+
   if (turnPhase === TurnPhase.AwaitingExamineDecision && gameState.examineState) {
     const examiner = players.find(p => p.id === gameState.pendingAction?.actorId);
     const target = players.find(p => p.id === gameState.examineState?.targetId);

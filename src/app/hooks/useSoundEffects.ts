@@ -209,6 +209,14 @@ export function useSoundEffects(): void {
 
     // Examine phase starts for you
     if (
+      curr.turnPhase === TurnPhase.AwaitingExamineSelection &&
+      prev.turnPhase !== TurnPhase.AwaitingExamineSelection &&
+      gameState.examineSelectionState?.targetId === myId
+    ) {
+      sound.play('exchange');
+    }
+
+    if (
       curr.turnPhase === TurnPhase.AwaitingExamineDecision &&
       prev.turnPhase !== TurnPhase.AwaitingExamineDecision &&
       gameState.examineState

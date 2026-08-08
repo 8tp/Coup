@@ -19,6 +19,7 @@ function createMockClientState(overrides: Partial<ClientGameState> = {}): Client
     challengeState: null,
     influenceLossRequest: null,
     exchangeState: null,
+    examineSelectionState: null,
     examineState: null,
     blockPassedPlayerIds: [],
     actionLog: [],
