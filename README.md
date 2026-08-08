@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/assets/brand/coup-online-banner.png" alt="Coup Online" width="420">
+  <img src="public/assets/brand/coup-online-banner-v2.webp" alt="Coup Online" width="420">
 </p>
 
 <p align="center">
@@ -208,14 +208,12 @@ Coup/
 │   ├── ROADMAP.md                  # Prioritized post-main product polish and follow-ups
 │   └── REFORMATION_PLAN.md         # Reformation expansion implementation plan
 ├── public/                         # PWA icons, Open Graph image, and generated game art
-│   ├── assets/                     # Card, banner, and table background raster assets
+│   ├── assets/                     # Versioned cards, tables, wordmark, and app-icon master
 │   ├── icons/                      # PWA install icons
-│   ├── coup-logo.png               # Project/app icon used in docs
-│   ├── coup-logo-transparent.png   # Transparent-corner icon for docs/social art
-│   ├── embed-image-v2.png          # Twitter/large-card social preview
-│   ├── favicon.ico                 # Browser favicon
+│   ├── embed-image-v3.png          # Twitter/large-card social preview
+│   ├── favicon-v2.ico              # Browser favicon
 │   ├── sw.js                       # Production service worker for static game assets
-│   └── og-image-v2.png             # Open Graph social preview
+│   └── og-image-v3.png             # Open Graph social preview
 ├── tests/                          # Test suite
 │   ├── engine/                     # Engine unit tests
 │   └── server/                     # Server unit tests

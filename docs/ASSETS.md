@@ -4,13 +4,13 @@ This app should use generated raster assets where they add mood, identity, or ca
 
 ## Good Imagegen Targets
 
-- **Home title banner** -- The first screen benefits from a branded raster masthead instead of plain SVG text. Current asset: `public/assets/brand/coup-online-banner.png`.
+- **Home title banner** -- The first screen benefits from a branded raster masthead instead of plain SVG text. Current asset: `public/assets/brand/coup-online-banner-v2.webp`.
 - **Influence card faces** -- Character portraits make known and revealed cards feel like real influence cards. Current UI assets: `public/assets/cards/{duke,assassin,captain,ambassador,contessa,inquisitor}-v3.webp`.
 - **Small-card close crops** -- Tiny mobile cards should use face/prop-forward crops instead of the full portrait composition. Current UI assets: `public/assets/cards/focus/{duke,assassin,captain,ambassador,contessa,inquisitor}-v3.webp`.
-- **Influence card back** -- Hidden cards need one recognizable card-back treatment. Current assets: `public/assets/cards/back.webp` and `public/assets/cards/focus/back.webp`.
-- **Game table backgrounds** -- The shared app background can use subtle raster tabletops because they add atmosphere without carrying gameplay state. Current assets: `public/assets/backgrounds/game-table.webp` and `public/assets/backgrounds/game-table-mobile.webp`.
-- **App/project icon** -- Home-screen/PWA icons need a strong raster emblem that reads at 16-512 px. Current assets: `public/coup-logo.png`, `public/coup-logo-transparent.png`, `public/icons/icon-192.png`, `public/icons/icon-512.png`, `public/icons/icon-maskable-512.png`, `public/apple-touch-icon.png`, `public/favicon-16x16.png`, `public/favicon-32x32.png`, and `public/favicon.ico`.
-- **Social/share imagery** -- Open Graph, README screenshots, and store/promotional surfaces can use composed raster art because they are not interactive controls. Current assets: `public/og-image-v2.png` and `public/embed-image-v2.png`.
+- **Influence card back** -- Hidden cards need one recognizable card-back treatment. Current assets: `public/assets/cards/back-v2.webp` and `public/assets/cards/focus/back-v2.webp`.
+- **Game table backgrounds** -- The shared app background can use subtle raster tabletops because they add atmosphere without carrying gameplay state. Current assets: `public/assets/backgrounds/game-table-v2.webp` and `public/assets/backgrounds/game-table-mobile-v2.webp`.
+- **App/project icon** -- Home-screen/PWA icons need a strong raster emblem that reads at 16-512 px. The 1024 px master is `public/assets/brand/app-icon-v2.png`; versioned PWA, Apple touch, maskable, and favicon derivatives live under `public/icons/` and `public/`.
+- **Social/share imagery** -- Open Graph, README screenshots, and store/promotional surfaces can use composed raster art because they are not interactive controls. Current assets: `public/og-image-v3.png` and `public/embed-image-v3.png`.
 
 ## Keep Code-Native
 
@@ -29,93 +29,72 @@ This app should use generated raster assets where they add mood, identity, or ca
 
 ## Generated Asset Prompts
 
-The foundational assets below were generated with the built-in `image_gen` tool. The v3 character-card set is the documented Midjourney exception.
+The v2 brand, environment, icon, and card-back system was generated in Midjourney V8.1 using the approved character portraits as style references. The palette is blackened teal, crimson enamel, aged brass, and restrained cyan, with screen-printed gouache texture and a fictional 1970s dystopian civic-design language.
+
+| Source download | Repository output | Production treatment |
+| --- | --- | --- |
+| `Desktop Wallpaper.png` | `game-table-v2.webp` | 1456×816 WebP, quality 82 |
+| `Mobile Table.png` | `game-table-mobile-v2.webp` | 816×1456 WebP, quality 82 |
+| `Wordmark.png` | `coup-online-banner-v2.webp` | black keyed to alpha; 864×344 WebP at quality 92 |
+| `Card Back.png` | `back-v2.webp` and `focus/back-v2.webp` | full 512×768 plus centered focus crop |
+| `App Icon.png` | `app-icon-v2.png` plus PWA/favicon derivatives | master retained at 1024 px; Lanczos downscales |
+| `promotional.png` | `og-image-v3.png` and `embed-image-v3.png` | exact project text and the six approved cards composited afterward |
 
 ### App Icon
 
 ```text
-Use case: logo-brand
-Asset type: square app icon for Coup Online PWA, favicon, README project icon, and mobile home-screen shortcut
-Primary request: create an original premium square app icon for a dark court-intrigue bluffing card game called Coup Online
-Subject: a simple antique-gold crown over a vertical dagger, with two subtle crossed influence-card silhouettes behind it, small crimson enamel accents, on a deep emerald-black velvet square
-Style/medium: polished board-game app icon, crisp emblem, high contrast, readable at 32px and 192px, modern iOS/Android app icon polish
-Composition/framing: centered emblem, generous safe margin, square 1:1 composition, slightly rounded-square friendly design, no border that would disappear when masked
-Lighting/mood: dramatic low-key lighting with warm gold highlights, secretive and refined
-Color palette: near-black emerald, antique gold, deep crimson, small cool steel highlights
-Materials/textures: brushed metal, enamel, velvet, subtle paper grain
-Text (verbatim): none
-Constraints: no text, no letters, no numbers, no watermark, no official Coup artwork, no people or faces, simple silhouette readable at favicon size, avoid tiny details
-Avoid: words, initials, QR codes, busy background, full card faces, overly complex heraldry, cartoon style
+A single original retro-futurist political intrigue emblem for a bluffing strategy game,
+an abstract fractured civic crown reduced to severe geometric planes intersecting a
+narrow vertical signal beam, backed by a partially eclipsed disc, perfectly centered,
+immediately recognizable at 32 pixels, dark crimson enamel, oxidized brass, blackened
+teal and one restrained cyan highlight, screen-printed gouache and ink texture, generous
+safe margin, no words, no people, no medieval heraldry --ar 1:1 --v 8.1 --raw --s 90 --c 8
 ```
 
-The social card was composed from generated project assets so display text remains exact: `public/assets/backgrounds/game-table.webp`, `public/assets/brand/coup-online-banner.png`, `public/coup-logo-transparent.png`, and the selected `*-v3.webp` character-card portraits.
+The maskable derivative scales the master emblem to 86% and feathers it over an opaque teal extension so the important geometry stays within platform safe zones. Normal, Apple touch, and favicon derivatives retain the full composition.
 
 ### Title Banner
 
 ```text
-Use case: logo-brand
-Asset type: home screen title banner for a dark mobile-first web card game
-Primary request: create an original raster title banner with exact readable text for the game, not based on official Coup board-game art
-Subject: the words COUP ONLINE with subtle crown and dagger court-intrigue motifs
-Style/medium: premium board-game title treatment, polished red enamel lettering with antique gold bevels, light metallic wear, dark transparent-looking background suitable for a dark UI
-Composition/framing: wide horizontal banner, centered, strong silhouette, readable when displayed around 260-320 px wide
-Lighting/mood: dramatic low-key studio lighting, refined and tense
-Color palette: deep crimson, antique gold, small cool silver-blue accents, near-black negative space
-Text (verbatim): "COUP ONLINE"
-Constraints: spell the text exactly as COUP ONLINE; no other words; no watermark; no official Coup artwork; avoid busy background; keep edges clean for web use
-Avoid: extra letters, misspellings, small unreadable subtitle text, logos, QR codes, people, cards covering the words
+Wide horizontal retro-futurist political-thriller board-game wordmark displaying the
+exact words "COUP ONLINE" and no other writing, bold condensed geometric capitals with
+sharp asymmetric cuts, dark crimson enamel faces, oxidized-brass edges, restrained cyan
+offset shadow, screen-printed ink wear, a small split-eclipse civic emblem, perfectly
+front-facing on near-black, no mockup, no extra writing --ar 5:2 --v 8.1 --raw --s 60 --c 5
 ```
 
 ### Card Back
 
 ```text
-Use case: stylized-concept
-Asset type: reusable card back art for Coup Online influence cards
-Primary request: create an original vertical playing-card back, no text, for a dark court-intrigue bluffing game
-Subject: symmetrical crown, dagger, and diamond heraldry pattern, designed as a premium card back
-Style/medium: polished digital board-game card art, ornate but readable at small sizes
-Composition/framing: vertical 2:3 card portrait, centered emblem, full-bleed art, no outer transparent margin
-Lighting/mood: dark, secretive, metallic highlights
-Color palette: near-black navy, antique gold, restrained crimson accents
-Materials/textures: worn enamel, brushed metal, subtle paper grain
-Constraints: no letters, no numbers, no watermark, no official Coup artwork, no white border; keep central motif simple enough to read at 48px tall
-Avoid: text, QR codes, faces, extra icons, busy repeating detail
+Perfectly symmetrical vertical influence-card back for a retro-futurist dystopian
+bluffing game, central fractured-crown and eclipse civic emblem, nested blackened-teal
+and charcoal panels, oxidized-brass circuit-like border, crimson enamel center,
+screen-printed gouache and ink, aged paper grain, strong silhouette readable at 48 pixels,
+no people, no writing, no mockup --ar 2:3 --v 8.1 --raw --s 110 --c 6
 ```
 
-### Game Table Background
+### Desktop Game Table Background
 
 ```text
-Use case: stylized-concept
-Asset type: subtle full-screen game background for a web card game UI
-Primary request: a dark, low-contrast political intrigue tabletop background for Coup Online
-Scene/backdrop: top-down/three-quarter view of a luxurious strategy game table in a dim court chamber, with dark green-black velvet, muted burgundy leather edges, faint antique gold filigree, soft shadows from candles outside the frame, and barely visible scattered coins and face-down cards near the edges
-Subject: atmospheric tabletop surface only; no people, no readable cards, no logos, no text
-Style/medium: polished painterly-realistic game UI background, refined and expensive, not busy
-Composition/framing: wide 16:9 composition, central area intentionally calm and dark for UI readability, details concentrated toward corners and edges, seamless enough to crop on mobile
-Lighting/mood: moody, conspiratorial, warm gold rim light, restrained contrast
-Color palette: deep charcoal, blackened navy, dark emerald, muted burgundy, antique gold highlights
-Materials/textures: velvet felt, aged leather, tarnished metal coin hints, subtle paper/card texture
-Constraints: no text, no watermark, no characters, no large bright areas, no high-detail focal object in the center, do not make it look like a marketing hero image
-Avoid: neon colors, purple-blue gradient background, ornate clutter in the center, readable symbols, oversized objects, cartoon style
+Strict 90-degree overhead orthographic flat-lay view of a rectangular retro-futurist
+strategy-game tabletop, camera pointing perfectly downward, entire frame filled by a
+blackened-teal playing surface with an oxblood perimeter, aged-brass routing lines and
+small props only at the corners, central seventy-five percent empty and low-contrast,
+no room, no horizon, no vanishing point, no angled camera --ar 16:9 --v 8.1 --raw --s 100 --c 4
 ```
 
 ### Mobile Game Table Background
 
 ```text
-Use case: stylized-concept
-Asset type: portrait mobile game background for a web card game UI
-Primary request: create a mobile-specific version of the Coup Online game table background with the same dark political-intrigue aesthetic as the visible reference image, but composed for a phone screen so the tabletop feels scaled down and fits the full portrait viewport.
-Input images: visible reference image is the current desktop table background; match its mood, palette, material style, and restraint, but do not simply crop it.
-Scene/backdrop: top-down/three-quarter view of a luxurious strategy game table in a dim court chamber, dark green-black velvet center, muted burgundy leather border, faint antique gold filigree, very soft candle glow outside the frame, small coins and face-down cards near corners and edges.
-Subject: atmospheric tabletop surface only; no people, no readable cards, no logos, no text.
-Style/medium: polished painterly-realistic game UI background, refined and expensive, low-contrast, not busy.
-Composition/framing: vertical 9:16 mobile composition. Keep the full table border visible enough at top, bottom, and sides so it reads as a smaller tabletop fitted to mobile. Central 70% must remain calm, dark, and low-detail for UI readability. Place edge details smaller and farther toward corners than the desktop version; do not crowd the middle.
-Lighting/mood: moody, conspiratorial, warm antique-gold rim light, restrained contrast.
-Color palette: deep charcoal, blackened navy, dark emerald, muted burgundy, antique gold highlights.
-Materials/textures: velvet felt, aged leather, tarnished metal coin hints, subtle paper/card texture.
-Constraints: portrait/mobile-first; no text, no watermark, no characters, no large bright areas, no high-detail focal object in the center; must remain readable behind dense mobile UI.
-Avoid: a zoomed-in crop, neon colors, purple-blue gradient background, ornate clutter in the center, readable symbols, oversized objects, cartoon style.
+Portrait mobile background showing a complete retro-futurist strategy table, strict overhead
+view, blackened-teal composite surface with oxblood and aged-brass borders visible on every
+side, tiny props at the outer corners, central seventy percent calm and low-detail, scaled
+to a phone rather than cropped from desktop, no people or writing --ar 9:16 --v 8.1 --raw --s 125 --c 8
 ```
+
+### Social Preview
+
+`promotional.png` supplies the 40:21 council-chamber backdrop only. The final 1200×630 image is composed locally with a translucent upper shade, the keyed v2 wordmark, exact HTML-equivalent marketing copy, and the six real v3 card portraits. This covers the generated placeholder card shapes and prevents text or character drift.
 
 ### Character Cards
 

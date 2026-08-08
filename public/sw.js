@@ -1,14 +1,14 @@
-const CACHE_NAME = 'coup-assets-v2';
+const CACHE_NAME = 'coup-assets-v3';
 const ASSET_URLS = [
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-  '/icons/icon-maskable-512.png',
-  '/apple-touch-icon.png',
-  '/assets/backgrounds/game-table.webp',
-  '/assets/backgrounds/game-table-mobile.webp',
-  '/assets/brand/coup-online-banner.png',
-  '/assets/cards/back.webp',
-  '/assets/cards/focus/back.webp',
+  '/icons/icon-192-v2.png',
+  '/icons/icon-512-v2.png',
+  '/icons/icon-maskable-512-v2.png',
+  '/apple-touch-icon-v2.png',
+  '/assets/backgrounds/game-table-v2.webp',
+  '/assets/backgrounds/game-table-mobile-v2.webp',
+  '/assets/brand/coup-online-banner-v2.webp',
+  '/assets/cards/back-v2.webp',
+  '/assets/cards/focus/back-v2.webp',
   '/assets/cards/duke-v3.webp',
   '/assets/cards/assassin-v3.webp',
   '/assets/cards/captain-v3.webp',
@@ -46,7 +46,7 @@ self.addEventListener('fetch', event => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-  if (!url.pathname.startsWith('/assets/') && !url.pathname.startsWith('/icons/') && url.pathname !== '/apple-touch-icon.png') return;
+  if (!url.pathname.startsWith('/assets/') && !url.pathname.startsWith('/icons/') && !url.pathname.startsWith('/apple-touch-icon')) return;
 
   event.respondWith(
     caches.match(request).then(cached => {
