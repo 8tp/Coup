@@ -20,8 +20,8 @@ export const CHARACTER_CARD_FOCUS_ART: Record<Character, string> = {
   [Character.Duke]: '/assets/cards/focus/duke-v3.webp',
   [Character.Assassin]: '/assets/cards/focus/assassin-v3.webp',
   [Character.Captain]: '/assets/cards/focus/captain-v3.webp',
-  [Character.Ambassador]: '/assets/cards/focus/ambassador-v3.webp',
-  [Character.Contessa]: '/assets/cards/focus/contessa-v3.webp',
+  [Character.Ambassador]: '/assets/cards/focus/ambassador-v4.webp',
+  [Character.Contessa]: '/assets/cards/focus/contessa-v4.webp',
   [Character.Inquisitor]: '/assets/cards/focus/inquisitor-v3.webp',
 };
 

@@ -11,9 +11,9 @@
     -webkit-tap-highlight-color: transparent;
     background-color: #090d0e;
     background-image:
-      radial-gradient(circle at top, rgba(214,161,42,0.10), transparent 34rem),
-      radial-gradient(circle at bottom left, rgba(95,20,28,0.18), transparent 28rem),
-      linear-gradient(rgba(9,13,14,0.42), rgba(9,13,14,0.56)),
+      radial-gradient(circle at top, rgba(214,161,42,0.06), transparent 34rem),
+      radial-gradient(circle at bottom left, rgba(95,20,28,0.10), transparent 28rem),
+      linear-gradient(rgba(5,9,10,0.58), rgba(5,9,10,0.70)),
       url('/assets/backgrounds/game-table-v2.webp');
     background-size: auto, auto, auto, cover;
     background-position: center;
@@ -28,9 +28,9 @@
   @media (max-width: 640px) {
     body {
       background-image:
-        radial-gradient(circle at top, rgba(214,161,42,0.08), transparent 22rem),
-        radial-gradient(circle at bottom left, rgba(95,20,28,0.16), transparent 20rem),
-        linear-gradient(rgba(9,13,14,0.36), rgba(9,13,14,0.50)),
+        radial-gradient(circle at top, rgba(214,161,42,0.05), transparent 22rem),
+        radial-gradient(circle at bottom left, rgba(95,20,28,0.08), transparent 20rem),
+        linear-gradient(rgba(5,9,10,0.62), rgba(5,9,10,0.74)),
         url('/assets/backgrounds/game-table-mobile-v2.webp');
       background-size: auto, auto, auto, cover;
       background-position: center;
@@ -40,6 +40,13 @@
 }
 
 @layer components {
+  .brand-wordmark {
+    filter:
+      brightness(1.28)
+      contrast(1.08)
+      drop-shadow(0 4px 14px rgba(0,0,0,0.92));
+  }
+
   .btn-primary {
     @apply bg-coup-accent text-coup-bg font-bold py-3 px-6 rounded-xl
            active:scale-95 transition-all duration-100

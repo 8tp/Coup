@@ -1,4 +1,4 @@
-const CACHE_NAME = 'coup-assets-v3';
+const CACHE_NAME = 'coup-assets-v4';
 const ASSET_URLS = [
   '/icons/icon-192-v2.png',
   '/icons/icon-512-v2.png',
@@ -18,8 +18,8 @@ const ASSET_URLS = [
   '/assets/cards/focus/duke-v3.webp',
   '/assets/cards/focus/assassin-v3.webp',
   '/assets/cards/focus/captain-v3.webp',
-  '/assets/cards/focus/ambassador-v3.webp',
-  '/assets/cards/focus/contessa-v3.webp',
+  '/assets/cards/focus/ambassador-v4.webp',
+  '/assets/cards/focus/contessa-v4.webp',
   '/assets/cards/focus/inquisitor-v3.webp',
   '/audio/velvet-court.mp3',
   '/audio/court-crowned.mp3',
