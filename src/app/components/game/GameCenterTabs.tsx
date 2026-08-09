@@ -5,7 +5,7 @@ import { LogEntry, ChatMessage } from '@/shared/types';
 import { ActionLog } from './ActionLog';
 import { ChatPanel } from '../chat/ChatPanel';
 import { haptic } from '../../utils/haptic';
-import { LOG_EVENT_ICONS } from '@/shared/constants';
+import { LOG_EVENT_GLYPHS } from '@/app/utils/logGlyphs';
 import { formatLogMessage } from '@/app/utils/logFormat';
 import { useGameStore } from '../../stores/gameStore';
 
@@ -39,12 +39,12 @@ export function GameCenterTabs({ log, chatMessages, myId, myName, onSendChat, tu
   }, [visibleChatMessages.length, activeTab]);
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col bg-coup-bg/60 rounded-lg border border-gray-800">
+    <div className="flex-1 min-h-0 flex flex-col bg-coup-bg/60 panel-sunk">
       {/* Tab headers */}
-      <div className="flex border-b border-gray-800 relative">
+      <div className="flex border-b border-coup-line/70 relative">
         <button
           className={`flex-1 text-xs py-1.5 font-medium transition ${
-            activeTab === 'log' ? 'text-coup-accent border-b border-coup-accent' : 'text-gray-500 hover:text-gray-300'
+            activeTab === 'log' ? 'text-coup-accent border-b border-coup-accent' : 'text-coup-ink-mute hover:text-gray-300'
           }`}
           onClick={() => { haptic(); setActiveTab('log'); }}
         >
@@ -52,7 +52,7 @@ export function GameCenterTabs({ log, chatMessages, myId, myName, onSendChat, tu
         </button>
         <button
           className={`flex-1 text-xs py-1.5 font-medium transition relative ${
-            activeTab === 'chat' ? 'text-coup-accent border-b border-coup-accent' : 'text-gray-500 hover:text-gray-300'
+            activeTab === 'chat' ? 'text-coup-accent border-b border-coup-accent' : 'text-coup-ink-mute hover:text-gray-300'
           }`}
           onClick={() => { haptic(); setActiveTab('chat'); }}
         >
@@ -66,10 +66,15 @@ export function GameCenterTabs({ log, chatMessages, myId, myName, onSendChat, tu
       </div>
 
       {latestEntry && (
-        <div className="border-b border-gray-800 bg-coup-surface/40 px-3 py-1.5 text-xs text-gray-400">
+        <div className="border-b border-coup-line/70 bg-coup-surface/40 px-3 py-1.5 text-xs text-gray-400">
           <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-gray-500 shrink-0">Latest</span>
-            <span className="shrink-0">{LOG_EVENT_ICONS[latestEntry.eventType] ?? ''}</span>
+            <span className="text-coup-ink-mute shrink-0">Latest</span>
+            {(() => {
+              // Same glyph map as the log below. This ticker sits one line above
+              // that column, so an emoji here reads as a mismatch against it.
+              const LatestGlyph = LOG_EVENT_GLYPHS[latestEntry.eventType];
+              return LatestGlyph ? <LatestGlyph size={13} className="shrink-0" /> : null;
+            })()}
             <span className="truncate text-gray-300">{formatLogMessage(latestEntry.message, myName)}</span>
           </div>
         </div>

@@ -140,7 +140,7 @@ export function ReformationTutorial({ open, onClose }: ReformationTutorialProps)
         </div>
         <button
           type="button"
-          className="shrink-0 text-sm font-medium text-gray-500 transition hover:text-white"
+          className="shrink-0 text-sm font-medium text-coup-ink-mute transition hover:text-white"
           onClick={() => { haptic(); onClose(); }}
         >
           Close
@@ -234,7 +234,7 @@ function FactionsStep() {
         </div>
       </div>
 
-      <div className="mt-5 rounded-xl border border-gray-700 bg-coup-card/60 p-3 text-left text-xs text-gray-400">
+      <div className="mt-5 panel-sunk bg-coup-card/60 p-3 text-left text-xs text-gray-400">
         <span className="font-bold text-white">Coup, Assassinate, Steal, and Examine</span> follow faction targeting.
         When every survivor shares one faction, the restriction lifts.
       </div>
@@ -250,15 +250,15 @@ function ConvertStep({ converted, onConvert }: { converted: boolean; onConvert: 
         Pay 1 coin to switch yourself or 2 to switch someone else. Those coins seed the Treasury Reserve.
       </p>
 
-      <div className="rounded-xl border border-gray-700 bg-coup-card/60 p-4">
-        <p className="mb-3 text-[10px] font-black uppercase tracking-wider text-gray-500">Heads-up example</p>
+      <div className="panel-sunk bg-coup-card/60 p-4">
+        <p className="mb-3 text-[10px] font-black uppercase tracking-wider text-coup-ink-mute">Heads-up example</p>
         <div className="flex items-center justify-between">
           <div className="text-left">
             <p className="font-bold text-white">You</p>
             <FactionBadge faction={converted ? 'Reformist' : 'Loyalist'} />
           </div>
           <div className="text-center">
-            <p className="text-[10px] uppercase tracking-wider text-gray-500">Reserve</p>
+            <p className="text-[10px] uppercase tracking-wider text-coup-ink-mute">Reserve</p>
             <div className="mt-1 flex items-center justify-center gap-1 font-bold text-coup-accent">
               <CoinIcon size={16} /> {converted ? 1 : 0}
             </div>
@@ -278,7 +278,7 @@ function ConvertStep({ converted, onConvert }: { converted: boolean; onConvert: 
             Pay 1 coin · Convert yourself
           </button>
         ) : (
-          <div className="mt-5 rounded-lg border border-teal-500/40 bg-teal-950/40 p-3 text-sm text-teal-200 animate-fade-in">
+          <div className="mt-5 panel-sunk bg-teal-950/40 p-3 text-sm text-teal-200 animate-fade-in">
             You joined the Reformists and placed 1 coin in reserve. With every survivor now on one faction,
             targeting becomes free-for-all again.
           </div>
@@ -296,7 +296,7 @@ function EmbezzleStep({ resolved, onEmbezzle }: { resolved: boolean; onEmbezzle:
         Embezzle claims you do <span className="font-bold text-white">not</span> hold Duke. A challenger wins only if a Duke is found in your hand.
       </p>
 
-      <div className="rounded-xl border border-coup-accent/30 bg-coup-card/60 p-4">
+      <div className="panel-sunk bg-coup-card/60 p-4">
         <div className="mb-4 flex items-center justify-center gap-2 text-coup-accent">
           <span className="text-xs font-black uppercase tracking-wider">Treasury Reserve</span>
           <CoinIcon size={18} />
@@ -317,7 +317,7 @@ function EmbezzleStep({ resolved, onEmbezzle }: { resolved: boolean; onEmbezzle:
             Embezzle 4 coins
           </button>
         ) : (
-          <div className="rounded-lg border border-green-500/40 bg-green-950/40 p-3 text-sm text-green-200 animate-fade-in">
+          <div className="panel-sunk bg-green-950/40 p-3 text-sm text-green-200 animate-fade-in">
             Tutor Bot challenged, but your hand has no Duke. The challenge fails, both shown cards are replaced,
             and you collect all 4 reserve coins.
           </div>
@@ -345,7 +345,7 @@ function ExamineStep({
         Examine claims Inquisitor. After challenges resolve, the target chooses which hidden card to show you.
       </p>
 
-      <div className="rounded-xl border border-teal-500/40 bg-teal-950/20 p-4">
+      <div className="panel-sunk bg-teal-950/20 p-4">
         <div className="mb-4 flex items-center justify-center gap-4">
           <MiniCard character={Character.Inquisitor} />
           <span className="text-2xl text-teal-400">→</span>
@@ -379,7 +379,7 @@ function ExamineStep({
             </div>
           </div>
         ) : (
-          <div className="rounded-lg border border-teal-500/40 bg-teal-950/50 p-3 text-sm text-teal-200 animate-fade-in">
+          <div className="panel-sunk bg-teal-950/50 p-3 text-sm text-teal-200 animate-fade-in">
             {decision === 'return'
               ? 'The Duke stays. Only you know their claim is now more believable.'
               : 'The Duke returns to the deck and the replacement stays hidden. You disrupted the hand but gave up certainty.'}
@@ -407,7 +407,7 @@ function ReadyStep() {
         {recap.map(([number, title, body], index) => (
           <div
             key={title}
-            className="flex gap-3 rounded-xl border border-gray-700 bg-coup-card/60 p-3"
+            className="flex gap-3 panel-sunk bg-coup-card/60 p-3"
             style={{ animation: `fadeIn 0.3s ease-out ${index * 0.08}s both` }}
           >
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-teal-500 text-xs font-black text-gray-950">{number}</span>
@@ -419,7 +419,7 @@ function ReadyStep() {
         ))}
       </div>
 
-      <p className="mt-5 text-xs text-gray-500">
+      <p className="mt-5 text-xs text-coup-ink-mute">
         Open Settings from the main menu and choose <span className="font-bold text-teal-300">Reformation · Guided Bot Game</span> to practice with contextual tips.
       </p>
     </div>

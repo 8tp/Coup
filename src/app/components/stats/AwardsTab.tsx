@@ -1,22 +1,26 @@
 'use client';
 
+import { AWARD_GLYPHS } from '../../utils/logGlyphs';
+import type { AwardGlyphKey } from '../../utils/logGlyphs';
+
 interface AwardDefinition {
-  emoji: string;
+  glyph: AwardGlyphKey;
   title: string;
   description: string;
 }
 
+// Keep in step with the award list built by selectAwards() in gameStats.ts.
 const AWARD_DEFINITIONS: AwardDefinition[] = [
-  { emoji: '🤥', title: 'Pants on Fire', description: 'Most times caught bluffing' },
-  { emoji: '😇', title: 'Honest Abe', description: 'Most times proven honest, never caught' },
-  { emoji: '🔍', title: 'The Inquisitor', description: 'Most challenges made' },
-  { emoji: '🦅', title: 'Eagle Eye', description: 'Best challenge accuracy' },
-  { emoji: '🧱', title: 'The Wall', description: 'Most blocks made' },
-  { emoji: '🎭', title: 'Smooth Operator', description: 'Many claims, never caught' },
-  { emoji: '⚔️', title: 'Coup Machine', description: 'Most coups launched' },
-  { emoji: '🗡️', title: 'Silent Assassin', description: 'Most assassinations' },
-  { emoji: '🎲', title: 'Bold Strategy', description: 'Most challenges backfired' },
-  { emoji: '🚪', title: 'Quick Exit', description: 'First player eliminated' },
+  { glyph: 'bluff', title: 'Pants on Fire', description: 'Most times caught bluffing' },
+  { glyph: 'truth', title: 'Honest Abe', description: 'Most times proven honest, never caught' },
+  { glyph: 'challenge', title: 'The Inquisitor', description: 'Most challenges made' },
+  { glyph: 'target', title: 'Eagle Eye', description: 'Best challenge accuracy' },
+  { glyph: 'block', title: 'The Wall', description: 'Most blocks made' },
+  { glyph: 'claim', title: 'Smooth Operator', description: 'Many claims, never caught' },
+  { glyph: 'coup', title: 'Coup Machine', description: 'Most coups launched' },
+  { glyph: 'assassinate', title: 'Silent Assassin', description: 'Most assassinations' },
+  { glyph: 'dice', title: 'Bold Strategy', description: 'Most challenges backfired' },
+  { glyph: 'exit', title: 'Quick Exit', description: 'First player eliminated' },
 ];
 
 interface AwardsTabProps {
@@ -29,7 +33,7 @@ export function AwardsTab({ awardCounts }: AwardsTabProps) {
   return (
     <div>
       {totalEarned === 0 && (
-        <p className="text-center text-gray-500 text-sm mb-3">
+        <p className="text-center text-coup-ink-mute text-sm mb-3">
           Play games to earn awards!
         </p>
       )}
@@ -37,17 +41,18 @@ export function AwardsTab({ awardCounts }: AwardsTabProps) {
         {AWARD_DEFINITIONS.map(award => {
           const count = awardCounts[award.title] ?? 0;
           const earned = count > 0;
+          const AwardGlyph = AWARD_GLYPHS[award.glyph];
           return (
             <div
               key={award.title}
-              className={`bg-coup-bg/60 rounded-xl border p-3 transition-opacity ${
+              className={`panel-sunk p-3 transition-opacity ${
                 earned
-                  ? 'border-yellow-600/60'
-                  : 'border-gray-800 opacity-40'
+                  ? 'bg-coup-accent/15'
+                  : 'bg-coup-bg/60 opacity-40'
               }`}
             >
               <div className="flex items-start gap-2">
-                <span className="text-xl leading-none">{award.emoji}</span>
+                <AwardGlyph size={20} className={`flex-none mt-0.5 ${earned ? 'text-coup-accent' : 'text-gray-400'}`} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <p className="text-sm font-bold text-gray-200 truncate">{award.title}</p>
@@ -57,7 +62,7 @@ export function AwardsTab({ awardCounts }: AwardsTabProps) {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 mt-0.5">{award.description}</p>
+                  <p className="text-xs text-coup-ink-mute mt-0.5">{award.description}</p>
                 </div>
               </div>
             </div>

@@ -112,7 +112,7 @@ export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, pr
         {/* Text Size */}
         <div>
           <span className="text-sm text-gray-300 block mb-2">Text Size</span>
-          <div className="flex rounded-lg overflow-hidden border border-gray-600">
+          <div className="flex rounded-lg overflow-hidden border border-coup-line">
             {TEXT_SIZE_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
@@ -131,7 +131,7 @@ export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, pr
 
         {/* Learning - main menu only */}
         {(onOpenTutorial || onPracticeBot) && (
-          <div className="border-t border-gray-700 pt-4">
+          <div className="border-t border-coup-line/70 pt-4">
             <span className="text-sm text-gray-300 block mb-2">Learning</span>
             <div className="space-y-2">
               {onOpenTutorial && (
@@ -145,12 +145,12 @@ export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, pr
               {onPracticeBot && (
                 <div className="grid grid-cols-2 gap-2">
                   <button
-                    className="rounded-lg border border-gray-600 px-3 py-2.5 text-center text-sm font-medium text-gray-300 transition hover:border-coup-accent hover:text-coup-accent disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-lg border border-coup-line px-3 py-2.5 text-center text-sm font-medium text-gray-300 transition hover:border-coup-accent hover:text-coup-accent disabled:cursor-not-allowed disabled:opacity-50"
                     onClick={() => { haptic(80); onClose(); onPracticeBot(GameMode.Classic); }}
                     disabled={practiceLoading}
                   >
                     <span className="block">Classic</span>
-                    <span className="mt-0.5 block text-[10px] font-normal text-gray-500">Practice vs Bot</span>
+                    <span className="mt-0.5 block text-[10px] font-normal text-coup-ink-mute">Practice vs Bot</span>
                   </button>
                   <button
                     className="rounded-lg border border-teal-600/70 px-3 py-2.5 text-center text-sm font-medium text-teal-300 transition hover:border-teal-400 hover:bg-teal-950/40 disabled:cursor-not-allowed disabled:opacity-50"
@@ -158,7 +158,7 @@ export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, pr
                     disabled={practiceLoading}
                   >
                     <span className="block">Reformation</span>
-                    <span className="mt-0.5 block text-[10px] font-normal text-gray-500">Guided Bot Game</span>
+                    <span className="mt-0.5 block text-[10px] font-normal text-coup-ink-mute">Guided Bot Game</span>
                   </button>
                 </div>
               )}
@@ -167,7 +167,7 @@ export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, pr
         )}
 
         {/* Feedback links */}
-        <div className="border-t border-gray-700 pt-4">
+        <div className="border-t border-coup-line/70 pt-4">
           <span className="text-sm text-gray-300 block mb-2">Help & Feedback</span>
           <div className="flex gap-2">
             <a
@@ -175,7 +175,7 @@ export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, pr
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => haptic()}
-              className="flex-1 py-2 px-3 rounded-lg border border-gray-600 text-sm text-gray-300 hover:border-red-400 hover:text-red-400 transition text-center"
+              className="flex-1 py-2 px-3 rounded-lg border border-coup-line text-sm text-gray-300 hover:border-red-400 hover:text-red-400 transition text-center"
             >
               Report Bug
             </a>
@@ -184,7 +184,7 @@ export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, pr
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => haptic()}
-              className="flex-1 py-2 px-3 rounded-lg border border-gray-600 text-sm text-gray-300 hover:border-coup-accent hover:text-coup-accent transition text-center"
+              className="flex-1 py-2 px-3 rounded-lg border border-coup-line text-sm text-gray-300 hover:border-coup-accent hover:text-coup-accent transition text-center"
             >
               Send Feedback
             </a>

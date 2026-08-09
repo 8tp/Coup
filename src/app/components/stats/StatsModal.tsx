@@ -50,7 +50,7 @@ export function StatsModal({ open, onClose }: StatsModalProps) {
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-bold">My Stats</h2>
         <button
-          className="text-gray-500 hover:text-white text-2xl leading-none px-1"
+          className="text-coup-ink-mute hover:text-white text-2xl leading-none px-1"
           onClick={() => { haptic(); onClose(); }}
         >
           &times;
@@ -76,7 +76,7 @@ export function StatsModal({ open, onClose }: StatsModalProps) {
       {activeTab === 'Overview' && (!lifetime || lifetime.gamesPlayed === 0) && (
         <div className="text-center py-8">
           <p className="text-gray-400 text-sm mb-1">No games played yet.</p>
-          <p className="text-gray-600 text-xs">Play a game to start tracking your stats!</p>
+          <p className="text-coup-ink-mute text-xs">Play a game to start tracking your stats!</p>
         </div>
       )}
       {activeTab === 'Awards' && <AwardsTab awardCounts={awardCounts} />}
@@ -84,7 +84,7 @@ export function StatsModal({ open, onClose }: StatsModalProps) {
 
       {/* Reset - only show when there are stats to reset */}
       {lifetime && lifetime.gamesPlayed > 0 && (
-        <div className="mt-4 pt-4 border-t border-gray-800">
+        <div className="mt-4 pt-4 border-t border-coup-line/70">
           {confirmReset ? (
             <div className="flex items-center gap-2">
               <p className="text-xs text-red-400 flex-1">Are you sure? This cannot be undone.</p>
@@ -95,7 +95,7 @@ export function StatsModal({ open, onClose }: StatsModalProps) {
                 Confirm
               </button>
               <button
-                className="text-xs text-gray-500 hover:text-gray-300 px-2 py-1"
+                className="text-xs text-coup-ink-mute hover:text-gray-300 px-2 py-1"
                 onClick={() => setConfirmReset(false)}
               >
                 Cancel
@@ -103,7 +103,7 @@ export function StatsModal({ open, onClose }: StatsModalProps) {
             </div>
           ) : (
             <button
-              className="text-xs text-gray-600 hover:text-red-400 transition-colors w-full text-center py-1"
+              className="text-xs text-coup-ink-mute hover:text-red-400 transition-colors w-full text-center py-1"
               onClick={handleReset}
             >
               Reset Stats

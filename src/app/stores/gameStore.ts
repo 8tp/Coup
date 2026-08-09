@@ -1,7 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
-import { ChallengeRevealEvent, ChatMessage, ClientGameState, ClientRoomPlayer, ClientSpectator, PublicRoomInfo, RoomSettings } from '@/shared/types';
+import { ChallengeRevealEvent, ChatMessage, ClientGameState, ClientRoomPlayer, ClientSpectator, PublicRoomInfo, RoomSettings, TargetingPublication } from '@/shared/types';
 
 interface GameStore {
   // Connection state
@@ -27,6 +27,21 @@ interface GameStore {
   // Game state
   gameState: ClientGameState | null;
   setGameState: (state: ClientGameState | null) => void;
+
+  /**
+   * Target selection (ART-DIRECTION.md §6.2). `ActionBar` is the only writer
+   * and `GameTable` the only reader: the seats need to know which of them are
+   * legal targets, why the others are not, and how to choose one, and the
+   * component that knows all three is not their parent. This is that seam.
+   *
+   * It is deliberately NOT derived in `GameTable` from `gameState`: the rules
+   * for a legal target (faction split, a Steal target with no coins, a Convert
+   * you cannot afford) are written once, in `ActionBar.buildTargetOptions`,
+   * and a second copy in the seats is exactly how a UI starts lying about the
+   * rules.
+   */
+  targeting: TargetingPublication | null;
+  setTargeting: (targeting: TargetingPublication | null) => void;
 
   // Chat state
   chatMessages: ChatMessage[];
@@ -95,6 +110,7 @@ export const useGameStore = create<GameStore>((set) => ({
     spectators: [],
     isSpectator: false,
     gameState: null,
+    targeting: null,
     chatMessages: [],
     mutedPlayerIds: [],
     challengeReveal: null,
@@ -103,6 +119,9 @@ export const useGameStore = create<GameStore>((set) => ({
 
   gameState: null,
   setGameState: (state) => set({ gameState: state }),
+
+  targeting: null,
+  setTargeting: (targeting) => set({ targeting }),
 
   chatMessages: [],
   addChatMessage: (msg) => set((s) => ({ chatMessages: [...s.chatMessages, msg] })),

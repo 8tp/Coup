@@ -23,7 +23,7 @@ export function Modal({ open, onClose, title, maxWidth = 'max-w-md', scrollable,
         onClick={onClose}
       />
       <div
-        className={`relative bg-coup-surface border border-gray-700 rounded-2xl p-6 w-full ${maxWidth} animate-slide-up ${scrollable ? 'max-h-[85vh] overflow-y-auto' : ''}`}
+        className={`relative bg-coup-surface panel-sunk p-6 w-full ${maxWidth} animate-slide-up ${scrollable ? 'max-h-[85vh] overflow-y-auto' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? titleId : undefined}

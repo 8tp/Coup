@@ -89,7 +89,7 @@ export default function GamePage() {
     <>
       {error && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50
-          bg-red-900/90 border border-red-600 rounded-xl px-4 py-2 text-sm animate-fade-in">
+          bg-red-900/90 panel-sunk px-4 py-2 text-sm animate-fade-in">
           {error}
         </div>
       )}

@@ -10,8 +10,8 @@ interface OverviewTabProps {
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="bg-coup-bg/60 rounded-xl border border-gray-800 p-3">
-      <p className="text-xs text-gray-500 mb-0.5">{label}</p>
+    <div className="bg-coup-bg/60 panel-sunk p-3">
+      <p className="text-xs text-coup-ink-mute mb-0.5">{label}</p>
       <p className="text-lg font-bold text-gray-200">{value}</p>
     </div>
   );
@@ -33,8 +33,8 @@ export function OverviewTab({ lifetime }: OverviewTabProps) {
   if (lifetime.gamesPlayed === 0) {
     return (
       <div className="text-center py-8">
-        <p className="text-gray-500 text-sm">No games played yet.</p>
-        <p className="text-gray-600 text-xs mt-1">Play a game to start tracking your stats!</p>
+        <p className="text-coup-ink-mute text-sm">No games played yet.</p>
+        <p className="text-coup-ink-mute text-xs mt-1">Play a game to start tracking your stats!</p>
       </div>
     );
   }

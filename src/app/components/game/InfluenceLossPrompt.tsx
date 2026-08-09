@@ -40,7 +40,7 @@ export function InfluenceLossPrompt({ gameState }: InfluenceLossPromptProps) {
         <p className="text-center text-gray-300 text-sm">
           <span className="font-bold">{loser?.name}</span> must choose an influence to lose.
         </p>
-        <p className="text-center text-gray-500 text-xs mt-1">
+        <p className="text-center text-coup-ink-mute text-xs mt-1">
           {spectatorReason}
         </p>
       </div>

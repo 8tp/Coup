@@ -47,7 +47,7 @@ export function Timer({ expiresAt }: TimerProps) {
           style={{ width: `${fraction * 100}%` }}
         />
       </div>
-      <span className={`text-sm font-bold w-8 text-right ${isLow ? 'timer-low text-red-400' : 'text-gray-300'}`}>
+      <span className={`figure text-sm font-bold w-8 text-right ${isLow ? 'timer-low text-red-400' : 'text-gray-300'}`}>
         {seconds}s
       </span>
     </div>

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import localFont from 'next/font/local';
 import './globals.css';
 import {
   CRITICAL_PRELOAD_IMAGES,
@@ -7,6 +8,54 @@ import {
   TABLE_BACKGROUND_MOBILE_ART,
 } from './utils/assets';
 import { PWAInstallPrompt } from './components/pwa/PWAInstallPrompt';
+
+/**
+ * ART-DIRECTION.md §4 — the Display role.
+ *
+ * Oswald. It is a revival of Alternate Gothic, the condensed grotesque of
+ * mid-century civic and transit signage and of screen-printed poster stock —
+ * which is §0's world ("screen-printed civic propaganda", 1970s dystopian
+ * civic-design language) rather than a decorative approximation of it. Three
+ * things earned it over the other candidates:
+ *
+ *  - Flat terminals, vertical stress, near-square joins. It is the same line
+ *    language §1.2 imposes on the glyph set (miter joins, butt caps, no
+ *    gradient), so wordmark, glyphs and type read as one printing.
+ *  - It is *narrow*. Player names, the phase banner and action names all sit
+ *    in a 512px column (§3.2) and must survive a size step without wrapping;
+ *    a normal-width poster face cannot take the 2.5x §4 asks for here.
+ *  - It carries ALL-CAPS at weight 700 without turning into a slab novelty,
+ *    which matters because the wordmark it sits under is exactly that.
+ *
+ * Explicitly not Inter or Space Grotesk: those are the generic default and
+ * would restate the "web app" tell §3 exists to kill.
+ *
+ * Loaded with next/font/local from a vendored variable woff2 (latin +
+ * latin-ext, ~52KB total, SIL OFL — see src/app/fonts/OFL.txt). §4 requires
+ * no CDN dependency because the app is offline-capable (public/sw.js); local
+ * also means the production build never needs the network to succeed.
+ */
+const displayFont = localFont({
+  src: [
+    {
+      path: './fonts/Oswald-Variable-latin.woff2',
+      weight: '200 700',
+      style: 'normal',
+    },
+    {
+      path: './fonts/Oswald-Variable-latin-ext.woff2',
+      weight: '200 700',
+      style: 'normal',
+    },
+  ],
+  variable: '--font-display',
+  display: 'swap',
+  preload: true,
+  // Oswald is far narrower than any metric-adjustable system face; letting
+  // Next synthesise a fallback metric override would make the swap jump.
+  adjustFontFallback: false,
+  fallback: ['Haettenschweiler', 'Arial Narrow', 'Impact', 'system-ui', 'sans-serif'],
+});
 
 export const viewport: Viewport = {
   viewportFit: 'cover',
@@ -63,7 +112,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={displayFont.variable} suppressHydrationWarning>
       <head>
         {CRITICAL_PRELOAD_IMAGES.map(href => (
           <link key={href} rel="preload" href={href} as="image" fetchPriority="high" />

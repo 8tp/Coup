@@ -42,14 +42,14 @@ export function ReactionPicker({ onReact, disabled }: ReactionPickerProps) {
         ref={buttonRef}
         onClick={() => { haptic(); setOpen((o) => !o); }}
         disabled={disabled}
-        className="w-9 h-9 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition text-xs flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+        className="w-9 h-9 rounded-full border border-coup-line text-gray-400 hover:border-coup-accent hover:text-coup-accent transition text-xs flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
         title="Send reaction"
       >
         😄
       </button>
       {open && pos && (
         <div
-          className="fixed z-50 bg-coup-surface border border-gray-600 rounded-xl p-3 shadow-xl animate-fade-in w-72"
+          className="fixed z-50 bg-coup-surface panel-sunk p-3 animate-fade-in w-72"
           style={{ top: pos.top, right: pos.right }}
         >
           <div className="grid grid-cols-4 gap-2">

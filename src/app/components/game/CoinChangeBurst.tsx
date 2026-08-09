@@ -45,7 +45,7 @@ export function CoinChangeBurst({ coins }: CoinChangeBurstProps) {
 
   return (
     <span key={burst.key} className="coin-change-burst" aria-hidden="true">
-      <span className={`coin-change-label ${isGain ? 'text-green-400' : 'text-red-400'}`}>
+      <span className={`figure coin-change-label ${isGain ? 'text-green-400' : 'text-red-400'}`}>
         {isGain ? `+${burst.delta}` : burst.delta}
       </span>
       {Array.from({ length: tokenCount }, (_, i) => (

@@ -5,20 +5,12 @@ import { Character } from '@/shared/types';
 import { CHARACTER_DESCRIPTIONS } from '@/shared/constants';
 import { Modal } from '../ui/Modal';
 import { haptic } from '../../utils/haptic';
+import { CHARACTER_PALETTE, characterCardVars } from '../../utils/characterPalette';
 import { CardArtwork, CharacterCardBadge } from '../game/CardArtwork';
 import { ReformationTutorial } from '../tutorial/ReformationTutorial';
 
 const tabs = ['Overview', 'Characters', 'Actions & Rules', 'Reformation'] as const;
 type Tab = typeof tabs[number];
-
-const characterThemes: Record<Character, { bg: string; border: string; label: string }> = {
-  [Character.Duke]: { bg: 'bg-purple-900/30', border: 'border-purple-500', label: 'text-purple-300' },
-  [Character.Assassin]: { bg: 'bg-gray-800/30', border: 'border-gray-500', label: 'text-gray-300' },
-  [Character.Captain]: { bg: 'bg-blue-900/30', border: 'border-blue-500', label: 'text-blue-300' },
-  [Character.Ambassador]: { bg: 'bg-green-900/30', border: 'border-green-500', label: 'text-green-300' },
-  [Character.Contessa]: { bg: 'bg-red-900/30', border: 'border-red-500', label: 'text-red-300' },
-  [Character.Inquisitor]: { bg: 'bg-teal-900/30', border: 'border-teal-500', label: 'text-teal-300' },
-};
 
 interface HowToPlayProps {
   open: boolean;
@@ -41,7 +33,7 @@ export function HowToPlay({ open, onClose }: HowToPlayProps) {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold">How to Play</h2>
           <button
-            className="text-gray-500 hover:text-white text-2xl leading-none px-1"
+            className="text-coup-ink-mute hover:text-white text-2xl leading-none px-1"
             onClick={() => { haptic(); onClose(); }}
           >
             &times;
@@ -115,7 +107,7 @@ function OverviewTab() {
           Bluffing is not just allowed &mdash; it&apos;s essential!
         </p>
       </div>
-      <div className="border-t border-gray-700 pt-4 mt-2">
+      <div className="border-t border-coup-line/70 pt-4 mt-2">
         <h3 className="text-coup-accent font-bold text-base mb-2">About the Original Game</h3>
         <p>
           Coup is a card game designed by <span className="text-white font-medium">Rikki Tahta</span>,
@@ -143,20 +135,22 @@ function CharactersTab() {
   return (
     <div className="grid gap-3">
       {characters.map(char => {
-        const theme = characterThemes[char];
+        const theme = CHARACTER_PALETTE[char];
         return (
           <div
             key={char}
-            className={`flex items-center gap-3 p-3 rounded-lg border ${theme.bg} ${theme.border}`}
+            className={`flex items-center gap-3 p-3 rounded border ${theme.tint} ${theme.edge}`}
           >
-            <div className={`relative h-14 w-10 shrink-0 overflow-hidden rounded-md border ${theme.border}`}>
+            {/* A real card frame, so the roster teaches the same band the
+                table uses (ART-DIRECTION §1.2). */}
+            <div className="card-face h-14 w-10 shrink-0" style={characterCardVars(char)}>
               <CardArtwork character={char} variant="focus" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
               <CharacterCardBadge character={char} />
             </div>
             <div>
-              <div className={`font-bold ${theme.label}`}>{char}</div>
-              <div className="text-sm text-gray-400">{CHARACTER_DESCRIPTIONS[char]}</div>
+              <div className={`font-bold ${theme.text}`}>{char}</div>
+              <div className="text-sm text-coup-ink-mute">{CHARACTER_DESCRIPTIONS[char]}</div>
             </div>
           </div>
         );
@@ -174,7 +168,7 @@ function RulesTab() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-gray-300">
             <thead>
-              <tr className="border-b border-gray-700 text-xs text-gray-500 uppercase">
+              <tr className="border-b border-coup-line/70 text-xs text-coup-ink-mute uppercase">
                 <th className="py-2 pr-3">Action</th>
                 <th className="py-2 pr-3">Cost</th>
                 <th className="py-2 pr-3">Effect</th>
@@ -183,42 +177,42 @@ function RulesTab() {
               </tr>
             </thead>
             <tbody className="text-xs">
-              <tr className="border-b border-gray-800">
+              <tr className="border-b border-coup-line/40">
                 <td className="py-2 pr-3 font-medium text-white">Income</td>
                 <td className="py-2 pr-3">0</td>
                 <td className="py-2 pr-3">+1 coin</td>
-                <td className="py-2 pr-3 text-gray-500">&mdash;</td>
-                <td className="py-2 text-gray-500">&mdash;</td>
+                <td className="py-2 pr-3 text-coup-ink-mute">&mdash;</td>
+                <td className="py-2 text-coup-ink-mute">&mdash;</td>
               </tr>
-              <tr className="border-b border-gray-800">
+              <tr className="border-b border-coup-line/40">
                 <td className="py-2 pr-3 font-medium text-white">Foreign Aid</td>
                 <td className="py-2 pr-3">0</td>
                 <td className="py-2 pr-3">+2 coins</td>
-                <td className="py-2 pr-3 text-gray-500">&mdash;</td>
+                <td className="py-2 pr-3 text-coup-ink-mute">&mdash;</td>
                 <td className="py-2 text-purple-300">Duke</td>
               </tr>
-              <tr className="border-b border-gray-800">
+              <tr className="border-b border-coup-line/40">
                 <td className="py-2 pr-3 font-medium text-white">Coup</td>
                 <td className="py-2 pr-3">7</td>
                 <td className="py-2 pr-3">Target loses influence</td>
-                <td className="py-2 pr-3 text-gray-500">&mdash;</td>
-                <td className="py-2 text-gray-500">&mdash;</td>
+                <td className="py-2 pr-3 text-coup-ink-mute">&mdash;</td>
+                <td className="py-2 text-coup-ink-mute">&mdash;</td>
               </tr>
-              <tr className="border-b border-gray-800">
+              <tr className="border-b border-coup-line/40">
                 <td className="py-2 pr-3 font-medium text-purple-300">Tax</td>
                 <td className="py-2 pr-3">0</td>
                 <td className="py-2 pr-3">+3 coins</td>
                 <td className="py-2 pr-3 text-purple-300">Duke</td>
-                <td className="py-2 text-gray-500">&mdash;</td>
+                <td className="py-2 text-coup-ink-mute">&mdash;</td>
               </tr>
-              <tr className="border-b border-gray-800">
+              <tr className="border-b border-coup-line/40">
                 <td className="py-2 pr-3 font-medium text-gray-300">Assassinate</td>
                 <td className="py-2 pr-3">3</td>
                 <td className="py-2 pr-3">Target loses influence</td>
                 <td className="py-2 pr-3 text-gray-300">Assassin</td>
                 <td className="py-2 text-red-300">Contessa</td>
               </tr>
-              <tr className="border-b border-gray-800">
+              <tr className="border-b border-coup-line/40">
                 <td className="py-2 pr-3 font-medium text-blue-300">Steal</td>
                 <td className="py-2 pr-3">0</td>
                 <td className="py-2 pr-3">Take 2 coins from target</td>
@@ -230,7 +224,7 @@ function RulesTab() {
                 <td className="py-2 pr-3">0</td>
                 <td className="py-2 pr-3">Draw 2, keep what you want</td>
                 <td className="py-2 pr-3 text-green-300">Ambassador</td>
-                <td className="py-2 text-gray-500">&mdash;</td>
+                <td className="py-2 text-coup-ink-mute">&mdash;</td>
               </tr>
             </tbody>
           </table>
@@ -290,7 +284,7 @@ function ReformationTab({
         </p>
       </div>
 
-      <div className="rounded-xl border border-coup-accent/30 bg-coup-accent/10 p-3">
+      <div className="panel-sunk bg-coup-accent/15 p-3">
         <h3 className="text-coup-accent font-bold text-base mb-2">Quick Start</h3>
         <ol className="list-decimal list-inside space-y-1.5 text-gray-300">
           <li>Check faction markers before targeting: <span className="text-blue-300 font-bold">▲ LOY</span> and <span className="text-red-300 font-bold">◆ REF</span>.</li>

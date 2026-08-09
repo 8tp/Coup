@@ -13,10 +13,10 @@ interface PracticeCoachProps {
 const HIDDEN_KEY = 'coup_practice_coach_hidden';
 
 const TONE_CLASSES: Record<PracticeCoachTone, string> = {
-  gold: 'border-coup-accent/50 bg-amber-950/75 text-coup-accent',
-  blue: 'border-blue-500/45 bg-blue-950/75 text-blue-300',
-  red: 'border-red-500/50 bg-red-950/80 text-red-300',
-  green: 'border-emerald-500/45 bg-emerald-950/75 text-emerald-300',
+  gold: 'bg-amber-950/85 text-coup-accent',
+  blue: 'bg-blue-950/85 text-blue-300',
+  red: 'bg-red-950/90 text-red-300',
+  green: 'bg-emerald-950/85 text-emerald-300',
 };
 
 export function PracticeCoach({ gameState, onOpenRules }: PracticeCoachProps) {
@@ -45,7 +45,7 @@ export function PracticeCoach({ gameState, onOpenRules }: PracticeCoachProps) {
   return (
     <aside
       key={tip.id}
-      className={`practice-coach rounded-xl border px-3 py-2.5 shadow-lg ${TONE_CLASSES[tip.tone]}`}
+      className={`practice-coach panel-sunk px-3 py-2.5 ${TONE_CLASSES[tip.tone]}`}
       aria-label="Practice coach"
     >
       <div className="flex items-start gap-2.5">

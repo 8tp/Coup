@@ -36,7 +36,7 @@ export function ChatPanel({ messages, myId, onSend }: ChatPanelProps) {
     <div className="flex flex-col h-full">
       <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-1 px-3 py-2 min-h-0">
         {visibleMessages.length === 0 && (
-          <p className="text-xs text-gray-600 italic">No messages yet...</p>
+          <p className="text-xs text-coup-ink-mute italic">No messages yet...</p>
         )}
         {visibleMessages.map((msg) => {
           const isOwn = msg.playerId === myId;
@@ -51,14 +51,14 @@ export function ChatPanel({ messages, myId, onSend }: ChatPanelProps) {
         })}
         <div />
       </div>
-      <form onSubmit={handleSubmit} className="flex gap-2 px-3 py-2 border-t border-gray-800">
+      <form onSubmit={handleSubmit} className="flex gap-2 px-3 py-2 border-t border-coup-line/70">
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           maxLength={CHAT_MAX_MESSAGE_LENGTH}
           placeholder="Type a message..."
-          className="flex-1 bg-coup-bg border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-gray-200 placeholder-gray-600 focus:outline-none focus:border-coup-accent/50"
+          className="flex-1 bg-coup-bg border border-coup-line rounded-lg px-3 py-1.5 text-xs text-gray-200 placeholder-coup-ink-mute focus:outline-none focus:border-coup-accent/50"
         />
         <button
           type="submit"
