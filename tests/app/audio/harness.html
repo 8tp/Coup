@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Coup — offline audio mix render</title>
+<style>
+  body { font: 13px/1.5 ui-monospace, monospace; margin: 2rem; background: #12100f; color: #e8e2d8; }
+  pre { white-space: pre-wrap; }
+  #status { color: #d8b26a; }
+</style>
+</head>
+<body>
+<p id="status">rendering…</p>
+<pre id="out"></pre>
+<script type="module">
+  import './harness.bundle.js';
+  const status = document.getElementById('status');
+  const out = document.getElementById('out');
+  try {
+    const report = await window.__COUP_AUDIO.run();
+    window.__COUP_REPORT = report;
+    status.textContent = 'done — ' + report.rows.length + ' rows';
+    out.textContent = JSON.stringify(report, null, 2);
+  } catch (err) {
+    status.textContent = 'FAILED: ' + (err && err.message ? err.message : String(err));
+    window.__COUP_REPORT = { error: String(err) };
+  }
+</script>
+</body>
+</html>
