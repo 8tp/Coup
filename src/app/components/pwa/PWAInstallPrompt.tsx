@@ -58,7 +58,7 @@ export function PWAInstallPrompt() {
   };
 
   return (
-    <div className="fixed inset-x-3 bottom-3 z-[55] mx-auto max-w-md rounded-xl border border-coup-accent/40 bg-coup-surface/95 p-3 shadow-xl backdrop-blur">
+    <div className="fixed inset-x-3 bottom-3 z-[55] mx-auto max-w-md panel-sunk bg-coup-surface/95 p-3 backdrop-blur">
       <div className="flex items-center gap-3">
         <img src="/icons/icon-192-v2.png" alt="" className="h-10 w-10 rounded-lg" aria-hidden="true" />
         <div className="min-w-0 flex-1">
@@ -74,7 +74,7 @@ export function PWAInstallPrompt() {
         </button>
         <button
           type="button"
-          className="rounded-lg border border-gray-700 px-2.5 py-2 text-xs font-bold text-gray-400"
+          className="rounded-lg border border-coup-line px-2.5 py-2 text-xs font-bold text-gray-400"
           onClick={dismiss}
           aria-label="Dismiss install prompt"
         >

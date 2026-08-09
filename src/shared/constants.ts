@@ -241,36 +241,6 @@ export const CHARACTER_DESCRIPTIONS: Record<Character, string> = {
 };
 
 // ─── Log Event Icons ───
-export const LOG_EVENT_ICONS: Record<LogEventType, string> = {
-  game_start: '🎮',
-  turn_start: '▶',
-  income: '💰',
-  coup: '⚔️',
-  claim_action: '🎭',
-  declare_action: '📢',
-  challenge: '❓',
-  challenge_fail: '✅',
-  challenge_success: '❌',
-  block: '🛑',
-  block_challenge: '❓',
-  block_challenge_fail: '✅',
-  block_challenge_success: '❌',
-  block_unchallenged: '🛑',
-  influence_loss: '💀',
-  exchange: '🔄',
-  exchange_draw: '🔄',
-  action_resolve: '✨',
-  assassination: '🗡️',
-  elimination: '☠️',
-  win: '🏆',
-  bot_replace: '🤖',
-  // Reformation expansion
-  convert: '🔄',
-  embezzle: '💸',
-  examine: '🔍',
-  examine_decision: '🔍',
-  faction_change: '⚔️',
-};
 
 // ─── Character colors (for UI) ───
 export const CHARACTER_COLORS: Record<Character, string> = {

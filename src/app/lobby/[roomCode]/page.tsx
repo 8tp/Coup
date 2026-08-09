@@ -161,7 +161,7 @@ export default function LobbyPage() {
           <div className="flex justify-end gap-2 mb-3">
             <button
               onClick={() => { haptic(); setShowRules(true); }}
-              className="w-9 h-9 rounded-full bg-gray-800 border border-gray-600 text-gray-300 hover:border-coup-accent hover:text-coup-accent transition flex items-center justify-center text-sm font-bold"
+              className="w-9 h-9 rounded-full bg-gray-800 border border-coup-line text-gray-300 hover:border-coup-accent hover:text-coup-accent transition flex items-center justify-center text-sm font-bold"
               title="How to Play"
               aria-label="How to Play"
             >
@@ -169,7 +169,7 @@ export default function LobbyPage() {
             </button>
             <button
               onClick={() => { haptic(); setShowQRModal(true); }}
-              className="w-9 h-9 rounded-full bg-gray-800 border border-gray-600 text-gray-300 hover:border-coup-accent hover:text-coup-accent transition flex items-center justify-center"
+              className="w-9 h-9 rounded-full bg-gray-800 border border-coup-line text-gray-300 hover:border-coup-accent hover:text-coup-accent transition flex items-center justify-center"
               title="Share Room"
               aria-label="Share room"
             >
@@ -179,7 +179,7 @@ export default function LobbyPage() {
             </button>
             <button
               onClick={() => { haptic(); setShowSettings(true); }}
-              className="w-9 h-9 rounded-full bg-gray-800 border border-gray-600 text-gray-300 hover:border-coup-accent hover:text-coup-accent transition flex items-center justify-center"
+              className="w-9 h-9 rounded-full bg-gray-800 border border-coup-line text-gray-300 hover:border-coup-accent hover:text-coup-accent transition flex items-center justify-center"
               title="Settings"
               aria-label="Settings"
             >
@@ -196,7 +196,7 @@ export default function LobbyPage() {
           >
             {roomCode}
           </button>
-          <p className="text-gray-600 text-xs mt-1" aria-live="polite">
+          <p className="text-coup-ink-mute text-xs mt-1" aria-live="polite">
             {copyStatus === 'code' && 'Room code copied'}
             {copyStatus === 'link' && 'Invite link copied'}
             {copyStatus === 'error' && 'Copy failed - select the code or use the QR button'}
@@ -206,14 +206,14 @@ export default function LobbyPage() {
             <button
               type="button"
               onClick={copyRoomCode}
-              className="px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800/80 text-xs font-medium text-gray-300 hover:border-coup-accent hover:text-coup-accent transition"
+              className="px-3 py-1.5 rounded-lg border border-coup-line bg-gray-800/80 text-xs font-medium text-gray-300 hover:border-coup-accent hover:text-coup-accent transition"
             >
               Copy Code
             </button>
             <button
               type="button"
               onClick={copyInviteLink}
-              className="px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800/80 text-xs font-medium text-gray-300 hover:border-coup-accent hover:text-coup-accent transition"
+              className="px-3 py-1.5 rounded-lg border border-coup-line bg-gray-800/80 text-xs font-medium text-gray-300 hover:border-coup-accent hover:text-coup-accent transition"
             >
               Copy Invite
             </button>
@@ -221,7 +221,7 @@ export default function LobbyPage() {
         </div>
 
         {error && (
-          <div className="bg-red-900/50 border border-red-600 rounded-xl p-3 mb-4 text-sm animate-fade-in">
+          <div className="bg-red-900/50 panel-sunk p-3 mb-4 text-sm animate-fade-in">
             {error}
           </div>
         )}
@@ -278,7 +278,7 @@ export default function LobbyPage() {
                   {p.isBot && isHost && (
                     <button
                       onClick={() => { haptic(); handleRemoveBot(p.id); }}
-                      className="text-gray-500 hover:text-red-400 transition text-xs font-bold w-4 h-4 flex items-center justify-center"
+                      className="text-coup-ink-mute hover:text-red-400 transition text-xs font-bold w-4 h-4 flex items-center justify-center"
                       title="Remove bot"
                       aria-label={`Remove ${p.name}`}
                     >
@@ -288,7 +288,7 @@ export default function LobbyPage() {
                   {!p.isBot && isHost && p.id !== hostId && (
                     <button
                       onClick={() => { haptic(); handleRemovePlayer(p.id); }}
-                      className="text-gray-500 hover:text-red-400 transition text-xs font-bold w-4 h-4 flex items-center justify-center"
+                      className="text-coup-ink-mute hover:text-red-400 transition text-xs font-bold w-4 h-4 flex items-center justify-center"
                       title="Remove player"
                       aria-label={`Remove ${p.name}`}
                     >
@@ -306,7 +306,7 @@ export default function LobbyPage() {
           {/* Add Bot Button */}
           {isHost && canAddBot && (
             <button
-              className="w-full mt-3 py-2 px-3 border border-dashed border-gray-600 rounded-lg text-gray-400 hover:border-coup-accent hover:text-coup-accent transition text-sm"
+              className="w-full mt-3 py-2 px-3 border border-dashed border-coup-line rounded-lg text-gray-400 hover:border-coup-accent hover:text-coup-accent transition text-sm"
               onClick={() => { haptic(); setShowAddBotModal(true); }}
             >
               + Add Computer Player
@@ -314,8 +314,8 @@ export default function LobbyPage() {
           )}
 
           {spectators.length > 0 && (
-            <div className="mt-4 border-t border-gray-800 pt-3">
-              <h3 className="font-bold text-gray-500 text-xs uppercase mb-2">
+            <div className="mt-4 border-t border-coup-line/70 pt-3">
+              <h3 className="font-bold text-coup-ink-mute text-xs uppercase mb-2">
                 Spectators ({spectators.length})
               </h3>
               <div className="space-y-2">
@@ -326,7 +326,7 @@ export default function LobbyPage() {
                       <button
                         type="button"
                         onClick={() => { haptic(); handleRemoveSpectator(s.id); }}
-                        className="text-gray-500 hover:text-red-400 transition text-xs font-bold w-4 h-4 flex items-center justify-center"
+                        className="text-coup-ink-mute hover:text-red-400 transition text-xs font-bold w-4 h-4 flex items-center justify-center"
                         title="Remove spectator"
                         aria-label={`Remove spectator ${s.name}`}
                       >
@@ -372,7 +372,7 @@ export default function LobbyPage() {
             <div className="flex items-center justify-between mb-4">
               <label className="text-sm text-gray-300">Game Mode</label>
               {isHost ? (
-                <div className="flex bg-coup-bg rounded-lg overflow-hidden border border-gray-700">
+                <div className="flex bg-coup-bg rounded-lg overflow-hidden border border-coup-line">
                   <button
                     className={`px-3 py-1 text-xs font-medium transition-colors ${roomSettings.gameMode === GameMode.Classic ? 'bg-coup-accent text-white' : 'text-gray-400 hover:text-gray-200'}`}
                     onClick={() => {
@@ -449,7 +449,7 @@ export default function LobbyPage() {
                 />
               </div>
             )}
-            <div className="flex justify-between text-xs text-gray-600 mt-1">
+            <div className="flex justify-between text-xs text-coup-ink-mute mt-1">
               <span>{MIN_ACTION_TIMER}s</span>
               <span>{MAX_ACTION_TIMER}s</span>
             </div>
@@ -479,11 +479,11 @@ export default function LobbyPage() {
                 />
               </div>
             )}
-            <div className="flex justify-between text-xs text-gray-600 mt-1">
+            <div className="flex justify-between text-xs text-coup-ink-mute mt-1">
               <span>{MIN_TURN_TIMER}s</span>
               <span>{MAX_TURN_TIMER}s</span>
             </div>
-            <p className="text-xs text-gray-600 mt-1">Time limit for action selection, exchange, and influence loss</p>
+            <p className="text-xs text-coup-ink-mute mt-1">Time limit for action selection, exchange, and influence loss</p>
 
             {/* Bot Min Reaction Time */}
             {hasBots && (
@@ -512,11 +512,11 @@ export default function LobbyPage() {
                     />
                   </div>
                 )}
-                <div className="flex justify-between text-xs text-gray-600 mt-1">
+                <div className="flex justify-between text-xs text-coup-ink-mute mt-1">
                   <span>{MIN_BOT_REACTION_SECONDS}s</span>
                   <span>{botReactionMax}s</span>
                 </div>
-                <p className="text-xs text-gray-600 mt-1">Minimum time before bots react</p>
+                <p className="text-xs text-coup-ink-mute mt-1">Minimum time before bots react</p>
               </>
             )}
           </div>

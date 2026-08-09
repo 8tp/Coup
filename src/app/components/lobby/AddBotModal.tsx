@@ -130,7 +130,7 @@ export function AddBotModal({ open, onClose, onAdd, existingNames }: AddBotModal
               onChange={e => setName(e.target.value)}
               maxLength={20}
               placeholder="Bot name..."
-              className="flex-1 bg-coup-bg border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-coup-accent"
+              className="flex-1 bg-coup-bg border border-coup-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-coup-accent"
             />
             <button
               type="button"
@@ -154,7 +154,7 @@ export function AddBotModal({ open, onClose, onAdd, existingNames }: AddBotModal
                 className={`w-full text-left px-4 py-3 rounded-lg border-2 transition ${
                   personality === opt.value
                     ? `${opt.bgColor} ${opt.borderColor}`
-                    : 'border-gray-700 hover:border-gray-500'
+                    : 'border-coup-line hover:border-coup-ink-mute'
                 }`}
               >
                 <span className={`font-bold text-sm ${personality === opt.value ? opt.color : 'text-gray-300'}`}>

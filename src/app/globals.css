@@ -2,7 +2,158 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ======================================================================
+   Registered custom properties (GAME-FEEL-PLAN §2.4 — the press mechanic).
+
+   These are declared at the top level rather than inside `@layer`, because
+   `@property` is a registration, not a declaration: it has no cascade origin
+   to belong to and putting it in a layer only makes it harder to find.
+
+   Registration is what makes these three *animatable*. An unregistered custom
+   property has no type, so the engine cannot interpolate it — a transition on
+   it is a discrete flip at 50%.
+
+   ── THE FALLBACK PATH (@property is Chrome 85+ / Safari 16.4+ / Firefox 128+)
+   A browser without `@property` ignores these blocks entirely, so
+   `--press-s` / `--press-y` / `--card-lift` become ordinary unregistered
+   custom properties. That path still works, and it works because `.card-face`
+   re-declares all three with the same initial values: the `transform` still
+   resolves (never to an invalid value, so the card never disappears), the
+   `.is-pressed` class still takes the card down to .955, and the release still
+   returns it to 1. What is lost is only the interpolation — the press snaps
+   instead of easing. That is a degraded press, not a broken one, which is the
+   right shape of failure for a purely tactile effect.
+   ====================================================================== */
+
+@property --press-s {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 1;
+}
+
+@property --press-y {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+/* Hover / selection scale. Deliberately a *separate* variable from --press-s
+   so the two compose in one transform instead of overwriting each other, and
+   so hover can carry a transition while the press keeps its own timing. */
+@property --card-lift {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 1;
+}
+
 @layer base {
+  :root {
+    /* --------------------------------------------------------------------
+       ART-DIRECTION.md §2.1 — ground and structure.
+       Mirror of `coup.*` in tailwind.config.ts, which is the source of truth.
+       These exist so the plain CSS in this file can reference the palette by
+       name instead of re-typing hexes (§1.1: five duplicated palettes is the
+       problem this is meant to stop). Keep the two lists in sync.
+       -------------------------------------------------------------------- */
+    --ground: #090d0e;       /* body, deepest table */
+    --ground-deep: #05090a;  /* wells, the deck recess, inside a deboss */
+    --surface: #17231f;      /* the felt */
+    --raised: #22302b;       /* seats, prompts, a step above the felt */
+    --line: #33443e;         /* the only hairline value — never a panel outline */
+    --ink: #f1ebde;          /* all primary text: bone, not white */
+    --ink-mute: #9fada6;     /* secondary text */
+    --brass: #d6a12a;        /* your turn, primary slabs, focus ring */
+    --brass-lit: #f2c744;    /* coin figures and the treasury only */
+    --crimson: #f27366;      /* the danger stripe colour, and only that */
+    --oxblood: #5f141c;      /* perimeter enamel, matching the table art */
+
+    /* §2.2 — the six character hues, low saturation. Glyph first, hue second. */
+    --char-duke: #b48ad0;
+    --char-assassin: #8d9ba6;
+    --char-captain: #5fa5d6;
+    --char-ambassador: #a9be5e;
+    --char-contessa: #e07b90;
+    --char-inquisitor: #5ac0c6;
+
+    /* --------------------------------------------------------------------
+       ART-DIRECTION.md §5 — the two shadow languages, and the deboss.
+       Never mix them: paper casts a soft drop, enamelled chrome takes a hard
+       zero-blur offset, and table furniture is milled INTO the felt.
+       -------------------------------------------------------------------- */
+
+    /* Paper — cards, and only cards. The contact hairline is the load-bearing
+       layer, not the soft ones: a sheet lying on a surface has a hard dark
+       line where it meets that surface, and that line separates sheet from
+       table before any value difference does. */
+    --shadow-paper:
+      0 0 0 1px rgba(0, 0, 0, 0.16),
+      0 1px 1px rgba(0, 0, 0, 0.20),
+      0 3px 6px rgba(0, 0, 0, 0.16),
+      0 10px 24px rgba(0, 0, 0, 0.12);
+
+    /* Chrome — pressables, and only pressables. Zero blur is the point. */
+    --shadow-chrome: 3px 3px 0 var(--ground-deep);
+
+    /* Furniture — debossed, never outlined (§3.1). The 1px light line on the
+       BOTTOM inside edge is the physics: a groove cut into a surface lit from
+       above is dark at the top and catches light at the bottom. Reverse it and
+       the panel pops out instead of sinking in. */
+    --deboss:
+      inset 0 2px 3px rgba(0, 0, 0, 0.25),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+
+    /* --------------------------------------------------------------------
+       ART-DIRECTION.md §1.2 — the hazard material.
+       Danger is a MATERIAL, never a hue: 45° stripes, used for revealed cards
+       and for the urgent prompt rail so the two read as the same language.
+       The rgba below is `--crimson` #f27366 at 26% — written literally rather
+       than as color-mix() because an unsupported color-mix would invalidate
+       the whole gradient and silently delete the hatch.
+       -------------------------------------------------------------------- */
+    --hazard: repeating-linear-gradient(
+      45deg,
+      transparent 0 8px,
+      rgba(242, 115, 102, 0.26) 8px 10px
+    );
+
+    /* The same material at full strength, for a rail thin enough to need it. */
+    --hazard-rail: repeating-linear-gradient(
+      45deg,
+      var(--crimson) 0 6px,
+      var(--oxblood) 6px 12px
+    );
+
+    /* --------------------------------------------------------------------
+       ART-DIRECTION.md §4 — three type roles, no more.
+       `--font-display` is not declared here: next/font/local sets it on <html>
+       (see layout.tsx) so the hashed self-hosted family name is the value.
+       Consume all three through Tailwind's `font-display` / `font-sans` /
+       `font-mono`, which carry the literal fallback stacks.
+       -------------------------------------------------------------------- */
+    --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-figure: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+
+    /* --------------------------------------------------------------------
+       Type scale. §4: "Earn hierarchy with size and weight, never tracking."
+       Ratio ~1.2 at 360px widening to ~1.25 at 1400px, so the display steps
+       pull away from body copy on a desktop table without wrapping a phone
+       column. Every bound is in `rem`, never `px`, because the accessibility
+       control (`html.text-size-large` / `.text-size-xl`, above) works by
+       changing the root font-size — a px bound would silently ignore it.
+       -------------------------------------------------------------------- */
+    --step--1: clamp(0.75rem, 0.723rem + 0.12vw, 0.8125rem);
+    --step-0: clamp(0.875rem, 0.848rem + 0.12vw, 0.9375rem);
+    --step-1: clamp(1rem, 0.946rem + 0.24vw, 1.125rem);
+    --step-2: clamp(1.1875rem, 1.079rem + 0.48vw, 1.4375rem);
+    --step-3: clamp(1.4375rem, 1.275rem + 0.72vw, 1.8125rem);
+    --step-4: clamp(1.75rem, 1.424rem + 1.45vw, 2.5rem);
+    --step-5: clamp(2.125rem, 1.581rem + 2.42vw, 3.375rem);
+
+    /* §4: display type is always set at -0.02em. Bundled so call sites
+       cannot half-apply the role. */
+    --display-tracking: -0.02em;
+  }
+
   html.text-size-large { font-size: 18px; }
   html.text-size-xl { font-size: 20px; }
 
@@ -47,6 +198,48 @@
       drop-shadow(0 4px 14px rgba(0,0,0,0.92));
   }
 
+  /* ------------------------------------------------------------------
+     ART-DIRECTION.md §4 — the Display role.
+     Anything wearing this is a printed heading, not UI text: the phase
+     banner, player names, the game-over title, ActionBar action names.
+     Size comes from the caller (a `--step-*` value); the face, weight and
+     the mandatory -0.02em tracking come from here so the role cannot be
+     half-applied.
+     ------------------------------------------------------------------ */
+  .type-display {
+    @apply font-display;
+    font-weight: 700;
+    letter-spacing: var(--display-tracking);
+  }
+
+  /* ------------------------------------------------------------------
+     ART-DIRECTION.md §4 — the Figures role.
+     Coins, deck count, treasury reserve, timers, room codes. Monospace is
+     not decoration here: in a proportional face `1` is narrower than `8`,
+     so a counter ticking 2 -> 10 -> 7 changes its own width on every update
+     and nudges its neighbours. `tabular-nums` holds the column, which is
+     what makes the number read as an instrument rather than as a webpage
+     recalculating.
+     ------------------------------------------------------------------ */
+  .figure {
+    font-family: var(--font-figure);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* The phase banner (PhaseStatus.tsx) is a Display site per §4.
+     The class is doubled on purpose: PhaseStatus sets `text-sm font-bold` as
+     Tailwind utilities, which are emitted after @layer components, so a
+     single-class (0,1,0) selector loses on source order and only the
+     font-family would land. (0,2,0) wins on specificity instead. Drop the
+     doubling once the component stops setting its own size and weight. */
+  .phase-status-enter.phase-status-enter {
+    @apply font-display;
+    font-size: var(--step-1);
+    font-weight: 700;
+    letter-spacing: var(--display-tracking);
+    line-height: 1.15;
+  }
+
   .btn-primary {
     @apply bg-coup-accent text-coup-bg font-bold py-3 px-6 rounded-xl
            active:scale-95 transition-all duration-100
@@ -76,27 +269,227 @@
            lg:py-2.5 lg:px-5 lg:text-base lg:rounded-lg;
   }
 
+  /* ------------------------------------------------------------------
+     ART-DIRECTION.md §3.1 / §5 — table furniture is debossed, not outlined.
+     `.card-container` was `rounded-xl border-2 border-gray-700`, the single
+     most-repeated web-app tell in the build (7 call sites, including every
+     player seat). The 1px grey stroke is gone; the panel is milled into the
+     felt instead, at the 2px furniture radius.
+
+     The box-shadow is written the way Tailwind writes `shadow-*` — through
+     `--tw-shadow`, composed with the ring slots — because PlayerSeat stacks
+     `ring-2 ring-coup-accent` (your turn, and the brass hover ring on a
+     selectable seat) on this same element. A plain `box-shadow: var(--deboss)`
+     would be overwritten wholesale by the ring utility and the seat would pop
+     out of the table at exactly the moments it matters most. (Being TARGETED
+     is not a ring at all any more — see `.seat-target` at the end of this
+     file for why it must not be.)
+     ------------------------------------------------------------------ */
   .card-container {
-    @apply bg-coup-card rounded-xl border-2 border-gray-700 p-4
-           transition-all duration-200;
+    @apply bg-coup-card p-4;
+    border-radius: 2px;
+    --tw-shadow: var(--deboss);
+    box-shadow:
+      var(--tw-ring-offset-shadow, 0 0 #0000),
+      var(--tw-ring-shadow, 0 0 #0000),
+      var(--tw-shadow);
+    transition:
+      box-shadow 200ms ease,
+      background-color 200ms ease,
+      opacity 200ms ease;
   }
 
+  /* ------------------------------------------------------------------
+     ART-DIRECTION.md §3.1 / §5 — the generic debossed panel.
+
+     `.card-container` is the *seat*: it brings its own ground and padding,
+     so it cannot be reused by the modals, recap plates, stat tiles and log
+     wells that also need to be milled into the felt. This class is the same
+     material with nothing else attached — the caller keeps its own `bg-*`
+     and padding, and drops its `rounded-* border border-gray-*` pair.
+
+     Radius is 2px because §5 puts furniture and plates at 2px; `rounded-xl`
+     (12px) is the same web-app tell as the stroke it replaces (§3.1 item 1).
+
+     The box-shadow is composed through `--tw-shadow` for the same reason
+     `.card-container` does it: a caller may stack `ring-*` on the same
+     element, and a plain `box-shadow` would be overwritten wholesale.
+     ------------------------------------------------------------------ */
+  .panel-sunk {
+    border-radius: 2px;
+    --tw-shadow: var(--deboss);
+    box-shadow:
+      var(--tw-ring-offset-shadow, 0 0 #0000),
+      var(--tw-ring-shadow, 0 0 #0000),
+      var(--tw-shadow);
+  }
+
+  /* ==================================================================
+     THE CARD FRAME — ART-DIRECTION.md §1.2, §3.5, §5;
+     GAME-FEEL-PLAN.md §1.3 "Fix the card frames".
+
+     BEFORE: `border-2` in a saturated Tailwind default per character
+     (`border-purple-500`, `border-red-500`, …) plus a `::before` hairline
+     inset 3px. On the 44x64 card that is 416px² of border and 188px² of ring
+     out of 2816px² — 21.4% of the smallest card's pixels were frame, in
+     colours that read as debug outlines against painterly gouache.
+
+     AFTER, three materials and no outline:
+       1. `--shadow-paper` (§5) — the hard contact hairline that separates a
+          printed sheet from the table, plus the soft drop. This replaces the
+          old `inset 0 1px 2px rgba(255,255,255,.08)`, which lit the card from
+          inside and made it read as a button.
+       2. a 1px trim hairline in `--line`, inset 2px from the edge — the
+          existing `::before`, retuned, NOT a third border.
+       3. a printed colour band down the LEFT edge carrying the §2.2 hue.
+
+     Why the left edge and not the bottom: `.card-label-plate` is a near-opaque
+     wash over the bottom 46% of the small card, so a bottom band would be
+     half-buried. The left edge is unobstructed at every one of the five card
+     sizes, and in a row of cards the bands line up into a readable colour
+     index. That is what keeps the character identifiable at `card-face-sm`.
+     ================================================================== */
   .card-face {
-    @apply rounded-lg flex flex-col items-center justify-center
-           font-bold border-2 transition-all duration-300 flex-none;
+    @apply flex flex-col items-center justify-center font-bold flex-none;
     position: relative;
     overflow: hidden;
-    box-shadow: inset 0 1px 2px rgba(255,255,255,0.08);
+    border: 0;
+    border-radius: 6px; /* §5: 6px on cards. Not 12px — that is an app card. */
+    background-color: var(--ground-deep);
+
+    /* Composed through --tw-shadow so `ring-2 ring-coup-accent` (selection,
+       §1.2's brass ring) stacks on top of the paper shadow instead of
+       deleting it. */
+    --tw-shadow: var(--shadow-paper);
+    box-shadow:
+      var(--tw-ring-offset-shadow, 0 0 #0000),
+      var(--tw-ring-shadow, 0 0 #0000),
+      var(--tw-shadow);
+
+    /* Local defaults. `--char-hue` is overridden inline per card by
+       `characterCardVars()`; the other three are the @property initial values
+       restated so the transform still resolves where @property is missing. */
+    --char-hue: transparent;
+    --card-band: 4px;
+
+    /* The printed band, as one value so the revealed variant can re-layer it
+       without re-typing it. The 1px dark keyline on the band's right edge is
+       not decoration: the band has to clear ~3:1 against the card stock beside
+       it, and the "stock" here is raster portrait art whose left column varies
+       per character. Measured — Contessa's rose #E07B90 on her own warm-red
+       crop was invisible at 44x64 without it. The keyline gives the band a
+       guaranteed edge on every portrait, and it is what a screen-printed
+       colour block over a photographic plate actually looks like. */
+    --card-band-print: linear-gradient(
+      to right,
+      var(--char-hue) 0 var(--card-band),
+      rgba(0, 0, 0, 0.55) var(--card-band) calc(var(--card-band) + 1px),
+      transparent calc(var(--card-band) + 1px)
+    );
+
+    --press-s: 1;
+    --press-y: 0px;
+    --card-lift: 1;
+
+    /* The one transform on this element. Press and lift are separate factors
+       so neither clobbers the other, and neither touches the flight engine's
+       --fx/--fy/--tilt/--fs (see src/app/anim/flight.ts) — a flying card is a
+       different element in a different contract. */
+    transform: translateY(var(--press-y)) scale(calc(var(--card-lift) * var(--press-s)));
+
+    /* TRAP (CSS Cascading 5 §6.6.2): transitions sit ABOVE animations in the
+       cascade. A `transition-all` here — which is what this rule used to
+       carry — would win over the `card-unpress` keyframes and silently delete
+       the release. So the list is explicit, and --press-s / --press-y are
+       deliberately absent from it. Each press state declares its own timing
+       below. `transform` is absent too: it is var-driven now, so transitioning
+       it would double-smooth every frame of the press. */
+    transition:
+      --card-lift 140ms cubic-bezier(0.3, 0.8, 0.4, 1),
+      box-shadow 200ms ease,
+      filter 200ms ease,
+      opacity 200ms ease;
   }
 
+  /* The printed character band, on `::before` at z 2 — above the art, BELOW
+     `.card-label-plate` (z 3). Measured: at z 4 the 4px band ate the first
+     glyph of the longest names ("AMBASSADOR" rendered as "MBASSADOR" at
+     card-face-md). Tucking it under the plate is also the truer print
+     behaviour: the role strip is the last thing screen-printed, so it sits on
+     top of the colour block. The band still runs the whole exposed height of
+     the card, which at card-face-sm is the top 54% — plenty to read as a
+     vertical colour index across a row of seats. */
   .card-face::before {
     content: '';
     position: absolute;
-    inset: 3px;
-    border: 1px solid rgba(255,255,255,0.06);
+    inset: 2px;
     border-radius: 4px;
+    background-image: var(--card-band-print);
     pointer-events: none;
     z-index: 2;
+  }
+
+  /* The trim hairline, on `::after` at z 5 so it frames everything including
+     the label plate. One hairline in `--line`, inset 2px from the card edge —
+     this is the retuned version of the old `::before` ring, NOT a third
+     border. `.card-face` itself carries `border: 0`. */
+  .card-face::after {
+    content: '';
+    position: absolute;
+    inset: 2px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  /* Hover and selection scale, via the shared transform. These replace the
+     `hover:scale-105` / `scale-105` utilities the call sites used to set,
+     which wrote the whole `transform` property and would have overwritten the
+     press. */
+  .card-face.is-interactive {
+    cursor: pointer;
+  }
+
+  @media (hover: hover) {
+    .card-face.is-interactive:hover {
+      --card-lift: 1.05;
+    }
+  }
+
+  .card-face.is-selected {
+    --card-lift: 1.05;
+  }
+
+  /* ── The press (GAME-FEEL-PLAN §2.4) ──────────────────────────────────
+     1. THE PRESS GOES DOWN, NOT UP. --press-s < 1 and --press-y positive. A
+        card that gets smaller can never be clipped by an `overflow: hidden`
+        ancestor; a lift can, and the hand containers are exactly that.
+     2. THE RELEASE OVERSHOOT IS STATED, NOT DERIVED. The 1.028 / -3px at 46%
+        is written into the keyframes on purpose. A back-out easing scales its
+        overshoot by the delta, and this delta is only 0.045 — on a 97px card
+        that is a ~0.4px pop: arithmetically present, perceptually absent.
+     3. EACH STATE DECLARES ITS OWN TIMING MECHANISM. `.is-pressed` carries a
+        transition; `.is-unpressing` carries an animation. There is no shared
+        `transition` on `.card-face` covering these two variables — see the
+        cascade note in the base rule.
+     ------------------------------------------------------------------- */
+  .card-face.is-pressed {
+    --press-s: 0.955;
+    --press-y: 2px;
+    transition:
+      --press-s 80ms cubic-bezier(0.3, 0.8, 0.4, 1),
+      --press-y 80ms cubic-bezier(0.3, 0.8, 0.4, 1);
+  }
+
+  @keyframes card-unpress {
+    0%   { --press-s: 0.955; --press-y: 2px; }
+    46%  { --press-s: 1.028; --press-y: -3px; }
+    100% { --press-s: 1;     --press-y: 0px; }
+  }
+
+  .card-face.is-unpressing {
+    animation: card-unpress 190ms cubic-bezier(0.33, 0, 0.2, 1) both;
   }
 
   .card-label-plate {
@@ -331,24 +724,30 @@
     @apply w-20 h-28;
   }
 
+  /* Band width per card size. 4px on a 44px card is 9% of the width — enough
+     to name the character at a glance in a seat, small enough that the art
+     still leads. The big presentation sizes get 6px so the proportion holds. */
+  .card-face-lg,
+  .card-reveal-face,
+  .card-preview-face {
+    --card-band: 6px;
+  }
+
+  /* §1.2 "Eliminated": print degradation. Grayscale + opacity is already
+     right; the hatch now uses the shared hazard material so a dead card and an
+     urgent prompt speak the same language. It was a one-off `-45deg` red at
+     rgba(220,38,38) — a seventh hardcoded colour and the wrong diagonal. */
   .card-face-revealed {
     filter: grayscale(0.6);
     opacity: 0.5;
   }
 
-  .card-face-revealed::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: repeating-linear-gradient(
-      -45deg,
-      transparent,
-      transparent 8px,
-      rgba(220, 38, 38, 0.25) 8px,
-      rgba(220, 38, 38, 0.25) 10px
-    );
-    pointer-events: none;
-    border-radius: inherit;
+  /* The hatch rides on `::before` as a second background layer over the band,
+     because `::after` is the trim hairline now. Layer order matters: the
+     hazard is listed first so it prints on top of the character's colour —
+     a dead card's material outranks whose card it was. */
+  .card-face-revealed::before {
+    background-image: var(--hazard), var(--card-band-print);
   }
 
   .card-back {
@@ -405,29 +804,6 @@
   .card-flip-back-face.animate-card-flip-reveal {
     animation: cardFlipBack 0.7s ease-in-out forwards;
     transform-style: preserve-3d;
-  }
-
-  @keyframes cardSwapIn {
-    0% {
-      transform: translateY(-18px) scale(0.92) rotate(-4deg);
-      opacity: 0;
-      filter: brightness(1.35);
-    }
-    70% {
-      transform: translateY(3px) scale(1.04) rotate(1deg);
-      opacity: 1;
-      filter: brightness(1.15);
-    }
-    100% {
-      transform: translateY(0) scale(1) rotate(0deg);
-      opacity: 1;
-      filter: brightness(1);
-    }
-  }
-
-  .animate-card-swap-in {
-    animation: cardSwapIn 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-    transform-origin: center;
   }
 
   .coin-change-burst {
@@ -515,9 +891,206 @@
     }
   }
 
+  /* ====================================================================
+     REFUSAL — GAME-FEEL-PLAN §6.1, ART-DIRECTION §1.2 and §3.10.
+
+     §3.10 counted 19 `disabled={…}` bindings and 26 `title=` attributes doing
+     the explaining. A tooltip does not exist on touch, and chudopoly measured
+     that the disabled-button version of this produced ZERO refusal sounds in a
+     full game — a greyed control is a shrug, not an answer.
+
+     So controls stay live, stay focusable, and refuse out loud. A refusal is
+     three things fired together, in a fixed order:
+
+       1. the `denied` cue        — a sound plus fireHaptic('denied')
+       2. a 320ms shake           — 0/-6/+5/-4/+3/-2/0 px
+       3. a sentence              — .refusal-alert, role="alert"
+
+     THE SHAKE LIVES ON A WRAPPER, NEVER ON THE CONTROL. That is structural,
+     not stylistic, and there are three separate reasons:
+
+       - `.btn-primary` / `.btn-danger` / `.btn-secondary` carry
+         `active:scale-95` under `transition-transform`, and transitions sit
+         ABOVE animations in the cascade (CSS Cascading 5 §6.6.2). A shake
+         authored on the button would be suppressed for the whole ~100ms press
+         transition — i.e. for the first third of it.
+       - `.action-choice-enter` already owns `transform` through a keyframe
+         animation, and two `animation` shorthands on one element replace each
+         other rather than composing. Shaking the button would delete the
+         entry stagger, and removing the class again would replay it.
+       - Cards own `--press-s` / `--press-y` (the press) and
+         `--fx / --fy / --tilt / --fs` (src/app/anim/flight.ts). Nothing may
+         add a competing transform author there at all — which is exactly why
+         a CARD refuses with a flash (`.card-refuse-flash`) and never a shake.
+
+     The wrapper has no transform, no transition and no animation of its own,
+     so it can be handed the whole `transform` property without a fight.
+     ==================================================================== */
+  .refusal-host {
+    position: relative;
+    display: block;
+  }
+
+  /* 0 / -6 / +5 / -4 / +3 / -2 / 0 px over 320ms on cubic-bezier(.36,.07,.19,.97).
+     Two properties of the number are load-bearing:
+
+       - The amplitude DECAYS. A constant-amplitude wobble reads as a loop the
+         object is stuck in; a decaying one reads as an object that was struck
+         and is settling, which is the sentence "no" in motion.
+       - 320ms is chosen so the shake is OVER before a second tap can land.
+         A refusal that is still shaking when you tap again cannot answer the
+         second tap, and an unanswered tap is the bug this whole section
+         exists to remove. */
+  @keyframes refuse-shake {
+    0%   { transform: translateX(0); }
+    16%  { transform: translateX(-6px); }
+    32%  { transform: translateX(5px); }
+    48%  { transform: translateX(-4px); }
+    64%  { transform: translateX(3px); }
+    82%  { transform: translateX(-2px); }
+    100% { transform: translateX(0); }
+  }
+
+  /* Byte-identical twin of `refuse-shake`, and it has to exist. Re-refusing
+     the SAME control re-renders it with the same class, and a running
+     animation whose name did not change is not restarted — so the second
+     "no" would be silent motion. The component flips `data-shake` a/b on every
+     refusal, which changes `animation-name` and forces the restart, without
+     re-keying (and therefore re-mounting, and therefore blurring) the button
+     the way a `key`-based restart would. */
+  @keyframes refuse-shake-b {
+    0%   { transform: translateX(0); }
+    16%  { transform: translateX(-6px); }
+    32%  { transform: translateX(5px); }
+    48%  { transform: translateX(-4px); }
+    64%  { transform: translateX(3px); }
+    82%  { transform: translateX(-2px); }
+    100% { transform: translateX(0); }
+  }
+
+  .refusal-host.is-refusing {
+    animation: refuse-shake 320ms cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  }
+
+  .refusal-host.is-refusing[data-shake='b'] {
+    animation-name: refuse-shake-b;
+  }
+
+  /* §1.2: danger is a MATERIAL, never a hue. The refusal prints the hazard
+     hatch over the control for exactly as long as the shake and then lifts —
+     the same 45° stripe a revealed card and an urgent prompt wear, so a player
+     learns one mark and reads it in three places. A red tint would be the
+     banned thing: a semantic borrowing a character's channel. */
+  .refusal-host.is-refusing::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 2px; /* §5: 2px on furniture and plates */
+    background-image: var(--hazard);
+    pointer-events: none;
+    animation: refuse-hatch 320ms ease-out both;
+  }
+
+  @keyframes refuse-hatch {
+    0%   { opacity: 1; }
+    70%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* Reduced-motion variant, referenced from both collapse blocks below. The
+     hatch is opacity-only, so §7 keeps it rather than deleting it: 55%
+     strength and 1.6x duration, exactly the rule the flash plate follows. */
+  @keyframes refuse-hatch-reduced {
+    0%   { opacity: 0.55; }
+    70%  { opacity: 0.55; }
+    100% { opacity: 0; }
+  }
+
+  /* ── The persistent half ──────────────────────────────────────────────
+     An ineligible control is still rendered, still live and still focusable.
+     It says so with a material rather than by going grey:
+
+       - 35% saturation. Saturation and NOT opacity, because the sentence
+         printed inside the control has to stay readable — that sentence is
+         the entire point of the state (§6.2: "the illegal half is the half
+         that answers *why can't I click there*").
+       - §1.2's ink slab for "blocked / refused": a solid achromatic bar of
+         `--ink` stamped down the leading edge. Written as a literal rgba
+         (that is #f1ebde at 55%) for the same reason the hazard gradient is —
+         a color-mix() that a browser does not understand invalidates the
+         whole background-image and silently deletes the mark.
+
+     `data-target-illegal` is the attribute §6.2 names, and it is on the
+     element rather than in a class so a test can assert it. */
+  [data-ineligible='true'],
+  [data-target-illegal='true'] {
+    filter: saturate(0.35);
+    cursor: not-allowed;
+    background-image: linear-gradient(
+      rgba(241, 235, 222, 0.55),
+      rgba(241, 235, 222, 0.55)
+    );
+    background-repeat: no-repeat;
+    background-size: 3px 100%;
+    background-position: left top;
+  }
+
+  /* The sentence. Not a tooltip and not a `title` — a printed line, with the
+     urgent prompt's own hazard rail turned on its side so it reads as the same
+     language as the flash that just fired on the control. */
+  .refusal-alert {
+    margin-top: 0.5rem;
+    padding: 0.375rem 0.5rem 0.375rem 0.625rem;
+    border-radius: 2px;
+    background-color: var(--ground);
+    background-image: var(--hazard-rail);
+    background-repeat: no-repeat;
+    background-size: 3px 100%;
+    background-position: left top;
+    color: var(--ink);
+    font-size: var(--step--1);
+    line-height: 1.35;
+    text-align: center;
+  }
+
+  /* A CARD refuses by flashing, never by shaking. This is an overlay element
+     the card's PARENT positions over the card — deliberately not a rule on
+     `.card-face`:
+
+       - `.card-face` transitions `--card-lift, box-shadow, filter, opacity`,
+         and a transition outranks an animation, so a keyframed flash on any
+         of those four would be silently eaten.
+       - Its `transform` is already composed from `--press-y`/`--press-s`, and
+         the flight engine writes `--fx/--fy/--tilt/--fs` on top.
+       - `.card-face::before` is the printed character band and `::after` is
+         the trim hairline. Both pseudo-elements are spoken for.
+
+     An overlay sibling touches none of that. z-index 6 puts it above the trim
+     hairline at z 5, and 6px matches the card radius from §5. */
+  .card-refuse-flash {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    border-radius: 6px;
+    background-image: var(--hazard);
+    pointer-events: none;
+    animation: refuse-hatch 320ms ease-out both;
+  }
+
   @media (prefers-reduced-motion: reduce) {
+    /* §7: motion collapses to fades; nothing that carried information is
+       deleted. The press is pure tactile feedback and carries none, so it
+       collapses to an instant pose change: the card is still visibly smaller
+       while held (the state survives), it just does not travel to get there.
+       Both halves must be listed — the transition on `.is-pressed` AND the
+       keyframes on `.is-unpressing` — because they are two mechanisms. */
+    .card-face,
+    .card-face.is-pressed {
+      transition-duration: 0.01ms;
+    }
+
     .animate-fade-in,
-    .animate-card-swap-in,
+    .card-face.is-unpressing,
     .coin-change-label,
     .coin-motion-gain,
     .coin-motion-loss,
@@ -527,10 +1100,31 @@
     .action-choice-enter,
     .turn-ready-ring,
     .your-move-chip,
+    .refusal-host.is-refusing,
     .timer-low {
       animation-duration: 0.01ms;
       animation-iteration-count: 1;
       animation-delay: 0ms;
+    }
+
+    /* §6.1 / §7 — WHAT COLLAPSES AND WHAT MUST NOT.
+       The shake is pure motion, so it goes (above). The other three quarters
+       of a refusal are untouched by definition, because none of them is CSS:
+       the `denied` cue and the haptic fire synchronously inside the tap
+       handler, and the sentence is a `role="alert"` element that is inserted
+       whether or not anything moves. What is left is the hatch, and it is
+       opacity-only — so it stays, at 55% strength over 1.6x the duration,
+       which is the same treatment §7 gives the flash plate. Removing it would
+       leave a reduced-motion player with a refusal they can hear but not see,
+       and §7's rule is that reduced motion never means reduced information.
+
+       These selectors must outrank the base rules above by SOURCE ORDER, not
+       specificity — which is why the whole refusal section is authored before
+       this block rather than at the end of the file. */
+    .refusal-host.is-refusing::after,
+    .card-refuse-flash {
+      animation-name: refuse-hatch-reduced;
+      animation-duration: 512ms;
     }
 
     .reformation-tutorial *,
@@ -554,24 +1148,107 @@
     transition-duration: 0.01ms !important;
   }
 
+  /* The in-app reduce-motion switch has to make the same carve-out the media
+     query does, or the toggle and the OS setting disagree about whether a
+     refusal is visible. Wins on specificity (0,3,2) over the `*::after` rule
+     above (0,1,2), so the two are order-independent. */
+  html.reduce-motion .refusal-host.is-refusing::after,
+  html.reduce-motion .card-refuse-flash {
+    animation-name: refuse-hatch-reduced !important;
+    animation-duration: 512ms !important;
+  }
+
   .input-field {
     @apply bg-coup-surface border border-gray-600 rounded-xl px-4 py-3
-           text-white text-lg placeholder-gray-500
+           text-white text-lg placeholder-coup-ink-mute
            focus:outline-none focus:border-coup-accent focus:ring-1 focus:ring-coup-accent
            min-h-[48px] w-full;
   }
 
-  /* Prompt urgency levels */
+  /* ------------------------------------------------------------------
+     Prompt urgency levels — ART-DIRECTION.md §3.1 and §5.
+
+     BEFORE: three `rounded-xl border-2` variants (28 call sites), separated
+     only by the colour of a 2px stroke. AFTER: all three are debossed into the
+     felt at the 2px furniture radius, and the urgency is carried by a RAIL
+     across the top, which is a material and therefore survives grayscale:
+
+        urgent  5px hazard stripe (crimson/oxblood, §1.2's danger material)
+        action  3px solid brass   (§1.2's your-turn material, flat, no glow)
+        info    no rail at all
+
+     Three distinct treatments, not three colours of the same treatment — the
+     rail is present/absent and thick/thin before it is red/gold, so the three
+     levels still read as three levels with the outlines gone.
+
+     The rail is a background layer rather than a `::before`, deliberately:
+     these wrappers hold absolutely-positioned children (timers, overlays) and
+     adding `position: relative` here would silently re-parent them.
+     ------------------------------------------------------------------ */
   .prompt-urgent {
-    @apply bg-red-950 border-2 border-red-500 rounded-xl p-3 animate-slide-up;
+    @apply p-3 animate-slide-up;
+    border-radius: 2px;
+    /* Two layers over an opaque ground rather than one translucent colour:
+       this replaced `bg-red-950`, which was opaque, and an urgent prompt is
+       the one panel that must never let the table art through behind its
+       text. The wash is `--oxblood` at 34%, composited here instead of
+       flattened into a seventh hex. */
+    background-color: var(--ground);
+    background-image: var(--hazard-rail), linear-gradient(rgba(95, 20, 28, 0.34), rgba(95, 20, 28, 0.34));
+    background-repeat: no-repeat, repeat;
+    background-size: 100% 5px, auto;
+    background-position: top left, top left;
+    --tw-shadow: var(--deboss);
+    box-shadow:
+      var(--tw-ring-offset-shadow, 0 0 #0000),
+      var(--tw-ring-shadow, 0 0 #0000),
+      var(--tw-shadow);
+  }
+
+  /* --------------------------------------------------------------------
+     Your own seat. GameTable.tsx marked this with `border-coup-accent/30`,
+     which went inert the moment §3.1 took the border-width off
+     `.card-container` — the panel is debossed now, so there is no edge for a
+     border-colour utility to land on. This is the deboss-language
+     replacement: the same 3px brass rail `.prompt-action` uses, at a third
+     the opacity because a seat is present for the whole game and a prompt is
+     not. Rail rather than ring so it cannot be confused with the brass
+     `ring-2` that means "your turn" (`turn-ready-ring`).
+     ------------------------------------------------------------------ */
+  .seat-mine {
+    background-image: linear-gradient(
+      rgba(214, 161, 42, 0.34),
+      rgba(214, 161, 42, 0.34)
+    );
+    background-repeat: no-repeat;
+    background-size: 100% 3px;
+    background-position: top left;
   }
 
   .prompt-action {
-    @apply bg-coup-accent/10 border-2 border-coup-accent rounded-xl p-3 animate-slide-up;
+    @apply p-3 animate-slide-up;
+    border-radius: 2px;
+    background-color: rgba(214, 161, 42, 0.10); /* --brass at 10% */
+    background-image: linear-gradient(var(--brass), var(--brass));
+    background-repeat: no-repeat;
+    background-size: 100% 3px;
+    background-position: top left;
+    --tw-shadow: var(--deboss);
+    box-shadow:
+      var(--tw-ring-offset-shadow, 0 0 #0000),
+      var(--tw-ring-shadow, 0 0 #0000),
+      var(--tw-shadow);
   }
 
   .prompt-info {
-    @apply bg-coup-card border-2 border-gray-600 rounded-xl p-3 animate-fade-in;
+    @apply p-3 animate-fade-in;
+    border-radius: 2px;
+    background-color: var(--raised);
+    --tw-shadow: var(--deboss);
+    box-shadow:
+      var(--tw-ring-offset-shadow, 0 0 #0000),
+      var(--tw-ring-shadow, 0 0 #0000),
+      var(--tw-shadow);
   }
 
   @keyframes phaseStatusEnter {
@@ -642,8 +1319,18 @@
     }
   }
 
+  /* `backwards`, not `both`, and the difference is not cosmetic. `both` keeps
+     the 100% keyframe applied FOREVER after the animation ends, and a filled
+     animation outranks every normal declaration — so `filter: brightness(1)`
+     and `transform: none` stayed permanently owned by this rule and the
+     ineligible state's `filter: saturate(0.35)` (§6.2) could never land on an
+     action button. `backwards` still holds the 0% keyframe through the
+     `--action-delay` stagger, which is the only part of the fill this entry
+     actually needs, and releases both properties the moment it finishes. The
+     end state is identical either way: the 100% keyframe IS the element's
+     natural pose. */
   .action-choice-enter {
-    animation: actionChoiceEnter 0.28s ease-out both;
+    animation: actionChoiceEnter 0.28s ease-out backwards;
     animation-delay: var(--action-delay, 0ms);
   }
 
@@ -681,5 +1368,445 @@
 
   .how-to-play-tab[data-active='false'] {
     @apply bg-coup-card text-gray-400 hover:text-white;
+  }
+
+  /* ==================================================================
+     THE TABLE — GAME-FEEL-PLAN.md §1.4; ART-DIRECTION.md §3.2, §5.
+
+     BEFORE: `GameTable.tsx` was `max-w-lg lg:max-w-xl mx-auto`, a 512px phone
+     column centred in a 1456px window with ~65% of the screen unused, and
+     there was no table under it — the deck was 8px of text in the header,
+     there was no treasury, no discard and no seating.
+
+     AFTER: the same DOM, two layouts, split at 1024px.
+
+       < 1024px  the phone column, unchanged. `.felt-rail` is
+                 `display: contents`, so the seats fall through as direct grid
+                 items and the felt is the 2-or-3-column grid it has always
+                 been. No felt panel, no table objects, no extra chrome — the
+                 phone is the primary target and the column already works.
+
+       >= 1024px the rails become the three sides of a felt, with the deck
+                 pile, the discard and the treasury sunk into the middle and
+                 the log moved to a side rail.
+
+     ONE DOM TREE IS A CONSTRAINT, NOT A PREFERENCE. The seats register
+     themselves with the FX position registry by player id
+     (`hooks/useFxCues.ts`), so a hidden duplicate set of seats for the other
+     breakpoint would fight the live one for the registry entry and the FX
+     epicentres would land on whichever mounted last. `display: contents` is
+     what lets one set of seat elements be both a column and a ring.
+
+     Everything here is furniture, so per §3.1 there is not one `border:` in
+     this section — the felt, the recesses and the wells are all milled into
+     the surface with `--deboss`, at the 2px furniture radius.
+     ================================================================== */
+
+  /* The phone column's width, moved off the element so the desktop layout can
+     take the cap off without a `lg:max-w-none` fighting a `max-w-lg`. */
+  .table-root {
+    max-width: 32rem;
+  }
+
+  /* The shake target owns its own box, deliberately: it used to carry
+     `flex-1 flex flex-col min-h-0` as utilities, and a Tailwind utility lives
+     in the `utilities` layer, which outranks everything in `components`
+     whatever the media query or the specificity. The desktop `display: grid`
+     below silently lost to `display: flex` until these moved off the element. */
+  .table-shake {
+    flex: 1 1 0%;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .table-felt {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .table-felt[data-cols='3'] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /* Pass-through on a phone: the rails are grouping for the desktop ring and
+     must not exist as boxes below it. */
+  .felt-rail {
+    display: contents;
+  }
+
+  .felt-centre {
+    display: none;
+  }
+
+  @media (min-width: 1024px) {
+    .table-root {
+      max-width: none;
+      padding-left: 1.25rem;
+      padding-right: 1.25rem;
+    }
+
+    /* The shake target (fx/shake.ts) becomes the two-column table: felt, and
+       the log rail beside it. Its contents move; the prompts and your hand are
+       siblings of it and still do not. */
+    .table-shake {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 22rem;
+      grid-template-rows: minmax(0, 1fr);
+      gap: 1rem;
+    }
+
+    .table-felt {
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      grid-template-rows: auto minmax(0, 1fr);
+      grid-template-areas:
+        'left top    right'
+        'left centre right';
+      gap: 1rem;
+      /* The felt hugs its seating rather than stretching to the full column:
+         a table is an object standing in the room, and a panel that grows a
+         third of empty green below the last seat reads as a page section. */
+      align-self: center;
+      max-height: 100%;
+      /* ...but a two-player table must still read as a table and not as a
+         strip: 26rem is the height of a seat rail plus the deck recess, so the
+         felt never collapses to the height of its tallest object. `min()`
+         keeps it from outgrowing a short window. */
+      min-height: min(100%, 26rem);
+      margin-bottom: 0;
+      padding: 1rem 1rem 1.25rem;
+      border-radius: 2px;
+      /* The felt is a plane cut into the table art, not a card laid on it:
+         `--surface` at 62% so the painted table still reads underneath, and
+         the deboss for the edge. No stroke (§3.1). */
+      background-color: rgba(23, 35, 31, 0.62);
+      box-shadow: var(--deboss);
+    }
+
+    .felt-rail {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    /* Reading clockwise from your left hand: the left rail fills bottom-to-top
+       (hence `column-reverse`), the top rail left-to-right, the right rail
+       top-to-bottom. That is the order turn order runs in around a real table. */
+    .felt-left {
+      grid-area: left;
+      flex-direction: column-reverse;
+      justify-content: center;
+    }
+
+    .felt-top {
+      grid-area: top;
+      flex-direction: row;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+
+    .felt-right {
+      grid-area: right;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    /* An empty rail is not an empty column of air: with no seats the track
+       collapses and the felt closes up around the centre. */
+    .felt-rail:empty {
+      display: none;
+    }
+
+    .felt-centre {
+      grid-area: centre;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1.5rem;
+      min-height: 0;
+      padding: 0 0.5rem;
+    }
+
+    /* A seat is a plate of a fixed size, not a cell that stretches to whatever
+       the grid has left over. */
+    .table-seat {
+      width: 15rem;
+      flex: none;
+    }
+
+    /* The prompts and the hand sit SIDE BY SIDE, and the reason is vertical
+       budget rather than taste: the ActionBar is a fixed two-column grid of up
+       to nine actions, so stacked under the prompts it is ~490px of an 840px
+       window and the felt is squeezed to a strip. Beside them it is ~300px and
+       the table gets the difference.
+
+       `:empty` is load-bearing. The prompt wrapper is always rendered and its
+       children return null for most of a turn, so without it the hand would
+       sit permanently right-of-centre with a column of air beside it. When
+       there is nothing to answer, the prompts track vanishes and the hand
+       centres under the felt. */
+    .table-bottom {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 1rem;
+      width: 100%;
+      max-width: 72rem;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .table-bottom-prompts {
+      flex: 0 1 42rem;
+      min-width: 0;
+    }
+
+    .table-bottom-prompts:empty {
+      display: none;
+    }
+
+    .table-bottom-hand {
+      flex: 0 1 26rem;
+      min-width: 0;
+    }
+  }
+
+  /* ── The objects on the felt ─────────────────────────────────────────── */
+
+  .table-object {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  /* The discard takes the slack in the middle of the felt, but only so much:
+     uncapped, a heads-up table (both rails empty, the whole felt width to
+     spend) pushed the deck to one edge and the treasury to the other with an
+     empty well stretched between them. */
+  .table-object-grow {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 24rem;
+  }
+
+  .table-object-label {
+    font-size: var(--step--1);
+    line-height: 1.2;
+    color: var(--ink-mute);
+    white-space: nowrap;
+  }
+
+  /* The deck, as a physical pile in a recess. `--ground-deep` is the token's
+     own stated purpose: "wells, the deck recess, inside a deboss". */
+  .deck-well {
+    position: relative;
+    width: 4.25rem;
+    height: 7.25rem;
+    border-radius: 2px;
+    background-color: var(--ground-deep);
+    box-shadow: var(--deboss);
+  }
+
+  .deck-leaf {
+    position: absolute;
+    left: 0.375rem;
+    right: 0.375rem;
+    height: 5rem;
+    border-radius: 6px;
+    background-color: var(--raised);
+    /* The contact hairline only (§5): a whole `--shadow-paper` on every leaf
+       would stack twelve soft drops into a smear. The top leaf gets the real
+       one, below. */
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+  }
+
+  .deck-leaf-top {
+    background-color: var(--surface);
+    background-image: repeating-linear-gradient(
+      45deg,
+      transparent 0 6px,
+      rgba(214, 161, 42, 0.07) 6px 7px
+    );
+    box-shadow: var(--shadow-paper);
+  }
+
+  /* Coins are circles, and §3.9 lets them stay circles — they are the one
+     round thing on a table of plates because a coin is round. */
+  .coin-well {
+    position: relative;
+    width: 3rem;
+    height: 4rem;
+    border-radius: 2px;
+    background-color: var(--ground-deep);
+    box-shadow: var(--deboss);
+  }
+
+  .coin-disc {
+    position: absolute;
+    left: 50%;
+    width: 2rem;
+    height: 2rem;
+    margin-left: -1rem;
+    border-radius: 9999px;
+    background-color: var(--brass);
+    box-shadow:
+      0 0 0 1px var(--oxblood),
+      0 1px 0 rgba(0, 0, 0, 0.55);
+  }
+
+  /* The reserve is the same material at a lower value: it is a pool of the
+     same coins, held back, not a different currency. */
+  .coin-well-reserve .coin-disc {
+    background-color: #a97e21; /* --brass at 80% value, flat (no gradient, §3.8) */
+  }
+
+  .discard-well {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: center;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem 0.625rem;
+    width: 100%;
+    min-width: 7rem;
+    min-height: 7.25rem;
+    max-height: 100%;
+    overflow: hidden;
+    padding: 0.625rem;
+    border-radius: 2px;
+    background-color: rgba(5, 9, 10, 0.55);
+    box-shadow: var(--deboss);
+  }
+
+  .discard-card {
+    display: inline-flex;
+    transform: rotate(var(--discard-tilt, 0deg));
+  }
+
+  /* ── Card sizes on the desktop table (§1.4, §3.6) ─────────────────────
+     The seat card is `card-face-sm`, 44x64, and the portrait is illegible at
+     that size — the label plate alone eats 46% of it. On desktop the seat
+     steps up to the md footprint and your own hand steps up to lg.
+
+     It is done here rather than by passing a different `size` prop because
+     `CardFace` picks its class from a `CardSize` union with no responsive
+     form, and a media query is the honest way to say "the same card, bigger
+     table". The label-plate scale has to step WITH the card: these values are
+     copied from the `.card-face-md` / `.card-face-lg` blocks above, and the
+     five-size scale up there is finely tuned — if those change, these follow.
+
+     `.card-flip-wrapper` carries the size class too, so the descendant
+     selector deliberately catches both it and `.card-face`. */
+  @media (min-width: 1024px) {
+    .seat-cards .card-face-sm {
+      width: 3.5rem;  /* = .card-face-md */
+      height: 5rem;
+    }
+
+    .seat-cards .card-face-sm .card-label-plate {
+      padding: 15px 3px 4px;
+      gap: 2px;
+    }
+
+    .seat-cards .card-face-sm .card-character-label {
+      font-size: 8.4px;
+    }
+
+    .seat-cards .card-face-sm .card-action-label {
+      font-size: 9.2px;
+    }
+
+    .seat-cards .card-face-sm .card-character-label.card-label-medium {
+      font-size: 7.6px;
+    }
+
+    .seat-cards .card-face-sm .card-character-label.card-label-long {
+      font-size: 7px;
+    }
+
+    .seat-cards .card-face-sm .card-character-label.card-label-extra-long {
+      font-size: 6.4px;
+      letter-spacing: -0.05em;
+    }
+
+    .seat-cards .card-face-sm .card-action-label.card-label-medium {
+      font-size: 7.5px;
+      letter-spacing: -0.04em;
+    }
+
+    .hand-cards .card-face-md {
+      width: 5rem;  /* = .card-face-lg */
+      height: 7rem;
+      --card-band: 6px;
+    }
+
+    .hand-cards .card-face-md .card-label-plate {
+      padding: 19px 4px 5px;
+      gap: 2px;
+    }
+
+    .hand-cards .card-face-md .card-character-label {
+      font-size: 10.8px;
+    }
+
+    .hand-cards .card-face-md .card-action-label {
+      font-size: 12px;
+    }
+
+    .hand-cards .card-face-md .card-character-label.card-label-medium {
+      font-size: 9.8px;
+    }
+
+    .hand-cards .card-face-md .card-character-label.card-label-long {
+      font-size: 8.9px;
+    }
+
+    .hand-cards .card-face-md .card-character-label.card-label-extra-long {
+      font-size: 8.2px;
+      letter-spacing: -0.04em;
+    }
+
+    .hand-cards .card-face-md .card-action-label.card-label-medium {
+      font-size: 10.4px;
+      letter-spacing: -0.02em;
+    }
+  }
+
+  /* ── A seat in the crosshairs — ART-DIRECTION.md §1.1 row 1, §1.2 ──────
+     This class replaced `ring-2 ring-red-500` on the player seat, and the
+     replacement is the single most load-bearing colour fix in the build:
+     `#ef4444` is the exact hex §1.1 records as the old Contessa card border,
+     so "you are being targeted" and "she holds a Contessa" were rendered in
+     the same pixel value. The card frames have since moved to a rose band
+     (`--char-contessa`, 348°) specifically to open that gap; switching a red
+     ring back on here would close it from the other side.
+
+     So danger is a MATERIAL: the 5px hazard rail across the top edge, exactly
+     as `.prompt-urgent` wears it, plus the 45° hatch over the seat. One mark,
+     learned once, read in four places (a revealed card, an urgent prompt, a
+     refused control, a targeted seat). It survives grayscale, which a hue
+     never does.
+
+     The hatch is `::after` rather than a background layer because the seat's
+     backgrounds are already spoken for — the faction tint, `.seat-mine`'s
+     brass rail — and because it has to print OVER the cards, not under them. */
+  .seat-target {
+    background-image: var(--hazard-rail);
+    background-repeat: no-repeat;
+    background-size: 100% 5px;
+    background-position: top left;
+  }
+
+  .seat-target::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 2px;
+    background-image: var(--hazard);
+    pointer-events: none;
   }
 }

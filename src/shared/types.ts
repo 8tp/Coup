@@ -247,6 +247,37 @@ export interface ClientInfluence {
   revealed: boolean;
 }
 
+/**
+ * TARGET SELECTION, PUBLISHED — ART-DIRECTION.md §6.2.
+ *
+ * Client-only, and it lives here for the same reason every other client type
+ * does: `src/shared` is the one place a type may be defined, and both the
+ * publisher (`ActionBar`) and the consumers (`GameTable` → `PlayerSeat`) are
+ * in `src/app`. Nothing on the server reads it and nothing crosses the wire.
+ *
+ * The publisher owns the whole vocabulary of a target pick — which seats are
+ * legal, why each illegal one is illegal, and what happens when one is
+ * chosen — so a seat tap and the ActionBar's own list-row tap are literally
+ * the same call and cannot drift apart. That is what `onSelect` is doing in a
+ * "data" shape: it is the seam, not a convenience.
+ */
+export interface TargetingPublication {
+  /** The action awaiting a target, or null when nothing is being targeted. */
+  action: ActionType | null;
+  /** Seats that may legally be chosen. */
+  eligibleIds: string[];
+  /** Seats rendered but refused — §6.2's "illegal half". */
+  ineligibleIds: string[];
+  /** playerId → the sentence explaining why that seat cannot be picked. */
+  reasons: Record<string, string>;
+  /**
+   * Choose a seat. Eligible → the action is sent; ineligible or already
+   * pending → the ActionBar's own `refuse()` fires (cue, haptic, shake,
+   * sentence). One handler, so a seat and a list row can never disagree.
+   */
+  onSelect: (playerId: string) => void;
+}
+
 export interface ClientChallengeState {
   challengerId: string;
   challengedPlayerId: string;

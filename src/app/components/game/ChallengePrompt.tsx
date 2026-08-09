@@ -39,7 +39,7 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
               {target && <> on <span className="font-bold">{target.name}</span></>}</>
           }
         </p>
-        <p className="text-center text-gray-500 text-xs">Waiting for others to accept or challenge...</p>
+        <p className="text-center text-coup-ink-mute text-xs">Waiting for others to accept or challenge...</p>
         <Timer expiresAt={gameState.timerExpiry} />
       </div>
     );

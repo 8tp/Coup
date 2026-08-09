@@ -1,4 +1,6 @@
 import { LogEntry, ClientGameState, LogEventType } from '@/shared/types';
+// Type-only: erased at compile time, so this module stays React-free.
+import type { AwardGlyphKey } from './logGlyphs';
 
 export interface PlayerStats {
   playerId: string;
@@ -17,7 +19,8 @@ export interface PlayerStats {
 }
 
 export interface Award {
-  emoji: string;
+  /** Key into AWARD_GLYPHS; the render site resolves it to a glyph component. */
+  glyph: AwardGlyphKey;
   title: string;
   playerName: string;
   description: string;
@@ -147,7 +150,7 @@ function selectAwards(stats: Map<string, PlayerStats>): Award[] {
       playerId: mostCaught.playerId,
       score: mostCaught.timesCaughtBluffing * 4 - 1, // 1→3, 2→7, 3→11
       award: {
-        emoji: '🤥',
+        glyph: 'bluff',
         title: 'Pants on Fire',
         playerName: mostCaught.playerName,
         description: `caught bluffing ${mostCaught.timesCaughtBluffing}x`,
@@ -164,7 +167,7 @@ function selectAwards(stats: Map<string, PlayerStats>): Award[] {
       playerId: h.playerId,
       score: h.timesProvenHonest * 3, // 1→3, 2→6, 3→9
       award: {
-        emoji: '😇',
+        glyph: 'truth',
         title: 'Honest Abe',
         playerName: h.playerName,
         description: `proven honest ${h.timesProvenHonest}x, never caught`,
@@ -180,7 +183,7 @@ function selectAwards(stats: Map<string, PlayerStats>): Award[] {
       playerId: mostChallenges.playerId,
       score: mostChallenges.challengesMade * 2.5, // 2→5, 3→7.5, 4→10
       award: {
-        emoji: '🔍',
+        glyph: 'challenge',
         title: 'The Inquisitor',
         playerName: mostChallenges.playerName,
         description: `${mostChallenges.challengesMade} challenges made`,
@@ -199,7 +202,7 @@ function selectAwards(stats: Map<string, PlayerStats>): Award[] {
       playerId: e.playerId,
       score: e.challengesWon * 4 + (e.winRate - 0.5) * 6, // 2/2→11, 2/3→7.3, 3/4→13.5
       award: {
-        emoji: '🦅',
+        glyph: 'target',
         title: 'Eagle Eye',
         playerName: e.playerName,
         description: `${e.challengesWon}/${e.challengesMade} challenges correct`,
@@ -215,7 +218,7 @@ function selectAwards(stats: Map<string, PlayerStats>): Award[] {
       playerId: mostBlocks.playerId,
       score: mostBlocks.blocksMade * 3.5, // 2→7, 3→10.5, 4→14
       award: {
-        emoji: '🧱',
+        glyph: 'block',
         title: 'The Wall',
         playerName: mostBlocks.playerName,
         description: `${mostBlocks.blocksMade} blocks made`,
@@ -232,7 +235,7 @@ function selectAwards(stats: Map<string, PlayerStats>): Award[] {
       playerId: sm.playerId,
       score: sm.actionsClaimed * 1.5, // 4→6, 6→9, 8→12
       award: {
-        emoji: '🎭',
+        glyph: 'claim',
         title: 'Smooth Operator',
         playerName: sm.playerName,
         description: `${sm.actionsClaimed} claims, never caught`,
@@ -248,7 +251,7 @@ function selectAwards(stats: Map<string, PlayerStats>): Award[] {
       playerId: mostCoups.playerId,
       score: mostCoups.coupsMade * 4, // 2→8, 3→12
       award: {
-        emoji: '⚔️',
+        glyph: 'coup',
         title: 'Coup Machine',
         playerName: mostCoups.playerName,
         description: `${mostCoups.coupsMade} coups launched`,
@@ -264,7 +267,7 @@ function selectAwards(stats: Map<string, PlayerStats>): Award[] {
       playerId: mostAssassinations.playerId,
       score: mostAssassinations.assassinationsMade * 7, // 1→7, 2→14, 3→21
       award: {
-        emoji: '🗡️',
+        glyph: 'assassinate',
         title: 'Silent Assassin',
         playerName: mostAssassinations.playerName,
         description: mostAssassinations.assassinationsMade === 1
@@ -282,7 +285,7 @@ function selectAwards(stats: Map<string, PlayerStats>): Award[] {
       playerId: mostLost.playerId,
       score: mostLost.challengesLost * 3.5, // 2→7, 3→10.5
       award: {
-        emoji: '🎲',
+        glyph: 'dice',
         title: 'Bold Strategy',
         playerName: mostLost.playerName,
         description: `${mostLost.challengesLost} challenges backfired`,
@@ -297,7 +300,7 @@ function selectAwards(stats: Map<string, PlayerStats>): Award[] {
       playerId: firstOut.playerId,
       score: 2, // Low flat score — filler award, only appears when slots remain
       award: {
-        emoji: '🚪',
+        glyph: 'exit',
         title: 'Quick Exit',
         playerName: firstOut.playerName,
         description: 'first player eliminated',

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Character } from '@/shared/types';
 import { CoinIcon } from '../icons';
 import { haptic, hapticHeavy } from '../../utils/haptic';
+import { CHARACTER_PALETTE, characterCardVars } from '../../utils/characterPalette';
 import { CardArtwork, CardBackArtwork, CharacterCardBadge } from '../game/CardArtwork';
 
 interface TutorialProps {
@@ -44,48 +45,39 @@ function TutorialCardBack() {
   );
 }
 
+/* ART-DIRECTION.md §1.1 counted this array as the fifth duplicated character
+   palette — `bgClass` / `borderClass` / `textClass` were inlined per entry in
+   raw Tailwind defaults. They are gone; colour now comes from
+   `CHARACTER_PALETTE`, and the card frames come from `.card-face`, so the
+   tutorial teaches the band the real table uses. What is left here is what
+   this array is actually for: the rules copy. */
 const characterData = [
   {
     char: Character.Duke,
-    bgClass: 'bg-purple-900/30',
-    borderClass: 'border-purple-500/60',
-    textClass: 'text-purple-300',
     action: 'Tax: +3 coins',
     blocks: 'Blocks Foreign Aid',
     desc: 'Wealth and influence',
   },
   {
     char: Character.Assassin,
-    bgClass: 'bg-gray-800/30',
-    borderClass: 'border-gray-500/60',
-    textClass: 'text-gray-300',
     action: 'Assassinate: Pay 3, target loses a card',
     blocks: 'Cannot block',
     desc: 'Silent and deadly',
   },
   {
     char: Character.Captain,
-    bgClass: 'bg-blue-900/30',
-    borderClass: 'border-blue-500/60',
-    textClass: 'text-blue-300',
     action: 'Steal: Take 2 coins from a target',
     blocks: 'Blocks Stealing',
     desc: 'Cunning and resourceful',
   },
   {
     char: Character.Ambassador,
-    bgClass: 'bg-green-900/30',
-    borderClass: 'border-green-500/60',
-    textClass: 'text-green-300',
     action: 'Exchange: Swap cards with the deck',
     blocks: 'Blocks Stealing',
     desc: 'Diplomatic connections',
   },
   {
     char: Character.Contessa,
-    bgClass: 'bg-red-900/30',
-    borderClass: 'border-red-500/60',
-    textClass: 'text-red-300',
     action: 'No action ability',
     blocks: 'Blocks Assassination',
     desc: 'The ultimate protector',
@@ -148,7 +140,7 @@ export function Tutorial({ open, onClose }: TutorialProps) {
         </div>
         <button
           onClick={() => { haptic(); onClose(); }}
-          className="text-gray-500 hover:text-white text-sm font-medium shrink-0"
+          className="text-coup-ink-mute hover:text-white text-sm font-medium shrink-0"
         >
           Skip
         </button>
@@ -225,9 +217,7 @@ function WelcomeStep() {
                 animation: `fadeIn 0.5s ease-out ${i * 0.1}s forwards`,
               }}
             >
-              <div
-                className={`relative w-14 h-20 overflow-hidden rounded-lg border-2 ${c.borderClass} ${c.bgClass}`}
-              >
+              <div className="card-face w-14 h-20" style={characterCardVars(c.char)}>
                 <TutorialCardArt char={c.char} />
               </div>
             </div>
@@ -237,7 +227,7 @@ function WelcomeStep() {
 
       <h2 className="text-3xl font-bold text-white mb-3">Welcome to Coup</h2>
       <p className="text-gray-400 mb-2">The art of deception for 2-6 players</p>
-      <p className="text-gray-500 text-sm">
+      <p className="text-coup-ink-mute text-sm">
         Bluff, challenge, and eliminate your opponents.
         <br />The last player standing wins.
       </p>
@@ -305,7 +295,7 @@ function InfluenceStep({ revealed }: { revealed: boolean }) {
           You start with <span className="text-white font-medium">2 secret cards</span> and{' '}
           <span className="text-coup-accent font-medium">2 coins</span>.
         </p>
-        <p className="text-gray-500 text-sm">
+        <p className="text-coup-ink-mute text-sm">
           When a card is revealed, you lose that influence.
           <br />
           <span className="text-red-400">Lose both and you&apos;re eliminated.</span>
@@ -319,6 +309,7 @@ function InfluenceStep({ revealed }: { revealed: boolean }) {
 
 function CharactersStep({ selected, onSelect }: { selected: number; onSelect: (i: number) => void }) {
   const c = characterData[selected];
+  const theme = CHARACTER_PALETTE[c.char];
 
   return (
     <div className="text-center">
@@ -332,15 +323,10 @@ function CharactersStep({ selected, onSelect }: { selected: number; onSelect: (i
             <button
               key={ch.char}
               onClick={() => onSelect(i)}
-              className={`w-12 h-16 rounded-lg border-2 flex items-center justify-center transition-all duration-300 ${
-                isActive
-                  ? `${ch.borderClass} ${ch.bgClass} scale-110 shadow-lg`
-                  : 'border-gray-700 bg-coup-card/50 opacity-50 hover:opacity-75'
-              }`}
+              className={`card-face is-interactive w-12 h-16 ${isActive ? 'is-selected' : 'opacity-50'}`}
+              style={characterCardVars(ch.char)}
             >
-              <div className="relative h-full w-full overflow-hidden rounded-md">
-                <TutorialCardArt char={ch.char} />
-              </div>
+              <TutorialCardArt char={ch.char} />
             </button>
           );
         })}
@@ -349,15 +335,15 @@ function CharactersStep({ selected, onSelect }: { selected: number; onSelect: (i
       {/* Detail card */}
       <div
         key={selected}
-        className={`rounded-xl border-2 ${c.borderClass} ${c.bgClass} p-5 animate-fade-in`}
+        className={`rounded border ${theme.edge} ${theme.tint} p-5 animate-fade-in`}
       >
         <div className="flex items-center justify-center gap-3 mb-3">
-          <span className={`relative h-14 w-10 overflow-hidden rounded-md border ${c.borderClass}`}>
+          <span className="card-face h-14 w-10" style={characterCardVars(c.char)}>
             <TutorialCardArt char={c.char} />
           </span>
           <div className="text-left">
-            <div className={`text-xl font-bold ${c.textClass}`}>{c.char}</div>
-            <div className="text-gray-500 text-xs">{c.desc}</div>
+            <div className={`text-xl font-bold ${theme.text}`}>{c.char}</div>
+            <div className="text-coup-ink-mute text-xs">{c.desc}</div>
           </div>
         </div>
         <div className="space-y-2 text-sm text-left">
@@ -372,7 +358,7 @@ function CharactersStep({ selected, onSelect }: { selected: number; onSelect: (i
         </div>
       </div>
 
-      <p className="text-gray-600 text-xs mt-3">Tap each character to learn more</p>
+      <p className="text-coup-ink-mute text-xs mt-3">Tap each character to learn more</p>
     </div>
   );
 }
@@ -410,13 +396,13 @@ function ActionsStep() {
   return (
     <div>
       <h2 className="text-xl font-bold text-white mb-1 text-center">Basic Actions</h2>
-      <p className="text-gray-500 text-xs mb-4 text-center">No character claim needed</p>
+      <p className="text-coup-ink-mute text-xs mb-4 text-center">No character claim needed</p>
 
       <div className="space-y-3 mb-5">
         {actions.map((a, i) => (
           <div
             key={a.name}
-            className="flex items-center gap-3 bg-coup-card/60 border border-gray-700 rounded-xl p-3"
+            className="flex items-center gap-3 bg-coup-card/60 panel-sunk p-3"
             style={{
               opacity: 0,
               animation: `fadeIn 0.3s ease-out ${i * 0.15}s forwards`,
@@ -447,8 +433,8 @@ function ActionsStep() {
         ))}
       </div>
 
-      <div className="border-t border-gray-800 pt-3">
-        <p className="text-gray-500 text-xs text-center">
+      <div className="border-t border-coup-line/70 pt-3">
+        <p className="text-coup-ink-mute text-xs text-center">
           Character actions (<span className="text-purple-300">Tax</span>,{' '}
           <span className="text-blue-300">Steal</span>,{' '}
           <span className="text-gray-300">Assassinate</span>,{' '}
@@ -478,7 +464,7 @@ function BluffingStep() {
 
       {/* Your hand */}
       <div className="mb-4">
-        <p className="text-gray-500 text-xs mb-2">Your actual cards:</p>
+        <p className="text-coup-ink-mute text-xs mb-2">Your actual cards:</p>
         <div className="flex justify-center gap-3">
           <div className="w-14 h-20 rounded-lg border-2 border-blue-500/60 bg-blue-900/30 flex flex-col items-center justify-center">
             <CharIcon char={Character.Captain} size={22} />
@@ -498,12 +484,12 @@ function BluffingStep() {
         }`}
       >
         <div className="flex justify-center mb-1">
-          <svg width="20" height="20" viewBox="0 0 20 20" className="text-gray-600">
+          <svg width="20" height="20" viewBox="0 0 20 20" className="text-coup-ink-mute">
             <path d="M10 4v8M10 16v-1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
           </svg>
         </div>
 
-        <div className="inline-block bg-purple-900/40 border-2 border-purple-500/60 rounded-xl px-4 py-3 mb-3">
+        <div className="inline-block bg-purple-900/40 panel-sunk px-4 py-3 mb-3">
           <div className="flex items-center gap-2 justify-center">
             <CharIcon char={Character.Duke} size={24} />
             <span className="text-purple-300 font-bold">
@@ -521,7 +507,7 @@ function BluffingStep() {
         <p className="text-gray-400 text-sm">
           You don&apos;t have Duke, but <span className="text-white font-medium">no one knows!</span>
         </p>
-        <p className="text-gray-500 text-xs mt-2">
+        <p className="text-coup-ink-mute text-xs mt-2">
           If no one challenges, the bluff works.
           <br />But if someone calls your bluff...
         </p>
@@ -553,7 +539,7 @@ function ChallengeStep({
     <div className="text-center">
       <h2 className="text-xl font-bold text-white mb-4">Challenging</h2>
 
-      <div className="bg-coup-card/60 border border-gray-700 rounded-xl p-4 mb-4">
+      <div className="bg-coup-card/60 panel-sunk p-4 mb-4">
         <p className="text-gray-400 text-sm mb-3">
           <span className="text-white font-bold">Alex</span> claims{' '}
           <span className="text-purple-300 font-bold">Duke</span> for Tax...
@@ -571,7 +557,7 @@ function ChallengeStep({
           >
             {/* Front */}
             <div
-              className="absolute inset-0 overflow-hidden rounded-lg bg-coup-card border-2 border-gray-600 flex items-center justify-center"
+              className="absolute inset-0 overflow-hidden rounded-lg bg-coup-card border-2 border-coup-line flex items-center justify-center"
               style={{ backfaceVisibility: 'hidden' }}
             >
               <TutorialCardBack />
@@ -590,7 +576,7 @@ function ChallengeStep({
         {/* Buttons or result */}
         {!choice && (
           <div>
-            <p className="text-gray-500 text-xs mb-3">Do you think Alex is bluffing?</p>
+            <p className="text-coup-ink-mute text-xs mb-3">Do you think Alex is bluffing?</p>
             <div className="flex gap-2">
               <button
                 className="flex-1 bg-red-600 text-white font-bold py-2.5 px-3 rounded-xl text-sm active:scale-95 transition-transform animate-pulse-gold"
@@ -599,7 +585,7 @@ function ChallengeStep({
                 Challenge!
               </button>
               <button
-                className="flex-1 bg-coup-card text-gray-300 font-bold py-2.5 px-3 rounded-xl text-sm border border-gray-600 active:scale-95 transition-transform"
+                className="flex-1 bg-coup-card text-gray-300 font-bold py-2.5 px-3 rounded-xl text-sm border border-coup-line active:scale-95 transition-transform"
                 onClick={() => onChoose('pass')}
               >
                 Let it go
@@ -627,7 +613,7 @@ function ChallengeStep({
         )}
       </div>
 
-      <div className="text-xs text-gray-500">
+      <div className="text-xs text-coup-ink-mute">
         {choice === 'challenge' ? (
           <p>
             But beware &mdash; if Alex <span className="text-white">really had Duke</span>,{' '}
@@ -669,12 +655,12 @@ function BlockingStep({
     <div className="text-center">
       <h2 className="text-xl font-bold text-white mb-4">Blocking</h2>
 
-      <div className="bg-coup-card/60 border border-gray-700 rounded-xl p-4 mb-4">
+      <div className="bg-coup-card/60 panel-sunk p-4 mb-4">
         {/* Attack visualization */}
         <div className="flex items-center justify-between mb-4 px-2">
           <div className="text-left">
             <p className="text-white font-bold text-sm">Alex</p>
-            <p className="text-gray-500 text-xs">Assassinates</p>
+            <p className="text-coup-ink-mute text-xs">Assassinates</p>
           </div>
           <div
             className={`text-2xl transition-all duration-500 ${
@@ -685,14 +671,14 @@ function BlockingStep({
           </div>
           <div className="text-right">
             <p className="text-coup-accent font-bold text-sm">You</p>
-            <p className="text-gray-500 text-xs">Targeted!</p>
+            <p className="text-coup-ink-mute text-xs">Targeted!</p>
           </div>
         </div>
 
         {/* Shield appears when blocked */}
         {choice && showResult && (
           <div className="flex justify-center mb-3 animate-fade-in">
-            <div className="flex items-center gap-2 bg-red-900/30 border border-red-500/40 rounded-lg px-3 py-2">
+            <div className="flex items-center gap-2 bg-red-900/30 panel-sunk px-3 py-2">
               <CharIcon char={Character.Contessa} size={20} />
               <span className="text-red-300 font-bold text-sm">Blocked with Contessa!</span>
             </div>
@@ -714,7 +700,7 @@ function BlockingStep({
       </div>
 
       {/* Block reference */}
-      <div className="text-xs text-gray-500 space-y-2">
+      <div className="text-xs text-coup-ink-mute space-y-2">
         <p>
           Some actions can be <span className="text-white">blocked</span> by claiming a counter-character:
         </p>
@@ -749,7 +735,8 @@ function ReadyStep() {
         {characterData.map((c, i) => (
           <div
             key={c.char}
-            className={`flex items-center gap-3 ${c.bgClass} border ${c.borderClass} rounded-lg p-2.5`}
+            className={`flex items-center gap-3 rounded border p-2.5
+              ${CHARACTER_PALETTE[c.char].tint} ${CHARACTER_PALETTE[c.char].edge}`}
             style={{
               opacity: 0,
               animation: `fadeIn 0.3s ease-out ${i * 0.08}s forwards`,
@@ -757,17 +744,17 @@ function ReadyStep() {
           >
             <CharIcon char={c.char} size={24} />
             <div className="text-left flex-1 min-w-0">
-              <span className={`font-bold text-sm ${c.textClass}`}>{c.char}</span>
+              <span className={`font-bold text-sm ${CHARACTER_PALETTE[c.char].text}`}>{c.char}</span>
               <div className="text-gray-400 text-xs truncate">{c.action}</div>
             </div>
-            <div className="text-[10px] text-gray-500 shrink-0 text-right max-w-[80px]">
+            <div className="text-[10px] text-coup-ink-mute shrink-0 text-right max-w-[80px]">
               {c.blocks}
             </div>
           </div>
         ))}
       </div>
 
-      <div className="bg-coup-accent/10 border border-coup-accent/30 rounded-xl p-3">
+      <div className="bg-coup-accent/15 panel-sunk p-3">
         <p className="text-coup-accent font-bold text-sm mb-1">Remember</p>
         <p className="text-gray-400 text-xs">
           Bluffing is not just allowed &mdash; it&apos;s essential!

@@ -166,7 +166,7 @@ function HomeContent() {
       <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
         <button
           onClick={() => { haptic(); setShowStats(true); }}
-          className="w-9 h-9 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition flex items-center justify-center"
+          className="w-9 h-9 rounded-full border border-coup-line text-gray-400 hover:border-coup-accent hover:text-coup-accent transition flex items-center justify-center"
           title="My Stats"
           aria-label="My stats"
         >
@@ -176,7 +176,7 @@ function HomeContent() {
         </button>
         <button
           onClick={() => { haptic(); setShowSettings(true); }}
-          className="w-9 h-9 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition flex items-center justify-center"
+          className="w-9 h-9 rounded-full border border-coup-line text-gray-400 hover:border-coup-accent hover:text-coup-accent transition flex items-center justify-center"
           title="Settings"
           aria-label="Settings"
         >
@@ -203,12 +203,12 @@ function HomeContent() {
       <div className="max-w-xs sm:max-w-sm lg:max-w-md w-full text-center relative">
         <CoupLogo className="brand-wordmark w-64 lg:w-72 h-auto mx-auto mb-2" />
         <p className="text-gray-400 mb-1 text-sm">The classic bluffing game</p>
-        <p className="text-gray-500 text-xs mb-6">
+        <p className="text-coup-ink-mute text-xs mb-6">
           {playersOnline} player{playersOnline !== 1 ? 's' : ''} online · {gamesInProgress} game{gamesInProgress !== 1 ? 's' : ''} in progress
         </p>
 
         {error && (
-          <div className="bg-red-900/50 border border-red-600 rounded-xl p-3 mb-4 text-sm animate-fade-in">
+          <div className="bg-red-900/50 panel-sunk p-3 mb-4 text-sm animate-fade-in">
             {error}
           </div>
         )}
@@ -235,7 +235,7 @@ function HomeContent() {
               >
                 How to Play
               </button>
-              <span className="text-gray-700">·</span>
+              <span className="text-coup-ink-mute">·</span>
               <button
                 className="text-gray-400 hover:text-coup-accent text-sm font-medium transition-colors"
                 onClick={() => { haptic(); setShowTutorial(true); }}
@@ -336,7 +336,7 @@ function HomeContent() {
               </h2>
 
               {joinableRooms.length === 0 ? (
-                <p className="text-gray-500 text-sm text-center py-4">
+                <p className="text-coup-ink-mute text-sm text-center py-4">
                   No open lobbies right now.
                 </p>
               ) : (
@@ -351,13 +351,13 @@ function HomeContent() {
                           <span className="text-sm font-medium text-gray-200 truncate">
                             {room.hostName}&apos;s game
                           </span>
-                          <span className="text-xs text-gray-500 font-mono">{room.code}</span>
+                          <span className="text-xs text-coup-ink-mute font-mono">{room.code}</span>
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-coup-ink-mute">
                             {room.playerCount}/{room.maxPlayers} players
                           </span>
-                          <span className="text-xs text-gray-600">
+                          <span className="text-xs text-coup-ink-mute">
                             {room.settings.actionTimerSeconds}s/{room.settings.turnTimerSeconds}s timers
                           </span>
                         </div>
@@ -392,10 +392,10 @@ function HomeContent() {
                           <span className="text-sm font-medium text-gray-200 truncate">
                             {room.hostName}&apos;s game
                           </span>
-                          <span className="text-xs text-gray-500 font-mono">{room.code}</span>
+                          <span className="text-xs text-coup-ink-mute font-mono">{room.code}</span>
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-coup-ink-mute">
                             {room.playerCount} players
                           </span>
                           {room.spectatorCount > 0 && (
@@ -427,14 +427,14 @@ function HomeContent() {
           </div>
         )}
 
-        <div className="mt-8 flex items-center justify-center gap-3 text-gray-600 text-xs">
+        <div className="mt-8 flex items-center justify-center gap-3 text-coup-ink-mute text-xs">
           <p>2-6 players. Bluff, challenge, eliminate.</p>
-          <span className="text-gray-700">·</span>
+          <span className="text-coup-ink-mute">·</span>
           <a
             href="https://github.com/8tp/Coup"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-gray-600 hover:text-gray-300 transition-colors"
+            className="text-coup-ink-mute hover:text-gray-300 transition-colors"
             aria-label="View source on GitHub"
           >
             <svg

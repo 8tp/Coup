@@ -2,7 +2,8 @@
 
 import { useRef, useEffect, useState } from 'react';
 import { LogEntry, TurnPhase } from '@/shared/types';
-import { LOG_EVENT_ICONS, CHARACTER_COLORS } from '@/shared/constants';
+import { CHARACTER_COLORS } from '@/shared/constants';
+import { LOG_EVENT_GLYPHS } from '@/app/utils/logGlyphs';
 import { formatLogMessage } from '@/app/utils/logFormat';
 import { getLogExplanation } from '@/app/utils/logExplanations';
 import { haptic } from '../../utils/haptic';
@@ -16,6 +17,14 @@ interface ActionLogProps {
 
 /** Log event types that represent claims (where wasBluff is meaningful) */
 const CLAIM_EVENT_TYPES = new Set(['claim_action', 'block']);
+
+/**
+ * Glyph gutter. The mark is 14px inside a 20px (`text-sm`/`leading-5`) line box
+ * and is nudged down 3px so it centres against the cap height rather than the
+ * line box. The column is a fixed-width flex item so it cannot jitter between
+ * rows regardless of which glyph lands in it.
+ */
+const LOG_GLYPH_SIZE = 14;
 
 /** Group consecutive entries by turnNumber */
 function groupByTurn(entries: LogEntry[]): LogEntry[][] {
@@ -76,7 +85,7 @@ export function ActionLog({ log, myName, turnPhase, showExplanations = false }: 
     <div className="px-3 py-2 flex-1 min-h-0 flex flex-col">
       <div ref={scrollRef} className="space-y-1.5 overflow-y-auto flex-1 min-h-0 pb-2">
         {log.length === 0 && (
-          <p className="text-sm text-gray-600 italic">Game starting...</p>
+          <p className="text-sm text-coup-ink-mute italic">Game starting...</p>
         )}
         {turnGroups.map((group, gi) => {
           const borderColor = getGroupBorderColor(group);
@@ -87,7 +96,7 @@ export function ActionLog({ log, myName, turnPhase, showExplanations = false }: 
               style={{ borderLeft: `3px solid ${borderColor}` }}
             >
               {group.map((entry, ei) => {
-                const icon = LOG_EVENT_ICONS[entry.eventType] ?? '';
+                const EventGlyph = LOG_EVENT_GLYPHS[entry.eventType];
                 const isLatestGroup = gi === turnGroups.length - 1;
                 const isLatestEntry = isLatestGroup && ei === group.length - 1;
                 const message = formatLogMessage(entry.message, myName);
@@ -99,43 +108,50 @@ export function ActionLog({ log, myName, turnPhase, showExplanations = false }: 
                 return (
                   <div key={entryKey}>
                     <div
-                      className={`text-sm ${
+                      className={`flex items-start gap-1.5 text-sm leading-5 ${
                         isLatestEntry
                           ? 'text-gray-200 font-medium'
                           : 'text-gray-400'
                       }`}
                     >
-                      <span className="mr-1">{icon}</span>
-                      {message}
-                      {showBluffBadge && (
-                        <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full align-middle ${
-                          entry.wasBluff
-                            ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                            : 'bg-green-500/15 text-green-400/80 border border-green-500/20'
-                        }`}>
-                          {entry.wasBluff ? 'BLUFF' : 'TRUE'}
-                        </span>
-                      )}
-                      {explanation && (
-                        <button
-                          type="button"
-                          className={`ml-1.5 rounded-full border px-1.5 py-0.5 text-[10px] font-bold align-middle transition ${
-                            isExpanded
-                              ? 'border-coup-accent text-coup-accent'
-                              : 'border-gray-700 text-gray-500 hover:border-coup-accent hover:text-coup-accent'
-                          }`}
-                          onClick={() => {
-                            haptic();
-                            setExpandedEntryKey(isExpanded ? null : entryKey);
-                          }}
-                          aria-expanded={isExpanded}
-                        >
-                          Why?
-                        </button>
-                      )}
+                      <span
+                        className="mt-[3px] flex-none"
+                        style={{ width: LOG_GLYPH_SIZE, height: LOG_GLYPH_SIZE }}
+                      >
+                        {EventGlyph && <EventGlyph size={LOG_GLYPH_SIZE} />}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        {message}
+                        {showBluffBadge && (
+                          <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full align-middle ${
+                            entry.wasBluff
+                              ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                              : 'bg-green-500/15 text-green-400/80 border border-green-500/20'
+                          }`}>
+                            {entry.wasBluff ? 'BLUFF' : 'TRUE'}
+                          </span>
+                        )}
+                        {explanation && (
+                          <button
+                            type="button"
+                            className={`ml-1.5 rounded-full border px-1.5 py-0.5 text-[10px] font-bold align-middle transition ${
+                              isExpanded
+                                ? 'border-coup-accent text-coup-accent'
+                                : 'border-coup-line text-coup-ink-mute hover:border-coup-accent hover:text-coup-accent'
+                            }`}
+                            onClick={() => {
+                              haptic();
+                              setExpandedEntryKey(isExpanded ? null : entryKey);
+                            }}
+                            aria-expanded={isExpanded}
+                          >
+                            Why?
+                          </button>
+                        )}
+                      </span>
                     </div>
                     {explanation && isExpanded && (
-                      <div className="mt-1 mb-1 rounded-lg border border-gray-800 bg-coup-surface/80 px-2 py-1.5 text-xs leading-snug text-gray-400">
+                      <div className="mt-1 mb-1 panel-sunk bg-coup-surface/80 px-2 py-1.5 text-xs leading-snug text-gray-400">
                         {explanation}
                       </div>
                     )}

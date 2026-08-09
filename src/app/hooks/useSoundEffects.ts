@@ -115,6 +115,25 @@ export function useSoundEffects(): void {
     const myId = gameState.myId;
     const currentPlayerId = gameState.players[gameState.currentPlayerIndex]?.id;
 
+    /**
+     * The perspective a cue is heard from. `mine` gets it centred, unfiltered
+     * and at full level; anything else gets the -6dB / panned / lowpassed
+     * treatment inside SoundEngine.makeHead().
+     *
+     * The whole point of passing this is that BYSTANDERS HEAR SOMETHING. Coup
+     * used to gate several of these on "only if it involves me" and play nothing
+     * otherwise, which left the table silent for the entirety of an opponent's
+     * turn. Quiet is correct; silent is not.
+     */
+    const perspective = (actorId: string | undefined) => ({
+      mine: actorId !== undefined && actorId === myId,
+      playerId: actorId,
+    });
+
+    /** ChallengeRevealEvent carries names, not ids; the pan seed needs an id. */
+    const idForName = (name: string): string | undefined =>
+      gameState.players.find(p => p.name === name)?.id;
+
     // ─── Phase transitions ───
 
     // Your turn starts
@@ -126,20 +145,21 @@ export function useSoundEffects(): void {
       sound.play('yourTurn');
     }
 
-    // Action declared (non-coup)
+    // Action declared (non-coup). Heard by everyone, from the actor's seat.
     if (
       prev.turnPhase === TurnPhase.AwaitingAction &&
       curr.turnPhase !== TurnPhase.AwaitingAction &&
       curr.turnPhase !== TurnPhase.GameOver
     ) {
+      const actorId = gameState.pendingAction?.actorId ?? currentPlayerId;
       if (gameState.pendingAction?.type === ActionType.Coup) {
-        sound.play('coup');
+        sound.play('coup', perspective(actorId));
       } else {
-        sound.play('actionDeclared');
+        sound.play('actionDeclared', perspective(actorId));
       }
     }
 
-    // Challenge window opens (you can challenge)
+    // Challenge window opens (you can challenge) — a personal prompt, not an event.
     if (
       curr.turnPhase === TurnPhase.AwaitingActionChallenge &&
       prev.turnPhase !== TurnPhase.AwaitingActionChallenge &&
@@ -172,12 +192,15 @@ export function useSoundEffects(): void {
       sound.play('assassinationAlert');
     }
 
-    // Someone blocked (actor hears it)
-    if (
-      curr.pendingBlockerId && !prev.pendingBlockerId &&
-      currentPlayerId === myId
-    ) {
-      sound.play('block');
+    // Someone blocked. Used to fire only for the actor; now everyone hears it,
+    // and it is "mine" for both parties to the block — the blocker did it, and
+    // the actor is the one it was done to.
+    if (curr.pendingBlockerId && !prev.pendingBlockerId) {
+      const blockerId = curr.pendingBlockerId;
+      sound.play('block', {
+        mine: blockerId === myId || currentPlayerId === myId,
+        playerId: blockerId,
+      });
     }
 
     // Block challenge window opens (you can challenge the block)
@@ -189,13 +212,15 @@ export function useSoundEffects(): void {
       sound.play('challengeWindow');
     }
 
-    // Influence loss (you must choose)
+    // Influence loss. Everyone hears the card go down; only the VICTIM hears it
+    // as their own — this is the override the mine/theirs rule needs, because
+    // the actor of an assassination is not the one losing something.
     if (
       curr.turnPhase === TurnPhase.AwaitingInfluenceLoss &&
       prev.turnPhase !== TurnPhase.AwaitingInfluenceLoss &&
-      gameState.influenceLossRequest?.playerId === myId
+      gameState.influenceLossRequest
     ) {
-      sound.play('influenceLoss');
+      sound.play('influenceLoss', perspective(gameState.influenceLossRequest.playerId));
     }
 
     // Exchange phase starts for you
@@ -221,33 +246,45 @@ export function useSoundEffects(): void {
       prev.turnPhase !== TurnPhase.AwaitingExamineDecision &&
       gameState.examineState
     ) {
-      sound.play('exchange'); // reuse exchange sound for examine reveal
+      // reuse exchange sound for examine reveal. ClientExamineState carries only
+      // the target, so the examiner is the player whose turn it is.
+      sound.play('exchange', perspective(currentPlayerId));
     }
 
     // ─── Challenge reveal ───
     if (curr.challengeReveal && curr.challengeReveal !== prev.challengeReveal) {
-      if (curr.challengeReveal.wasGenuine) {
-        sound.play('challengeRevealSuccess');
+      const reveal = curr.challengeReveal;
+      const challengerId = idForName(reveal.challengerName);
+      const challengedId = idForName(reveal.challengedName);
+      // Either party to the challenge hears it as theirs; the pan seed is the
+      // player whose card is on the table.
+      const involved = challengerId === myId || challengedId === myId;
+      const opts = { mine: involved, playerId: challengedId };
+      if (reveal.wasGenuine) {
+        sound.play('challengeRevealSuccess', opts);
       } else {
-        sound.play('challengeRevealFail');
+        sound.play('challengeRevealFail', opts);
       }
       // Card shuffle for the deck return
       setTimeout(() => {
-        if (!getSoundEngine().muted) sound.play('cardShuffle');
+        if (!getSoundEngine().muted) sound.play('cardShuffle', opts);
       }, 400);
     }
 
     // ─── Coin changes (local player only) ───
+    // Only my own coin total is tracked, so these are always mine by
+    // construction — which is also the coinsLost override: the victim is the
+    // only one who hears their own coins leave.
     if (curr.myCoins > prev.myCoins) {
-      sound.play('coinsGained');
+      sound.play('coinsGained', { mine: true, playerId: myId });
     } else if (curr.myCoins < prev.myCoins) {
-      sound.play('coinsLost');
+      sound.play('coinsLost', { mine: true, playerId: myId });
     }
 
     // ─── Eliminations ───
     for (const pid of prev.alivePlayers) {
       if (!curr.alivePlayers.has(pid)) {
-        sound.play('playerEliminated');
+        sound.play('playerEliminated', perspective(pid));
         break; // one sound per state update
       }
     }
