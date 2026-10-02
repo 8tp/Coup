@@ -39,6 +39,7 @@
     "node_modules",
     "dist",
     "scripts",
+    "artifacts",
     "tests"
   ]
 }

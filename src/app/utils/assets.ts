@@ -1,11 +1,13 @@
 import { Character } from '@/shared/types';
 
-export const BRAND_BANNER_ART = '/assets/brand/coup-online-banner-v2.webp';
+export const BRAND_BANNER_ART = '/assets/brand/coup-wordmark-v3.webp';
+export const MENU_BACKGROUND_WIDE_ART = '/assets/backgrounds/menu-chamber-wide-v1.webp';
+export const MENU_BACKGROUND_TALL_ART = '/assets/backgrounds/menu-chamber-tall-v1.webp';
 export const TABLE_BACKGROUND_ART = '/assets/backgrounds/game-table-v2.webp';
 export const TABLE_BACKGROUND_MOBILE_ART = '/assets/backgrounds/game-table-mobile-v2.webp';
 
-export const CARD_BACK_ART = '/assets/cards/back-v2.webp';
-export const CARD_BACK_FOCUS_ART = '/assets/cards/focus/back-v2.webp';
+export const CARD_BACK_ART = '/assets/cards/back-v3.webp';
+export const CARD_BACK_FOCUS_ART = '/assets/cards/focus/back-v3.webp';
 
 export const CHARACTER_CARD_ART: Record<Character, string> = {
   [Character.Duke]: '/assets/cards/duke-v3.webp',
@@ -26,7 +28,7 @@ export const CHARACTER_CARD_FOCUS_ART: Record<Character, string> = {
 };
 
 export const CARD_ART_DIMENSIONS = { width: 512, height: 768 } as const;
-export const BRAND_BANNER_DIMENSIONS = { width: 864, height: 344 } as const;
+export const BRAND_BANNER_DIMENSIONS = { width: 960, height: 347 } as const;
 
 export const CRITICAL_PRELOAD_IMAGES = [
   BRAND_BANNER_ART,

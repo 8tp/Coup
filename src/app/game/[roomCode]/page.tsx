@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSocket } from '../../hooks/useSocket';
 import { useGameStore } from '../../stores/gameStore';
 import { GameTable } from '../../components/game/GameTable';
-import { getSoundEngine } from '../../audio/SoundEngine';
+import { useGameMusic } from '../../hooks/useMusicDirector';
 
 export default function GamePage() {
   const router = useRouter();
@@ -15,6 +15,10 @@ export default function GamePage() {
   const [isPracticeRoom, setIsPracticeRoom] = useState(false);
 
   const isHost = !isSpectator && playerId === hostId;
+
+  // Audio unlock on the first gesture, then table → endgame (two left) → stop
+  // at game over. See hooks/useMusicDirector.ts.
+  useGameMusic(gameState);
 
   const clearPracticeSession = useCallback(() => {
     sessionStorage.removeItem('coup_practice_room');
@@ -28,19 +32,6 @@ export default function GamePage() {
 
   useEffect(() => {
     setIsPracticeRoom(sessionStorage.getItem('coup_practice_room') === 'true');
-  }, []);
-
-  // Unlock AudioContext on first user gesture (required for mobile Safari)
-  useEffect(() => {
-    const sound = getSoundEngine();
-    const unlock = () => sound.unlock();
-    document.addEventListener('click', unlock, { once: true });
-    document.addEventListener('touchstart', unlock, { once: true });
-    return () => {
-      document.removeEventListener('click', unlock);
-      document.removeEventListener('touchstart', unlock);
-      sound.stopMusic();
-    };
   }, []);
 
   // Redirect when game state is cleared (rematch -> lobby) or missing
@@ -89,7 +80,7 @@ export default function GamePage() {
     <>
       {error && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50
-          bg-red-900/90 border border-red-600 rounded-xl px-4 py-2 text-sm animate-fade-in">
+          bg-red-900/90 panel-sunk px-4 py-2 text-sm animate-fade-in">
           {error}
         </div>
       )}

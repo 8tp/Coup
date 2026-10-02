@@ -7,8 +7,10 @@ This app should use generated raster assets where they add mood, identity, or ca
 - **Home title banner** -- The first screen benefits from a branded raster masthead instead of plain SVG text. Current asset: `public/assets/brand/coup-online-banner-v2.webp`.
 - **Influence card faces** -- Character portraits make known and revealed cards feel like real influence cards. Current UI assets: `public/assets/cards/{duke,assassin,captain,ambassador,contessa,inquisitor}-v3.webp`.
 - **Small-card close crops** -- Tiny mobile cards should use face/prop-forward crops instead of the full portrait composition. Duke, Assassin, Captain, and Inquisitor use v3 focus assets; Ambassador and Contessa use the refined v4 focus crops.
-- **Influence card back** -- Hidden cards need one recognizable card-back treatment. Current assets: `public/assets/cards/back-v2.webp` and `public/assets/cards/focus/back-v2.webp`.
-- **Game table backgrounds** -- The shared app background can use subtle raster tabletops because they add atmosphere without carrying gameplay state. Current assets: `public/assets/backgrounds/game-table-v2.webp` and `public/assets/backgrounds/game-table-mobile-v2.webp`; responsive CSS fading layers mute their contrast behind the UI.
+- **Influence card back** -- Hidden cards need one recognizable card-back treatment. Current assets: `public/assets/cards/back-v3.webp` and `public/assets/cards/focus/back-v3.webp` (a calm blackened-teal field with one brass rosette, chosen because it reads as "hidden card" at 36 px and resembles no character emblem; the v2 back's red V read as a red blob at seat size).
+- **Menu backgrounds** -- `public/assets/backgrounds/menu-chamber-wide-v1.webp` and `menu-chamber-tall-v1.webp`: a painted council chamber behind the home and lobby screens (separate phone composition, not a crop). The game screen draws its table and room in CSS instead.
+- **Wordmark** -- `public/assets/brand/coup-wordmark-v3.webp` (COUP with ONLINE on a brass plate, transparent).
+- **Game table backgrounds (retired from the UI)** -- The shared app background can use subtle raster tabletops because they add atmosphere without carrying gameplay state. Current assets: `public/assets/backgrounds/game-table-v2.webp` and `public/assets/backgrounds/game-table-mobile-v2.webp`; responsive CSS fading layers mute their contrast behind the UI.
 - **App/project icon** -- Home-screen/PWA icons need a strong raster emblem that reads at 16-512 px. The 1024 px master is `public/assets/brand/app-icon-v2.png`; versioned PWA, Apple touch, maskable, and favicon derivatives live under `public/icons/` and `public/`.
 - **Social/share imagery** -- Open Graph, README screenshots, and store/promotional surfaces can use composed raster art because they are not interactive controls. Current assets: `public/og-image-v3.png` and `public/embed-image-v3.png`.
 
@@ -136,3 +138,16 @@ Role prompts should describe the character rather than name an existing actor or
 6. Bump versioned filenames and `CACHE_NAME` in `public/sw.js` together so installed clients do not retain the previous portraits.
 
 Do not bake names, action labels, borders, or icons into the raster art. Those remain code-native so they stay sharp, accessible, and consistent across full cards, compact cards, reveal overlays, tutorials, Exchange, Examine, and post-game views.
+
+
+## October 2026 assets (Codex `imagegen`)
+
+The v3 card back, the v3 wordmark and the menu chamber backgrounds were generated with Codex's
+built-in image tool from the brief in `docs/asset-briefs/2026-10-01-codex-imagegen.md`, with the
+v3 Duke and Contessa portraits attached as style references. Three candidates per asset were
+proofed on a contact sheet at their real display sizes (card backs at 36-64 px beside a face card,
+wordmarks at 240-320 px on `--ground`). Choices: back **c** (rosette, the first, larger-emblem pass),
+wordmark **c**. Back **b** was rejected because its fleur-de-lis is now the Duke's emblem.
+Encoding: `cwebp -q 82` for the backs (focus crop = centred 68% so the rosette fills a tiny card),
+`-q 90 -alpha_q 100` for the wordmark (trimmed to its alpha bounds, 960 px wide), `-q 68` for the
+dark backgrounds.

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Modal } from '../ui/Modal';
 import { BotPersonality } from '@/shared/types';
 import { BOT_NAMES, DEFAULT_BOT_PERSONALITY } from '@/shared/constants';
@@ -96,6 +96,13 @@ export function AddBotModal({ open, onClose, onAdd, existingNames }: AddBotModal
     setName(available[Math.floor(Math.random() * available.length)]);
   }, [existingNames]);
 
+  // Open with a name already chosen, so adding a bot is one tap.
+  useEffect(() => {
+    if (open && !name) pickRandomName();
+  }, [open, name, pickRandomName]);
+
+  const selected = PERSONALITY_OPTIONS.find(o => o.value === personality);
+
   const handleSubmit = async () => {
     const trimmed = name.trim();
     if (!trimmed) {
@@ -118,7 +125,7 @@ export function AddBotModal({ open, onClose, onAdd, existingNames }: AddBotModal
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Add Computer Player">
+    <Modal open={open} onClose={onClose} title="Add a bot">
       <div className="space-y-4">
         {/* Name */}
         <div>
@@ -130,12 +137,13 @@ export function AddBotModal({ open, onClose, onAdd, existingNames }: AddBotModal
               onChange={e => setName(e.target.value)}
               maxLength={20}
               placeholder="Bot name..."
-              className="flex-1 bg-coup-bg border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-coup-accent"
+              className="input-field flex-1 min-w-0"
             />
             <button
               type="button"
               onClick={() => { haptic(); pickRandomName(); }}
-              className="btn-secondary text-sm px-3 py-2"
+              className="btn-secondary"
+              aria-label="Pick a random name"
             >
               Random
             </button>
@@ -145,25 +153,25 @@ export function AddBotModal({ open, onClose, onAdd, existingNames }: AddBotModal
         {/* Personality Selector */}
         <div>
           <label className="block text-sm text-gray-400 mb-2">Personality</label>
-          <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Personality">
             {PERSONALITY_OPTIONS.map(opt => (
               <button
                 key={opt.value}
                 type="button"
+                role="radio"
+                aria-checked={personality === opt.value}
                 onClick={() => { haptic(); setPersonality(opt.value); }}
-                className={`w-full text-left px-4 py-3 rounded-lg border-2 transition ${
+                className={`min-h-[48px] px-3 rounded border-2 text-left font-bold text-sm transition ${
                   personality === opt.value
-                    ? `${opt.bgColor} ${opt.borderColor}`
-                    : 'border-gray-700 hover:border-gray-500'
+                    ? `${opt.bgColor} ${opt.borderColor} ${opt.color}`
+                    : 'border-coup-line text-gray-300 hover:border-coup-ink-mute'
                 }`}
               >
-                <span className={`font-bold text-sm ${personality === opt.value ? opt.color : 'text-gray-300'}`}>
-                  {opt.label}
-                </span>
-                <p className="text-xs text-gray-400 mt-0.5">{opt.description}</p>
+                {opt.label}
               </button>
             ))}
           </div>
+          {selected && <p className="text-sm text-coup-ink-mute mt-2">{selected.description}</p>}
         </div>
 
         {error && (

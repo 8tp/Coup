@@ -6,6 +6,8 @@ import { useGameStore } from '../../stores/gameStore';
 import { computeAwards, computeBluffSummary, computeGameRecap, getWinnerFlavorText, getLoserFlavorText } from '../../utils/gameStats';
 import type { RecapTone } from '../../utils/gameStats';
 import { formatLogMessage } from '../../utils/logFormat';
+import { AWARD_GLYPHS } from '../../utils/logGlyphs';
+import { CrownGlyph, SkullGlyph } from '../icons';
 import { haptic } from '../../utils/haptic';
 import { useStatsStore } from '../../stores/statsStore';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -23,18 +25,18 @@ function ResultCard({ influence, revealed = true }: { influence: ClientInfluence
 function recapToneClass(tone: RecapTone): string {
   switch (tone) {
     case 'gold':
-      return 'border-coup-accent/35 bg-coup-accent/10';
+      return 'bg-coup-accent/15';
     case 'green':
-      return 'border-green-500/25 bg-green-500/10';
+      return 'bg-green-500/15';
     case 'red':
-      return 'border-red-500/25 bg-red-500/10';
+      return 'bg-red-500/15';
     case 'blue':
-      return 'border-blue-500/25 bg-blue-500/10';
+      return 'bg-blue-500/15';
     case 'purple':
-      return 'border-purple-500/25 bg-purple-500/10';
+      return 'bg-purple-500/15';
     case 'gray':
     default:
-      return 'border-gray-800 bg-coup-bg/60';
+      return 'bg-coup-bg/60';
   }
 }
 
@@ -162,17 +164,20 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 animate-fade-in p-4">
-      <div className="bg-coup-surface rounded-2xl border border-gray-700 max-w-sm sm:max-w-md w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-coup-surface panel-sunk max-w-sm sm:max-w-md w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="text-center pt-8 pb-4 px-6">
-          <div className="text-5xl mb-3">{isMe ? '🏆' : '💀'}</div>
-          <h1 className="text-3xl font-bold mb-1">
+          <div className="mb-3 flex justify-center text-coup-accent">
+            {isMe ? <CrownGlyph size={56} /> : <SkullGlyph size={56} className="text-coup-ink-mute" />}
+          </div>
+          {/* ART-DIRECTION.md §4: the game-over title is the largest Display use in the app. */}
+          <h1 className="type-display text-step-4 mb-1 uppercase">
             {isMe ? 'You Win!' : `${winner?.name} Wins!`}
           </h1>
           <p className="text-coup-accent text-sm">
             {isMe ? winnerFlavor : loserFlavor}
           </p>
-          <p className="text-gray-500 text-xs mt-1">
+          <p className="text-coup-ink-mute text-xs mt-1">
             {gameState.turnNumber} turns
           </p>
         </div>
@@ -180,10 +185,10 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
         {/* Winning hand */}
         {winner && (
           <div className="px-4 pb-4">
-            <p className="text-center text-xs text-gray-500 uppercase tracking-wider mb-2">Winning Hand</p>
-            <div className="rounded-xl border border-coup-accent/30 bg-coup-accent/10 px-3 py-3">
+            <p className="text-center text-xs text-coup-ink-mute uppercase tracking-wider mb-2">Winning Hand</p>
+            <div className="panel-sunk bg-coup-accent/15 px-3 py-3">
               <div className="flex items-center gap-3">
-                <span className="text-xl flex-none">👑</span>
+                <CrownGlyph size={20} className="flex-none text-coup-accent" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-coup-accent truncate">
                     {winner.id === gameState.myId ? 'You' : winner.name}
@@ -204,20 +209,20 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
 
         {/* Table truth */}
         <div className="px-4 pb-4">
-          <p className="text-center text-xs text-gray-500 uppercase tracking-wider mb-2">Table Truth</p>
+          <p className="text-center text-xs text-coup-ink-mute uppercase tracking-wider mb-2">Table Truth</p>
           {!showFullTruth && nonWinnerPlayers.length > 0 ? (
-            <div className="rounded-xl border border-gray-800 bg-coup-bg/60 px-4 py-4 text-center">
+            <div className="panel-sunk bg-coup-bg/60 px-4 py-4 text-center">
               <p className="text-sm font-medium text-gray-300">Revealing the rest of the table...</p>
               <button
                 type="button"
-                className="mt-3 text-xs text-coup-accent hover:text-yellow-300 transition-colors"
+                className="btn-ghost mt-3 !text-coup-accent"
                 onClick={() => { haptic(); setShowFullTruth(true); }}
               >
                 Reveal now
               </button>
             </div>
           ) : (
-            <div className="bg-coup-bg/60 rounded-xl border border-gray-800 divide-y divide-gray-800">
+            <div className="bg-coup-bg/60 panel-sunk divide-y divide-coup-line/60">
               {nonWinnerPlayers.map(p => {
               const wins = roomPlayers.find(rp => rp.id === p.id)?.wins ?? 0;
               return (
@@ -226,18 +231,18 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
                   className="flex items-center px-3 py-2.5 gap-3 animate-fade-in"
                 >
                   {/* Place indicator */}
-                  <span className="text-sm w-5 text-center flex-none">
-                    {!p.isAlive ? '💀' : ''}
+                  <span className="w-5 flex-none flex justify-center text-coup-ink-mute">
+                    {!p.isAlive && <SkullGlyph size={14} title="Eliminated" />}
                   </span>
 
                   {/* Name + win count */}
                   <span className={`text-sm font-medium flex-1 truncate min-w-0 ${
-                    p.isAlive ? 'text-gray-300' : 'text-gray-500'
+                    p.isAlive ? 'text-gray-300' : 'text-coup-ink-mute'
                   }`}>
                     {p.id === gameState.myId ? 'You' : p.name}
                   </span>
                   {wins > 0 && (
-                    <span className="shrink-0 text-[10px] bg-yellow-600/80 text-white px-1.5 py-px rounded-full font-bold">
+                    <span className="shrink-0 text-[11px] bg-yellow-600/80 text-white px-1.5 py-px rounded-full font-bold">
                       {wins}W
                     </span>
                   )}
@@ -258,14 +263,14 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
         {/* Final recap */}
         {showFullTruth && recap.length > 0 && (
           <div className="px-4 pb-4">
-            <p className="text-center text-xs text-gray-500 uppercase tracking-wider mb-2">Final Recap</p>
+            <p className="text-center text-xs text-coup-ink-mute uppercase tracking-wider mb-2">Final Recap</p>
             <div className="grid grid-cols-2 gap-2">
               {recap.map(item => (
                 <div
                   key={item.label}
-                  className={`rounded-xl border p-2.5 min-w-0 animate-fade-in ${recapToneClass(item.tone)}`}
+                  className={`panel-sunk p-2.5 min-w-0 animate-fade-in ${recapToneClass(item.tone)}`}
                 >
-                  <p className="text-[10px] uppercase tracking-wide text-gray-500 font-bold mb-1">{item.label}</p>
+                  <p className="text-[11px] uppercase tracking-wide text-coup-ink-mute font-bold mb-1">{item.label}</p>
                   <p className="text-sm font-bold text-gray-100 leading-snug">{item.value}</p>
                   <p className="text-xs text-gray-400 leading-snug mt-1">{formatLogMessage(item.detail, myName)}</p>
                 </div>
@@ -277,17 +282,20 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
         {/* Awards */}
         {showFullTruth && awards.length > 0 && (
           <div className="px-4 pb-4">
-            <p className="text-center text-xs text-gray-500 uppercase tracking-wider mb-2">Awards</p>
-            <div className="bg-coup-bg/60 rounded-xl border border-gray-800 divide-y divide-gray-800">
-              {awards.map((award, i) => (
+            <p className="text-center text-xs text-coup-ink-mute uppercase tracking-wider mb-2">Awards</p>
+            <div className="bg-coup-bg/60 panel-sunk divide-y divide-coup-line/60">
+              {awards.map((award, i) => {
+                const AwardGlyph = AWARD_GLYPHS[award.glyph];
+                return (
                 <div key={i} className="px-3 py-2.5 flex items-start gap-2.5">
-                  <span className="text-lg leading-none mt-0.5">{award.emoji}</span>
+                  <AwardGlyph size={18} className="mt-0.5 flex-none text-coup-accent" />
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-gray-200">{award.title}</p>
-                    <p className="text-xs"><span className="text-gray-300 font-medium">{award.playerName}</span><span className="text-gray-500"> · {award.description}</span></p>
+                    <p className="text-xs"><span className="text-gray-300 font-medium">{award.playerName}</span><span className="text-coup-ink-mute"> · {award.description}</span></p>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -295,15 +303,15 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
         {/* Truth Reveal */}
         {showFullTruth && totalBluffs > 0 && (
           <div className="px-4 pb-4">
-            <p className="text-center text-xs text-gray-500 uppercase tracking-wider mb-2">Truth Reveal</p>
-            <div className="bg-coup-bg/60 rounded-xl border border-gray-800 divide-y divide-gray-800">
+            <p className="text-center text-xs text-coup-ink-mute uppercase tracking-wider mb-2">Truth Reveal</p>
+            <div className="bg-coup-bg/60 panel-sunk divide-y divide-coup-line/60">
               {bluffSummary.map(entry => {
                 const bluffRate = entry.totalClaims > 0 ? Math.round((entry.bluffs / entry.totalClaims) * 100) : 0;
                 return (
                   <div key={entry.playerId} className="px-3 py-2.5 flex items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-200 truncate">{entry.playerName}</p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-coup-ink-mute">
                         {entry.totalClaims} claim{entry.totalClaims !== 1 ? 's' : ''}
                         {entry.bluffs > 0 && (
                           <span className="text-red-400"> · {entry.bluffs} bluff{entry.bluffs !== 1 ? 's' : ''}</span>
@@ -317,18 +325,18 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
                       {entry.bluffs > 0 ? (
                         <>
                           {entry.unchallengedBluffs > 0 && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
+                            <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
                               {entry.unchallengedBluffs} got away
                             </span>
                           )}
                           {entry.caughtBluffing > 0 && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                            <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30">
                               {entry.caughtBluffing} caught
                             </span>
                           )}
                         </>
                       ) : (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-400/80 border border-green-500/20">
+                        <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-400/80 border border-green-500/20">
                           honest
                         </span>
                       )}
@@ -345,31 +353,31 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
           <div className="grid grid-cols-2 gap-2 mb-3">
             <button
               type="button"
-              className="rounded-lg border border-gray-700 bg-coup-bg/70 px-3 py-2 text-xs font-bold text-gray-300 transition hover:border-coup-accent hover:text-coup-accent"
+              className="btn-ghost"
               onClick={copyReplay}
             >
               Copy Recap
             </button>
             <button
               type="button"
-              className="rounded-lg border border-gray-700 bg-coup-bg/70 px-3 py-2 text-xs font-bold text-gray-300 transition hover:border-coup-accent hover:text-coup-accent"
+              className="btn-ghost"
               onClick={downloadReplay}
             >
               Download Log
             </button>
           </div>
-          <p className="min-h-4 text-center text-[11px] text-gray-500" aria-live="polite">
+          <p className="min-h-4 text-center text-[11px] text-coup-ink-mute" aria-live="polite">
             {exportStatus === 'copied' && 'Recap copied'}
             {exportStatus === 'error' && 'Copy unavailable - download the log instead'}
           </p>
           <button
-            className="w-full text-xs text-gray-400 hover:text-gray-200 transition-colors py-1"
+            className="btn-ghost w-full"
             onClick={() => setShowLog(v => !v)}
           >
             {showLog ? 'Hide Log' : 'Show Full Log'}
           </button>
           {showLog && (
-            <div className="mt-2 max-h-60 overflow-y-auto bg-coup-bg/60 rounded-xl border border-gray-800">
+            <div className="mt-2 max-h-60 overflow-y-auto bg-coup-bg/60 panel-sunk">
               <ActionLog
                 log={gameState.actionLog}
                 myName={gameState.players.find(p => p.id === gameState.myId)?.name ?? ''}
@@ -395,7 +403,7 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
               Play Again
             </button>
           ) : (
-            <p className="text-gray-500 text-sm text-center">
+            <p className="text-coup-ink-mute text-sm text-center">
               Waiting for host to start rematch...
             </p>
           )}
