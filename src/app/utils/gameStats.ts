@@ -518,7 +518,7 @@ function decisiveTitle(entry: LogEntry, gameState: ClientGameState): string {
 
   switch (entry.eventType) {
     case 'elimination':
-      return `${actor} was eliminated`;
+      return `${actor} went out`;
     case 'coup':
       return `${actor} launched a Coup`;
     case 'assassination':
@@ -632,7 +632,7 @@ export function computeGameRecap(gameState: ClientGameState): GameRecapItem[] {
     const influenceLeft = winner.influences.filter(influence => !influence.revealed).length;
     items.push({
       label: 'Winner standing',
-      value: `${displayName(gameState, winner.id)} kept ${plural(influenceLeft, 'influence')}`,
+      value: `${displayName(gameState, winner.id)} kept ${plural(influenceLeft, 'card')}`,
       detail: `${winner.coins} coin${winner.coins === 1 ? '' : 's'} left after ${plural(gameState.turnNumber, 'turn')}.`,
       tone: 'gold',
     });

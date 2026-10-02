@@ -154,8 +154,8 @@ describe('computeGameRecap', () => {
       'Bluff table',
       'Challenge reads',
     ]);
-    expect(recap[0].value).toContain('You kept 1 influence');
-    expect(recap[1].value).toBe('Bob was eliminated');
+    expect(recap[0].value).toContain('You kept 1 card');
+    expect(recap[1].value).toBe('Bob went out');
     expect(recap[2].value).toBe('You spent 7 coins');
     expect(recap[3].value).toBe('1/1 claims were bluffs');
     expect(recap[4].value).toBe('1/1 challenges won');

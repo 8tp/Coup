@@ -9,7 +9,7 @@ import { CHARACTER_PALETTE, characterCardVars } from '../../utils/characterPalet
 import { CardArtwork, CharacterCardBadge } from '../game/CardArtwork';
 import { ReformationTutorial } from '../tutorial/ReformationTutorial';
 
-const tabs = ['Overview', 'Characters', 'Actions & Rules', 'Reformation'] as const;
+const tabs = ['Overview', 'Characters', 'Actions and rules', 'Reformation'] as const;
 type Tab = typeof tabs[number];
 
 interface HowToPlayProps {
@@ -31,7 +31,7 @@ export function HowToPlay({ open, onClose }: HowToPlayProps) {
     <>
       <Modal open={open && !showReformationTutorial} onClose={onClose} maxWidth="max-w-2xl" scrollable>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold">How to Play</h2>
+          <h2 className="text-xl font-bold">How to play</h2>
           <button
             className="court-icon-btn text-2xl leading-none"
             onClick={() => { haptic(); onClose(); }}
@@ -58,7 +58,7 @@ export function HowToPlay({ open, onClose }: HowToPlayProps) {
         {/* Tab content */}
         {activeTab === 'Overview' && <OverviewTab />}
         {activeTab === 'Characters' && <CharactersTab />}
-        {activeTab === 'Actions & Rules' && <RulesTab />}
+        {activeTab === 'Actions and rules' && <RulesTab />}
         {activeTab === 'Reformation' && (
           <ReformationTab
             walkthroughTriggerRef={walkthroughTriggerRef}
@@ -92,7 +92,7 @@ function OverviewTab() {
         </p>
       </div>
       <div>
-        <h3 className="text-coup-accent font-bold text-base mb-2">Basic Flow</h3>
+        <h3 className="text-coup-accent font-bold text-base mb-2">Basic flow</h3>
         <ol className="list-decimal list-inside space-y-1.5">
           <li>On your turn, take one action. Some actions claim a character.</li>
           <li>Any other player can <span className="text-white font-medium">challenge</span> a claim. If you were bluffing, you lose an influence. If you weren&apos;t, the challenger loses one.</li>
@@ -108,7 +108,7 @@ function OverviewTab() {
         </p>
       </div>
       <div className="border-t border-coup-line/70 pt-4 mt-2">
-        <h3 className="text-coup-accent font-bold text-base mb-2">About the Original Game</h3>
+        <h3 className="text-coup-accent font-bold text-base mb-2">About the original game</h3>
         <p>
           Coup is a card game designed by <span className="text-white font-medium">Rikki Tahta</span>,
           originally published in 2012 by <span className="text-white font-medium">La Mame Games</span> and{' '}
@@ -280,7 +280,7 @@ function ReformationTab({
       </div>
 
       <div className="panel-sunk bg-coup-accent/15 p-3">
-        <h3 className="text-coup-accent font-bold text-base mb-2">Quick Start</h3>
+        <h3 className="text-coup-accent font-bold text-base mb-2">Quick start</h3>
         <ol className="list-decimal list-inside space-y-1.5 text-gray-300">
           <li>Check faction markers before targeting: <span className="text-blue-300 font-bold">▲ LOY</span> and <span className="text-red-300 font-bold">◆ REF</span>.</li>
           <li>Use Convert to fix targeting, rescue an ally, or put coins into the reserve.</li>
@@ -309,7 +309,7 @@ function ReformationTab({
       </div>
 
       <div>
-        <h3 className="text-coup-accent font-bold text-base mb-2">New Actions</h3>
+        <h3 className="text-coup-accent font-bold text-base mb-2">New actions</h3>
         <div className="space-y-3 text-gray-400">
           <div>
             <span className="text-white font-medium">Convert:</span> pay 1 coin to switch your own
