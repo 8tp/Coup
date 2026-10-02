@@ -24,6 +24,11 @@ import { ReactionBubble } from './ReactionBubble';
 import { ReactionPicker } from './ReactionPicker';
 import { SettingsModal } from '../settings/SettingsModal';
 import { PracticeCoach } from './PracticeCoach';
+import { ClaimPlaque } from './table/ClaimPlaque';
+import { LogTicker } from './table/LogTicker';
+import { SeatSpeech } from './table/SeatSpeech';
+import { seatAngles, seatPoint } from './table/seatLayout';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useSoundEffects } from '../../hooks/useSoundEffects';
 import { useHapticFeedback } from '../../hooks/useHapticFeedback';
 import {
@@ -57,44 +62,22 @@ import { characterCardVars } from '../../utils/characterPalette';
 import { haptic } from '../../utils/haptic';
 
 /* ======================================================================
-   THE TABLE — GAME-FEEL-PLAN.md §1.4, ART-DIRECTION.md §3.2.
+   THE COURT TABLE.
 
-   One DOM tree serves both layouts, and that is a constraint rather than a
+   One oval table drawn in CSS, opponents seated on its rim in turn order
+   (`table/seatLayout.ts`), the action on the table as a plaque in the middle
+   of the felt, and your hand at the near edge with the action dock beside it.
+
+   One DOM tree serves every breakpoint, and that is a constraint rather than a
    preference: the seats register themselves with the FX position registry by
-   player id (`registerFxSeat`), so a second, hidden copy of the seats for a
-   different breakpoint would fight the first for the registry entry and one
-   of the two would win by mount order. So there is exactly one seat element
-   per player and the LAYOUT changes underneath it, in globals.css, at 1024px.
+   player id (`registerFxSeat`), so a second, hidden copy of the seats would
+   fight the first for the registry entry. The layout changes underneath the
+   same elements, in globals.css ("THE COURT TABLE").
 
-   Below 1024px: `.felt-rail` / `.felt-top` are `display: contents`, the seats
-   fall through as direct grid items of `.table-felt`, and the phone column is
-   the 2-or-3-column grid it has always been.
-
-   At 1024px and up: the same three wrappers become the left rail, the top rail
-   and the right rail of a felt with the deck, the treasury and the discard in
-   the middle of it, and the log moves to a side rail.
+   The shake target is the table and its seats only. The phase line, the claim
+   plaque and the prompts float over the middle of the felt as a SIBLING of the
+   shake target, so a challenge prompt never moves while you read it.
    ====================================================================== */
-
-/**
- * How many seats go on each side of the felt, for every opponent count the
- * game can produce — 1 to 5 for a player, and up to 6 for a spectator, who has
- * no seat of their own and therefore sees every player as an "opponent".
- *
- * The shape is a ring read clockwise starting at your left hand, so turn order
- * runs around the table the way it would if you were sitting at one: up the
- * left rail, across the top, down the right rail. Two seats face each other
- * rather than huddling at the top; five spread 2/1/2 so the middle of the felt
- * stays wide enough for the deck, the treasury and the discard.
- */
-export function ringSplit(n: number): { left: number; top: number; right: number } {
-  if (n <= 1) return { left: 0, top: Math.max(n, 0), right: 0 };
-  if (n === 2) return { left: 1, top: 0, right: 1 };
-  if (n === 3) return { left: 1, top: 1, right: 1 };
-  if (n === 4) return { left: 1, top: 2, right: 1 };
-  if (n === 5) return { left: 2, top: 1, right: 2 };
-  const side = Math.floor((n - 2) / 2);
-  return { left: side, top: n - 2 * side, right: side };
-}
 
 /* ══════════════════════════════════════════════════════════════════════════
    §6's VERB TABLE, AT THE MOMENTS IT DESCRIBES
@@ -646,11 +629,10 @@ export function discardTilt(id: string): number {
 /** Where a lost influence lands and STAYS (§1.4). Face-up, in the order it fell. */
 function DiscardPile({ entries }: { entries: DiscardEntry[] }) {
   return (
-    <div className="table-object table-object-grow">
+    entries.length === 0 ? null : (
+    <div className="table-object court-discard">
       <div className="discard-well">
-        {entries.length === 0 ? (
-          <span className="table-object-label">Nothing lost yet</span>
-        ) : (
+        {(
           entries.map(entry => (
             /* The tilt is on a wrapper, never on the card: `.card-flip-wrapper`
                owns `transform` for the flight engine (anim/flight.ts) and a
@@ -671,9 +653,10 @@ function DiscardPile({ entries }: { entries: DiscardEntry[] }) {
         )}
       </div>
       <span className="table-object-label">
-        Discard <span className="figure text-coup-ink">{entries.length}</span>
+        Fallen <span className="figure text-coup-ink">{entries.length}</span>
       </span>
     </div>
+    )
   );
 }
 
@@ -728,6 +711,14 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
   const targeting = useGameStore(s => s.targeting);
   const [showRules, setShowRules] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [logOpen, setLogOpen] = useState(false);
+  /* Chat read while the drawer was last open. Anything newer is unread and
+     badges the drawer button — the drawer replaced an always-visible tab. */
+  const [seenChat, setSeenChat] = useState(chatMessages.length);
+  useEffect(() => {
+    if (logOpen) setSeenChat(chatMessages.length);
+  }, [logOpen, chatMessages.length]);
+  const unreadChat = Math.max(0, chatMessages.length - seenChat);
   const me = isSpectator ? undefined : gameState.players.find(p => p.id === gameState.myId);
   /**
    * Seating order: clockwise from your left, so the ring around the felt runs
@@ -890,7 +881,8 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
   const aiming: TargetingPublication | null = targeting && targeting.action !== null ? targeting : null;
   const declaredTargetId = gameState.pendingAction?.targetId ?? null;
 
-  const renderSeat = (p: ClientPlayerState) => {
+  const renderSeat = (p: ClientPlayerState, angle: number) => {
+    const pos = seatPoint(angle);
     const eligible = !!aiming?.eligibleIds.includes(p.id);
     const illegalReason = aiming?.reasons[p.id];
     const inSelection = eligible || !!illegalReason;
@@ -906,6 +898,11 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
          node — the same contract useFlight's ref gives a card. */
       <div
         key={p.id}
+        className="court-seat-anchor"
+        data-side={pos.y < 30 ? 'far' : 'flank'}
+        style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+      >
+      <div
         className="table-seat relative"
         /* THE SEAT IS A FLIGHT ELEMENT. flight.ts writes --fx/--fy/--tilt/--fs
            and something has to compose them; nothing in globals.css does, and
@@ -941,14 +938,14 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
           onSelect={aiming && inSelection ? () => aiming.onSelect(p.id) : undefined}
           timerExpiry={p.id === timerPlayerId ? gameState.timerExpiry : null}
         />
+        <SeatSpeech playerId={p.id} messages={chatMessages} />
+      </div>
       </div>
     );
   };
 
-  const ring = ringSplit(opponents.length);
-  const leftSeats = opponents.slice(0, ring.left);
-  const topSeats = opponents.slice(ring.left, ring.left + ring.top);
-  const rightSeats = opponents.slice(ring.left + ring.top);
+  const compactTable = useMediaQuery('(max-width: 767px)');
+  const angles = seatAngles(opponents.length, compactTable);
 
   /* The discard: every influence anyone has lost, in the order it fell. There
      is no discard array on the wire — a revealed influence stays in its
@@ -970,135 +967,192 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
   });
 
   return (
-    /* `.table-root` carries the width, not `max-w-lg lg:max-w-xl`: the phone
-       column stays 32rem, and at 1024px the cap comes off entirely so the
-       desktop layout below can use the room (§3.2 — "not a widened phone"). */
-    <div className="table-root h-dvh flex flex-col mx-auto px-3 py-3 overflow-hidden" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))', paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-      {/* Header bar */}
-      <div className="flex items-center justify-between mb-2 text-xs text-gray-500">
-        <span>Room: <span className="text-gray-400 font-mono">{gameState.roomCode}</span></span>
-        <span className="flex items-center gap-2">
-          Turn {gameState.turnNumber}
-          {spectators.length > 0 && (
-            <span className="text-purple-400">{spectators.length} watching</span>
-          )}
-        </span>
-        <div className="flex items-center gap-2.5">
-          {/* On the desktop table these two are objects on the felt (the deck
-              pile and the treasury), so the header stops repeating them. */}
-          <span className="lg:hidden">Deck: <span className="figure">{gameState.deckCount}</span></span>
-          {gameState.gameMode === GameMode.Reformation && (
-            <span className="lg:hidden text-coup-gold" title="Treasury Reserve">Reserve: <span className="figure">{gameState.treasuryReserve}</span></span>
-          )}
+    <div
+      className="court-root"
+      style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))', paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
+    >
+      <header className="court-header">
+        <div className="court-header-info">
+          <span className="court-room figure" title="Room code">{gameState.roomCode}</span>
+          <span>Turn <span className="figure">{gameState.turnNumber}</span></span>
+          {spectators.length > 0 && <span>{spectators.length} watching</span>}
+        </div>
+        <div className="court-header-actions">
+          <button
+            onClick={() => { haptic(); setLogOpen(true); }}
+            className="court-icon-btn"
+            title="Game log and chat"
+            aria-label={unreadChat > 0 ? `Game log and chat, ${unreadChat} unread` : 'Game log and chat'}
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" aria-hidden="true">
+              <path d="M3 4h14v2H3zM3 9h14v2H3zM3 14h9v2H3z" />
+            </svg>
+            {unreadChat > 0 && <span className="court-badge figure">{unreadChat > 9 ? '9+' : unreadChat}</span>}
+          </button>
           <button
             onClick={() => { haptic(); setMuted(!isMuted); }}
-            className="w-9 h-9 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition text-xs flex items-center justify-center"
+            className="court-icon-btn"
             title={isMuted ? 'Unmute sound effects' : 'Mute sound effects'}
             aria-label={isMuted ? 'Unmute sound effects' : 'Mute sound effects'}
             aria-pressed={isMuted}
           >
             {isMuted ? <SpeakerMutedGlyph size={16} /> : <SpeakerGlyph size={16} />}
           </button>
+          <ReactionPicker onReact={onSendReaction} disabled={isSpectator || (me ? !me.isAlive : true)} />
           <button
             onClick={() => { haptic(); setShowSettings(true); }}
-            className="w-9 h-9 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition flex items-center justify-center"
+            className="court-icon-btn"
             title="Settings"
             aria-label="Settings"
           >
-            <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+            <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" aria-hidden="true">
               <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
             </svg>
           </button>
-          <ReactionPicker onReact={onSendReaction} disabled={isSpectator || (me ? !me.isAlive : true)} />
           <button
             onClick={() => { haptic(); setShowRules(true); }}
-            className="w-8 h-8 rounded-full border border-gray-600 text-gray-400 hover:border-coup-accent hover:text-coup-accent transition text-xs font-bold flex items-center justify-center"
+            className="court-icon-btn type-display"
             title="How to Play"
             aria-label="How to Play"
           >
             ?
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* Spectator banner */}
       {isSpectator && (
-        <div className="bg-purple-900/60 border border-purple-600 text-purple-200 text-xs text-center py-1.5 px-3 rounded-lg mb-2 flex items-center justify-between">
+        <div className="court-banner">
           <span>Spectating</span>
           {onStopSpectating && (
-            <button
-              onClick={() => { haptic(); onStopSpectating(); }}
-              className="text-purple-300 hover:text-white transition text-xs font-medium"
-            >
+            <button onClick={() => { haptic(); onStopSpectating(); }} className="court-banner-action">
               Leave
             </button>
           )}
         </div>
       )}
-
-      {/* Reconnecting banner */}
-      {reconnecting && (
-        <div className="bg-yellow-900/80 border border-yellow-600 text-yellow-200 text-xs text-center py-1.5 px-3 rounded-lg mb-2 animate-pulse">
-          Reconnecting to server...
-        </div>
-      )}
-
-      {/* Phase status banner — the upper edge of the floater keep-out band, and
-          deliberately OUTSIDE the shake target. */}
-      <div className="mb-3" ref={(node) => { registerFxBanner(node); }}>
-        <PhaseStatus
-          key={`${gameState.turnNumber}-${gameState.turnPhase}-${gameState.pendingAction?.type ?? 'none'}-${gameState.pendingBlock?.claimedCharacter ?? 'none'}`}
-          gameState={gameState}
-        />
-      </div>
+      {reconnecting && <div className="court-banner court-banner-warn">Reconnecting to server…</div>}
 
       {isPracticeRoom && !isSpectator && (
-        <div className="mb-3 shrink-0">
+        <div className="court-coach">
           <PracticeCoach gameState={gameState} onOpenRules={() => setShowRules(true)} />
         </div>
       )}
 
-      {/*
-        THE TABLE — and the only thing the shake is allowed to move.
-
-        This wrapper did not exist before: the opponents grid and the centre
-        column were siblings, and the prompts lived INSIDE the centre column.
-        Shaking either of those would have shaken the action bar and the
-        challenge prompt with them. The prompts and the hand are siblings of
-        this ref, so the subtree under it is exactly "the felt and the log".
-
-        THAT IS THE INVARIANT, and it survived the desktop layout: the phase
-        banner above, the prompt stack and your hand below are all outside, so
-        a challenge prompt stays still at the exact moment you have to answer
-        it. Measured after the rebuild by transforming this element and reading
-        all four rects: only the felt moves. (fx/shake.ts; ART-DIRECTION §6.)
-
-        Its own box lives in globals.css (`.table-shake`) rather than in
-        utilities here, because a Tailwind utility outranks a components-layer
-        rule in every media query — `flex` on this element silently beat the
-        desktop `display: grid` until it moved.
-      */}
-      <div ref={tableRef} className="table-shake">
-        {/* The felt. On a phone this is the seat grid and nothing else; at
-            1024px the three rails become the sides of a table with the deck,
-            treasury and discard sunk into the middle of it. See globals.css
-            "THE TABLE" and `ringSplit()` above. */}
-        <div className="table-felt" data-cols={opponents.length <= 4 ? '2' : '3'}>
-          <div className="felt-rail felt-left">{leftSeats.map(renderSeat)}</div>
-          <div className="felt-rail felt-top">{topSeats.map(renderSeat)}</div>
-          <div className="felt-rail felt-right">{rightSeats.map(renderSeat)}</div>
-
-          <div className="felt-centre">
-            <DeckPile count={gameState.deckCount} />
-            <DiscardPile entries={discarded} />
-            <CoinStack count={gameState.treasury} label="Treasury" tone="treasury" />
-            {gameState.gameMode === GameMode.Reformation && (
-              <CoinStack count={gameState.treasuryReserve} label="Reserve" tone="reserve" />
-            )}
+      {/* THE STAGE: the table and its seats (the shake target), with the middle
+          of the felt layered on top as a sibling that never shakes. */}
+      <div className="court-stage" data-seats={opponents.length}>
+        <div ref={tableRef} className="court-shake">
+          <div className="court-table">
+            <div className="court-felt">
+              <div className="court-objects">
+                <DeckPile count={gameState.deckCount} />
+                <CoinStack count={gameState.treasury} label="Treasury" tone="treasury" />
+                {gameState.gameMode === GameMode.Reformation && (
+                  <CoinStack count={gameState.treasuryReserve} label="Reserve" tone="reserve" />
+                )}
+              </div>
+              <DiscardPile entries={discarded} />
+            </div>
+            {opponents.map((p, i) => renderSeat(p, angles[i]))}
           </div>
         </div>
 
-        {/* Log / chat: under the felt on a phone, a rail beside it on desktop. */}
+        <div className="court-centre">
+          <div className="court-phase" ref={(node) => { registerFxBanner(node); }}>
+            <PhaseStatus
+              key={`${gameState.turnNumber}-${gameState.turnPhase}-${gameState.pendingAction?.type ?? 'none'}-${gameState.pendingBlock?.claimedCharacter ?? 'none'}`}
+              gameState={gameState}
+            />
+          </div>
+          <ClaimPlaque gameState={gameState} />
+          {!isSpectator && (
+            <div className="court-prompts">
+              <ChallengePrompt gameState={gameState} />
+              <BlockPrompt gameState={gameState} />
+              <BlockChallengePrompt gameState={gameState} />
+              <InfluenceLossPrompt gameState={gameState} />
+              <ExchangeView gameState={gameState} />
+              <ExamineSelectionPrompt gameState={gameState} />
+              <ExaminePrompt gameState={gameState} />
+              <WaitingView gameState={gameState} />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* THE DOCK: what just happened, your hand, and what you can do. */}
+      <div className={`court-dock ${isMyActionTurn ? 'is-acting' : ''}`}>
+        <div className="court-dock-log">
+          <LogTicker log={gameState.actionLog} onOpen={() => setLogOpen(true)} />
+        </div>
+
+        {me && (
+          <div
+            className="court-hand"
+            /* Your own seat for every purpose the opponents' seats serve: the FX
+               registry, and §6's Refuse verb, which shoves this plate when the
+               challenge or the block landed on you. */
+            style={FLIGHT_TRANSFORM_STYLE}
+            ref={(node) => {
+              registerFxHand(me.id, node);
+              if (!node) return;
+              seatEls.current.set(me.id, node);
+              return () => {
+                registerFxHand(me.id, null);
+                if (seatEls.current.get(me.id) === node) seatEls.current.delete(me.id);
+                cancelFlight(node);
+              };
+            }}
+          >
+            <ReactionBubble playerId={me.id} />
+            <div
+              className={`court-hand-plate ${!me.isAlive ? 'is-out' : ''} ${isMyActionTurn ? 'is-turn' : ''}`}
+            >
+              <div className="hand-cards" style={FLIGHT_VARS_RESET}>
+                {me.influences.map((inf, i) => (
+                  <CardFace key={i} influence={inf} size="xl" priority />
+                ))}
+              </div>
+              <div className="court-hand-meta">
+                <span className="court-hand-name type-display">
+                  {isMyActionTurn ? 'Your move' : me.isAlive ? 'Your hand' : 'Eliminated'}
+                </span>
+                {me.faction && (
+                  <span className="court-seat-tag">
+                    {me.faction === 'Loyalist' ? '▲ Loyalist' : '◆ Reformist'}
+                  </span>
+                )}
+                <span className="court-hand-coins figure">
+                  <CoinIcon size={18} />
+                  {me.coins}
+                  <CoinChangeBurst coins={me.coins} />
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!isSpectator && (
+          <div className="court-dock-actions">
+            <ActionBar gameState={gameState} />
+          </div>
+        )}
+      </div>
+
+      <div
+        className={`court-drawer-scrim ${logOpen ? 'is-open' : ''}`}
+        onClick={() => setLogOpen(false)}
+        aria-hidden="true"
+      />
+      <aside className={`court-drawer ${logOpen ? 'is-open' : ''}`} aria-label="Game log and chat" aria-hidden={!logOpen}>
+        <div className="court-drawer-head">
+          <span className="type-display">Log &amp; chat</span>
+          <button className="court-icon-btn" onClick={() => setLogOpen(false)} aria-label="Close log">
+            <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" aria-hidden="true">
+              <path d="M5.3 4 10 8.6 14.7 4 16 5.3 11.4 10l4.6 4.7-1.3 1.3-4.7-4.6L5.3 16 4 14.7 8.6 10 4 5.3z" />
+            </svg>
+          </button>
+        </div>
         <GameCenterTabs
           log={gameState.actionLog}
           chatMessages={chatMessages}
@@ -1108,94 +1162,7 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
           turnPhase={gameState.turnPhase}
           showLogExplanations={isPracticeRoom}
         />
-      </div>
-
-      {/* The bottom band: the prompts and your hand. A SIBLING of the table,
-          never a descendant — the shake target is `tableRef` above, and a
-          challenge prompt that shakes while you are reading it to decide
-          whether to challenge is a prompt you cannot answer (fx/shake.ts).
-          `.table-bottom` only caps its width on desktop, so the hand sits
-          under the middle of the felt instead of stretching to 1456px. */}
-      <div className="table-bottom">
-      {/* Interactive prompts - only one shows at a time (hidden for spectators). */}
-      {!isSpectator && (
-        <div className="table-bottom-prompts flex flex-col gap-2 mt-2">
-          <ActionBar gameState={gameState} />
-          <ChallengePrompt gameState={gameState} />
-          <BlockPrompt gameState={gameState} />
-          <BlockChallengePrompt gameState={gameState} />
-          <InfluenceLossPrompt gameState={gameState} />
-          <ExchangeView gameState={gameState} />
-          <ExamineSelectionPrompt gameState={gameState} />
-          <ExaminePrompt gameState={gameState} />
-          <WaitingView gameState={gameState} />
-        </div>
-      )}
-
-      {/* My hand — pinned to bottom, and your own seat for every purpose the
-          opponents' seats serve: the FX registry, and §6's Refuse verb, which
-          shoves this plate when the challenge or the block landed on you. */}
-      {me && (
-        <div
-          className="table-bottom-hand relative mt-2"
-          /* Same contract as an opponent's seat above. */
-          style={FLIGHT_TRANSFORM_STYLE}
-          ref={(node) => {
-            registerFxHand(me.id, node);
-            if (!node) return;
-            seatEls.current.set(me.id, node);
-            return () => {
-              registerFxHand(me.id, null);
-              if (seatEls.current.get(me.id) === node) seatEls.current.delete(me.id);
-              cancelFlight(node);
-            };
-          }}
-        >
-          <ReactionBubble playerId={me.id} />
-        <div className={`card-container !px-3 !py-2.5 ${!me.isAlive ? 'opacity-50' : 'seat-mine'} ${
-          isMyActionTurn ? 'turn-ready-ring' : ''
-        } ${
-          me.faction === 'Loyalist' ? 'border-l-[3px] border-l-blue-400 bg-blue-500/[0.07]' :
-          me.faction === 'Reformist' ? 'border-l-[3px] border-l-red-400 bg-red-500/[0.07]' : ''
-        }`}>
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="font-bold text-coup-accent text-sm lg:text-base flex items-center gap-1.5">
-              Your Hand
-              {isMyActionTurn && (
-                <span className="your-move-chip">Your move</span>
-              )}
-              {me.faction && (
-                <span className={`text-xs font-medium ${
-                  me.faction === 'Loyalist' ? 'text-blue-300' : 'text-red-300'
-                }`}>
-                  ({me.faction === 'Loyalist' ? '▲ Loyalist' : '◆ Reformist'})
-                </span>
-              )}
-            </span>
-            <span className="figure flex items-center gap-1 text-coup-gold font-bold text-sm relative">
-              <CoinIcon size={16} />
-              {me.coins}
-              <CoinChangeBurst coins={me.coins} />
-            </span>
-          </div>
-          {/* `hand-cards`: globals.css steps your own cards from md (56x80) up
-              to the lg footprint (80x112) at >=1024px. The label-plate scale
-              steps with them, so the printed strip keeps its proportion
-              instead of shrinking into a card that grew around it. */}
-          {/* The inheritance stop, for the same reason PlayerSeat carries one:
-              this whole plate is a flight element now, and `--fx` inherits. */}
-          <div className="hand-cards flex gap-2 justify-center" style={FLIGHT_VARS_RESET}>
-            {me.influences.map((inf, i) => (
-              <CardFace key={i} influence={inf} size="md" priority />
-            ))}
-          </div>
-          {!me.isAlive && (
-            <p className="text-center text-red-400 text-xs mt-2 font-medium">You have been eliminated</p>
-          )}
-        </div>
-        </div>
-      )}
-      </div>
+      </aside>
 
       <GameOverOverlay
         gameState={gameState}

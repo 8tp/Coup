@@ -26,12 +26,13 @@ import {
 } from '../../anim';
 import type { Point } from '../../hooks/useFxCues';
 
-type CardSize = 'sm' | 'md' | 'lg';
+type CardSize = 'sm' | 'md' | 'lg' | 'xl';
 
 const cardSizeClasses: Record<CardSize, string> = {
   sm: 'card-face-sm',
   md: 'card-face-md',
   lg: 'card-face-lg',
+  xl: 'card-face-xl',
 };
 
 /* ── THE TWO TRANSFORM AUTHORS, AND WHY THEY DO NOT MEET ───────────────────

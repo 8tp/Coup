@@ -160,33 +160,50 @@
   body {
     @apply antialiased;
     -webkit-tap-highlight-color: transparent;
-    background-color: #090d0e;
+    /* The palace room, drawn rather than photographed: a dim pool of light
+       over the table, oxblood bleeding up from the floor, and faint wall
+       panelling. It replaced a console-bezel image that framed every screen
+       in a border the layout then had to dodge. */
+    background-color: #070b0c;
     background-image:
-      radial-gradient(circle at top, rgba(214,161,42,0.06), transparent 34rem),
-      radial-gradient(circle at bottom left, rgba(95,20,28,0.10), transparent 28rem),
-      linear-gradient(rgba(5,9,10,0.58), rgba(5,9,10,0.70)),
-      url('/assets/backgrounds/game-table-v2.webp');
-    background-size: auto, auto, auto, cover;
-    background-position: center;
+      radial-gradient(ellipse 85% 65% at 50% 42%, rgba(30, 52, 46, 0.55), transparent 72%),
+      radial-gradient(ellipse 120% 45% at 50% 108%, rgba(95, 20, 28, 0.22), transparent 70%),
+      repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.014) 0 1px, transparent 1px 120px),
+      linear-gradient(180deg, #0a1112 0%, #060909 100%);
     background-attachment: fixed;
+  }
+
+  /* The same table, dim, standing in the room behind the home and lobby
+     menus — so every screen is the same place. The game screen draws the
+     real one and hides this. */
+  body::before {
+    content: '';
+    position: fixed;
+    left: 50%;
+    top: 58%;
+    z-index: -1;
+    width: min(118vw, 84rem);
+    aspect-ratio: 2.1 / 1;
+    border-radius: 50%;
+    background: radial-gradient(
+      closest-side,
+      rgba(26, 48, 40, 0.5) 0%,
+      rgba(16, 30, 25, 0.5) 91%,
+      rgba(150, 112, 34, 0.35) 91.4% 92%,
+      rgba(74, 16, 23, 0.55) 92.4% 99%,
+      transparent 99.4%
+    );
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  body:has(.court-root)::before {
+    display: none;
   }
 
   :focus-visible {
     outline: 2px solid #d6a12a;
     outline-offset: 2px;
-  }
-
-  @media (max-width: 640px) {
-    body {
-      background-image:
-        radial-gradient(circle at top, rgba(214,161,42,0.05), transparent 22rem),
-        radial-gradient(circle at bottom left, rgba(95,20,28,0.08), transparent 20rem),
-        linear-gradient(rgba(5,9,10,0.62), rgba(5,9,10,0.74)),
-        url('/assets/backgrounds/game-table-mobile-v2.webp');
-      background-size: auto, auto, auto, cover;
-      background-position: center;
-      background-attachment: scroll;
-    }
   }
 }
 
@@ -723,6 +740,21 @@
   .card-face-lg {
     @apply w-20 h-28;
   }
+
+  /* Your own hand on the court table: 104x146, the lg plate scaled 1.3x. */
+  .card-face-xl {
+    width: 6.5rem;
+    height: 9.1rem;
+    --card-band: 7px;
+  }
+
+  .card-face-xl .card-label-plate { padding: 25px 5px 7px; gap: 3px; }
+  .card-face-xl .card-character-label { font-size: 14px; }
+  .card-face-xl .card-action-label { font-size: 15.6px; }
+  .card-face-xl .card-character-label.card-label-medium { font-size: 12.7px; }
+  .card-face-xl .card-character-label.card-label-long { font-size: 11.6px; }
+  .card-face-xl .card-character-label.card-label-extra-long { font-size: 10.7px; letter-spacing: -0.04em; }
+  .card-face-xl .card-action-label.card-label-medium { font-size: 13.5px; letter-spacing: -0.02em; }
 
   /* Band width per card size. 4px on a 44px card is 9% of the width — enough
      to name the character at a glance in a seat, small enough that the art
@@ -1371,206 +1403,853 @@
   }
 
   /* ==================================================================
-     THE TABLE — GAME-FEEL-PLAN.md §1.4; ART-DIRECTION.md §3.2, §5.
+     THE COURT TABLE.
 
-     BEFORE: `GameTable.tsx` was `max-w-lg lg:max-w-xl mx-auto`, a 512px phone
-     column centred in a 1456px window with ~65% of the screen unused, and
-     there was no table under it — the deck was 8px of text in the header,
-     there was no treasury, no discard and no seating.
+     One oval table in the middle of a dim room. Opponents sit on its rim in
+     turn order (`table/seatLayout.ts` gives each an angle; the seat anchor is
+     placed at that point on the ellipse as a percentage of the table box).
+     The middle of the felt carries the phase line, the claim plaque and the
+     response prompt; your hand sits on the near rim with the log ticker to
+     its left and the action dock to its right.
 
-     AFTER: the same DOM, two layouts, split at 1024px.
-
-       < 1024px  the phone column, unchanged. `.felt-rail` is
-                 `display: contents`, so the seats fall through as direct grid
-                 items and the felt is the 2-or-3-column grid it has always
-                 been. No felt panel, no table objects, no extra chrome — the
-                 phone is the primary target and the column already works.
-
-       >= 1024px the rails become the three sides of a felt, with the deck
-                 pile, the discard and the treasury sunk into the middle and
-                 the log moved to a side rail.
-
-     ONE DOM TREE IS A CONSTRAINT, NOT A PREFERENCE. The seats register
-     themselves with the FX position registry by player id
-     (`hooks/useFxCues.ts`), so a hidden duplicate set of seats for the other
-     breakpoint would fight the live one for the registry entry and the FX
-     epicentres would land on whichever mounted last. `display: contents` is
-     what lets one set of seat elements be both a column and a ring.
-
-     Everything here is furniture, so per §3.1 there is not one `border:` in
-     this section — the felt, the recesses and the wells are all milled into
-     the surface with `--deboss`, at the 2px furniture radius.
+     The table is furniture, so it is built from the palace materials and
+     never glows: an oxblood enamel rim with a milled brass inlay, and a felt
+     debossed into it. Seats and plaques are printed things and cast paper
+     shadows. (ART-DIRECTION §0, §5.)
      ================================================================== */
 
-  /* The phone column's width, moved off the element so the desktop layout can
-     take the cap off without a `lg:max-w-none` fighting a `max-w-lg`. */
-  .table-root {
-    max-width: 32rem;
-  }
-
-  /* The shake target owns its own box, deliberately: it used to carry
-     `flex-1 flex flex-col min-h-0` as utilities, and a Tailwind utility lives
-     in the `utilities` layer, which outranks everything in `components`
-     whatever the media query or the specificity. The desktop `display: grid`
-     below silently lost to `display: flex` until these moved off the element. */
-  .table-shake {
-    flex: 1 1 0%;
+  .court-root {
+    position: relative;
+    height: 100dvh;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .court-header {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-height: 2.5rem;
+    color: var(--ink-mute);
+    font-size: var(--step--1);
+  }
+
+  .court-header-info {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    min-width: 0;
+  }
+
+  .court-room {
+    color: var(--ink);
+    letter-spacing: 0.08em;
+  }
+
+  .court-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .court-icon-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 2px;
+    color: var(--ink-mute);
+    background-color: rgba(23, 35, 31, 0.7);
+    box-shadow: var(--shadow-chrome);
+    transition: color 120ms, transform 80ms, box-shadow 80ms;
+  }
+
+  .court-icon-btn:hover {
+    color: var(--brass);
+  }
+
+  .court-icon-btn:active {
+    transform: translate(3px, 3px);
+    box-shadow: 0 0 0 var(--ground-deep);
+  }
+
+  .court-badge {
+    position: absolute;
+    top: -0.35rem;
+    right: -0.35rem;
+    min-width: 1.1rem;
+    height: 1.1rem;
+    padding: 0 0.2rem;
+    border-radius: 9999px;
+    background-color: var(--brass);
+    color: var(--ground);
+    font-size: 0.65rem;
+    font-weight: 800;
+    line-height: 1.1rem;
+    text-align: center;
+  }
+
+  .court-banner {
+    flex: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.4rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 2px;
+    background-color: var(--raised);
+    color: var(--ink-mute);
+    font-size: var(--step--1);
+  }
+
+  .court-banner-warn {
+    background-image: var(--hazard-rail);
+    background-repeat: no-repeat;
+    background-size: 100% 3px;
+    color: var(--ink);
+  }
+
+  .court-banner-action {
+    color: var(--brass);
+    font-weight: 600;
+  }
+
+  .court-coach {
+    flex: none;
+    width: 100%;
+    max-width: 40rem;
+    margin: 0 auto 0.4rem;
+  }
+
+  /* ── The stage: table, seats, and the middle of the felt ────────────── */
+
+  .court-stage {
+    position: relative;
+    flex: 1 1 0%;
+    min-height: 0;
+    --seat-w: 5.4rem;
+    /* The table's top edge leaves room for the far seats above the rim; its
+       bottom edge stops where your hand sits, so the hand lies on the near
+       rim. Both are fixed: nothing that appears in the dock moves the table. */
+    --table-top: 3.75rem;
+    --table-bottom: 6.25rem;
+  }
+
+  .court-shake {
+    position: absolute;
+    inset: 0;
+  }
+
+  .court-table {
+    position: absolute;
+    top: var(--table-top);
+    bottom: var(--table-bottom);
+    left: 50%;
+    /* Inset by a seat's width so a seat on the flank of the rim stays on
+       screen: seats are centred ON the rim, half over the room. */
+    width: min(calc(100% - var(--seat-w) - 0.5rem), 72rem);
+    transform: translateX(-50%);
+    border-radius: 50%;
+    /* Oxblood enamel, lit from above: lighter on the far rim, darker on the
+       near one. A flat colour would read as a hole in the room. */
+    background:
+      radial-gradient(ellipse 60% 40% at 50% 8%, rgba(255, 220, 200, 0.10), transparent 70%),
+      linear-gradient(180deg, #6e1a23 0%, #4a1017 55%, #2c0a0e 100%);
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.6),
+      0 28px 60px rgba(0, 0, 0, 0.55),
+      0 8px 18px rgba(0, 0, 0, 0.45);
+  }
+
+  /* The milled brass inlay, between the enamel and the felt. */
+  .court-table::before {
+    content: '';
+    position: absolute;
+    inset: 0.6rem;
+    border-radius: 50%;
+    border: 2px solid rgba(214, 161, 42, 0.75);
+    box-shadow:
+      inset 0 1px 0 rgba(0, 0, 0, 0.5),
+      0 1px 0 rgba(255, 230, 170, 0.18);
+    pointer-events: none;
+  }
+
+  .court-felt {
+    position: absolute;
+    inset: 1rem;
+    border-radius: 50%;
+    background-color: var(--surface);
+    background-image:
+      radial-gradient(ellipse 70% 55% at 50% 42%, rgba(70, 120, 96, 0.30), transparent 72%),
+      repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.012) 0 2px, transparent 2px 4px),
+      radial-gradient(ellipse at 50% 50%, #1e3a30 0%, #142a22 60%, #0c1b16 100%);
+    box-shadow:
+      inset 0 10px 24px rgba(0, 0, 0, 0.55),
+      inset 0 -2px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  /* Deck and treasury lie on the felt either side of the middle. */
+  .court-objects {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .court-objects > .table-object {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .court-objects > .table-object:nth-child(1) { left: 14%; top: 42%; }
+  .court-objects > .table-object:nth-child(2) { right: 14%; top: 42%; }
+  .court-objects > .table-object:nth-child(3) { right: 14%; top: 66%; }
+
+  .court-discard {
+    position: absolute;
+    left: 13%;
+    top: 68%;
+    transform: translateY(-50%);
+    pointer-events: none;
+  }
+
+  .court-discard .discard-well {
+    display: flex;
+    flex-wrap: nowrap;
+    width: auto;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    background: none;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  .court-discard .discard-card + .discard-card {
+    margin-left: -1.6rem;
+  }
+
+  .court-seat-anchor {
+    position: absolute;
+    z-index: 2;
+    width: var(--seat-w);
+    transform: translate(-50%, -50%);
+  }
+
+  /* The middle of the felt. A sibling of the shake target, never inside it. */
+  .court-centre {
+    position: absolute;
+    z-index: 5;
+    left: 50%;
+    top: calc(var(--table-top) + (100% - var(--table-top) - var(--table-bottom)) * 0.5);
+    width: min(30rem, 58%);
+    max-height: calc(100% - var(--table-top) - var(--table-bottom) - 1rem);
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+    pointer-events: none;
+  }
+
+  .court-centre > * {
+    pointer-events: auto;
+  }
+
+  .court-prompts {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    overflow-y: auto;
     min-height: 0;
   }
 
-  .table-felt {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.5rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .table-felt[data-cols='3'] {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  /* Pass-through on a phone: the rails are grouping for the desktop ring and
-     must not exist as boxes below it. */
-  .felt-rail {
-    display: contents;
-  }
-
-  .felt-centre {
+  .court-prompts:empty {
     display: none;
   }
 
+  /* ── The phase line: typography on the felt, not a coloured banner ── */
+
+  .phase-line {
+    font-family: var(--font-display);
+    font-size: var(--step-1);
+    font-weight: 700;
+    line-height: 1.15;
+    text-align: center;
+    color: var(--ink);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  }
+
+  .phase-line[data-tone='neutral'] { color: var(--ink-mute); }
+  .phase-line[data-tone='mine'] { color: var(--brass); font-size: var(--step-2); }
+  .phase-line[data-tone='danger'] { color: var(--crimson); }
+
+  /* ── The claim plaque: the action on the table, as a printed object ── */
+
+  .claim-stack {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .claim-plaque {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.45rem 1rem 0.45rem 0.5rem;
+    border-radius: 6px;
+    background-color: var(--ink);
+    color: var(--ground);
+    box-shadow: var(--shadow-paper);
+    transform: rotate(-1.2deg);
+    animation: plaque-land 280ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+
+  .claim-block {
+    margin-top: -0.4rem;
+    margin-left: 4rem;
+    transform: rotate(2deg);
+    background-color: #d9d1c0;
+    animation-delay: 60ms;
+  }
+
+  /* §1.2 Blocked: an ink slab stamped across the action it stopped. */
+  .claim-plaque.is-blocked::after {
+    content: '';
+    position: absolute;
+    left: -3%;
+    right: -3%;
+    top: 54%;
+    height: 0.3rem;
+    background-color: var(--ground);
+    transform: rotate(-3deg);
+  }
+
+  .claim-mark {
+    flex: none;
+    display: inline-flex;
+  }
+
+  .claim-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+    min-width: 0;
+  }
+
+  .claim-actor {
+    font-size: var(--step--1);
+    font-weight: 600;
+    opacity: 0.75;
+  }
+
+  .claim-action {
+    font-size: var(--step-2);
+    font-weight: 800;
+  }
+
+  .claim-detail {
+    font-size: var(--step--1);
+    font-weight: 600;
+  }
+
+  @keyframes plaque-land {
+    0% { opacity: 0; transform: translateY(-14px) scale(1.12) rotate(-4deg); }
+    100% { opacity: 1; }
+  }
+
+  /* ── Seats ───────────────────────────────────────────────────────────── */
+
+  .court-seat {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.35rem 0.35rem 0.4rem;
+    border-radius: 2px;
+    background-color: rgba(34, 48, 43, 0.94);
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.45),
+      0 6px 14px rgba(0, 0, 0, 0.4);
+    transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1), outline-color 120ms;
+    outline: 2px solid transparent;
+    outline-offset: 3px;
+  }
+
+  .court-seat.is-turn {
+    outline-color: var(--brass);
+    transform: translateY(-3px);
+  }
+
+  .court-seat.is-out {
+    filter: grayscale(0.6);
+    opacity: 0.55;
+  }
+
+  .court-seat.is-selectable {
+    cursor: pointer;
+  }
+
+  @media (hover: hover) {
+    .court-seat.is-selectable:hover {
+      outline-color: var(--brass);
+      transform: translateY(-3px);
+    }
+  }
+
+  .court-seat.is-illegal {
+    cursor: not-allowed;
+  }
+
+  /* §1.1 row 1, §1.2: danger is a MATERIAL — the hazard rail across the top
+     and the 45° hatch over the seat — never a red ring, which would collide
+     with the Contessa's hue. */
+  .court-seat.is-target {
+    background-image: var(--hazard-rail);
+    background-repeat: no-repeat;
+    background-size: 100% 4px;
+  }
+
+  .court-seat.is-target::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 2px;
+    background-image: var(--hazard);
+    pointer-events: none;
+  }
+
+  .court-seat-cards {
+    display: flex;
+    justify-content: center;
+    padding-top: 0.15rem;
+  }
+
+  .seat-card-slot {
+    display: inline-flex;
+  }
+
+  .seat-card-slot:first-child { transform: rotate(-5deg); }
+  .seat-card-slot + .seat-card-slot { margin-left: -0.55rem; transform: rotate(5deg) translateY(1px); }
+
+  .court-seat-plate {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.1rem 0.35rem;
+    width: 100%;
+    padding-bottom: 0.25rem;
+  }
+
+  .court-seat-name {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--step--1);
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .court-seat-tag {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--ink-mute);
+  }
+
+  .court-seat-coins {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    color: var(--brass-lit);
+    font-weight: 700;
+    font-size: var(--step--1);
+  }
+
+  .court-seat-timer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background-color: rgba(0, 0, 0, 0.45);
+  }
+
+  .court-seat-timer > div {
+    height: 100%;
+    background-color: var(--brass);
+  }
+
+  .court-seat-timer[data-low='true'] > div {
+    background-color: var(--crimson);
+  }
+
+  .court-seat-mute {
+    position: absolute;
+    top: -0.45rem;
+    right: -0.45rem;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    border-radius: 9999px;
+    background-color: var(--ground-deep);
+    color: var(--ink-mute);
+    box-shadow: 0 0 0 1px var(--line);
+  }
+
+  .court-seat-mute.is-muted {
+    color: var(--brass);
+  }
+
+  @media (hover: none) {
+    .court-seat-mute:not(.is-muted) {
+      opacity: 0.45;
+      transform: scale(0.85);
+    }
+  }
+
+  @media (hover: hover) {
+    .court-seat-mute:not(.is-muted) {
+      opacity: 0;
+      transition: opacity 120ms;
+    }
+
+    .court-seat:hover .court-seat-mute,
+    .court-seat:focus-within .court-seat-mute {
+      opacity: 1;
+    }
+  }
+
+  .court-seat-reason {
+    font-size: 0.62rem;
+    line-height: 1.15;
+    color: var(--ink-mute);
+    text-align: center;
+  }
+
+  .seat-speech {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 0.5rem);
+    z-index: 6;
+    max-width: 12rem;
+    width: max-content;
+    padding: 0.3rem 0.55rem;
+    border-radius: 6px;
+    background-color: var(--ink);
+    color: var(--ground);
+    font-size: var(--step--1);
+    line-height: 1.25;
+    box-shadow: var(--shadow-paper);
+    transform: translateX(-50%);
+    animation: plaque-land 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    overflow-wrap: anywhere;
+  }
+
+  .court-seat-anchor[data-side='far'] .seat-speech {
+    bottom: auto;
+    top: calc(100% + 0.5rem);
+  }
+
+  /* ── The dock: ticker, hand, actions ─────────────────────────────────── */
+
+  /* The dock floats over the bottom of the stage rather than taking a row of
+     its own, so the action panel appearing on your turn never resizes the
+     table under it. */
+  .court-dock {
+    position: absolute;
+    z-index: 6;
+    left: 50%;
+    bottom: max(0.5rem, env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: end;
+    gap: 1rem;
+    width: calc(100% - 1.5rem);
+    max-width: 90rem;
+    pointer-events: none;
+  }
+
+  .court-dock > * {
+    pointer-events: auto;
+  }
+
+  .court-dock-log {
+    justify-self: start;
+    min-width: 0;
+    max-width: 22rem;
+    width: 100%;
+  }
+
+  .court-dock-actions {
+    justify-self: end;
+    width: min(32rem, 100%);
+  }
+
+  .court-dock-actions:empty {
+    display: none;
+  }
+
+  .court-hand {
+    justify-self: center;
+    position: relative;
+  }
+
+  .court-hand-plate {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.6rem 0.9rem 0.5rem;
+    border-radius: 2px;
+    background-color: rgba(23, 35, 31, 0.92);
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.5),
+      0 -6px 20px rgba(0, 0, 0, 0.35);
+    outline: 2px solid transparent;
+    outline-offset: 3px;
+    transition: outline-color 160ms;
+  }
+
+  .court-hand-plate.is-turn {
+    outline-color: var(--brass);
+  }
+
+  .court-hand-plate.is-out {
+    filter: grayscale(0.6);
+    opacity: 0.6;
+  }
+
+  .court-hand .hand-cards {
+    display: flex;
+    gap: 0.6rem;
+    justify-content: center;
+  }
+
+  .court-hand-meta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+  }
+
+  .court-hand-name {
+    font-size: var(--step-0);
+    font-weight: 700;
+    color: var(--brass);
+  }
+
+  .court-hand-coins {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: var(--brass-lit);
+    font-weight: 800;
+    font-size: var(--step-1);
+  }
+
+  .log-ticker {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+    width: 100%;
+    padding: 0.5rem 0.6rem;
+    border-radius: 2px;
+    text-align: left;
+    color: var(--ink);
+    font-size: var(--step--1);
+    background-color: rgba(5, 9, 10, 0.55);
+    transition: background-color 120ms;
+  }
+
+  .log-ticker:hover {
+    background-color: rgba(5, 9, 10, 0.75);
+  }
+
+  .log-ticker-line {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .log-ticker-line > svg {
+    flex: none;
+    color: var(--ink-mute);
+  }
+
+  /* ── The log drawer ─────────────────────────────────────────────────── */
+
+  .court-drawer-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 44;
+    background-color: rgba(0, 0, 0, 0.45);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms;
+  }
+
+  .court-drawer-scrim.is-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .court-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 45;
+    display: flex;
+    flex-direction: column;
+    width: min(24rem, 92vw);
+    padding: max(0.75rem, env(safe-area-inset-top)) 0.75rem max(0.75rem, env(safe-area-inset-bottom));
+    background-color: var(--surface);
+    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.5);
+    transform: translateX(105%);
+    transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+    visibility: hidden;
+  }
+
+  .court-drawer.is-open {
+    transform: none;
+    visibility: visible;
+  }
+
+  .court-drawer-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    color: var(--ink);
+    font-size: var(--step-1);
+  }
+
+  .court-drawer > :last-child {
+    flex: 1 1 0%;
+    min-height: 0;
+  }
+
+  /* ── Breakpoints ─────────────────────────────────────────────────────── */
+
+  @media (min-width: 768px) {
+    .court-stage { --seat-w: 7.25rem; }
+  }
+
   @media (min-width: 1024px) {
-    .table-root {
-      max-width: none;
-      padding-left: 1.25rem;
-      padding-right: 1.25rem;
+    .court-stage {
+      --seat-w: 8.75rem;
+      --table-top: 4.75rem;
+      --table-bottom: 7.25rem;
     }
 
-    /* The shake target (fx/shake.ts) becomes the two-column table: felt, and
-       the log rail beside it. Its contents move; the prompts and your hand are
-       siblings of it and still do not. */
-    .table-shake {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 22rem;
-      grid-template-rows: minmax(0, 1fr);
-      gap: 1rem;
+
+    /* Seat cards step up to the md footprint on the big table. */
+    .court-seat-cards .card-face-sm {
+      width: 3.5rem;
+      height: 5rem;
     }
 
-    .table-felt {
-      grid-template-columns: auto minmax(0, 1fr) auto;
-      grid-template-rows: auto minmax(0, 1fr);
-      grid-template-areas:
-        'left top    right'
-        'left centre right';
-      gap: 1rem;
-      /* The felt hugs its seating rather than stretching to the full column:
-         a table is an object standing in the room, and a panel that grows a
-         third of empty green below the last seat reads as a page section. */
-      align-self: center;
-      max-height: 100%;
-      /* ...but a two-player table must still read as a table and not as a
-         strip: 26rem is the height of a seat rail plus the deck recess, so the
-         felt never collapses to the height of its tallest object. `min()`
-         keeps it from outgrowing a short window. */
-      min-height: min(100%, 26rem);
-      margin-bottom: 0;
-      padding: 1rem 1rem 1.25rem;
-      border-radius: 2px;
-      /* The felt is a plane cut into the table art, not a card laid on it:
-         `--surface` at 62% so the painted table still reads underneath, and
-         the deboss for the edge. No stroke (§3.1). */
-      background-color: rgba(23, 35, 31, 0.62);
-      box-shadow: var(--deboss);
+    .court-seat-cards .card-face-sm .card-label-plate { padding: 15px 3px 4px; gap: 2px; }
+    .court-seat-cards .card-face-sm .card-character-label { font-size: 8.4px; }
+    .court-seat-cards .card-face-sm .card-action-label { font-size: 9.2px; }
+    .court-seat-cards .card-face-sm .card-character-label.card-label-medium { font-size: 7.6px; }
+    .court-seat-cards .card-face-sm .card-character-label.card-label-long { font-size: 7px; }
+    .court-seat-cards .card-face-sm .card-character-label.card-label-extra-long { font-size: 6.4px; letter-spacing: -0.05em; }
+    .court-seat-cards .card-face-sm .card-action-label.card-label-medium { font-size: 7.5px; letter-spacing: -0.04em; }
+
+    .seat-card-slot + .seat-card-slot { margin-left: -0.8rem; }
+  }
+
+  /* Below a tablet the dock stacks: hand, then the actions; the ticker goes
+     (the drawer is one tap away in the header), the deck and treasury leave
+     the felt for the header, and the hand steps down from xl. */
+  @media (max-width: 1023px) {
+    .court-dock {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.5rem;
     }
 
-    .felt-rail {
-      display: flex;
-      gap: 0.75rem;
-    }
+    .court-dock-log { display: none; }
+    /* The action sheet rises ABOVE the hand, over the near half of the
+       table, instead of pushing the table up. */
+    .court-dock-actions { order: -1; justify-self: stretch; width: 100%; }
+    .court-objects, .court-discard { display: none; }
 
-    /* Reading clockwise from your left hand: the left rail fills bottom-to-top
-       (hence `column-reverse`), the top rail left-to-right, the right rail
-       top-to-bottom. That is the order turn order runs in around a real table. */
-    .felt-left {
-      grid-area: left;
-      flex-direction: column-reverse;
-      justify-content: center;
-    }
-
-    .felt-top {
-      grid-area: top;
+    .court-hand-plate {
       flex-direction: row;
-      justify-content: center;
-      align-items: flex-start;
-      gap: 1rem;
+      gap: 0.75rem;
+      padding: 0.45rem 0.6rem;
     }
 
-    .felt-right {
-      grid-area: right;
+    .court-hand-meta {
       flex-direction: column;
-      justify-content: center;
+      align-items: flex-start;
+      gap: 0.2rem;
     }
 
-    /* An empty rail is not an empty column of air: with no seats the track
-       collapses and the felt closes up around the centre. */
-    .felt-rail:empty {
-      display: none;
+    .court-hand .card-face-xl {
+      width: 4.25rem;
+      height: 5.95rem;
     }
 
-    .felt-centre {
-      grid-area: centre;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 1.5rem;
-      min-height: 0;
-      padding: 0 0.5rem;
+    .court-hand .card-face-xl .card-label-plate { padding: 15px 3px 4px; gap: 2px; }
+    .court-hand .card-face-xl .card-character-label { font-size: 9px; }
+    .court-hand .card-face-xl .card-action-label { font-size: 10px; }
+  }
+
+  @media (max-width: 767px) {
+    .court-root { padding-left: 0.5rem; padding-right: 0.5rem; }
+
+
+    .court-table::before { inset: 0.4rem; }
+    .court-felt { inset: 0.65rem; }
+
+    .court-stage { --table-top: 4.25rem; --table-bottom: 5.5rem; }
+
+    /* Every phone seat is on the far half (COMPACT_ARCS), so the middle of
+       the felt moves down into the half that is free. */
+    .court-centre {
+      width: 76%;
+      top: calc(var(--table-top) + (100% - var(--table-top) - var(--table-bottom)) * 0.7);
+      max-height: calc((100% - var(--table-top) - var(--table-bottom)) * 0.56);
     }
 
-    /* A seat is a plate of a fixed size, not a cell that stretches to whatever
-       the grid has left over. */
-    .table-seat {
-      width: 15rem;
-      flex: none;
+    .court-seat-cards .card-face-sm {
+      width: 2.25rem;
+      height: 3.25rem;
     }
 
-    /* The prompts and the hand sit SIDE BY SIDE, and the reason is vertical
-       budget rather than taste: the ActionBar is a fixed two-column grid of up
-       to nine actions, so stacked under the prompts it is ~490px of an 840px
-       window and the felt is squeezed to a strip. Beside them it is ~300px and
-       the table gets the difference.
+    /* At 36px the printed role strip is illegible; the emblem chip still
+       names a revealed card. */
+    .court-seat-cards .card-face-sm .card-label-plate { display: none; }
+    .seat-card-slot + .seat-card-slot { margin-left: -0.45rem; }
 
-       `:empty` is load-bearing. The prompt wrapper is always rendered and its
-       children return null for most of a turn, so without it the hand would
-       sit permanently right-of-centre with a column of air beside it. When
-       there is nothing to answer, the prompts track vanishes and the hand
-       centres under the felt. */
-    .table-bottom {
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      gap: 1rem;
-      width: 100%;
-      max-width: 72rem;
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    .table-bottom-prompts {
-      flex: 0 1 42rem;
-      min-width: 0;
-    }
-
-    .table-bottom-prompts:empty {
-      display: none;
-    }
-
-    .table-bottom-hand {
-      flex: 0 1 26rem;
-      min-width: 0;
-    }
+    .phase-line { font-size: var(--step-0); }
+    .phase-line[data-tone='mine'] { font-size: var(--step-1); }
   }
 
   /* ── The objects on the felt ─────────────────────────────────────────── */
@@ -1626,12 +2305,18 @@
 
   .deck-leaf-top {
     background-color: var(--surface);
-    background-image: repeating-linear-gradient(
-      45deg,
-      transparent 0 6px,
-      rgba(214, 161, 42, 0.07) 6px 7px
-    );
+    background-image: url('/assets/cards/back-v2.webp');
+    background-size: cover;
+    background-position: center;
     box-shadow: var(--shadow-paper);
+  }
+
+  /* On the court table the deck and the coins lie ON the felt; the recessed
+     wells were the old grid's furniture. */
+  .court-objects .deck-well,
+  .court-objects .coin-well {
+    background: none;
+    box-shadow: none;
   }
 
   /* Coins are circles, and §3.9 lets them stay circles — they are the one
@@ -1687,126 +2372,31 @@
     transform: rotate(var(--discard-tilt, 0deg));
   }
 
-  /* ── Card sizes on the desktop table (§1.4, §3.6) ─────────────────────
-     The seat card is `card-face-sm`, 44x64, and the portrait is illegible at
-     that size — the label plate alone eats 46% of it. On desktop the seat
-     steps up to the md footprint and your own hand steps up to lg.
+}
 
-     It is done here rather than by passing a different `size` prop because
-     `CardFace` picks its class from a `CardSize` union with no responsive
-     form, and a media query is the honest way to say "the same card, bigger
-     table". The label-plate scale has to step WITH the card: these values are
-     copied from the `.card-face-md` / `.card-face-lg` blocks above, and the
-     five-size scale up there is finely tuned — if those change, these follow.
+/* Unlayered on purpose: ActionBar's grid is a Tailwind utility, and a layered
+   rule cannot outrank the utilities layer whatever its specificity. On the
+   court table the dock is wide and short, so the actions run three across. */
+@media (min-width: 1024px) {
+  .court-dock-actions .prompt-action > .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
 
-     `.card-flip-wrapper` carries the size class too, so the descendant
-     selector deliberately catches both it and `.card-face`. */
-  @media (min-width: 1024px) {
-    .seat-cards .card-face-sm {
-      width: 3.5rem;  /* = .card-face-md */
-      height: 5rem;
-    }
-
-    .seat-cards .card-face-sm .card-label-plate {
-      padding: 15px 3px 4px;
-      gap: 2px;
-    }
-
-    .seat-cards .card-face-sm .card-character-label {
-      font-size: 8.4px;
-    }
-
-    .seat-cards .card-face-sm .card-action-label {
-      font-size: 9.2px;
-    }
-
-    .seat-cards .card-face-sm .card-character-label.card-label-medium {
-      font-size: 7.6px;
-    }
-
-    .seat-cards .card-face-sm .card-character-label.card-label-long {
-      font-size: 7px;
-    }
-
-    .seat-cards .card-face-sm .card-character-label.card-label-extra-long {
-      font-size: 6.4px;
-      letter-spacing: -0.05em;
-    }
-
-    .seat-cards .card-face-sm .card-action-label.card-label-medium {
-      font-size: 7.5px;
-      letter-spacing: -0.04em;
-    }
-
-    .hand-cards .card-face-md {
-      width: 5rem;  /* = .card-face-lg */
-      height: 7rem;
-      --card-band: 6px;
-    }
-
-    .hand-cards .card-face-md .card-label-plate {
-      padding: 19px 4px 5px;
-      gap: 2px;
-    }
-
-    .hand-cards .card-face-md .card-character-label {
-      font-size: 10.8px;
-    }
-
-    .hand-cards .card-face-md .card-action-label {
-      font-size: 12px;
-    }
-
-    .hand-cards .card-face-md .card-character-label.card-label-medium {
-      font-size: 9.8px;
-    }
-
-    .hand-cards .card-face-md .card-character-label.card-label-long {
-      font-size: 8.9px;
-    }
-
-    .hand-cards .card-face-md .card-character-label.card-label-extra-long {
-      font-size: 8.2px;
-      letter-spacing: -0.04em;
-    }
-
-    .hand-cards .card-face-md .card-action-label.card-label-medium {
-      font-size: 10.4px;
-      letter-spacing: -0.02em;
-    }
+/* Below a desktop the actions are a sheet over the near half of the table:
+   opaque, so the felt and seats under it do not read through, and tight. */
+@media (max-width: 1023px) {
+  .court-dock-actions .prompt-action,
+  .court-dock-actions .prompt-urgent {
+    background-color: var(--raised);
+    box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.55);
   }
 
-  /* ── A seat in the crosshairs — ART-DIRECTION.md §1.1 row 1, §1.2 ──────
-     This class replaced `ring-2 ring-red-500` on the player seat, and the
-     replacement is the single most load-bearing colour fix in the build:
-     `#ef4444` is the exact hex §1.1 records as the old Contessa card border,
-     so "you are being targeted" and "she holds a Contessa" were rendered in
-     the same pixel value. The card frames have since moved to a rose band
-     (`--char-contessa`, 348°) specifically to open that gap; switching a red
-     ring back on here would close it from the other side.
-
-     So danger is a MATERIAL: the 5px hazard rail across the top edge, exactly
-     as `.prompt-urgent` wears it, plus the 45° hatch over the seat. One mark,
-     learned once, read in four places (a revealed card, an urgent prompt, a
-     refused control, a targeted seat). It survives grayscale, which a hue
-     never does.
-
-     The hatch is `::after` rather than a background layer because the seat's
-     backgrounds are already spoken for — the faction tint, `.seat-mine`'s
-     brass rail — and because it has to print OVER the cards, not under them. */
-  .seat-target {
-    background-image: var(--hazard-rail);
-    background-repeat: no-repeat;
-    background-size: 100% 5px;
-    background-position: top left;
+  .court-dock-actions .prompt-action > .grid {
+    gap: 0.35rem;
   }
 
-  .seat-target::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: 2px;
-    background-image: var(--hazard);
-    pointer-events: none;
+  .court-dock-actions .prompt-action > .grid button {
+    padding: 0.4rem 0.5rem;
   }
 }

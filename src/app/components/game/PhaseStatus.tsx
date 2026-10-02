@@ -61,13 +61,13 @@ export function PhaseStatus({ gameState }: PhaseStatusProps) {
   const isMyTurn = currentPlayer?.id === myId;
 
   let text = '';
-  let color = 'bg-gray-800 text-gray-300';
+  let tone: 'neutral' | 'mine' | 'ask' | 'danger' = 'neutral';
 
   switch (turnPhase) {
     case TurnPhase.AwaitingAction:
       if (isMyTurn) {
         text = 'YOUR TURN — Choose an action';
-        color = 'bg-coup-accent/20 text-coup-accent border border-coup-accent/50';
+        tone = 'mine';
       } else {
         text = `${currentPlayer?.name}'s turn`;
       }
@@ -82,7 +82,7 @@ export function PhaseStatus({ gameState }: PhaseStatusProps) {
         text = `Waiting for ${formatNames(remainingNames)} to accept or challenge`;
       } else {
         text = `${actor?.name} claims ${pendingAction?.claimedCharacter} — Challenge or Pass?`;
-        color = 'bg-yellow-900/40 text-yellow-300 border border-yellow-600/50';
+        tone = 'ask';
       }
       break;
     }
@@ -95,7 +95,7 @@ export function PhaseStatus({ gameState }: PhaseStatusProps) {
         text = `Waiting for ${formatNames(remainingNames)} to block or allow your ${pendingAction ? ACTION_DISPLAY_NAMES[pendingAction.type] : 'action'}`;
       } else if (isTarget) {
         text = `${actor?.name} is targeting you — Block or allow?`;
-        color = 'bg-red-900/40 text-red-300 border border-red-600/50';
+        tone = 'danger';
       } else if (gameState.blockPassedPlayerIds?.includes(myId)) {
         text = `Waiting for ${formatNames(remainingNames)} to block or allow`;
       } else {
@@ -109,12 +109,12 @@ export function PhaseStatus({ gameState }: PhaseStatusProps) {
       const remainingNames = remainingChallengeNames(gameState, pendingBlock?.blockerId);
       if (myId === pendingAction?.actorId && !gameState.challengeState?.passedPlayerIds.includes(myId)) {
         text = `${blocker?.name} blocks with ${pendingBlock?.claimedCharacter} — Challenge the block?`;
-        color = 'bg-yellow-900/40 text-yellow-300 border border-yellow-600/50';
+        tone = 'ask';
       } else if (gameState.challengeState?.passedPlayerIds.includes(myId) || myId === pendingBlock?.blockerId) {
         text = `Waiting for ${formatNames(remainingNames)} to accept or challenge ${blocker?.name}'s block`;
       } else {
         text = `${blocker?.name} blocks — Challenge or Pass?`;
-        color = 'bg-yellow-900/40 text-yellow-300 border border-yellow-600/50';
+        tone = 'ask';
       }
       break;
     }
@@ -123,7 +123,7 @@ export function PhaseStatus({ gameState }: PhaseStatusProps) {
       const loser = gameState.players.find(p => p.id === influenceLossRequest?.playerId);
       if (influenceLossRequest?.playerId === myId) {
         text = 'You must choose an influence to lose!';
-        color = 'bg-red-900/40 text-red-300 border border-red-600/50';
+        tone = 'danger';
       } else {
         text = `${loser?.name} is choosing an influence to lose`;
       }
@@ -135,7 +135,7 @@ export function PhaseStatus({ gameState }: PhaseStatusProps) {
       const examiner = gameState.players.find(p => p.id === gameState.examineSelectionState?.examinerId);
       if (target?.id === myId) {
         text = `Choose a card to show ${examiner?.name ?? 'the Inquisitor'}`;
-        color = 'bg-teal-900/40 text-teal-300 border border-teal-600/50';
+        tone = 'ask';
       } else {
         text = `${target?.name ?? 'The target'} is choosing a card for ${examiner?.name ?? 'the Inquisitor'} to examine`;
       }
@@ -146,7 +146,7 @@ export function PhaseStatus({ gameState }: PhaseStatusProps) {
       const examiner = gameState.players.find(p => p.id === pendingAction?.actorId);
       if (myId === pendingAction?.actorId) {
         text = 'Examine — Force swap or return the card?';
-        color = 'bg-teal-900/40 text-teal-300 border border-teal-600/50';
+        tone = 'ask';
       } else {
         text = `${examiner?.name} is examining a card...`;
       }
@@ -156,7 +156,7 @@ export function PhaseStatus({ gameState }: PhaseStatusProps) {
     case TurnPhase.AwaitingExchange:
       if (gameState.exchangeState) {
         text = 'Choose which cards to keep';
-        color = 'bg-green-900/40 text-green-300 border border-green-600/50';
+        tone = 'ask';
       } else {
         const exchanger = gameState.players.find(p => p.id === pendingAction?.actorId);
         text = `${exchanger?.name ?? 'A player'} is choosing cards`;
@@ -165,7 +165,7 @@ export function PhaseStatus({ gameState }: PhaseStatusProps) {
 
     case TurnPhase.GameOver:
       text = 'Game Over';
-      color = 'bg-coup-accent/20 text-coup-accent';
+      tone = 'mine';
       break;
 
     default:
@@ -174,7 +174,8 @@ export function PhaseStatus({ gameState }: PhaseStatusProps) {
 
   return (
     <div
-      className={`phase-status-enter rounded-lg px-3 py-2 text-center text-sm font-bold ${color}`}
+      className="phase-status-enter phase-line"
+      data-tone={tone}
       role="status"
       aria-live="polite"
       aria-atomic="true"

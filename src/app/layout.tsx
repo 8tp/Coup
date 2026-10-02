@@ -4,8 +4,6 @@ import './globals.css';
 import {
   CRITICAL_PRELOAD_IMAGES,
   GAME_PREFETCH_IMAGES,
-  TABLE_BACKGROUND_ART,
-  TABLE_BACKGROUND_MOBILE_ART,
 } from './utils/assets';
 import { PWAInstallPrompt } from './components/pwa/PWAInstallPrompt';
 
@@ -117,8 +115,6 @@ export default function RootLayout({
         {CRITICAL_PRELOAD_IMAGES.map(href => (
           <link key={href} rel="preload" href={href} as="image" fetchPriority="high" />
         ))}
-        <link rel="preload" href={TABLE_BACKGROUND_ART} as="image" media="(min-width: 641px)" />
-        <link rel="preload" href={TABLE_BACKGROUND_MOBILE_ART} as="image" media="(max-width: 640px)" />
         {GAME_PREFETCH_IMAGES.map(href => (
           <link key={href} rel="prefetch" href={href} as="image" />
         ))}
