@@ -3,7 +3,7 @@
  *
  *   sfx voices ─┐
  *               ├→ preMaster → compressor → softClip → master → destination
- *   music ──────┘
+ *   music → EQ ─┘   (musicGain → highpass → low shelf → presence dip → musicDuck)
  *
  * Nothing in this module constructs an AudioContext at import time. That is
  * structural, not stylistic: this file is imported by React components long
@@ -137,10 +137,41 @@ export const MUSIC_LUFS: Readonly<Record<MusicState, number>> = {
 };
 
 /**
- * 0.243 at −20 LUFS is the level the single shipped bed was at. Unchanged in
- * this commit; the music-bus EQ and a re-solved level follow.
+ * The music bus level, before the EQ below. SOLVED, not chosen (2026-10-02,
+ * docs/AUDIO-MIX.md "Cue over music"): the highest level at which every cue
+ * still clears every in-match piece's LOUD moments (p90) in the cue's own
+ * loudest octave — tier 0–3 by 4dB, tier 4 by 2.5dB — with 0.3dB to spare.
+ *
+ * It went 0.243 → 0.052 (−13.4dB). The old table bed was 72% energy under
+ * 150Hz and nearly silent above 500Hz, so it buried nothing in the cue
+ * octaves while sitting on top of the whole mix as rumble. The new pieces put
+ * their weight where instruments do — 250Hz–2kHz — which is where the chrome
+ * cues live too: `denied` (500Hz knock) and `chatMessage` / `yourTurn` (1kHz)
+ * are what bind. The gate pins this number to its render (MEASURED_MUSIC_GAIN).
  */
-const MUSIC_GAIN = 0.243;
+const MUSIC_GAIN = 0.052;
+
+/**
+ * The music-bus EQ, on the music path only (musicGain → here → musicDuck):
+ *
+ *   highpass   100Hz, Q 0.707   — nothing under the card thuds; phones play
+ *                                 none of it and headphones made it the mix
+ *   low shelf  220Hz, −4dB      — the chest of the low strings, down a step
+ *   presence   3kHz, −3dB, Q 1  — a dip where the coin, card and chrome cues
+ *                                 put their weight
+ *
+ * Measured, not assumed: the harness renders every piece through this chain
+ * and records its share of energy below 150Hz before and after (AUDIO-MIX.md).
+ */
+export const MUSIC_EQ = {
+  highpassHz: 110,
+  highpassQ: 0.707,
+  lowShelfHz: 220,
+  lowShelfDb: -5,
+  presenceHz: 3000,
+  presenceDb: -3,
+  presenceQ: 1,
+} as const;
 
 /** Equal-power crossfade when the STATE changes. Long enough to read as a decision. */
 const MUSIC_XFADE_STATE_S = 3;
@@ -505,10 +536,12 @@ const JITTERED: ReadonlySet<SoundId> = new Set<SoundId>([
  * and only 1.3dB under a lost influence.
  *
  * ── STILL UNMEASURED ────────────────────────────────────────────────────────
- *  • (Measured since 2026-10-01: cue vs bed. Broadband the table bed sits
- *    ABOVE tier 4 — it is nearly all bass — but in each cue's own loudest
- *    octave every cue clears both in-match beds, the thinnest being `denied`
- *    at 3.1dB over the table bed. Gated in mix.test.ts; MEASURED_MASKING.)
+ *  • (Measured since 2026-10-01: cue vs music; re-measured 2026-10-02 for
+ *    the adaptive score. In its own loudest octave every cue clears every
+ *    in-match piece's LOUD moments (p90) — the thinnest is `denied`, 2.83dB
+ *    over court-whispering-gallery at 500Hz, which is what MUSIC_GAIN is
+ *    solved against — and every piece's p90 sits ≥5dB under the quietest
+ *    tier-3 cue. Gated in mix.test.ts; MEASURED_MASKING, MEASURED_BEDS.)
  *  • Perceptual weighting. The ladder is unweighted RMS. A 6kHz card tear and
  *    a 120Hz timpani at the same "loud" are not equally loud to a listener —
  *    K-weighting would put the tear ~4dB up. The tiers are 1.8–2dB apart, so
@@ -773,7 +806,7 @@ function noiseBuffer(ctx: BaseAudioContext, kind: NoiseKind, seconds: number): A
  *
  *   sfx voices ─┐
  *               ├→ preMaster → compressor → softClip → master → destination
- *   music ──────┘
+ *   music → EQ ─┘   (musicGain → highpass → low shelf → presence dip → musicDuck)
  *
  * ── ONE GRAPH IMPLEMENTATION ────────────────────────────────────────────────
  * This function is the only place the master chain is built. `getGraph()` calls
@@ -823,9 +856,28 @@ function buildGraph(ctx: BaseAudioContext, sfxMuted: boolean): Graph {
   musicDuck.gain.value = 1;
   musicDuck.connect(preMaster);
 
+  // The music-bus EQ (MUSIC_EQ): the bed sits UNDER the game — no sub, less
+  // chest, and a dip where the cues live. Music only; the effects are untouched.
+  const presence = ctx.createBiquadFilter();
+  presence.type = 'peaking';
+  presence.frequency.value = MUSIC_EQ.presenceHz;
+  presence.Q.value = MUSIC_EQ.presenceQ;
+  presence.gain.value = MUSIC_EQ.presenceDb;
+  presence.connect(musicDuck);
+  const lowShelf = ctx.createBiquadFilter();
+  lowShelf.type = 'lowshelf';
+  lowShelf.frequency.value = MUSIC_EQ.lowShelfHz;
+  lowShelf.gain.value = MUSIC_EQ.lowShelfDb;
+  lowShelf.connect(presence);
+  const highpass = ctx.createBiquadFilter();
+  highpass.type = 'highpass';
+  highpass.frequency.value = MUSIC_EQ.highpassHz;
+  highpass.Q.value = MUSIC_EQ.highpassQ;
+  highpass.connect(lowShelf);
+
   const musicGain = ctx.createGain();
   musicGain.gain.value = 0;
-  musicGain.connect(musicDuck);
+  musicGain.connect(highpass);
 
   return {
     ctx,
@@ -1499,6 +1551,9 @@ export function soundIds(): readonly SoundId[] {
 
 /** The mix trim table, read-only. The gate imports this. */
 export const MIX_TRIM_DB: Readonly<Record<SoundId, number>> = MIX_DB;
+
+/** The music bus level, read-only. The gate pins it to the render it was measured at. */
+export const MUSIC_BUS_GAIN: number = MUSIC_GAIN;
 
 /** The tier table, read-only. The gate imports this. */
 export const MIX_TIER_OF: Readonly<Record<SoundId, MixTier>> = MIX_TIER;

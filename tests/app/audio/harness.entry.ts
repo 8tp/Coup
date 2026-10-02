@@ -23,7 +23,9 @@ import {
   soundIds,
   MIX_TIER_OF,
   MIX_TRIM_DB,
+  MUSIC_BUS_GAIN,
   MUSIC_DECODE_RATE,
+  MUSIC_EQ,
   MUSIC_POOLS,
   MUSIC_STATES,
   type MusicState,
@@ -138,6 +140,9 @@ export interface HarnessReport {
   contrast: ContrastRow[];
   beds: BedRow[];
   masking: MaskRow[];
+  /** MUSIC_GAIN and MUSIC_EQ as rendered — the gate pins both. */
+  musicGain: number;
+  musicEq: Readonly<Record<string, number>>;
 }
 
 /** Solved pre-trim gain per clip variant, and how close it landed. */
@@ -389,6 +394,8 @@ async function run(): Promise<HarnessReport> {
     contrast,
     beds,
     masking,
+    musicGain: MUSIC_BUS_GAIN,
+    musicEq: MUSIC_EQ,
   };
 }
 

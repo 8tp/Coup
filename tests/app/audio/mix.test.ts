@@ -23,6 +23,10 @@ import {
   HERO_CLIP_GAIN,
   MIX_TIER_OF,
   MIX_TRIM_DB,
+  MUSIC_BUS_GAIN,
+  MUSIC_EQ,
+  MUSIC_POOLS,
+  MUSIC_STATES,
   VOICE_TAIL_S,
   softClipCeiling,
   type MixTier,
@@ -33,6 +37,8 @@ import {
   MEASURED_AT,
   MEASURED_BEDS,
   MEASURED_MASKING,
+  MEASURED_MUSIC_EQ,
+  MEASURED_MUSIC_GAIN,
   MEASURED_CLIP_CONTRAST,
   MEASURED_CLIP_PAIRS,
   MEASURED_CONTRAST,
@@ -415,42 +421,89 @@ describe('audio mix — the denied clip cannot be mistaken for a loss clip', () 
 });
 
 /**
- * ── CUE OVER BED ────────────────────────────────────────────────────────────
+ * ── CUE OVER MUSIC ──────────────────────────────────────────────────────────
  *
- * Measured for the first time on 2026-10-01. Broadband, the table bed sits at
- * −26.4 dBFS on the cues' 300ms axis — above every tier-3 and tier-4 cue —
- * because velvet-court is almost all bass. That number is the wrong question.
- * What decides whether a cue is heard over a bed is the cue's OWN loudest
- * octave against the bed's level in that octave, which is what
- * MEASURED_MASKING records (chudopoly's rule: a card sound clears every
- * in-match bed in its own loudest octave).
+ * Re-measured 2026-10-02 for the adaptive score. What decides whether a cue is
+ * heard over the music is the cue's OWN loudest octave against the music's
+ * level in that octave (chudopoly's rule: a card sound clears every in-match
+ * bed in its own loudest octave) — a broadband level cannot answer it.
  *
- * The thresholds are what the shipped bank clears with room to notice a
- * regression, not chudopoly's 6dB: `denied`'s loudest octave is 500Hz and a
- * tier-4 cue cannot be made louder without collapsing the 3/4 boundary, so it
- * clears the table bed by 3.1dB. Ducking is not counted — the consequence
- * cues (tier 0–1, coup) dip the bed a further 3–6dB live.
+ * TIGHTENED with the new score: the old beds were steady loops (LRA 0.6–1.9
+ * LU), so their median octave level was their level. Through-composed pieces
+ * breathe — 8–17 dB between median and p90 in some octaves — so the cue is now
+ * held against each piece's LOUD moments (the 90th percentile over ~340ms
+ * frames), and against every piece of every in-match pool, not one bed per
+ * state. Thresholds unchanged: tier 0–3 by 4dB, tier 4 by 2.5dB. Ducking is
+ * not counted — the consequence cues (tier 0–1, coup) dip the music a further
+ * 3–6dB live.
+ *
+ * MUSIC_GAIN is SOLVED against this: the highest level at which it passes.
  */
-describe('audio mix — every cue clears the bed it plays over, in its own octave', () => {
-  const IN_MATCH = ['table', 'endgame'] as const;
+describe('audio mix — every cue clears the music it plays over, in its own octave', () => {
   const ROUTINE_MIN_DB = 4;
   const CHROME_MIN_DB = 2.5;
+  const pieceId = (url: string): string => url.split('/').pop()?.replace(/\.mp3$/, '') ?? url;
+  const inMatch = MUSIC_STATES.filter(s => s !== 'lobby').flatMap(s => MUSIC_POOLS[s].map(p => pieceId(p.url)));
+  const lobby = MUSIC_POOLS.lobby.map(p => pieceId(p.url));
 
-  it('every bed has been measured', () => {
-    for (const bed of ['lobby', 'table', 'endgame']) expect(MEASURED_BEDS[bed], bed).toBeDefined();
-    expect(Object.keys(MEASURED_MASKING).sort()).toEqual([...IDS].sort());
+  it('MUSIC_GAIN and the music-bus EQ have not moved since the render', () => {
+    expect(MUSIC_BUS_GAIN).toBe(MEASURED_MUSIC_GAIN);
+    expect({ ...MUSIC_EQ }).toEqual(MEASURED_MUSIC_EQ);
   });
 
-  it.each(IDS)('%s clears both in-match beds', (id) => {
+  it('every piece of every pool has been measured, and nothing else has', () => {
+    const pieces = MUSIC_STATES.flatMap(s => MUSIC_POOLS[s].map(p => pieceId(p.url)));
+    expect(Object.keys(MEASURED_BEDS).sort()).toEqual([...pieces].sort());
+    for (const s of MUSIC_STATES) {
+      for (const p of MUSIC_POOLS[s]) expect(MEASURED_BEDS[pieceId(p.url)].state, pieceId(p.url)).toBe(s);
+    }
+    expect(Object.keys(MEASURED_MASKING).sort()).toEqual([...IDS].sort());
+    for (const id of IDS) expect(Object.keys(MEASURED_MASKING[id].margins).sort()).toEqual([...pieces].sort());
+  });
+
+  it.each(IDS)('%s clears every in-match piece at its loud moments', (id) => {
     const m = MEASURED_MASKING[id];
     const need = MIX_TIER_OF[id] === 4 ? CHROME_MIN_DB : ROUTINE_MIN_DB;
-    for (const bed of IN_MATCH) {
-      expect(m.margins[bed], `${id} @${m.octaveHz}Hz vs ${bed}: ${m.margins[bed]}dB`)
+    for (const piece of inMatch) {
+      expect(m.margins[piece], `${id} @${m.octaveHz}Hz vs ${piece}: ${m.margins[piece]}dB`)
         .toBeGreaterThanOrEqual(need);
     }
   });
 
-  it('a chat message clears the lobby bed — the one cue the lobby plays', () => {
-    expect(MEASURED_MASKING.chatMessage.margins.lobby).toBeGreaterThanOrEqual(CHROME_MIN_DB);
+  it('a chat message clears both lobby pieces — the one cue the lobby plays', () => {
+    for (const piece of lobby) {
+      expect(MEASURED_MASKING.chatMessage.margins[piece], piece).toBeGreaterThanOrEqual(CHROME_MIN_DB);
+    }
+  });
+
+  it('the music sits under the routine tier: every piece\'s p90 is 3dB below the quietest card cue', () => {
+    // Broadband, on the cues' own 300ms axis. The old table bed's MEDIAN
+    // (−26.4) sat above every tier-3 cue; this is the owner's complaint as a
+    // number. Duel and sudden death are mastered 1.5 LU hotter and are held
+    // to the same line.
+    const quietestRoutine = Math.min(...idsInTier(3).flatMap(id => shippedLevels(id).map(l => l.stRmsDb)));
+    for (const [piece, bed] of Object.entries(MEASURED_BEDS)) {
+      expect(bed.p90Db, `${piece} p90 ${bed.p90Db} vs quietest routine cue ${quietestRoutine}`)
+        .toBeLessThanOrEqual(quietestRoutine - 3);
+    }
+  });
+
+  it('the low end is light: under 20% of any piece\'s energy below 150Hz after the bus EQ, and the EQ only removes', () => {
+    // The old table bed: 72% under 150Hz; the old endgame bed: 90%.
+    for (const [piece, bed] of Object.entries(MEASURED_BEDS)) {
+      expect(bed.lowPctBus, piece).toBeLessThan(20);
+      expect(bed.lowPctBus, piece).toBeLessThanOrEqual(bed.lowPctFile);
+    }
+  });
+
+  it('the music-bus EQ is the one asked for: HP 90–110Hz, a −3…−5dB shelf at ~220Hz, a small 2.5–3.5kHz dip', () => {
+    expect(MUSIC_EQ.highpassHz).toBeGreaterThanOrEqual(90);
+    expect(MUSIC_EQ.highpassHz).toBeLessThanOrEqual(110);
+    expect(MUSIC_EQ.lowShelfDb).toBeLessThanOrEqual(-3);
+    expect(MUSIC_EQ.lowShelfDb).toBeGreaterThanOrEqual(-5);
+    expect(MUSIC_EQ.presenceHz).toBeGreaterThanOrEqual(2500);
+    expect(MUSIC_EQ.presenceHz).toBeLessThanOrEqual(3500);
+    expect(MUSIC_EQ.presenceDb).toBeLessThanOrEqual(0);
+    expect(MUSIC_EQ.presenceDb).toBeGreaterThanOrEqual(-4);
   });
 });
