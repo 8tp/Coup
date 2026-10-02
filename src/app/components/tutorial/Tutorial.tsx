@@ -276,7 +276,7 @@ function InfluenceStep({ revealed }: { revealed: boolean }) {
               <div className="absolute inset-0 opacity-40">
                 <TutorialCardArt char={Character.Duke} />
               </div>
-              <div className="relative text-red-400 text-[10px] font-bold mt-1">REVEALED</div>
+              <div className="relative text-red-400 text-[11px] font-bold mt-1">REVEALED</div>
             </div>
           </div>
           <div
@@ -428,7 +428,7 @@ function ActionsStep() {
               </div>
               <div className="text-gray-400 text-xs">{a.effect}</div>
             </div>
-            <span className={`text-[10px] font-medium ${a.tagColor} shrink-0`}>{a.tag}</span>
+            <span className={`text-[11px] font-medium ${a.tagColor} shrink-0`}>{a.tag}</span>
           </div>
         ))}
       </div>
@@ -468,11 +468,11 @@ function BluffingStep() {
         <div className="flex justify-center gap-3">
           <div className="w-14 h-20 rounded-lg border-2 border-blue-500/60 bg-blue-900/30 flex flex-col items-center justify-center">
             <CharIcon char={Character.Captain} size={22} />
-            <span className="text-blue-300 text-[9px] font-bold mt-0.5">Captain</span>
+            <span className="text-blue-300 text-[11px] font-bold mt-0.5">Captain</span>
           </div>
           <div className="w-14 h-20 rounded-lg border-2 border-red-500/60 bg-red-900/30 flex flex-col items-center justify-center">
             <CharIcon char={Character.Contessa} size={22} />
-            <span className="text-red-300 text-[9px] font-bold mt-0.5">Contessa</span>
+            <span className="text-red-300 text-[11px] font-bold mt-0.5">Contessa</span>
           </div>
         </div>
       </div>
@@ -568,7 +568,7 @@ function ChallengeStep({
               style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
             >
               <TutorialCardArt char={Character.Captain} />
-              <span className="absolute bottom-1 left-1 right-1 text-center text-blue-100 text-[10px] font-bold drop-shadow">Captain</span>
+              <span className="absolute bottom-1 left-1 right-1 text-center text-blue-100 text-[11px] font-bold drop-shadow">Captain</span>
             </div>
           </div>
         </div>
@@ -747,7 +747,7 @@ function ReadyStep() {
               <span className={`font-bold text-sm ${CHARACTER_PALETTE[c.char].text}`}>{c.char}</span>
               <div className="text-gray-400 text-xs truncate">{c.action}</div>
             </div>
-            <div className="text-[10px] text-coup-ink-mute shrink-0 text-right max-w-[80px]">
+            <div className="text-[11px] text-coup-ink-mute shrink-0 text-right max-w-[80px]">
               {c.blocks}
             </div>
           </div>

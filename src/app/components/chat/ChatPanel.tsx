@@ -58,12 +58,12 @@ export function ChatPanel({ messages, myId, onSend }: ChatPanelProps) {
           onChange={(e) => setInput(e.target.value)}
           maxLength={CHAT_MAX_MESSAGE_LENGTH}
           placeholder="Type a message..."
-          className="flex-1 bg-coup-bg border border-coup-line rounded-lg px-3 py-1.5 text-xs text-gray-200 placeholder-coup-ink-mute focus:outline-none focus:border-coup-accent/50"
+          className="input-field flex-1 min-w-0 !text-base"
         />
         <button
           type="submit"
           disabled={!input.trim()}
-          className="text-xs px-3 py-1.5 rounded-lg bg-coup-accent/20 text-coup-accent font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-coup-accent/30 transition"
+          className="btn-primary !text-base !px-4"
         >
           Send
         </button>

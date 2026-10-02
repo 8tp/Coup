@@ -16,7 +16,7 @@ const STEP_LABELS = ['Factions', 'Convert', 'Embezzle', 'Examine', 'Ready'] as c
 function FactionBadge({ faction }: { faction: 'Loyalist' | 'Reformist' }) {
   const loyalist = faction === 'Loyalist';
   return (
-    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
+    <span className={`rounded-full border px-2 py-0.5 text-[11px] font-black uppercase tracking-wider ${
       loyalist
         ? 'border-blue-500/50 bg-blue-950/60 text-blue-300'
         : 'border-red-500/50 bg-red-950/60 text-red-300'
@@ -149,7 +149,7 @@ export function ReformationTutorial({ open, onClose }: ReformationTutorialProps)
 
       <main className="grid flex-1 justify-items-center overflow-y-auto px-5 py-3">
         <div key={step} className="my-auto w-full max-w-md animate-fade-in">
-          <p className="mb-1 text-center text-[10px] font-black uppercase tracking-[0.2em] text-teal-400">
+          <p className="mb-1 text-center text-[11px] font-black uppercase tracking-[0.2em] text-teal-400">
             Reformation · {STEP_LABELS[step]}
           </p>
           <h2
@@ -224,13 +224,13 @@ function FactionsStep() {
           <div className="mb-2 text-xl" aria-hidden="true">♟</div>
           <p className="text-xs font-bold text-white">Morgan</p>
           <FactionBadge faction="Loyalist" />
-          <p className="mt-2 text-[10px] font-bold text-blue-300">Protected from you</p>
+          <p className="mt-2 text-[11px] font-bold text-blue-300">Protected from you</p>
         </div>
         <div className="rounded-xl border border-red-500/60 bg-red-950/30 p-3 ring-1 ring-red-400/30">
           <div className="mb-2 text-xl" aria-hidden="true">♟</div>
           <p className="text-xs font-bold text-white">Tutor Bot</p>
           <FactionBadge faction="Reformist" />
-          <p className="mt-2 text-[10px] font-bold text-red-300">Valid target</p>
+          <p className="mt-2 text-[11px] font-bold text-red-300">Valid target</p>
         </div>
       </div>
 
@@ -251,14 +251,14 @@ function ConvertStep({ converted, onConvert }: { converted: boolean; onConvert: 
       </p>
 
       <div className="panel-sunk bg-coup-card/60 p-4">
-        <p className="mb-3 text-[10px] font-black uppercase tracking-wider text-coup-ink-mute">Heads-up example</p>
+        <p className="mb-3 text-[11px] font-black uppercase tracking-wider text-coup-ink-mute">Heads-up example</p>
         <div className="flex items-center justify-between">
           <div className="text-left">
             <p className="font-bold text-white">You</p>
             <FactionBadge faction={converted ? 'Reformist' : 'Loyalist'} />
           </div>
           <div className="text-center">
-            <p className="text-[10px] uppercase tracking-wider text-coup-ink-mute">Reserve</p>
+            <p className="text-[11px] uppercase tracking-wider text-coup-ink-mute">Reserve</p>
             <div className="mt-1 flex items-center justify-center gap-1 font-bold text-coup-accent">
               <CoinIcon size={16} /> {converted ? 1 : 0}
             </div>

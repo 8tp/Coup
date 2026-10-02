@@ -443,7 +443,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
               >
                 <span className="block">Yourself ({CONVERSION_SELF_COST} coin)</span>
                 {!canConvertSelf && (
-                  <span className="mt-0.5 block text-[10px] font-normal leading-tight text-gray-300">
+                  <span className="mt-0.5 block text-[11px] font-normal leading-tight text-gray-300">
                     {selfReason}
                   </span>
                 )}
@@ -464,7 +464,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
                 >
                   <span className="block">{player.name} ({CONVERSION_OTHER_COST} coins)</span>
                   {!eligible && (
-                    <span className="mt-0.5 block text-[10px] font-normal leading-tight text-gray-300">
+                    <span className="mt-0.5 block text-[11px] font-normal leading-tight text-gray-300">
                       {reason}
                     </span>
                   )}
@@ -472,7 +472,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
               </RefusalHost>
             ))}
             <button
-              className="text-gray-500 text-sm mt-1"
+              className="btn-ghost w-full mt-1"
               onClick={() => { haptic(80); setRefusal(null); setSelectingTarget(null); }}
             >
               Cancel
@@ -509,7 +509,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
               >
                 <span className="block">{player.name} ({player.coins} coins)</span>
                 {!eligible && (
-                  <span className="mt-0.5 block text-[10px] font-normal leading-tight text-gray-300">
+                  <span className="mt-0.5 block text-[11px] font-normal leading-tight text-gray-300">
                     {reason}
                   </span>
                 )}
@@ -525,7 +525,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
             <p className="text-gray-400 text-sm text-center py-2">No valid targets — nobody else is left.</p>
           )}
           <button
-            className="text-gray-500 text-sm mt-1"
+            className="btn-ghost w-full mt-1"
             onClick={() => { haptic(80); setRefusal(null); setSelectingTarget(null); }}
           >
             Cancel
@@ -562,7 +562,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
               >
                 <span className="block">Coup {player.name}</span>
                 {!eligible && (
-                  <span className="mt-0.5 block text-[10px] font-normal leading-tight text-gray-200">
+                  <span className="mt-0.5 block text-[11px] font-normal leading-tight text-gray-200">
                     {reason}
                   </span>
                 )}
@@ -650,7 +650,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
                   <div className="min-w-0">
                     {/* ART-DIRECTION.md §4: action names are a Display role. */}
                     <div className="type-display text-step-0 leading-tight">{a.label}</div>
-                    <div className="text-[10px] text-gray-400 leading-tight mt-0.5">
+                    <div className="text-[11.5px] text-coup-ink-mute leading-snug mt-0.5">
                       {gate.ok ? a.desc : gate.reason}
                     </div>
                   </div>

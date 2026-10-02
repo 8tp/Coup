@@ -681,6 +681,43 @@ interface GameTableProps {
   onStopSpectating?: () => void;
 }
 
+/** Per-player mute for chat and reactions, as a list of 44px toggles. On touch
+    screens this is the only place to mute someone: the seat's corner button
+    is hidden there because the seat itself is a tap target. */
+function DrawerMuteList({ players }: { players: ClientPlayerState[] }) {
+  const muted = useGameStore(s => s.mutedPlayerIds);
+  const toggle = useGameStore(s => s.toggleMutedPlayer);
+  const humans = players.filter(p => !p.isBot);
+  if (humans.length === 0) return null;
+  return (
+    <details className="drawer-mutes">
+      <summary>Mute players</summary>
+      <ul>
+        {humans.map(p => {
+          const isMuted = muted.includes(p.id);
+          return (
+            <li key={p.id}>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={isMuted}
+                className="menu-switch"
+                onClick={() => { haptic(); toggle(p.id); }}
+              >
+                <span className="truncate font-semibold text-coup-ink">{p.name}</span>
+                <span className="flex items-center gap-2 text-sm text-coup-ink-mute">
+                  {isMuted ? 'Muted' : 'Chat & reactions on'}
+                  <span className={`switch-track ${isMuted ? 'is-on' : ''}`} aria-hidden="true"><span /></span>
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </details>
+  );
+}
+
 export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction, isHost, onRematch, isSpectator, isPracticeRoom, onExitPractice, onStopSpectating }: GameTableProps) {
   useSoundEffects();
   useHapticFeedback();
@@ -946,6 +983,22 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
   };
 
   const compactTable = useMediaQuery('(max-width: 767px)');
+  /* Below a desktop, every decision you tap lives in the bottom sheet with the
+     actions — the thumb zone — instead of floating over the felt, where a tall
+     prompt (an exchange, a lost influence) ran down underneath your hand. */
+  const promptsInDock = useMediaQuery('(max-width: 1023px)');
+  const promptStack = (
+    <div className="court-prompts">
+      <ChallengePrompt gameState={gameState} />
+      <BlockPrompt gameState={gameState} />
+      <BlockChallengePrompt gameState={gameState} />
+      <InfluenceLossPrompt gameState={gameState} />
+      <ExchangeView gameState={gameState} />
+      <ExamineSelectionPrompt gameState={gameState} />
+      <ExaminePrompt gameState={gameState} />
+      {!promptsInDock && <WaitingView gameState={gameState} />}
+    </div>
+  );
   const angles = seatAngles(opponents.length, compactTable);
 
   /* The discard: every influence anyone has lost, in the order it fell. There
@@ -1066,18 +1119,7 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
             />
           </div>
           <ClaimPlaque gameState={gameState} />
-          {!isSpectator && (
-            <div className="court-prompts">
-              <ChallengePrompt gameState={gameState} />
-              <BlockPrompt gameState={gameState} />
-              <BlockChallengePrompt gameState={gameState} />
-              <InfluenceLossPrompt gameState={gameState} />
-              <ExchangeView gameState={gameState} />
-              <ExamineSelectionPrompt gameState={gameState} />
-              <ExaminePrompt gameState={gameState} />
-              <WaitingView gameState={gameState} />
-            </div>
-          )}
+          {!isSpectator && !promptsInDock && promptStack}
         </div>
       </div>
 
@@ -1135,6 +1177,7 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
 
         {!isSpectator && (
           <div className="court-dock-actions">
+            {promptsInDock && promptStack}
             <ActionBar gameState={gameState} />
           </div>
         )}
@@ -1154,6 +1197,7 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
             </svg>
           </button>
         </div>
+        <DrawerMuteList players={gameState.players.filter(p => p.id !== gameState.myId)} />
         <GameCenterTabs
           log={gameState.actionLog}
           chatMessages={chatMessages}

@@ -18,22 +18,23 @@ export function ReactionPicker({ onReact, disabled }: ReactionPickerProps) {
   const updatePos = useCallback(() => {
     if (!buttonRef.current) return;
     const rect = buttonRef.current.getBoundingClientRect();
-    setPos({
-      top: rect.bottom + 6,
-      right: window.innerWidth - rect.right,
-    });
+    // Keep the 288px panel on screen: anchor to the button's right edge, but
+    // never let its left edge run past an 8px gutter on a narrow phone.
+    const panelW = Math.min(288, window.innerWidth - 16);
+    const right = Math.min(window.innerWidth - rect.right, window.innerWidth - panelW - 8);
+    setPos({ top: rect.bottom + 6, right: Math.max(8, right) });
   }, []);
 
   useEffect(() => {
     if (!open) return;
     updatePos();
-    const handler = (e: MouseEvent) => {
+    const handler = (e: PointerEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('pointerdown', handler);
+    return () => document.removeEventListener('pointerdown', handler);
   }, [open, updatePos]);
 
   return (
@@ -42,14 +43,16 @@ export function ReactionPicker({ onReact, disabled }: ReactionPickerProps) {
         ref={buttonRef}
         onClick={() => { haptic(); setOpen((o) => !o); }}
         disabled={disabled}
-        className="w-9 h-9 rounded-full border border-coup-line text-gray-400 hover:border-coup-accent hover:text-coup-accent transition text-xs flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+        className="court-icon-btn disabled:opacity-40 disabled:cursor-not-allowed"
         title="Send reaction"
+        aria-label="Send reaction"
+        aria-expanded={open}
       >
         😄
       </button>
       {open && pos && (
         <div
-          className="fixed z-50 bg-coup-surface panel-sunk p-3 animate-fade-in w-72"
+          className="fixed z-50 bg-coup-surface panel-sunk p-3 animate-fade-in w-72 max-w-[calc(100vw-1rem)]"
           style={{ top: pos.top, right: pos.right }}
         >
           <div className="grid grid-cols-4 gap-2">
@@ -61,7 +64,7 @@ export function ReactionPicker({ onReact, disabled }: ReactionPickerProps) {
                   onReact(r.id);
                   setOpen(false);
                 }}
-                className="flex flex-col items-center gap-1 p-2 rounded-xl hover:bg-gray-700/50 active:bg-gray-700/70 transition"
+                className="flex flex-col items-center justify-center gap-1 min-h-[52px] p-2 rounded hover:bg-gray-700/50 active:bg-gray-700/70 transition"
                 title={r.label}
               >
                 <span className="text-2xl">{r.emoji}</span>

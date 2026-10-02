@@ -427,6 +427,12 @@ export function ChallengeRevealOverlay() {
       className={`fixed inset-0 z-40 flex items-center justify-center animate-fade-in transition-colors duration-300 ${
         phase === 'swap' ? 'bg-black/40' : 'bg-black/70'
       }`}
+      /* A tap skips the rest of the reveal. The outcome is already in the log
+         and on the table, and a player who has to choose a card to lose must
+         never wait behind a plate to do it. */
+      onClick={() => setPhase('done')}
+      role="button"
+      aria-label="Skip the reveal"
     >
       <div className="flex flex-col items-center gap-4">
         <div className="relative flex gap-3">

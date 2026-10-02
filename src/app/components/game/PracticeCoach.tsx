@@ -54,10 +54,10 @@ export function PracticeCoach({ gameState, onOpenRules }: PracticeCoachProps) {
         </div>
         <div className="min-w-0 flex-1" role="status" aria-live="polite">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-black uppercase tracking-[0.16em] opacity-80">Coach · {tip.label}</span>
+            <span className="text-[11px] font-black uppercase tracking-[0.16em] opacity-80">Coach · {tip.label}</span>
             <button
               type="button"
-              className="ml-auto shrink-0 text-[10px] font-medium text-gray-400 underline decoration-gray-600 underline-offset-2 hover:text-white"
+              className="ml-auto shrink-0 text-[11px] font-medium text-gray-400 underline decoration-gray-600 underline-offset-2 hover:text-white"
               onClick={hideCoach}
             >
               Hide tips

@@ -215,7 +215,7 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
               <p className="text-sm font-medium text-gray-300">Revealing the rest of the table...</p>
               <button
                 type="button"
-                className="mt-3 text-xs text-coup-accent hover:text-yellow-300 transition-colors"
+                className="btn-ghost mt-3 !text-coup-accent"
                 onClick={() => { haptic(); setShowFullTruth(true); }}
               >
                 Reveal now
@@ -242,7 +242,7 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
                     {p.id === gameState.myId ? 'You' : p.name}
                   </span>
                   {wins > 0 && (
-                    <span className="shrink-0 text-[10px] bg-yellow-600/80 text-white px-1.5 py-px rounded-full font-bold">
+                    <span className="shrink-0 text-[11px] bg-yellow-600/80 text-white px-1.5 py-px rounded-full font-bold">
                       {wins}W
                     </span>
                   )}
@@ -270,7 +270,7 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
                   key={item.label}
                   className={`panel-sunk p-2.5 min-w-0 animate-fade-in ${recapToneClass(item.tone)}`}
                 >
-                  <p className="text-[10px] uppercase tracking-wide text-coup-ink-mute font-bold mb-1">{item.label}</p>
+                  <p className="text-[11px] uppercase tracking-wide text-coup-ink-mute font-bold mb-1">{item.label}</p>
                   <p className="text-sm font-bold text-gray-100 leading-snug">{item.value}</p>
                   <p className="text-xs text-gray-400 leading-snug mt-1">{formatLogMessage(item.detail, myName)}</p>
                 </div>
@@ -325,18 +325,18 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
                       {entry.bluffs > 0 ? (
                         <>
                           {entry.unchallengedBluffs > 0 && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
+                            <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
                               {entry.unchallengedBluffs} got away
                             </span>
                           )}
                           {entry.caughtBluffing > 0 && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                            <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30">
                               {entry.caughtBluffing} caught
                             </span>
                           )}
                         </>
                       ) : (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-400/80 border border-green-500/20">
+                        <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-400/80 border border-green-500/20">
                           honest
                         </span>
                       )}
@@ -353,14 +353,14 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
           <div className="grid grid-cols-2 gap-2 mb-3">
             <button
               type="button"
-              className="rounded-lg border border-coup-line bg-coup-bg/70 px-3 py-2 text-xs font-bold text-gray-300 transition hover:border-coup-accent hover:text-coup-accent"
+              className="btn-ghost"
               onClick={copyReplay}
             >
               Copy Recap
             </button>
             <button
               type="button"
-              className="rounded-lg border border-coup-line bg-coup-bg/70 px-3 py-2 text-xs font-bold text-gray-300 transition hover:border-coup-accent hover:text-coup-accent"
+              className="btn-ghost"
               onClick={downloadReplay}
             >
               Download Log
@@ -371,7 +371,7 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
             {exportStatus === 'error' && 'Copy unavailable - download the log instead'}
           </p>
           <button
-            className="w-full text-xs text-gray-400 hover:text-gray-200 transition-colors py-1"
+            className="btn-ghost w-full"
             onClick={() => setShowLog(v => !v)}
           >
             {showLog ? 'Hide Log' : 'Show Full Log'}

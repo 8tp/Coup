@@ -123,7 +123,7 @@ export function ActionLog({ log, myName, turnPhase, showExplanations = false }: 
                       <span className="min-w-0 flex-1">
                         {message}
                         {showBluffBadge && (
-                          <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full align-middle ${
+                          <span className={`ml-1.5 text-[11px] font-bold px-1.5 py-0.5 rounded-full align-middle ${
                             entry.wasBluff
                               ? 'bg-red-500/20 text-red-400 border border-red-500/30'
                               : 'bg-green-500/15 text-green-400/80 border border-green-500/20'
@@ -134,7 +134,7 @@ export function ActionLog({ log, myName, turnPhase, showExplanations = false }: 
                         {explanation && (
                           <button
                             type="button"
-                            className={`ml-1.5 rounded-full border px-1.5 py-0.5 text-[10px] font-bold align-middle transition ${
+                            className={`ml-1.5 rounded-full border px-1.5 py-0.5 text-[11px] font-bold align-middle transition ${
                               isExpanded
                                 ? 'border-coup-accent text-coup-accent'
                                 : 'border-coup-line text-coup-ink-mute hover:border-coup-accent hover:text-coup-accent'

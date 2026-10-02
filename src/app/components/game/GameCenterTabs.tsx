@@ -43,7 +43,7 @@ export function GameCenterTabs({ log, chatMessages, myId, myName, onSendChat, tu
       {/* Tab headers */}
       <div className="flex border-b border-coup-line/70 relative">
         <button
-          className={`flex-1 text-xs py-1.5 font-medium transition ${
+          className={`flex-1 text-sm min-h-[44px] font-semibold transition ${
             activeTab === 'log' ? 'text-coup-accent border-b border-coup-accent' : 'text-coup-ink-mute hover:text-gray-300'
           }`}
           onClick={() => { haptic(); setActiveTab('log'); }}
@@ -51,14 +51,14 @@ export function GameCenterTabs({ log, chatMessages, myId, myName, onSendChat, tu
           Log
         </button>
         <button
-          className={`flex-1 text-xs py-1.5 font-medium transition relative ${
+          className={`flex-1 text-sm min-h-[44px] font-semibold transition relative ${
             activeTab === 'chat' ? 'text-coup-accent border-b border-coup-accent' : 'text-coup-ink-mute hover:text-gray-300'
           }`}
           onClick={() => { haptic(); setActiveTab('chat'); }}
         >
           Chat
           {unreadCount > 0 && activeTab !== 'chat' && (
-            <span className="absolute -top-0.5 -right-1 min-w-[18px] h-[18px] bg-coup-accent text-coup-bg text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+            <span className="absolute -top-0.5 -right-1 min-w-[18px] h-[18px] bg-coup-accent text-coup-bg text-[11px] font-bold rounded-full flex items-center justify-center px-1">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
