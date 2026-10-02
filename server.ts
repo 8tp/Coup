@@ -48,7 +48,8 @@ app.prepare().then(() => {
     res.setHeader('X-XSS-Protection', '0');
     if (!dev) {
       res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' wss: ws:; img-src 'self' data:; font-src 'self'");
+      // Cloudflare Web Analytics is injected at the edge: allow its beacon script and its reporting endpoint.
+      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; connect-src 'self' wss: ws: https://cloudflareinsights.com; img-src 'self' data:; font-src 'self'");
     }
     next();
   });
