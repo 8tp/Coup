@@ -34,12 +34,12 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
       <div className="prompt-info">
         <p className="text-center text-gray-300 mb-1">
           {isMyEmbezzle
-            ? <>You want to <span className="text-coup-accent font-bold">Embezzle</span> (claiming no Duke)</>
+            ? <>You claimed <span className="text-coup-accent font-bold">no Duke</span> to Embezzle</>
             : <>You claimed <span className="text-coup-accent font-bold">{pendingAction.claimedCharacter}</span> to {ACTION_DISPLAY_NAMES[pendingAction.type]}
               {target && <> on <span className="font-bold">{target.name}</span></>}</>
           }
         </p>
-        <p className="text-center text-coup-ink-mute text-xs">Waiting for others to accept or challenge...</p>
+        <p className="text-center text-coup-ink-mute text-xs">Waiting for the others to challenge or pass.</p>
         <Timer expiresAt={gameState.timerExpiry} />
       </div>
     );
@@ -50,7 +50,7 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
     return (
       <div className="prompt-info">
         <p className="text-center text-gray-400 text-sm">
-          You passed on challenging. Waiting for others...
+          You passed. Waiting for the others.
         </p>
         <Timer expiresAt={gameState.timerExpiry} />
       </div>
@@ -60,7 +60,7 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
   // Actionable: can challenge or pass
   const isEmbezzle = pendingAction.type === ActionType.Embezzle;
   const actionDesc = isEmbezzle
-    ? `${actor?.name} wants to Embezzle (claims no Duke)`
+    ? `${actor?.name} claims no Duke to Embezzle`
     : target
       ? `${actor?.name} claims ${pendingAction.claimedCharacter} to ${ACTION_DISPLAY_NAMES[pendingAction.type]} ${target.name}`
       : `${actor?.name} claims ${pendingAction.claimedCharacter} to ${ACTION_DISPLAY_NAMES[pendingAction.type]}`;
@@ -72,8 +72,8 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
       </p>
       <p className="text-center text-gray-400 text-xs mb-2">
         {isEmbezzle
-          ? 'Think they actually have a Duke? Challenge to prove it!'
-          : 'Do you think they\u0027re bluffing? Challenge to call them out!'}
+          ? 'Challenge if you think they have a Duke. If they don\u0027t, you lose a card.'
+          : 'Challenge if you think they\u0027re bluffing. If they aren\u0027t, you lose a card.'}
       </p>
       <Timer expiresAt={gameState.timerExpiry} />
       <div className="flex gap-3 mt-3">
@@ -81,7 +81,7 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
           className="btn-danger flex-1"
           onClick={() => { hapticHeavy(); socket.emit('game:challenge'); }}
         >
-          Challenge!
+          Challenge
         </button>
         <button
           className="btn-secondary flex-1"

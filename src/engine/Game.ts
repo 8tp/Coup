@@ -79,7 +79,7 @@ export class Game {
     this.winnerId = null;
     this.actionLog = [];
 
-    this.log(`Game started! ${this.currentPlayer.name}'s turn.`, 'game_start', null, null, null);
+    this.log(`Game started. ${this.currentPlayer.name} goes first.`, 'game_start', null, null, null);
   }
 
   /** Check if all remaining alive players share the same faction (restrictions lift) */
@@ -122,7 +122,7 @@ export class Game {
       this.winnerId = alivePlayers[0]?.id ?? null;
       if (this.winnerId) {
         const winner = this.getPlayer(this.winnerId);
-        this.log(`${winner?.name} wins the game!`, 'win', null, this.winnerId, winner?.name ?? null);
+        this.log(`${winner?.name} wins the game.`, 'win', null, this.winnerId, winner?.name ?? null);
       }
       return;
     }
@@ -155,7 +155,7 @@ export class Game {
   eliminatePlayer(player: Player): void {
     this.treasury += player.coins;
     player.coins = 0;
-    this.log(`${player.name} has been eliminated!`, 'elimination', null, player.id, player.name);
+    this.log(`${player.name} is out.`, 'elimination', null, player.id, player.name);
   }
 
   giveCoins(player: Player, amount: number): void {

@@ -368,7 +368,7 @@ export const FX_TABLE: readonly FxRow[] = [
     trauma: 0.3,
     traumaCeiling: null,
     haptic: 'targeted',
-    float: { text: 'CAUGHT BLUFFING!', tone: 'crimson', scale: 1.35 },
+    float: { text: 'Caught bluffing', tone: 'crimson', scale: 1.35 },
     why: 'Loud moment 1 of 3. Everything a bystander does not get: red, shake, buzz, and a shout.',
   },
   {
@@ -397,7 +397,7 @@ export const FX_TABLE: readonly FxRow[] = [
     trauma: 0.34,
     traumaCeiling: null,
     haptic: 'influenceLost',
-    float: { text: 'LOST', tone: 'crimson', scale: 1.2 },
+    float: { text: 'Lost a card', tone: 'crimson', scale: 1.2 },
     why: 'ART-DIRECTION §6 world-stopping moment 1: the only irreversible thing in this game.',
   },
   {
@@ -475,7 +475,7 @@ export const FX_TABLE: readonly FxRow[] = [
     trauma: 0.3,
     traumaCeiling: null,
     haptic: 'targeted',
-    float: { text: 'BLOCKED!', tone: 'bone', scale: 1.35 },
+    float: { text: 'Blocked', tone: 'bone', scale: 1.35 },
     why: 'A knife stopped by a Contessa is a collision. Loud enough to feel, colourless because nobody bled.',
   },
   {
@@ -525,7 +525,7 @@ export const FX_TABLE: readonly FxRow[] = [
     trauma: 0.22,
     traumaCeiling: null,
     haptic: null,
-    float: { text: 'ELIMINATED', tone: 'crimson', scale: 1.35 },
+    float: { text: 'Eliminated', tone: 'crimson', scale: 1.35 },
     why: 'No second flash and no second buzz — see the header. The dust settles and the word lands.',
   },
   {

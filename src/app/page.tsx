@@ -241,7 +241,7 @@ function HomeContent() {
 
   return (
     <div className="menu-root">
-      <h1 className="sr-only">Coup Online — Free Multiplayer Bluffing Card Game</h1>
+      <h1 className="sr-only">Coup Online: a free multiplayer bluffing card game</h1>
 
       <div className="menu-topbar">
         <button
@@ -269,7 +269,7 @@ function HomeContent() {
       <main className="menu-column">
         <header className="menu-hero">
           <CoupLogo className="brand-wordmark menu-wordmark" />
-          <p className="menu-tagline">Bluff. Challenge. Seize the court.</p>
+          <p className="menu-tagline">The bluffing card game, online with friends or bots.</p>
           <p className="menu-presence">
             <span className="menu-presence-dot" aria-hidden="true" />
             <span className="figure">{playersOnline}</span> online · <span className="figure">{gamesInProgress}</span> {gamesInProgress === 1 ? 'game' : 'games'} in play
@@ -286,7 +286,6 @@ function HomeContent() {
                 id="player-name"
                 ref={nameRef}
                 className="input-field"
-                placeholder="What should the court call you?"
                 value={name}
                 onChange={e => setName(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') handleQuickPlay(); }}
@@ -297,7 +296,7 @@ function HomeContent() {
 
               <button className="btn-primary menu-play" onClick={() => { if (!needName()) handleQuickPlay(); }} disabled={loading}>
                 <span>{loading ? 'Dealing…' : 'Play vs Bots'}</span>
-                <span className="menu-play-sub">Instant game · {QUICK_PLAY_BOT_COUNT} opponents</span>
+                <span className="menu-play-sub">Starts now · {QUICK_PLAY_BOT_COUNT} opponents</span>
               </button>
 
               <div className="menu-split">
@@ -329,13 +328,13 @@ function HomeContent() {
                     <span className="text-left">
                       <span className="block font-semibold text-coup-ink">Public room</span>
                       <span className="block text-sm text-coup-ink-mute">
-                        {isPublic ? 'Listed in open tables — anyone can join' : 'Private — only people with the code'}
+                        {isPublic ? 'Listed in Open tables. Anyone can join.' : 'Only people with the code can join.'}
                       </span>
                     </span>
                     <span className={`switch-track ${isPublic ? 'is-on' : ''}`} aria-hidden="true"><span /></span>
                   </button>
                   <button className="btn-primary w-full" onClick={() => { if (!needName()) handleCreate(); }} disabled={loading}>
-                    {loading ? 'Creating…' : 'Create & invite friends'}
+                    {loading ? 'Creating…' : 'Create and invite'}
                   </button>
                 </div>
               )}
@@ -372,7 +371,7 @@ function HomeContent() {
                 </button>
               </div>
               {joinableRooms.length === 0 ? (
-                <p className="menu-empty">No public tables open right now — create one and it will appear here.</p>
+                <p className="menu-empty">No public tables right now. Create one and it shows up here.</p>
               ) : (
                 <ul className="menu-rooms">{joinableRooms.slice(0, 3).map(r => roomRow(r, 'join'))}</ul>
               )}
@@ -385,7 +384,7 @@ function HomeContent() {
             </section>
           </>
         ) : (
-          <section className="menu-panel" aria-label="Public games">
+          <section className="menu-panel" aria-label="Open tables">
             <div className="menu-section-head">
               <h2 className="menu-section-title">Open tables</h2>
               <button className="menu-link" onClick={() => { haptic(); setMode('idle'); }}>Back</button>
@@ -402,7 +401,7 @@ function HomeContent() {
               />
             )}
             {joinableRooms.length === 0 ? (
-              <p className="menu-empty">No open lobbies right now.</p>
+              <p className="menu-empty">No public tables right now.</p>
             ) : (
               <ul className="menu-rooms">{joinableRooms.map(r => roomRow(r, 'join'))}</ul>
             )}

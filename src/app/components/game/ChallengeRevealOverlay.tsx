@@ -514,29 +514,29 @@ export function ChallengeRevealOverlay() {
             <>
               <p className="text-white text-lg font-bold">
                 {inverseClaim && wasGenuine
-                  ? <>{challengedName} shows every card: <span className="text-coup-accent">no Duke</span>!</>
+                  ? <>{challengedName} shows every card and has <span className="text-coup-accent">no Duke</span></>
                   : inverseClaim
-                    ? <>{challengedName} reveals <span className="text-coup-accent">Duke</span>!</>
+                    ? <>{challengedName} reveals <span className="text-coup-accent">Duke</span></>
                     : wasGenuine
-                  ? <>{challengedName} reveals <span className="text-coup-accent">{character}</span>!</>
-                  : <>{challengedName} does not have <span className="text-coup-accent">{character}</span>!</>
+                  ? <>{challengedName} reveals <span className="text-coup-accent">{character}</span></>
+                  : <>{challengedName} doesn&apos;t have <span className="text-coup-accent">{character}</span></>
                 }
               </p>
               <p className={`text-sm font-bold mt-1 ${wasGenuine ? 'text-green-400' : 'text-red-400'}`}>
-                {wasGenuine ? 'Challenge fails!' : 'Caught bluffing!'}
+                {wasGenuine ? 'Challenge fails' : 'Caught bluffing'}
               </p>
               <p className="text-gray-400 text-xs mt-1">
                 {wasGenuine
-                  ? `${challengerName} must lose an influence`
-                  : `${challengedName} must lose an influence`}
+                  ? `${challengerName} must lose a card`
+                  : `${challengedName} must lose a card`}
               </p>
             </>
           )}
           {phase === 'swap' && (
             <p className="text-gray-400 text-sm animate-fade-in">
               {revealedCharacters.length > 1
-                ? 'Shown cards returned to the deck; replacements drawn.'
-                : 'Card returned to the deck; a replacement is drawn.'}
+                ? 'The shown cards go back into the deck. Replacements are drawn.'
+                : 'The card goes back into the deck. A replacement is drawn.'}
             </p>
           )}
         </div>

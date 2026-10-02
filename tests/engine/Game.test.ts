@@ -67,7 +67,7 @@ describe('Game', () => {
 
     it('logs a game started message', () => {
       expect(game.actionLog.length).toBeGreaterThanOrEqual(1);
-      expect(game.actionLog[0].message).toContain('Game started!');
+      expect(game.actionLog[0].message).toContain('Game started.');
     });
 
     it('currentPlayerIndex is within range', () => {
@@ -162,7 +162,7 @@ describe('Game', () => {
       const logCount = game.actionLog.length;
       game.eliminatePlayer(game.players[0]);
       expect(game.actionLog.length).toBe(logCount + 1);
-      expect(game.actionLog[game.actionLog.length - 1].message).toContain('eliminated');
+      expect(game.actionLog[game.actionLog.length - 1].message).toContain('is out');
     });
   });
 

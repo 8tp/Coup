@@ -62,7 +62,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: 'Coup Online',
-  description: 'Play Coup with friends online — bluff, challenge, and steal your way to victory in this multiplayer card game.',
+  description: 'Play the bluffing card game Coup online with friends or bots. Claim characters, challenge bluffs and steal coins, 2 to 6 players.',
   applicationName: 'Coup Online',
   keywords: ['coup', 'card game', 'multiplayer', 'board game', 'bluffing', 'online game', 'strategy', 'free'],
   appleWebApp: {
@@ -84,14 +84,14 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'Coup Online',
-    description: 'Play Coup with friends online — bluff, challenge, and steal your way to victory in this multiplayer card game.',
+    description: 'Play the bluffing card game Coup online with friends or bots. Claim characters, challenge bluffs and steal coins, 2 to 6 players.',
     siteName: 'Coup Online',
     images: [
       {
         url: '/og-image-v4.jpg',
         width: 1200,
         height: 630,
-        alt: 'Coup Online — Multiplayer Bluffing Card Game',
+        alt: 'Coup Online, a multiplayer bluffing card game',
       },
     ],
     type: 'website',
@@ -99,7 +99,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Coup Online',
-    description: 'Play Coup with friends online — bluff, challenge, and steal your way to victory in this multiplayer card game.',
+    description: 'Play the bluffing card game Coup online with friends or bots. Claim characters, challenge bluffs and steal coins, 2 to 6 players.',
     images: ['/embed-image-v4.jpg'],
   },
 };

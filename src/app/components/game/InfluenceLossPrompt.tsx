@@ -11,11 +11,11 @@ interface InfluenceLossPromptProps {
 }
 
 const REASON_LABELS: Record<string, string> = {
-  coup: 'You were couped!',
-  assassination: 'You are being assassinated!',
-  challenge_lost: 'You lost the challenge!',
-  challenge_failed_defense: 'Your bluff was called!',
-  embezzle_failed: 'Your embezzle was caught!',
+  coup: 'You were Couped',
+  assassination: 'You were assassinated',
+  challenge_lost: 'You lost the challenge',
+  challenge_failed_defense: 'You were caught bluffing',
+  embezzle_failed: 'You were caught holding a Duke',
 };
 
 const SPECTATOR_REASON_LABELS: Record<string, string> = {
@@ -23,7 +23,7 @@ const SPECTATOR_REASON_LABELS: Record<string, string> = {
   assassination: 'Assassination',
   challenge_lost: 'Lost challenge',
   challenge_failed_defense: 'Caught bluffing',
-  embezzle_failed: 'Failed embezzle',
+  embezzle_failed: 'Failed Embezzle',
 };
 
 export function InfluenceLossPrompt({ gameState }: InfluenceLossPromptProps) {
@@ -34,11 +34,11 @@ export function InfluenceLossPrompt({ gameState }: InfluenceLossPromptProps) {
 
   if (influenceLossRequest.playerId !== myId) {
     const loser = gameState.players.find(p => p.id === influenceLossRequest.playerId);
-    const spectatorReason = SPECTATOR_REASON_LABELS[influenceLossRequest.reason] || 'Must lose an influence';
+    const spectatorReason = SPECTATOR_REASON_LABELS[influenceLossRequest.reason] || 'Must lose a card';
     return (
       <div className="prompt-info">
         <p className="text-center text-gray-300 text-sm">
-          <span className="font-bold">{loser?.name}</span> must choose an influence to lose.
+          <span className="font-bold">{loser?.name}</span> must choose a card to lose.
         </p>
         <p className="text-center text-coup-ink-mute text-xs mt-1">
           {spectatorReason}
@@ -54,7 +54,7 @@ export function InfluenceLossPrompt({ gameState }: InfluenceLossPromptProps) {
     .map((inf, i) => ({ inf, index: i }))
     .filter(({ inf }) => !inf.revealed);
 
-  const reasonText = REASON_LABELS[influenceLossRequest.reason] || 'Choose an influence to lose';
+  const reasonText = REASON_LABELS[influenceLossRequest.reason] || 'Choose a card to lose';
 
   return (
     <div className="prompt-urgent">
@@ -63,7 +63,7 @@ export function InfluenceLossPrompt({ gameState }: InfluenceLossPromptProps) {
         {reasonText}
       </p>
       <p className="text-center text-gray-400 text-xs mb-3">
-        Tap a card to reveal and lose it
+        Tap a card to lose it. It turns face up.
       </p>
       <div className="flex gap-4 justify-center">
         {unrevealed.map(({ inf, index }) => (

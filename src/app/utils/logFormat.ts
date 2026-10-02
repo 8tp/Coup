@@ -1,6 +1,7 @@
 /**
- * Formats a log message by replacing the viewer's name with "You",
- * adjusting verb conjugation and possessives accordingly.
+ * Formats a log message by replacing the viewer's name with "you",
+ * adjusting verb conjugation and possessives accordingly. "You"/"Your" are
+ * capitalised only where they start a sentence.
  */
 export function formatLogMessage(message: string, myName: string): string {
   if (!myName) return message;
@@ -32,19 +33,26 @@ export function formatLogMessage(message: string, myName: string): string {
     examines: 'examine',
     forces: 'force',
     returns: 'return',
+    shows: 'show',
+    asks: 'ask',
+    was: 'were',
+    is: 'are',
+    goes: 'go',
   };
 
   for (const [thirdPerson, secondPerson] of Object.entries(verbMap)) {
     const verbRegex = new RegExp(`${escapeRegExp(myName)} ${thirdPerson}\\b`, 'g');
-    result = result.replace(verbRegex, `You ${secondPerson}`);
+    result = result.replace(verbRegex, `you ${secondPerson}`);
   }
 
-  // Replace remaining standalone occurrences of the name with "You"
+  // Replace remaining standalone occurrences of the name with "you"
   // Use word boundary to avoid partial matches
   const nameRegex = new RegExp(`\\b${escapeRegExp(myName)}\\b`, 'g');
-  result = result.replace(nameRegex, 'You');
+  result = result.replace(nameRegex, 'you');
 
-  return result;
+  return result.replace(/(^|[.!?]\s+)(you|your)\b/g, (_, start: string, word: string) => (
+    start + word[0].toUpperCase() + word.slice(1)
+  ));
 }
 
 function escapeRegExp(str: string): string {

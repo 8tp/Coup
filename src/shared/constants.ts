@@ -117,15 +117,15 @@ export interface ReactionDefinition {
 
 export const REACTIONS: ReactionDefinition[] = [
   { id: 'gg', emoji: '🤝', label: 'GG' },
-  { id: 'nice_bluff', emoji: '🎭', label: 'Nice bluff!' },
-  { id: 'sus', emoji: '🤨', label: 'Sus...' },
+  { id: 'nice_bluff', emoji: '🎭', label: 'Nice bluff' },
+  { id: 'sus', emoji: '🤨', label: 'Sus' },
   { id: 'salty', emoji: '🧂', label: 'Salty' },
-  { id: 'wow', emoji: '😮', label: 'Wow.' },
+  { id: 'wow', emoji: '😮', label: 'Wow' },
   { id: 'lol', emoji: '😂', label: 'LOL' },
   { id: 'rip', emoji: '⚰️', label: 'RIP' },
-  { id: 'no_way', emoji: '🙅', label: 'No way!' },
+  { id: 'no_way', emoji: '🙅', label: 'No way' },
   { id: 'big_brain', emoji: '🧠', label: 'Big brain' },
-  { id: 'sweat', emoji: '😰', label: 'Sweating...' },
+  { id: 'sweat', emoji: '😰', label: 'Sweating' },
   { id: 'eyes', emoji: '👀', label: 'Watching you' },
   { id: 'cope', emoji: '🤡', label: 'Cope' },
 ];
@@ -241,11 +241,11 @@ export const ACTION_DEFINITIONS: Record<ActionType, ActionDefinition> = {
 // ─── Character role descriptions ───
 export const CHARACTER_DESCRIPTIONS: Record<Character, string> = {
   [Character.Duke]: 'Tax: Take 3 coins. Blocks Foreign Aid.',
-  [Character.Assassin]: 'Assassinate: Pay 3 coins, target loses influence.',
+  [Character.Assassin]: 'Assassinate: Pay 3 coins. The target loses a card.',
   [Character.Captain]: 'Steal: Take 2 coins from target. Blocks Steal.',
   [Character.Ambassador]: 'Exchange: Draw 2, return 2. Blocks Steal.',
   [Character.Contessa]: 'Blocks Assassination.',
-  [Character.Inquisitor]: 'Exchange: Draw 1, swap or keep. Examine: Look at opponent card. Blocks Steal.',
+  [Character.Inquisitor]: "Exchange: Draw 1, return 1. Examine: Look at an opponent's card. Blocks Steal.",
 };
 
 // ─── Log Event Icons ───

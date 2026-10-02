@@ -29,7 +29,7 @@ export function BlockChallengePrompt({ gameState }: BlockChallengePromptProps) {
       <div className="prompt-info">
         <p className="text-center text-gray-300 text-sm">
           You claimed <span className="text-coup-accent font-bold">{pendingBlock.claimedCharacter}</span> to block.
-          Waiting to see if anyone challenges...
+          Waiting to see if anyone challenges.
         </p>
         <Timer expiresAt={gameState.timerExpiry} />
       </div>
@@ -41,7 +41,7 @@ export function BlockChallengePrompt({ gameState }: BlockChallengePromptProps) {
     return (
       <div className="prompt-info">
         <p className="text-center text-gray-400 text-sm">
-          You accepted the block. Waiting for others...
+          You accepted the block. Waiting for the others.
         </p>
         <Timer expiresAt={gameState.timerExpiry} />
       </div>
@@ -55,7 +55,7 @@ export function BlockChallengePrompt({ gameState }: BlockChallengePromptProps) {
         {blocker?.name} claims <span className="text-coup-accent">{pendingBlock.claimedCharacter}</span> to block{pendingAction ? ` the ${ACTION_DISPLAY_NAMES[pendingAction.type]}` : ''}
       </p>
       <p className="text-center text-gray-400 text-xs mb-2">
-        Think they&apos;re bluffing the block? Challenge them!
+        Challenge if you think they&apos;re bluffing. If they aren&apos;t, you lose a card.
       </p>
       <Timer expiresAt={gameState.timerExpiry} />
       <div className="flex gap-3 mt-3">
@@ -63,7 +63,7 @@ export function BlockChallengePrompt({ gameState }: BlockChallengePromptProps) {
           className="btn-danger flex-1"
           onClick={() => { hapticHeavy(); socket.emit('game:challenge_block'); }}
         >
-          Challenge!
+          Challenge
         </button>
         <button
           className="btn-secondary flex-1"

@@ -249,7 +249,7 @@ export function PracticeCoach({ gameState, onOpenRules }: PracticeCoachProps) {
         </>
       )}
       <div className="coach-head">
-        <span className="coach-label">Coach · {visibleTip.label}</span>
+        <span className="coach-label">Coach</span>
         <span className="coach-controls">
           <button type="button" className="coach-btn coach-got" onClick={dismissTip}>Got it</button>
           <button type="button" className="coach-btn" onClick={hideCoach}>Hide tips</button>

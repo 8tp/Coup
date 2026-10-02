@@ -105,7 +105,7 @@ export function PlayerSeat({
       tabIndex={interactive ? 0 : undefined}
       aria-disabled={illegalReason ? true : undefined}
       aria-label={interactive
-        ? (illegalReason ? `${player.name} — ${illegalReason}` : `Choose ${player.name}`)
+        ? (illegalReason ? `${player.name}: ${illegalReason}` : `Choose ${player.name}`)
         : undefined}
       data-target-illegal={illegalReason ? 'true' : undefined}
       onClick={interactive ? activate : undefined}

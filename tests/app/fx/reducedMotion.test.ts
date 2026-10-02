@@ -85,7 +85,7 @@ describe('fx — the normal path', () => {
     expect(s.trauma).toBeCloseTo(0.34, 6);
     expect(s.flash).toBe(true);
     expect(s.floats).toBe(1);
-    expect(floaters.peek(0)?.text).toBe('LOST');
+    expect(floaters.peek(0)?.text).toBe('Lost a card');
     expect(floaters.peek(0)?.rise).toBe(46);
     expect(hapticStats().byPattern.influenceLost).toBe(1);
   });
@@ -146,7 +146,7 @@ describe('fx — reduced motion', () => {
     fx.cue('influence_lost', AT);
     expect(fx.stats().floats).toBe(1);
     const rec = floaters.peek(0);
-    expect(rec?.text).toBe('LOST');
+    expect(rec?.text).toBe('Lost a card');
     expect(rec?.rise).toBe(0);
     // Still fades in and out — the word appears and goes, it just does not travel.
     raf.frame(16);

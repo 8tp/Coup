@@ -22,7 +22,7 @@ export function ExaminePrompt({ gameState }: ExaminePromptProps) {
     <div className="prompt-action">
       <Timer expiresAt={gameState.timerExpiry} />
       <p className="text-center text-white font-bold mb-2">
-        {target?.name}&apos;s card:
+        {target?.name}&apos;s card
       </p>
       <div className="flex justify-center mb-3">
         <div className="relative h-32 w-24 overflow-hidden rounded-xl border-2 border-teal-500 bg-teal-900/40">
@@ -32,7 +32,7 @@ export function ExaminePrompt({ gameState }: ExaminePromptProps) {
         </div>
       </div>
       <p className="text-center text-gray-400 text-xs mb-3">
-        Force them to swap this card, or return it?
+        Force Swap sends it to the deck and they draw a new card.
       </p>
       <div className="flex gap-2">
         <button

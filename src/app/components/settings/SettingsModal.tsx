@@ -18,7 +18,7 @@ interface SettingsModalProps {
 const TEXT_SIZE_OPTIONS: { value: TextSize; label: string }[] = [
   { value: 'normal', label: 'Normal' },
   { value: 'large', label: 'Large' },
-  { value: 'xl', label: 'Extra Large' },
+  { value: 'xl', label: 'Extra large' },
 ];
 
 export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, practiceLoading }: SettingsModalProps) {
@@ -52,7 +52,7 @@ export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, pr
           className="menu-switch"
           onClick={() => { haptic(); setMuted(!isMuted); }}
         >
-          <span className="font-semibold text-coup-ink">Sound Effects</span>
+          <span className="font-semibold text-coup-ink">Sound effects</span>
           <span className={`switch-track ${!isMuted ? 'is-on' : ''}`} aria-hidden="true"><span /></span>
         </button>
 
@@ -97,7 +97,7 @@ export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, pr
             className="menu-switch"
             onClick={() => { haptic(); setHapticEnabled(!hapticEnabled); }}
           >
-            <span className="font-semibold text-coup-ink">Haptic Feedback</span>
+            <span className="font-semibold text-coup-ink">Haptic feedback</span>
             <span className={`switch-track ${hapticEnabled ? 'is-on' : ''}`} aria-hidden="true"><span /></span>
           </button>
         )}
@@ -110,13 +110,13 @@ export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, pr
           className="menu-switch"
           onClick={() => { haptic(); setReducedMotionEnabled(!reducedMotionEnabled); }}
         >
-          <span className="font-semibold text-coup-ink">Reduced Animation</span>
+          <span className="font-semibold text-coup-ink">Reduced animation</span>
           <span className={`switch-track ${reducedMotionEnabled ? 'is-on' : ''}`} aria-hidden="true"><span /></span>
         </button>
 
         {/* Text Size */}
         <div>
-          <span className="text-sm text-gray-300 block mb-2">Text Size</span>
+          <span className="text-sm text-gray-300 block mb-2">Text size</span>
           <div className="lobby-seg !grid-cols-3" role="radiogroup" aria-label="Text size">
             {TEXT_SIZE_OPTIONS.map((opt) => (
               <button
@@ -142,7 +142,7 @@ export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, pr
                   className="btn-secondary w-full"
                   onClick={() => { haptic(); onClose(); onOpenTutorial(); }}
                 >
-                  New Player Tutorial
+                  New player tutorial
                 </button>
               )}
               {onPracticeBot && (
@@ -153,7 +153,7 @@ export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, pr
                     disabled={practiceLoading}
                   >
                     <span className="block">Classic</span>
-                    <span className="block font-sans text-xs font-normal text-coup-ink-mute">Practice vs Bot</span>
+                    <span className="block font-sans text-xs font-normal text-coup-ink-mute">Coached · 1 bot</span>
                   </button>
                   <button
                     className="btn-secondary !flex-col !gap-0.5"
@@ -161,7 +161,7 @@ export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, pr
                     disabled={practiceLoading}
                   >
                     <span className="block">Reformation</span>
-                    <span className="block font-sans text-xs font-normal text-coup-ink-mute">Guided Bot Game</span>
+                    <span className="block font-sans text-xs font-normal text-coup-ink-mute">Coached · 2 bots</span>
                   </button>
                 </div>
               )}
@@ -171,7 +171,7 @@ export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, pr
 
         {/* Feedback links */}
         <div className="border-t border-coup-line/70 pt-4">
-          <span className="text-sm text-gray-300 block mb-2">Help & Feedback</span>
+          <span className="text-sm text-gray-300 block mb-2">Help and feedback</span>
           <div className="flex gap-2">
             <a
               href="https://github.com/8tp/Coup/issues/new?template=bug_report.yml"
@@ -180,7 +180,7 @@ export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, pr
               onClick={() => haptic()}
               className="btn-ghost flex-1"
             >
-              Report Bug
+              Report a bug
             </a>
             <a
               href="https://github.com/8tp/Coup/issues/new?template=feature_request.yml"
@@ -189,7 +189,7 @@ export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, pr
               onClick={() => haptic()}
               className="btn-ghost flex-1"
             >
-              Send Feedback
+              Send feedback
             </a>
           </div>
         </div>

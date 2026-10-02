@@ -160,7 +160,7 @@ export function ExchangeView({ gameState }: ExchangeViewProps) {
   if (exchangeState.availableCards.length === 0) {
     return (
       <div className="prompt-info">
-        <p className="text-center text-gray-400 text-sm">Exchange in progress...</p>
+        <p className="text-center text-gray-400 text-sm">Exchange in progress</p>
       </div>
     );
   }

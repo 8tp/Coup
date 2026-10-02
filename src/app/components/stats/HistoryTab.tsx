@@ -23,23 +23,25 @@ function HistoryRow({ entry }: { entry: GameHistoryEntry }) {
     <div className="border-b border-coup-line/50 last:border-b-0">
       <button
         className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-coup-bg/40 transition-colors"
+        aria-expanded={expanded}
         onClick={() => setExpanded(v => !v)}
       >
         <span className={`text-xs font-bold px-1.5 py-0.5 rounded flex-none ${
           entry.won ? 'bg-green-800 text-green-200' : 'bg-red-900 text-red-300'
         }`}>
-          {entry.won ? 'W' : 'L'}
+          <span aria-hidden="true">{entry.won ? 'W' : 'L'}</span>
+          <span className="sr-only">{entry.won ? 'Won' : 'Lost'}</span>
         </span>
         <span className="text-sm text-gray-300 flex-1 min-w-0 truncate">
           {formatDate(entry.timestamp)}
         </span>
         <span className="text-xs text-coup-ink-mute flex-none">
-          {entry.playerCount}P
+          {entry.playerCount} players
         </span>
         <span className="text-xs text-coup-ink-mute flex-none">
-          {entry.turnCount}T
+          {entry.turnCount} {entry.turnCount === 1 ? 'turn' : 'turns'}
         </span>
-        <span className="text-xs text-coup-ink-mute flex-none">
+        <span className="text-xs text-coup-ink-mute flex-none" aria-hidden="true">
           {expanded ? '▲' : '▼'}
         </span>
       </button>
