@@ -71,11 +71,23 @@ function HomeContent() {
     return () => clearTimeout(timer);
   }, [error, setError]);
 
+  /**
+   * Coming back to the menu rejoins the last room in the background (so a
+   * reload mid-game is harmless). Starting something new from here has to
+   * leave that room first, or the server refuses: one socket, one room.
+   */
+  const leaveStaleRoom = () => {
+    if (!sessionStorage.getItem('coup_room') && !useGameStore.getState().roomCode) return;
+    leaveRoom();
+    clearRoom();
+  };
+
   const handleCreate = async () => {
     haptic(80);
     if (!name.trim()) { setError('Enter your name'); return; }
     setLoading(true);
     try {
+      leaveStaleRoom();
       const result = await createRoom(name.trim(), isPublic);
       savePlayerName(name);
       setRoom(result.roomCode, result.playerId);
@@ -93,6 +105,7 @@ function HomeContent() {
     if (!roomCode.trim()) { setError('Enter room code'); return; }
     setLoading(true);
     try {
+      leaveStaleRoom();
       const result = await joinRoom(roomCode.trim(), name.trim());
       savePlayerName(name);
       setRoom(result.roomCode, result.playerId);
@@ -109,6 +122,7 @@ function HomeContent() {
     if (!name.trim()) { setError('Enter your name'); return; }
     setLoading(true);
     try {
+      leaveStaleRoom();
       const result = await joinRoom(code, name.trim());
       savePlayerName(name);
       setRoom(result.roomCode, result.playerId);
@@ -125,6 +139,7 @@ function HomeContent() {
     const spectatorName = name.trim() || 'Spectator';
     setLoading(true);
     try {
+      leaveStaleRoom();
       const result = await spectateRoom(code, spectatorName);
       useGameStore.getState().setSpectating(result.roomCode, result.spectatorId);
       router.push(`/game/${result.roomCode}`);
@@ -150,6 +165,7 @@ function HomeContent() {
     setLoading(true);
     let practiceRoomCreated = false;
     try {
+      leaveStaleRoom();
       const result = await createRoom(practiceName, false, 'practice');
       practiceRoomCreated = true;
       setRoom(result.roomCode, result.playerId);
@@ -186,6 +202,7 @@ function HomeContent() {
     let roomCreated = false;
     try {
       const playerName = name.trim();
+      leaveStaleRoom();
       const result = await createRoom(playerName, false, 'quick_play');
       roomCreated = true;
       savePlayerName(playerName);
