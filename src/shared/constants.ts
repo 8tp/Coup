@@ -63,6 +63,14 @@ export const BOT_REACTION_DELAY_MIN = 800;
 export const BOT_REACTION_DELAY_MAX = 2000;
 export const DISCONNECT_BOT_REPLACE_MS = 60_000;
 export const INACTIVE_ROOM_CLEANUP_MS = 120_000; // 120s — rooms with no human activity are cleaned up
+/** How long a player who drops their socket in the lobby (or on the game-over screen) keeps their seat. */
+export const LOBBY_DISCONNECT_GRACE_MS = 45_000;
+/** Consecutive turn-timer expiries on a connected human's own decisions before a bot takes the seat. */
+export const AFK_TIMEOUTS_BEFORE_REPLACE = 2;
+/** Number of bots added by the home-page "Play vs Bots" quick start. */
+export const QUICK_PLAY_BOT_COUNT = 3;
+/** "Fill with bots" in the lobby tops the table up to this many players. */
+export const FILL_WITH_BOTS_TARGET = 4;
 
 // ─── Bot Emote Constants ───
 export const BOT_EMOTE_DELAY_MIN = 500;

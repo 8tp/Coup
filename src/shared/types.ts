@@ -360,9 +360,18 @@ export interface PublicRoomInfo {
   playerCount: number;
   maxPlayers: number;
   settings: RoomSettings;
+  /** True only while a game is actively in progress (finished rooms are joinable). */
   hasGame: boolean;
+  /** True when the last game has finished and the room is waiting for a rematch. */
+  betweenGames?: boolean;
   spectatorCount: number;
 }
+
+/** Why a human seat was handed to a bot mid-game. */
+export type BotReplaceReason = 'disconnect' | 'left' | 'afk';
+
+/** How a room was created — used for funnel metrics only. */
+export type RoomOrigin = 'standard' | 'quick_play' | 'practice';
 
 // ─── Challenge Reveal Event ───
 export interface ChallengeRevealEvent {

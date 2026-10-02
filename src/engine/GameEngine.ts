@@ -19,11 +19,18 @@ import { Game } from './Game';
 import { ActionResolver, ResolverResult, SideEffect } from './ActionResolver';
 
 export type StateChangeCallback = (state: GameState) => void;
+/**
+ * Fired after a turn-timer expiry auto-resolved a decision that belonged to a
+ * single player (their action, exchange, influence loss, or examine choice).
+ * Shared challenge/block windows expiring are not attributed to anyone.
+ */
+export type PlayerTimeoutCallback = (playerId: string, phase: TurnPhase) => void;
 
 export class GameEngine {
   game: Game;
   private resolver: ActionResolver;
   private onStateChange: StateChangeCallback | null = null;
+  private onPlayerTimeout: PlayerTimeoutCallback | null = null;
 
   // Turn-specific state (mirrors what's in ResolverResult)
   pendingAction: PendingAction | null = null;
@@ -50,9 +57,14 @@ export class GameEngine {
     this.onStateChange = cb;
   }
 
+  setOnPlayerTimeout(cb: PlayerTimeoutCallback | null): void {
+    this.onPlayerTimeout = cb;
+  }
+
   destroy(): void {
     this.clearTimer();
     this.onStateChange = null;
+    this.onPlayerTimeout = null;
   }
 
   startGame(playerInfos: Array<{ id: string; name: string }>, options?: { gameMode?: GameMode; useInquisitor?: boolean }): void {
@@ -287,6 +299,7 @@ export class GameEngine {
 
   handleTimerExpiry(): void {
     const phase = this.game.turnPhase;
+    const responsiblePlayerId = this.getTimedOutPlayerId(phase);
 
     if (phase === TurnPhase.AwaitingActionChallenge && this.pendingAction) {
       // Everyone effectively passes
@@ -308,6 +321,28 @@ export class GameEngine {
       this.handleExamineSelectionTimeout();
     } else if (phase === TurnPhase.AwaitingExamineDecision) {
       this.handleExamineTimeout();
+    }
+
+    if (responsiblePlayerId && this.onPlayerTimeout) {
+      this.onPlayerTimeout(responsiblePlayerId, phase);
+    }
+  }
+
+  /** The single player whose decision a turn-timer expiry in `phase` auto-resolves, if any. */
+  private getTimedOutPlayerId(phase: TurnPhase): string | null {
+    switch (phase) {
+      case TurnPhase.AwaitingAction:
+        return this.game.currentPlayer?.isAlive ? this.game.currentPlayer.id : null;
+      case TurnPhase.AwaitingExchange:
+        return this.exchangeState?.playerId ?? null;
+      case TurnPhase.AwaitingInfluenceLoss:
+        return this.influenceLossRequest?.playerId ?? null;
+      case TurnPhase.AwaitingExamineSelection:
+        return this.examineSelectionState?.targetId ?? null;
+      case TurnPhase.AwaitingExamineDecision:
+        return this.examineState?.examinerId ?? null;
+      default:
+        return null;
     }
   }
 

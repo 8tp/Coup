@@ -1,8 +1,9 @@
-import { ActionType, BotPersonality, ChallengeRevealEvent, Character, ChatMessage, ClientGameState, ClientRoomPlayer, ClientSpectator, Faction, PublicRoomInfo, ReactionEvent, RoomSettings } from './types';
+import { ActionType, BotPersonality, ChallengeRevealEvent, Character, ChatMessage, ClientGameState, ClientRoomPlayer, ClientSpectator, Faction, PublicRoomInfo, ReactionEvent, RoomOrigin, RoomSettings } from './types';
 
 // ─── Client → Server Events ───
 export interface ClientToServerEvents {
-  'room:create': (data: { playerName: string; isPublic?: boolean }, callback: (response: RoomResponse) => void) => void;
+  /** `origin` only tags funnel metrics (quick play / practice); it does not change room behavior. */
+  'room:create': (data: { playerName: string; isPublic?: boolean; origin?: RoomOrigin }, callback: (response: RoomResponse) => void) => void;
   'room:join': (data: { roomCode: string; playerName: string }, callback: (response: RoomResponse) => void) => void;
   'room:leave': () => void;
   'room:remove_player': (data: { playerId: string }, callback: (response: { success: boolean; error?: string }) => void) => void;

@@ -1,12 +1,27 @@
 import { randomInt, randomBytes, randomUUID } from 'crypto';
-import { BotPersonality, ChatMessage, GameMode, GameStatus, PublicRoomInfo, Room, RoomPlayer, RoomSettings, Spectator } from '../shared/types';
-import { CHAT_MAX_HISTORY, CHAT_MAX_MESSAGE_LENGTH, CHAT_RATE_LIMIT_MS, DEFAULT_ROOM_SETTINGS, DISCONNECT_BOT_REPLACE_MS, INACTIVE_ROOM_CLEANUP_MS, MAX_ACTION_TIMER, MAX_BOT_REACTION_SECONDS, MAX_PLAYERS, MAX_TURN_TIMER, MIN_ACTION_TIMER, MIN_BOT_REACTION_SECONDS, MIN_PLAYERS, MIN_TURN_TIMER, PUBLIC_ROOM_LIST_MAX, REACTION_RATE_LIMIT_MS } from '../shared/constants';
+import { BotPersonality, BotReplaceReason, ChatMessage, GameMode, GameStatus, PublicRoomInfo, Room, RoomOrigin, RoomPlayer, RoomSettings, Spectator } from '../shared/types';
+import { AFK_TIMEOUTS_BEFORE_REPLACE, CHAT_MAX_HISTORY, CHAT_MAX_MESSAGE_LENGTH, CHAT_RATE_LIMIT_MS, DEFAULT_ROOM_SETTINGS, DISCONNECT_BOT_REPLACE_MS, INACTIVE_ROOM_CLEANUP_MS, LOBBY_DISCONNECT_GRACE_MS, MAX_ACTION_TIMER, MAX_BOT_REACTION_SECONDS, MAX_PLAYERS, MAX_TURN_TIMER, MIN_ACTION_TIMER, MIN_BOT_REACTION_SECONDS, MIN_PLAYERS, MIN_TURN_TIMER, PUBLIC_ROOM_LIST_MAX, REACTION_RATE_LIMIT_MS } from '../shared/constants';
+import { RoomCloseReason, RoomMeta } from '../shared/metricTypes';
+import { GameLog } from '../shared/gameLogTypes';
 import { GameEngine } from '../engine/GameEngine';
 import { BotController } from './BotController';
+import { GameLogger } from './GameLogger';
+import { emitMetric } from './metrics';
+import { GameLogStorage } from './storage/GameLogStorage';
 
 const MAX_SPECTATORS_PER_ROOM = 10;
 
 const ROOM_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+export interface RoomManagerOptions {
+  /** Durable sink for finished-game logs. Writes are fire-and-forget. */
+  gameLogStorage?: GameLogStorage | null;
+}
+
+/** Result of a socket dropping (as opposed to an explicit leave). */
+export type DisconnectOutcome =
+  | { kind: 'in_game'; room: Room }
+  | { kind: 'lobby_grace'; room: Room };
 
 export class RoomManager {
   private rooms: Map<string, Room> = new Map();
@@ -18,9 +33,15 @@ export class RoomManager {
   private lastHumanActivityAt: Map<string, number> = new Map();
   private disconnectTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private spectators: Map<string, Spectator[]> = new Map(); // roomCode -> spectators
+  /** `${roomCode}:${playerId}` -> consecutive turn-timer expiries on that player's own decisions */
+  private afkStrikes: Map<string, number> = new Map();
+  /** Server-only funnel bookkeeping per room (never sent to clients). */
+  private roomMeta: Map<string, RoomMeta> = new Map();
+  private gameLogStorage: GameLogStorage | null;
   private cleanupInterval: ReturnType<typeof setInterval>;
 
-  constructor() {
+  constructor(options: RoomManagerOptions = {}) {
+    this.gameLogStorage = options.gameLogStorage ?? null;
     // Periodic cleanup of stale rooms
     this.cleanupInterval = setInterval(() => this.cleanup(), 60_000);
   }
@@ -41,7 +62,7 @@ export class RoomManager {
     this.lastHumanActivityAt.set(roomCode.toUpperCase(), Date.now());
   }
 
-  createRoom(playerName: string, socketId: string, isPublic?: boolean): { room: Room; playerId: string; sessionToken: string } {
+  createRoom(playerName: string, socketId: string, isPublic?: boolean, origin: RoomOrigin = 'standard'): { room: Room; playerId: string; sessionToken: string } {
     const code = this.generateRoomCode();
     const playerId = randomUUID();
     const sessionToken = randomBytes(32).toString('hex');
@@ -65,7 +86,21 @@ export class RoomManager {
 
     this.rooms.set(code, room);
     this.lastHumanActivityAt.set(code, Date.now());
+    this.roomMeta.set(code, { origin, gamesStarted: 0, gamesFinished: 0, currentGame: null });
+    emitMetric({
+      event: 'room_created',
+      room: code,
+      isPublic: room.settings.isPublic,
+      viaQuickPlay: origin === 'quick_play',
+      practice: origin === 'practice',
+    });
     return { room, playerId, sessionToken };
+  }
+
+  /** True while a game engine exists and has not finished. */
+  isGameInProgress(roomCode: string): boolean {
+    const engine = this.engines.get(roomCode.toUpperCase());
+    return !!engine && engine.game.status === GameStatus.InProgress;
   }
 
   joinRoom(
@@ -76,7 +111,9 @@ export class RoomManager {
     if (this.hasSocketMembership(socketId)) return { error: 'Socket is already a room member' };
     const room = this.rooms.get(roomCode.toUpperCase());
     if (!room) return { error: 'Room not found' };
-    if (room.gameState) return { error: 'Game already in progress' };
+    // A finished game no longer blocks joining: newcomers wait in the lobby
+    // view and are seated when the host starts the rematch.
+    if (room.gameState && this.isGameInProgress(room.code)) return { error: 'Game already in progress' };
     if (room.players.length >= MAX_PLAYERS) return { error: 'Room is full' };
 
     // Check for duplicate names
@@ -147,6 +184,7 @@ export class RoomManager {
     const player = room.players.find(p => p.id === playerId);
     if (!player) return { error: 'Player not found' };
 
+    this.cancelDisconnectTimer(room.code, playerId);
     room.players = room.players.filter(p => p.id !== playerId);
     this.lastChatTime.delete(playerId);
     this.lastReactionTime.delete(playerId);
@@ -193,39 +231,103 @@ export class RoomManager {
     return { room, player };
   }
 
+  /**
+   * Explicit leave (`room:leave`). Lobby / finished game: the seat is removed
+   * immediately. In-progress game: the player is detached from their socket
+   * and marked disconnected so the caller can hand the seat to a bot right
+   * away; if no other human is seated the room is closed instead.
+   */
   leaveRoom(roomCode: string, playerId: string): Room | null {
     const room = this.rooms.get(roomCode);
     if (!room) return null;
 
-    // If game is actively in progress, mark as disconnected instead of removing
-    if (room.gameState) {
-      const engine = this.engines.get(roomCode);
-      if (engine && engine.game.status === GameStatus.InProgress) {
-        const player = room.players.find(p => p.id === playerId);
-        if (player) player.connected = false;
-        return room;
+    this.cancelDisconnectTimer(roomCode, playerId);
+    this.afkStrikes.delete(`${roomCode}:${playerId}`);
+
+    if (room.gameState && this.isGameInProgress(roomCode)) {
+      const player = room.players.find(p => p.id === playerId);
+      if (!player) return room;
+      const otherHumans = room.players.some(p => p.id !== playerId && !p.isBot);
+      if (!otherHumans) {
+        // Nobody left to play with — don't leave bots grinding an empty table.
+        this.deleteRoom(roomCode, 'empty');
+        return null;
       }
+      player.connected = false;
+      player.socketId = '';
+      return room;
     }
 
-    // Lobby or finished game: remove the player entirely
+    return this.removePlayerFromRoom(room, playerId);
+  }
+
+  /**
+   * Socket dropped without an explicit leave (refresh, tab close, mobile
+   * backgrounding). In-progress game: mark disconnected (the caller starts the
+   * bot-replacement timer). Lobby / finished game: mark disconnected and hold
+   * the seat for LOBBY_DISCONNECT_GRACE_MS; `onGraceExpired` fires after the
+   * seat is released, with the surviving room or null if it was closed.
+   */
+  disconnectPlayer(
+    roomCode: string,
+    playerId: string,
+    onGraceExpired?: (room: Room | null) => void,
+  ): DisconnectOutcome | null {
+    const room = this.rooms.get(roomCode);
+    if (!room) return null;
+    const player = room.players.find(p => p.id === playerId);
+    if (!player) return null;
+
+    player.connected = false;
+
+    if (room.gameState && this.isGameInProgress(roomCode)) {
+      return { kind: 'in_game', room };
+    }
+
+    this.startDisconnectTimer(roomCode, playerId, () => {
+      const result = this.releaseDisconnectedSeat(roomCode, playerId);
+      if (result !== 'kept') onGraceExpired?.(result);
+    }, LOBBY_DISCONNECT_GRACE_MS);
+
+    return { kind: 'lobby_grace', room };
+  }
+
+  /** Whether a disconnect (lobby grace or bot-replacement) timer is pending for a player. */
+  hasDisconnectTimer(roomCode: string, playerId: string): boolean {
+    return this.disconnectTimers.has(`${roomCode.toUpperCase()}:${playerId}`);
+  }
+
+  /** Lobby grace expired: drop the seat unless the player came back or a game started. */
+  private releaseDisconnectedSeat(roomCode: string, playerId: string): Room | null | 'kept' {
+    const room = this.rooms.get(roomCode);
+    if (!room) return null;
+    const player = room.players.find(p => p.id === playerId);
+    if (!player || player.connected) return 'kept';
+    if (this.isGameInProgress(roomCode)) return 'kept';
+    return this.removePlayerFromRoom(room, playerId);
+  }
+
+  /** Remove a seat outright, reassigning host (humans only) or closing the room. */
+  private removePlayerFromRoom(room: Room, playerId: string): Room | null {
+    const roomCode = room.code;
     room.players = room.players.filter(p => p.id !== playerId);
     this.lastChatTime.delete(playerId);
     this.lastReactionTime.delete(playerId);
 
     // If room is empty, delete it
     if (room.players.length === 0) {
-      this.deleteRoom(roomCode);
+      this.deleteRoom(roomCode, 'empty');
       return null;
     }
 
-    // If host left, assign new host (skip bots)
+    // If host left, assign new host (skip bots; prefer someone connected)
     if (room.hostId === playerId) {
-      const humanPlayer = room.players.find(p => !p.isBot);
+      const humanPlayer = room.players.find(p => !p.isBot && p.connected) ?? room.players.find(p => !p.isBot);
       if (humanPlayer) {
         room.hostId = humanPlayer.id;
       } else {
         // All remaining are bots — delete the room
-        this.deleteRoom(roomCode);
+        this.deleteRoom(roomCode, 'empty');
         return null;
       }
     }
@@ -282,7 +384,8 @@ export class RoomManager {
         playerCount: room.players.length,
         maxPlayers: MAX_PLAYERS,
         settings: { ...room.settings },
-        hasGame: room.gameState !== null,
+        hasGame: this.isGameInProgress(room.code),
+        betweenGames: room.gameState !== null && !this.isGameInProgress(room.code),
         spectatorCount: this.getSpectators(room.code).length,
       });
       if (result.length >= PUBLIC_ROOM_LIST_MAX) break;
@@ -302,7 +405,16 @@ export class RoomManager {
     return this.engines.get(code.toUpperCase());
   }
 
-  startGame(roomCode: string): GameEngine | { error: string } {
+  /**
+   * Start a game with every seated player. Humans whose socket is down at
+   * start keep their seat: their lobby grace timer is swapped for the normal
+   * in-game DISCONNECT_BOT_REPLACE_MS timer (`onDisconnectedSeatExpired`), so
+   * they can rejoin straight into the game, or a bot takes over if they never return.
+   */
+  startGame(
+    roomCode: string,
+    options: { onDisconnectedSeatExpired?: (playerId: string) => void } = {},
+  ): GameEngine | { error: string } {
     const room = this.rooms.get(roomCode);
     if (!room) return { error: 'Room not found' };
     if (room.players.length < MIN_PLAYERS) return { error: `Need at least ${MIN_PLAYERS} players` };
@@ -322,7 +434,154 @@ export class RoomManager {
     this.engines.set(roomCode, engine);
     room.gameState = engine.getFullState();
 
+    // Lobby grace timers no longer apply; disconnected humans fall under the
+    // in-game bot replacement path instead.
+    this.clearDisconnectTimersForRoom(roomCode);
+    this.clearAfkStrikesForRoom(roomCode);
+    const disconnectedHumans = room.players.filter(p => !p.isBot && !p.connected);
+    for (const player of disconnectedHumans) {
+      const playerId = player.id;
+      this.startDisconnectTimer(roomCode, playerId, () => {
+        options.onDisconnectedSeatExpired?.(playerId);
+      });
+    }
+
+    const meta = this.getMeta(roomCode);
+    const startedAt = Date.now();
+    const bots = room.players.filter(p => p.isBot);
+    const humans = room.players.length - bots.length;
+    const rematchIndex = meta.gamesStarted;
+    meta.gamesStarted += 1;
+    meta.currentGame = {
+      gameId: `${roomCode}-${startedAt.toString(36)}`,
+      startedAt,
+      humans,
+      bots: bots.length,
+      rematchIndex,
+      finishedRecorded: false,
+    };
+    emitMetric({
+      event: 'game_started',
+      room: roomCode,
+      gameId: meta.currentGame.gameId,
+      players: room.players.length,
+      humans,
+      bots: bots.length,
+      botPersonalities: bots.map(b => b.personality ?? 'random'),
+      disconnectedHumans: disconnectedHumans.length,
+      gameMode: room.settings.gameMode,
+      useInquisitor: room.settings.useInquisitor,
+      actionTimerMs: timerMs,
+      turnTimerMs,
+      isPublic: room.settings.isPublic,
+      viaQuickPlay: meta.origin === 'quick_play',
+      practice: meta.origin === 'practice',
+      rematchIndex,
+    });
+
     return engine;
+  }
+
+  /**
+   * Record a finished game exactly once: emits `game_finished` and hands the
+   * game log to durable storage (fire-and-forget). Returns the log, or null
+   * if there is no finished game to record or it was already recorded.
+   */
+  recordGameFinished(roomCode: string): GameLog | null {
+    const code = roomCode.toUpperCase();
+    const room = this.rooms.get(code);
+    const engine = this.engines.get(code);
+    const meta = this.roomMeta.get(code);
+    if (!room || !engine || !meta?.currentGame) return null;
+    if (engine.game.status !== GameStatus.Finished) return null;
+    if (meta.currentGame.finishedRecorded) return null;
+
+    const current = meta.currentGame;
+    current.finishedRecorded = true;
+    meta.gamesFinished += 1;
+
+    const log = GameLogger.buildGameLog(engine, room.players, 'online');
+    const durationMs = Date.now() - current.startedAt;
+    log.gameId = current.gameId;
+    log.startedAt = new Date(current.startedAt).toISOString();
+    log.durationMs = durationMs;
+
+    const winner = room.players.find(p => p.id === engine.game.winnerId);
+    const gamePlayerIds = new Set(engine.game.players.map(p => p.id));
+    emitMetric({
+      event: 'game_finished',
+      room: code,
+      gameId: current.gameId,
+      durationMs,
+      turns: engine.game.turnNumber,
+      winnerIsBot: !!winner?.isBot,
+      winnerWasReplaced: !!winner?.replacedByBot,
+      humans: current.humans,
+      bots: current.bots,
+      replacedByBot: room.players.filter(p => p.replacedByBot && gamePlayerIds.has(p.id)).length,
+      eliminations: log.players.filter(p => p.eliminationOrder !== null).length,
+      gameMode: room.settings.gameMode,
+      useInquisitor: room.settings.useInquisitor,
+      isPublic: room.settings.isPublic,
+      viaQuickPlay: meta.origin === 'quick_play',
+      practice: meta.origin === 'practice',
+      rematchIndex: current.rematchIndex,
+    });
+
+    const storage = this.gameLogStorage;
+    if (storage) {
+      // Never block or crash the game loop on persistence.
+      void storage.saveGameLog(log).catch((err: unknown) => {
+        console.error(`Failed to persist game log for room ${code}:`, err instanceof Error ? err.message : err);
+      });
+    }
+
+    return log;
+  }
+
+  // ─── AFK tracking ───
+
+  /**
+   * Count a turn-timer expiry on a connected human's own decision. Returns
+   * true once they reach AFK_TIMEOUTS_BEFORE_REPLACE consecutive expiries (the
+   * caller then hands the seat to a bot). Bots and disconnected players are
+   * ignored — the disconnect timer already covers the latter.
+   */
+  recordTurnTimeout(roomCode: string, playerId: string): boolean {
+    const code = roomCode.toUpperCase();
+    const room = this.rooms.get(code);
+    const player = room?.players.find(p => p.id === playerId);
+    if (!room || !player || player.isBot || !player.connected) return false;
+    if (!this.isGameInProgress(code)) return false;
+
+    const key = `${code}:${playerId}`;
+    const strikes = (this.afkStrikes.get(key) ?? 0) + 1;
+    this.afkStrikes.set(key, strikes);
+    return strikes >= AFK_TIMEOUTS_BEFORE_REPLACE;
+  }
+
+  /** The player did something themselves — reset their consecutive-timeout count. */
+  clearAfkStrikes(roomCode: string, playerId: string): void {
+    this.afkStrikes.delete(`${roomCode.toUpperCase()}:${playerId}`);
+  }
+
+  getAfkStrikes(roomCode: string, playerId: string): number {
+    return this.afkStrikes.get(`${roomCode.toUpperCase()}:${playerId}`) ?? 0;
+  }
+
+  private clearAfkStrikesForRoom(roomCode: string): void {
+    for (const key of this.afkStrikes.keys()) {
+      if (key.startsWith(`${roomCode}:`)) this.afkStrikes.delete(key);
+    }
+  }
+
+  private getMeta(roomCode: string): RoomMeta {
+    let meta = this.roomMeta.get(roomCode);
+    if (!meta) {
+      meta = { origin: 'standard', gamesStarted: 0, gamesFinished: 0, currentGame: null };
+      this.roomMeta.set(roomCode, meta);
+    }
+    return meta;
   }
 
   // ─── Chat ───
@@ -425,16 +684,19 @@ export class RoomManager {
     }
 
     room.gameState = null;
+    const meta = this.roomMeta.get(roomCode);
+    if (meta) meta.currentGame = null;
 
     // Clear all disconnect timers for this room
     this.clearDisconnectTimersForRoom(roomCode);
+    this.clearAfkStrikesForRoom(roomCode);
 
     // Remove disconnected human players and bot-replaced players; original bots survive
     room.players = room.players.filter(p => (p.isBot && !p.replacedByBot) || p.connected);
 
     // If room is empty after filtering, delete it
     if (room.players.length === 0) {
-      this.deleteRoom(roomCode);
+      this.deleteRoom(roomCode, 'empty');
       return null;
     }
 
@@ -445,7 +707,7 @@ export class RoomManager {
         room.hostId = humanPlayer.id;
       } else {
         // Only bots remain — delete room
-        this.deleteRoom(roomCode);
+        this.deleteRoom(roomCode, 'empty');
         return null;
       }
     }
@@ -518,9 +780,9 @@ export class RoomManager {
     const room = this.rooms.get(code);
     if (!room) return { error: 'Room not found' };
     // Spectating is limited to public rooms that have actually started a game:
-    // private rooms and pre-game lobbies must not be observable. The condition
-    // mirrors `PublicRoomInfo.hasGame` (engine present until resetToLobby), so
-    // the room browser never offers a "Watch" button the server would refuse.
+    // private rooms and pre-game lobbies must not be observable. The engine is
+    // present until resetToLobby, a superset of `PublicRoomInfo.hasGame`
+    // (in-progress only), so the browser never offers a "Watch" the server refuses.
     const engine = this.engines.get(code);
     if (!room.settings.isPublic || !engine) {
       return { error: 'Spectating is only available for public live games' };
@@ -584,7 +846,12 @@ export class RoomManager {
 
   // ─── Disconnect Timer & Bot Replacement ───
 
-  startDisconnectTimer(roomCode: string, playerId: string, onReplace: () => void): void {
+  startDisconnectTimer(
+    roomCode: string,
+    playerId: string,
+    onExpire: () => void,
+    delayMs: number = DISCONNECT_BOT_REPLACE_MS,
+  ): void {
     const key = `${roomCode}:${playerId}`;
     // Clear any existing timer for this player
     const existing = this.disconnectTimers.get(key);
@@ -592,8 +859,8 @@ export class RoomManager {
 
     const timer = setTimeout(() => {
       this.disconnectTimers.delete(key);
-      onReplace();
-    }, DISCONNECT_BOT_REPLACE_MS);
+      onExpire();
+    }, delayMs);
 
     this.disconnectTimers.set(key, timer);
   }
@@ -607,7 +874,12 @@ export class RoomManager {
     }
   }
 
-  replaceWithBot(roomCode: string, playerId: string): boolean {
+  /**
+   * Hand a human's seat in an in-progress game to an 'optimal' bot.
+   * `disconnect` requires the player to still be disconnected (they may have
+   * come back); `left` and `afk` replace regardless of socket state.
+   */
+  replaceWithBot(roomCode: string, playerId: string, reason: BotReplaceReason = 'disconnect'): boolean {
     const room = this.rooms.get(roomCode);
     if (!room) return false;
 
@@ -615,7 +887,8 @@ export class RoomManager {
     if (!engine || engine.game.status !== GameStatus.InProgress) return false;
 
     const roomPlayer = room.players.find(p => p.id === playerId);
-    if (!roomPlayer || roomPlayer.connected || roomPlayer.isBot) return false;
+    if (!roomPlayer || roomPlayer.isBot) return false;
+    if (reason === 'disconnect' && roomPlayer.connected) return false;
 
     const gamePlayer = engine.game.getPlayer(playerId);
     if (!gamePlayer || !gamePlayer.isAlive) return false;
@@ -625,6 +898,9 @@ export class RoomManager {
     roomPlayer.personality = 'optimal';
     roomPlayer.replacedByBot = true;
     roomPlayer.connected = true; // Bots are always "connected"
+    roomPlayer.socketId = ''; // The human's socket no longer owns this seat
+    this.cancelDisconnectTimer(roomCode, playerId);
+    this.afkStrikes.delete(`${roomCode}:${playerId}`);
 
     // Register with BotController (create one if needed)
     let bc = this.botControllers.get(roomCode);
@@ -636,22 +912,29 @@ export class RoomManager {
       this.botControllers.set(roomCode, bc);
     }
 
-    // Reassign host if the replaced player was host
+    // Reassign host if the replaced player was host (never to a bot)
     if (room.hostId === playerId) {
-      const humanPlayer = room.players.find(p => !p.isBot && p.connected);
+      const humanPlayer = room.players.find(p => !p.isBot && p.connected) ?? room.players.find(p => !p.isBot);
       if (humanPlayer) {
         room.hostId = humanPlayer.id;
       }
     }
 
     // Log replacement
-    engine.game.log(
-      `${roomPlayer.name} has been replaced by a bot.`,
-      'bot_replace',
-      null,
-      playerId,
-      roomPlayer.name,
-    );
+    const message = reason === 'afk'
+      ? `${roomPlayer.name} was idle — a bot took their seat.`
+      : reason === 'left'
+        ? `${roomPlayer.name} left — a bot took their seat.`
+        : `${roomPlayer.name} has been replaced by a bot.`;
+    engine.game.log(message, 'bot_replace', null, playerId, roomPlayer.name);
+
+    emitMetric({
+      event: 'player_replaced_by_bot',
+      room: roomCode,
+      gameId: this.roomMeta.get(roomCode)?.currentGame?.gameId ?? null,
+      reason,
+      turn: engine.game.turnNumber,
+    });
 
     return true;
   }
@@ -672,12 +955,43 @@ export class RoomManager {
     }
   }
 
-  private deleteRoom(roomCode: string): void {
+  private deleteRoom(roomCode: string, reason: RoomCloseReason): void {
     this.clearDisconnectTimersForRoom(roomCode);
+    this.clearAfkStrikesForRoom(roomCode);
     const room = this.rooms.get(roomCode);
     if (room) this.cleanRateLimitsForRoom(room);
 
     const engine = this.engines.get(roomCode);
+    const meta = this.roomMeta.get(roomCode);
+    const now = Date.now();
+    if (engine && engine.game.status === GameStatus.InProgress && meta?.currentGame) {
+      emitMetric({
+        event: 'game_abandoned',
+        room: roomCode,
+        gameId: meta.currentGame.gameId,
+        durationMs: now - meta.currentGame.startedAt,
+        turns: engine.game.turnNumber,
+        humans: meta.currentGame.humans,
+        bots: meta.currentGame.bots,
+        reason,
+      });
+    }
+    if (room) {
+      emitMetric({
+        event: 'room_closed',
+        room: roomCode,
+        reason,
+        everStarted: (meta?.gamesStarted ?? 0) > 0,
+        gamesStarted: meta?.gamesStarted ?? 0,
+        gamesPlayed: meta?.gamesFinished ?? 0,
+        ageMs: now - room.createdAt,
+        isPublic: room.settings.isPublic,
+        viaQuickPlay: meta?.origin === 'quick_play',
+        practice: meta?.origin === 'practice',
+      });
+    }
+    this.roomMeta.delete(roomCode);
+
     if (engine) engine.destroy();
     this.engines.delete(roomCode);
 
@@ -696,7 +1010,7 @@ export class RoomManager {
     for (const [code, room] of this.rooms.entries()) {
       // 24h TTL for all rooms
       if (now - room.createdAt > ROOM_TTL_MS) {
-        this.deleteRoom(code);
+        this.deleteRoom(code, 'ttl');
         continue;
       }
 
@@ -708,7 +1022,7 @@ export class RoomManager {
         if (!hasConnectedHuman) {
           const lastActivity = this.lastHumanActivityAt.get(code) ?? room.createdAt;
           if (now - lastActivity > INACTIVE_ROOM_CLEANUP_MS) {
-            this.deleteRoom(code);
+            this.deleteRoom(code, 'inactive');
           }
         }
       }
@@ -722,5 +1036,6 @@ export class RoomManager {
     }
     this.disconnectTimers.clear();
     this.lastHumanActivityAt.clear();
+    this.afkStrikes.clear();
   }
 }
