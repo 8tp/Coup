@@ -2295,12 +2295,21 @@
   .court-objects > .table-object:nth-child(2) { right: 14%; top: 42%; }
   .court-objects > .table-object:nth-child(3) { right: 14%; top: 66%; }
 
+  /* The fallen pile lies under the treasury, clear of the chat and ticker
+     that sit over the near-left rim. In Reformation the reserve takes that
+     spot, so the pile moves under the deck instead. */
   .court-discard {
     position: absolute;
-    left: 13%;
-    top: 68%;
+    right: 12%;
+    top: 66%;
     transform: translateY(-50%);
     pointer-events: none;
+  }
+
+  .court-felt:has(.coin-well-reserve) .court-discard {
+    right: auto;
+    left: 12%;
+    top: 64%;
   }
 
   .court-discard .discard-well {
@@ -2798,6 +2807,75 @@
       0 0 0 1px rgba(95, 20, 28, 0.8),
       0 3px 4px rgba(0, 0, 0, 0.5);
     pointer-events: none;
+  }
+
+  /* ── Table talk: the always-visible desktop chat (table/TableTalk.tsx) ── */
+
+  .court-dock-log {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .table-talk {
+    display: flex;
+    flex-direction: column;
+    border-radius: 3px;
+    background-color: rgba(11, 18, 16, 0.92);
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.5),
+      0 12px 28px rgba(0, 0, 0, 0.45);
+    background-image: linear-gradient(var(--brass), var(--brass));
+    background-repeat: no-repeat;
+    background-size: 100% 2px;
+  }
+
+  .table-talk-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 40px;
+    padding: 0 0.75rem;
+    color: var(--ink);
+    font-size: var(--step-0);
+  }
+
+  .table-talk-chevron {
+    margin-left: auto;
+    color: var(--ink-mute);
+  }
+
+  .table-talk-body {
+    height: clamp(10rem, 22vh, 15rem);
+    border-top: 1px solid rgba(51, 68, 62, 0.6);
+  }
+
+  .chat-quick {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    padding: 0.4rem 0.75rem 0;
+  }
+
+  .chat-quick > button {
+    min-height: 32px;
+    padding: 0 0.6rem;
+    border-radius: 9999px;
+    background-color: var(--raised);
+    color: var(--ink-mute);
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: color 120ms, background-color 120ms;
+  }
+
+  .chat-quick > button:hover {
+    color: var(--brass);
+    background-color: #2a3a34;
+  }
+
+  /* Folded, the panel is one bar; the ticker keeps the room's last words. */
+  .table-talk:not(.is-open) {
+    align-self: flex-start;
   }
 
   /* ── The log drawer ─────────────────────────────────────────────────── */
