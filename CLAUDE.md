@@ -104,7 +104,9 @@ Not every turn visits every phase. Income resolves immediately. Coup skips to In
 | `src/app/stores/settingsStore.ts` | Zustand store: hapticEnabled, textSize (persisted to localStorage) |
 | `src/app/utils/haptic.ts` | Haptic feedback: vibration API with iOS Safari checkbox-switch fallback |
 | `src/app/audio/SoundEngine.ts` | Web Audio API synthesizer: 21+ sound types, mute toggle |
-| `src/app/components/game/GameTable.tsx` | Main game layout component |
+| `src/app/components/game/GameTable.tsx` | Main game layout: the oval "court table" (seats on the rim, centre stage, dock, log drawer) |
+| `src/app/components/game/table/` | Court table parts: `seatLayout.ts` (seat angles on the rim), `ClaimPlaque`, `CoinFlights`, `LogTicker`, `SeatSpeech` |
+| `src/app/components/icons/emblems.tsx` | The six character emblems (fleur-de-lis, stiletto, anchor, sealed scroll, fan, radiant eye) — rendered by `*Glyph` and `CharacterMedallion` |
 | `src/app/components/chat/ChatPanel.tsx` | Chat message list + text input |
 | `src/app/components/game/GameCenterTabs.tsx` | Log/Chat tabbed container with unread indicator |
 | `src/app/components/game/GameOverOverlay.tsx` | Game over screen with rematch flow |
