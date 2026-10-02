@@ -8,6 +8,8 @@ import { createGameLogStorage } from './src/server/storage/PostgresGameLogStorag
 import type { ClientToServerEvents, ServerToClientEvents } from './src/shared/protocol';
 
 const dev = process.env.NODE_ENV !== 'production';
+/** On shutdown, wait at most this long for in-flight game-log writes. */
+const SHUTDOWN_STORAGE_FLUSH_MS = 3000;
 const port = parseInt(process.env.PORT || '3000', 10);
 
 // Prevent the entire server from crashing on unhandled errors
@@ -109,17 +111,24 @@ app.prepare().then(() => {
   });
 
   // Graceful shutdown
-  const shutdown = () => {
+  let shuttingDown = false;
+  const shutdown = async () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     console.log('Shutting down gracefully...');
+    // Force exit after 5 seconds if connections don't close
+    setTimeout(() => process.exit(1), 5000).unref();
     roomManager.destroy();
-    void gameLogStorage?.close();
     io.close();
+    // Let finished-game writes land before the pool goes away (bounded wait).
+    if (gameLogStorage) {
+      await gameLogStorage.flush(SHUTDOWN_STORAGE_FLUSH_MS);
+      await gameLogStorage.close();
+    }
     httpServer.close(() => {
       process.exit(0);
     });
-    // Force exit after 5 seconds if connections don't close
-    setTimeout(() => process.exit(1), 5000);
   };
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', () => { void shutdown(); });
+  process.on('SIGINT', () => { void shutdown(); });
 });

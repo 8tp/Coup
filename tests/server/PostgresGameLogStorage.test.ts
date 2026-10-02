@@ -102,15 +102,21 @@ describe('PostgresGameLogStorage', () => {
     expect(query.mock.calls.some(call => String(call[0]).includes('INSERT INTO coup_games'))).toBe(true);
   });
 
-  it('aggregates PII-free stats and caches them briefly', async () => {
-    const { pool, query } = fakePool(async (sql: string) => {
-      if (sql.includes('percentile_cont')) {
-        return { rows: [{ total: 132, last7: 30, last30: 132, solo30: 44, median30: 240000.4 }] };
-      }
-      if (sql.includes('GROUP BY game_mode')) return { rows: [{ key: 'Classic', n: 120 }, { key: 'Reformation', n: 12 }] };
-      if (sql.includes('GROUP BY player_count')) return { rows: [{ key: '4', n: 80 }, { key: '2', n: 52 }] };
-      return { rows: [] };
-    });
+  const STATS_ROW = {
+    total: 132, last7: 30, last30: 132, solo30: 44, median30: 240000.4,
+    by_mode: { Classic: 120, Reformation: 12 },
+    by_players: { '4': 80, '2': 52 },
+  };
+
+  function statsPool(statsImpl: () => Promise<{ rows: Array<Record<string, unknown>> }>) {
+    return fakePool(async (sql: string) => (sql.includes('percentile_cont') ? statsImpl() : { rows: [] }));
+  }
+
+  const statsCalls = (query: ReturnType<typeof vi.fn>) =>
+    query.mock.calls.filter(call => String(call[0]).includes('percentile_cont')).length;
+
+  it('aggregates PII-free stats in a single statement and caches them for 60s, even across saves', async () => {
+    const { pool, query } = statsPool(async () => ({ rows: [STATS_ROW] }));
     const storage = new PostgresGameLogStorage({ pool });
 
     const stats = await storage.getAggregateStats(1_000);
@@ -124,9 +130,116 @@ describe('PostgresGameLogStorage', () => {
       byPlayerCountLast30Days: { '4': 80, '2': 52 },
       generatedAt: new Date(1_000).toISOString(),
     });
+    expect(statsCalls(query)).toBe(1);
 
-    const callsAfterFirst = query.mock.calls.length;
-    await storage.getAggregateStats(2_000);
-    expect(query.mock.calls.length).toBe(callsAfterFirst);
+    await storage.saveGameLog(sampleLog());
+    await storage.getAggregateStats(30_000);
+    expect(statsCalls(query)).toBe(1);
+
+    await storage.getAggregateStats(61_001);
+    expect(statsCalls(query)).toBe(2);
+  });
+
+  it('shares one in-flight stats query between concurrent callers', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const { pool, query } = statsPool(async () => { await gate; return { rows: [STATS_ROW] }; });
+    const storage = new PostgresGameLogStorage({ pool });
+
+    const calls = Array.from({ length: 5 }, () => storage.getAggregateStats(1_000));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    release();
+    const results = await Promise.all(calls);
+
+    expect(statsCalls(query)).toBe(1);
+    expect(results.every(r => r?.totalGames === 132)).toBe(true);
+  });
+
+  it('caches a stats failure for ~10s instead of hammering a sick database', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { pool, query } = statsPool(async () => { throw new Error('timeout'); });
+    const storage = new PostgresGameLogStorage({ pool });
+
+    expect(await storage.getAggregateStats(1_000)).toBeNull();
+    expect(await storage.getAggregateStats(5_000)).toBeNull();
+    expect(statsCalls(query)).toBe(1);
+    await storage.getAggregateStats(11_001);
+    expect(statsCalls(query)).toBe(2);
+  });
+
+  it('drops work instead of queueing without bound when the pool is saturated', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const query = vi.fn(async () => ({ rows: [] }));
+    const pool: PgPoolLike = { query, on: vi.fn(), waitingCount: 50 };
+    const storage = new PostgresGameLogStorage({ pool });
+
+    await expect(storage.saveGameLog(sampleLog())).resolves.toBeUndefined();
+    await expect(storage.getAggregateStats()).resolves.toBeNull();
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it('flush waits for in-flight writes, bounded by a timeout', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const { pool } = fakePool(async (sql: string) => {
+      if (sql.includes('INSERT')) await gate;
+      return { rows: [] };
+    });
+    const storage = new PostgresGameLogStorage({ pool });
+
+    void storage.saveGameLog(sampleLog());
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(storage.pendingWriteCount).toBe(1);
+
+    const started = Date.now();
+    await storage.flush(30); // write still blocked: returns after the timeout
+    expect(Date.now() - started).toBeGreaterThanOrEqual(25);
+    expect(storage.pendingWriteCount).toBe(1);
+
+    release();
+    await storage.flush(1_000);
+    expect(storage.pendingWriteCount).toBe(0);
+  });
+
+  it('stores no player names: seats, "Player N" labels and seat ids only', async () => {
+    const { pool, query } = fakePool();
+    const storage = new PostgresGameLogStorage({ pool });
+    const log = sampleLog({
+      players: [
+        { id: 'h1-uuid', name: 'Hunter', isBot: false, personality: null, finalCoins: 3, revealedCharacters: [], hiddenCharacters: [], isAlive: true, eliminationOrder: null },
+        { id: 'h2-uuid', name: 'Ann', isBot: false, personality: null, finalCoins: 0, revealedCharacters: [], hiddenCharacters: [], isAlive: false, eliminationOrder: 1 },
+        { id: 'b1-uuid', name: 'Ann Marie', isBot: true, personality: 'optimal', finalCoins: 0, revealedCharacters: [], hiddenCharacters: [], isAlive: false, eliminationOrder: 2 },
+      ],
+      playerCount: 3,
+      winnerId: 'h1-uuid',
+      winnerName: 'Hunter',
+      actionLog: [
+        { message: 'Hunter steals from Ann Marie.', timestamp: 1, eventType: 'claim_action', character: null, turnNumber: 1, actorId: 'h1-uuid', actorName: 'Hunter', targetId: 'b1-uuid' },
+        { message: 'ann challenges Hunter! Hannah watches.', timestamp: 2, eventType: 'challenge', character: null, turnNumber: 1, actorId: 'h2-uuid', actorName: 'Ann' },
+      ],
+    });
+
+    await storage.saveGameLog(log);
+    const insert = query.mock.calls.find(call => String(call[0]).includes('INSERT INTO coup_games'))!;
+    const payloadText = (insert[1] as unknown[])[11] as string;
+    const payload = JSON.parse(payloadText);
+
+    for (const secret of ['Hunter', 'h1-uuid', 'h2-uuid', 'b1-uuid', 'Ann']) {
+      expect(payloadText).not.toContain(secret);
+    }
+    expect(payload.players.map((p: { id: string; name: string; isBot: boolean }) => [p.id, p.name, p.isBot])).toEqual([
+      ['seat-1', 'Player 1', false],
+      ['seat-2', 'Player 2', false],
+      ['seat-3', 'Player 3', true],
+    ]);
+    expect(payload.winnerId).toBe('seat-1');
+    expect(payload.winnerName).toBe('Player 1');
+    expect(payload.actionLog[0]).toMatchObject({
+      message: 'Player 1 steals from Player 3.', actorId: 'seat-1', actorName: 'Player 1', targetId: 'seat-3',
+    });
+    // Whole-name, case-insensitive matches only: "Hannah" is not a player and stays.
+    expect(payload.actionLog[1].message).toBe('Player 2 challenges Player 1! Hannah watches.');
+    // The caller's log is untouched.
+    expect(log.players[0].name).toBe('Hunter');
   });
 });
