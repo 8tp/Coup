@@ -33,8 +33,9 @@ export function HowToPlay({ open, onClose }: HowToPlayProps) {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold">How to Play</h2>
           <button
-            className="text-coup-ink-mute hover:text-white text-2xl leading-none px-1"
+            className="court-icon-btn text-2xl leading-none"
             onClick={() => { haptic(); onClose(); }}
+            aria-label="Close"
           >
             &times;
           </button>

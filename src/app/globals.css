@@ -201,6 +201,32 @@
     display: none;
   }
 
+  /* Menu screens stand in the painted council chamber; the drawn table above
+     is the fallback while it loads and on the game screen's sibling pages. */
+  body:has(.menu-root),
+  body:has(.lobby-root) {
+    background-image:
+      linear-gradient(180deg, rgba(6, 10, 11, 0.55) 0%, rgba(6, 10, 11, 0.25) 45%, rgba(6, 10, 11, 0.7) 100%),
+      url('/assets/backgrounds/menu-chamber-wide-v1.webp');
+    background-size: cover;
+    background-position: center 60%;
+  }
+
+  body:has(.menu-root)::before,
+  body:has(.lobby-root)::before {
+    display: none;
+  }
+
+  @media (max-aspect-ratio: 4/5) {
+    body:has(.menu-root),
+    body:has(.lobby-root) {
+      background-image:
+        linear-gradient(180deg, rgba(6, 10, 11, 0.5) 0%, rgba(6, 10, 11, 0.2) 50%, rgba(6, 10, 11, 0.65) 100%),
+        url('/assets/backgrounds/menu-chamber-tall-v1.webp');
+      background-position: center bottom;
+    }
+  }
+
   :focus-visible {
     outline: 2px solid #d6a12a;
     outline-offset: 2px;
@@ -209,10 +235,7 @@
 
 @layer components {
   .brand-wordmark {
-    filter:
-      brightness(1.28)
-      contrast(1.08)
-      drop-shadow(0 4px 14px rgba(0,0,0,0.92));
+    filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.75));
   }
 
   /* ------------------------------------------------------------------
@@ -257,33 +280,91 @@
     line-height: 1.15;
   }
 
+  /* ------------------------------------------------------------------
+     Buttons — ART-DIRECTION.md §1.2 and §5. Pressables are enamel slabs:
+     flat fill, the 3px zero-blur chrome shadow, and a press that travels the
+     shadow's distance so it vanishes into the surface. No gradient, no glow,
+     no 12px app-card radius. Labels are the Display face.
+     ------------------------------------------------------------------ */
+  .btn-primary,
+  .btn-secondary,
+  .btn-danger,
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 48px;
+    min-width: 48px;
+    padding: 0.7rem 1.25rem;
+    border-radius: 3px;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: var(--step-1);
+    letter-spacing: 0.01em;
+    line-height: 1.1;
+    text-align: center;
+    box-shadow: var(--shadow-chrome);
+    transition: transform 80ms cubic-bezier(0.3, 0.8, 0.4, 1), box-shadow 80ms, background-color 120ms, color 120ms;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .btn-primary:active:not(:disabled),
+  .btn-secondary:active:not(:disabled),
+  .btn-danger:active:not(:disabled),
+  .btn-ghost:active:not(:disabled) {
+    transform: translate(3px, 3px);
+    box-shadow: 0 0 0 var(--ground-deep);
+  }
+
+  .btn-primary:disabled,
+  .btn-secondary:disabled,
+  .btn-danger:disabled,
+  .btn-ghost:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
   .btn-primary {
-    @apply bg-coup-accent text-coup-bg font-bold py-3 px-6 rounded-xl
-           active:scale-95 transition-all duration-100
-           disabled:opacity-50 disabled:cursor-not-allowed
-           text-lg min-h-[48px] min-w-[48px]
-           lg:py-2.5 lg:px-5 lg:text-base lg:rounded-lg;
-    background-image: linear-gradient(to bottom, rgba(255,255,255,0.1), transparent);
+    background-color: var(--brass);
+    color: var(--ground);
   }
 
   .btn-primary:hover:not(:disabled) {
-    box-shadow: 0 0 16px rgba(251, 191, 36, 0.3);
-  }
-
-  .btn-danger {
-    @apply bg-red-600 text-white font-bold py-3 px-6 rounded-xl
-           active:scale-95 transition-transform duration-100
-           disabled:opacity-50 disabled:cursor-not-allowed
-           text-lg min-h-[48px] min-w-[48px]
-           lg:py-2.5 lg:px-5 lg:text-base lg:rounded-lg;
+    background-color: #e3b13c;
   }
 
   .btn-secondary {
-    @apply bg-coup-card text-white font-bold py-3 px-6 rounded-xl border border-gray-600
-           active:scale-95 transition-transform duration-100
-           disabled:opacity-50 disabled:cursor-not-allowed
-           text-lg min-h-[48px] min-w-[48px]
-           lg:py-2.5 lg:px-5 lg:text-base lg:rounded-lg;
+    background-color: var(--raised);
+    color: var(--ink);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.05),
+      var(--shadow-chrome);
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background-color: #2a3a34;
+    color: var(--brass);
+  }
+
+  .btn-danger {
+    background-color: #a8323a;
+    color: var(--ink);
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    background-color: #bb3a43;
+  }
+
+  /* A quiet pressable: furniture-coloured, for tertiary actions and tiles. */
+  .btn-ghost {
+    background-color: rgba(23, 35, 31, 0.75);
+    color: var(--ink-mute);
+    font-size: var(--step-0);
+  }
+
+  .btn-ghost:hover:not(:disabled) {
+    color: var(--brass);
   }
 
   /* ------------------------------------------------------------------
@@ -1190,11 +1271,21 @@
     animation-duration: 512ms !important;
   }
 
+  /* Fields are wells milled into the furniture (§5 deboss), not outlined boxes. */
   .input-field {
-    @apply bg-coup-surface border border-gray-600 rounded-xl px-4 py-3
-           text-white text-lg placeholder-coup-ink-mute
-           focus:outline-none focus:border-coup-accent focus:ring-1 focus:ring-coup-accent
-           min-h-[48px] w-full;
+    @apply text-lg placeholder-coup-ink-mute w-full;
+    min-height: 48px;
+    padding: 0.7rem 0.9rem;
+    border-radius: 3px;
+    background-color: var(--ground-deep);
+    color: var(--ink);
+    box-shadow: var(--deboss), inset 0 0 0 1px rgba(51, 68, 62, 0.6);
+    transition: box-shadow 120ms;
+  }
+
+  .input-field:focus {
+    outline: none;
+    box-shadow: var(--deboss), inset 0 0 0 2px var(--brass);
   }
 
   /* ------------------------------------------------------------------
@@ -1391,7 +1482,8 @@
 
   /* How to Play tabs */
   .how-to-play-tab {
-    @apply px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap;
+    @apply px-4 rounded-full text-sm font-medium transition-colors whitespace-nowrap;
+    min-height: 44px;
   }
 
   .how-to-play-tab[data-active='true'] {
@@ -1400,6 +1492,597 @@
 
   .how-to-play-tab[data-active='false'] {
     @apply bg-coup-card text-gray-400 hover:text-white;
+  }
+
+  /* ==================================================================
+     THE MENU — home screen. One column, one panel, everything a thumb
+     needs inside the bottom two-thirds on a phone. Every pressable is at
+     least 44px; the name is asked once and remembered.
+     ================================================================== */
+
+  .menu-root {
+    position: relative;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: max(0.75rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom));
+  }
+
+  .menu-topbar {
+    position: absolute;
+    top: max(0.75rem, env(safe-area-inset-top));
+    right: 0.75rem;
+    z-index: 10;
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .menu-column {
+    width: 100%;
+    max-width: 26rem;
+    margin: auto 0;
+    padding-top: 3.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .menu-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.35rem;
+  }
+
+  .menu-wordmark {
+    width: min(78vw, 20rem);
+    height: auto;
+  }
+
+  .menu-tagline {
+    margin-top: 0.35rem;
+    font-family: var(--font-display);
+    font-size: var(--step-1);
+    color: var(--ink);
+    letter-spacing: 0.02em;
+  }
+
+  .menu-presence {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: var(--step--1);
+    color: var(--ink-mute);
+  }
+
+  .menu-presence-dot {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 9999px;
+    background-color: #6fbf8a;
+  }
+
+  .menu-error {
+    padding: 0.65rem 0.85rem;
+    border-radius: 3px;
+    background-color: rgba(95, 20, 28, 0.85);
+    background-image: var(--hazard-rail);
+    background-repeat: no-repeat;
+    background-size: 100% 3px;
+    color: var(--ink);
+    font-size: var(--step-0);
+    text-align: center;
+  }
+
+  .menu-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+    border-radius: 3px;
+    background-color: rgba(23, 35, 31, 0.92);
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.5),
+      0 18px 40px rgba(0, 0, 0, 0.45);
+    background-image: linear-gradient(var(--brass), var(--brass));
+    background-repeat: no-repeat;
+    background-size: 100% 3px;
+  }
+
+  .menu-label {
+    font-size: var(--step--1);
+    font-weight: 600;
+    color: var(--ink-mute);
+    margin-bottom: -0.4rem;
+  }
+
+  .menu-play {
+    flex-direction: column;
+    gap: 0.15rem;
+    min-height: 4rem;
+    font-size: var(--step-2);
+  }
+
+  .menu-play-sub {
+    font-family: var(--font-body);
+    font-size: var(--step--1);
+    font-weight: 600;
+    opacity: 0.75;
+  }
+
+  .menu-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+  }
+
+  .menu-split .is-open {
+    color: var(--brass);
+    box-shadow: inset 0 -3px 0 var(--brass), var(--shadow-chrome);
+  }
+
+  .menu-drawer {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.75rem;
+    border-radius: 3px;
+    background-color: var(--ground-deep);
+    box-shadow: var(--deboss);
+  }
+
+  .menu-switch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 48px;
+    width: 100%;
+    padding: 0.25rem 0.1rem;
+    text-align: left;
+  }
+
+  .switch-track {
+    position: relative;
+    flex: none;
+    width: 3rem;
+    height: 1.75rem;
+    border-radius: 9999px;
+    background-color: #3a4a44;
+    transition: background-color 150ms;
+  }
+
+  .switch-track > span {
+    position: absolute;
+    top: 0.2rem;
+    left: 0.2rem;
+    width: 1.35rem;
+    height: 1.35rem;
+    border-radius: 9999px;
+    background-color: var(--ink);
+    transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .switch-track.is-on {
+    background-color: var(--brass);
+  }
+
+  .switch-track.is-on > span {
+    transform: translateX(1.25rem);
+  }
+
+  .menu-code-row {
+    display: flex;
+    gap: 0.6rem;
+  }
+
+  .menu-code {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--font-figure);
+    font-size: var(--step-2);
+    letter-spacing: 0.35em;
+    text-align: center;
+    text-transform: uppercase;
+  }
+
+  .menu-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .menu-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .menu-section-title {
+    font-family: var(--font-display);
+    font-size: var(--step-1);
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .menu-link {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0 0.25rem;
+    color: var(--brass);
+    font-weight: 600;
+    font-size: var(--step-0);
+  }
+
+  .menu-empty {
+    padding: 0.85rem;
+    border-radius: 3px;
+    background-color: rgba(5, 9, 10, 0.5);
+    color: var(--ink-mute);
+    font-size: var(--step--1);
+    text-align: center;
+  }
+
+  .menu-rooms {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    max-height: 22rem;
+    overflow-y: auto;
+  }
+
+  .menu-room {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.5rem 0.5rem 0.5rem 0.85rem;
+    border-radius: 3px;
+    background-color: rgba(23, 35, 31, 0.85);
+  }
+
+  .menu-room-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .menu-room-meta {
+    font-size: var(--step--1);
+    color: var(--ink-mute);
+  }
+
+  .menu-room-btn {
+    flex: none;
+    min-width: 5.5rem;
+    min-height: 44px;
+    padding: 0.5rem 1rem;
+    font-size: var(--step-0);
+  }
+
+  .menu-learn {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+  }
+
+  .menu-learn > .btn-ghost {
+    padding-left: 0.4rem;
+    padding-right: 0.4rem;
+  }
+
+  .menu-footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    color: var(--ink-mute);
+    font-size: var(--step--1);
+  }
+
+  .menu-footer-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 44px;
+    padding: 0 0.5rem;
+    color: var(--ink-mute);
+  }
+
+  .menu-footer-link:hover {
+    color: var(--ink);
+  }
+
+  /* ── The lobby ─────────────────────────────────────────────────────── */
+
+  .lobby-root {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: max(0.75rem, env(safe-area-inset-top)) 1rem 0;
+  }
+
+  .lobby-top {
+    width: 100%;
+    max-width: 52rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .lobby-column {
+    width: 100%;
+    max-width: 52rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 0.5rem 0 1.5rem;
+  }
+
+  .lobby-code-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    text-align: center;
+  }
+
+  .lobby-code {
+    min-height: 56px;
+    padding: 0 1rem;
+    font-size: clamp(2.5rem, 2rem + 2.5vw, 3.5rem);
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    margin-right: -0.3em;
+    color: var(--brass);
+  }
+
+  .lobby-copy-status {
+    min-height: 1.25rem;
+    font-size: var(--step--1);
+    color: var(--ink-mute);
+  }
+
+  .lobby-share {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+    width: 100%;
+    max-width: 26rem;
+    margin-top: 0.25rem;
+  }
+
+  .lobby-share .btn-secondary {
+    min-height: 44px;
+    font-size: var(--step-0);
+    padding: 0.5rem 0.75rem;
+  }
+
+  .lobby-grid {
+    display: grid;
+    gap: 1rem;
+  }
+
+  @media (min-width: 900px) {
+    .lobby-grid { grid-template-columns: 1fr 1fr; align-items: start; }
+  }
+
+  .lobby-players {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .lobby-player {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 56px;
+    padding: 0.4rem 0.4rem 0.4rem 0.85rem;
+    border-radius: 3px;
+    background-color: var(--ground-deep);
+    box-shadow: var(--deboss);
+  }
+
+  .lobby-player.is-away {
+    opacity: 0.6;
+  }
+
+  .lobby-player-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .lobby-player-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.75rem;
+    margin-top: 0.1rem;
+  }
+
+  .lobby-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.75rem;
+    color: var(--ink-mute);
+    text-transform: capitalize;
+  }
+
+  .lobby-tag-host {
+    color: var(--brass);
+    font-weight: 700;
+  }
+
+  .lobby-dot {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 9999px;
+  }
+
+  .lobby-remove {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 3px;
+    color: var(--ink-mute);
+  }
+
+  .lobby-remove:hover {
+    color: var(--crimson);
+    background-color: rgba(242, 115, 102, 0.08);
+  }
+
+  .lobby-spectators {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .lobby-setting {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .lobby-setting-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .lobby-seg {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 0.2rem;
+    border-radius: 3px;
+    background-color: var(--ground-deep);
+    box-shadow: var(--deboss);
+  }
+
+  .lobby-seg > button {
+    min-height: 44px;
+    border-radius: 2px;
+    font-family: var(--font-display);
+    font-weight: 700;
+    color: var(--ink-mute);
+    transition: background-color 120ms, color 120ms;
+  }
+
+  .lobby-seg > button.is-on {
+    background-color: var(--brass);
+    color: var(--ground);
+  }
+
+  /* A range you can actually grab with a thumb: 44px tall hit area, 28px knob. */
+  .lobby-range {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 44px;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .lobby-range::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 9999px;
+    background: var(--ground-deep);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+
+  .lobby-range::-moz-range-track {
+    height: 6px;
+    border-radius: 9999px;
+    background: var(--ground-deep);
+  }
+
+  .lobby-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 28px;
+    height: 28px;
+    margin-top: -11px;
+    border-radius: 9999px;
+    background: var(--brass);
+    box-shadow: 0 0 0 3px var(--ground-deep), 0 2px 4px rgba(0, 0, 0, 0.5);
+  }
+
+  .lobby-range::-moz-range-thumb {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 9999px;
+    background: var(--brass);
+  }
+
+  .lobby-range-readonly {
+    height: 6px;
+    margin: 0.5rem 0;
+    border-radius: 9999px;
+    background: var(--ground-deep);
+  }
+
+  .lobby-range-readonly > div {
+    height: 100%;
+    border-radius: 9999px;
+    background: rgba(214, 161, 42, 0.45);
+  }
+
+  .lobby-range-ends {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-top: -0.35rem;
+    font-size: 0.75rem;
+    color: var(--ink-mute);
+  }
+
+  /* The start bar stays under the thumb however long the page gets. */
+  .lobby-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    width: calc(100% + 2rem);
+    margin: 0 -1rem;
+    padding: 0.75rem 1rem max(0.75rem, env(safe-area-inset-bottom));
+    background: linear-gradient(180deg, rgba(6, 10, 11, 0) 0%, rgba(6, 10, 11, 0.92) 28%);
+  }
+
+  .lobby-actions-inner {
+    display: flex;
+    gap: 0.6rem;
+    width: 100%;
+    max-width: 26rem;
+    margin: 0 auto;
+  }
+
+  .lobby-actions-inner .btn-primary {
+    min-height: 54px;
+  }
+
+  .lobby-actions-hint {
+    max-width: 26rem;
+    margin: 0.4rem auto 0;
+    text-align: center;
+    font-size: var(--step--1);
+    color: var(--ink-mute);
+  }
+
+  .lobby-actions-hint.is-warn {
+    color: #e9c46a;
   }
 
   /* ==================================================================
@@ -1462,9 +2145,9 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2.25rem;
-    height: 2.25rem;
-    border-radius: 2px;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 3px;
     color: var(--ink-mute);
     background-color: rgba(23, 35, 31, 0.7);
     box-shadow: var(--shadow-chrome);
@@ -1490,7 +2173,7 @@
     border-radius: 9999px;
     background-color: var(--brass);
     color: var(--ground);
-    font-size: 0.65rem;
+    font-size: 0.6875rem;
     font-weight: 800;
     line-height: 1.1rem;
     text-align: center;
@@ -1865,7 +2548,7 @@
   }
 
   .court-seat-tag {
-    font-size: 0.6rem;
+    font-size: 0.6875rem;
     font-weight: 700;
     letter-spacing: 0.04em;
     color: var(--ink-mute);
@@ -1901,14 +2584,14 @@
 
   .court-seat-mute {
     position: absolute;
-    top: -0.45rem;
-    right: -0.45rem;
+    top: -0.55rem;
+    right: -0.55rem;
     z-index: 3;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.35rem;
-    height: 1.35rem;
+    width: 1.75rem;
+    height: 1.75rem;
     border-radius: 9999px;
     background-color: var(--ground-deep);
     color: var(--ink-mute);
@@ -1919,11 +2602,12 @@
     color: var(--brass);
   }
 
+  /* On touch the seat is a target you aim at; a 20px button on its corner is
+     a mis-tap waiting to happen. Muting lives in the drawer's player list. A
+     muted seat still shows its (inert) badge so the state is visible. */
   @media (hover: none) {
-    .court-seat-mute:not(.is-muted) {
-      opacity: 0.45;
-      transform: scale(0.85);
-    }
+    .court-seat-mute { pointer-events: none; }
+    .court-seat-mute:not(.is-muted) { display: none; }
   }
 
   @media (hover: hover) {
@@ -2072,6 +2756,8 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
+    justify-content: center;
+    min-height: 44px;
     gap: 0.2rem;
     width: 100%;
     padding: 0.5rem 0.6rem;
@@ -2167,6 +2853,26 @@
     min-height: 0;
   }
 
+  .drawer-mutes {
+    margin-bottom: 0.5rem;
+    border-radius: 3px;
+    background-color: var(--ground-deep);
+  }
+
+  .drawer-mutes > summary {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 0.75rem;
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--ink-mute);
+  }
+
+  .drawer-mutes ul {
+    padding: 0 0.75rem 0.5rem;
+  }
+
   /* ── Breakpoints ─────────────────────────────────────────────────────── */
 
   @media (min-width: 768px) {
@@ -2248,8 +2954,11 @@
        the felt moves down into the half that is free. */
     .court-centre {
       width: 76%;
-      top: calc(var(--table-top) + (100% - var(--table-top) - var(--table-bottom)) * 0.7);
-      max-height: calc((100% - var(--table-top) - var(--table-bottom)) * 0.56);
+      /* Below the far-half seats, above where the bottom sheet rises: the
+         prompts themselves live in the sheet (GameTable promptsInDock), so
+         this is only the phase line and the claim plaque. */
+      top: calc(var(--table-top) + (100% - var(--table-top) - var(--table-bottom)) * 0.56);
+      max-height: calc((100% - var(--table-top) - var(--table-bottom)) * 0.4);
     }
 
     .court-seat-cards .card-face-sm {
@@ -2319,7 +3028,7 @@
 
   .deck-leaf-top {
     background-color: var(--surface);
-    background-image: url('/assets/cards/back-v2.webp');
+    background-image: url('/assets/cards/back-v3.webp');
     background-size: cover;
     background-position: center;
     box-shadow: var(--shadow-paper);
@@ -2401,7 +3110,8 @@
    opaque, so the felt and seats under it do not read through, and tight. */
 @media (max-width: 1023px) {
   .court-dock-actions .prompt-action,
-  .court-dock-actions .prompt-urgent {
+  .court-dock-actions .prompt-urgent,
+  .court-dock-actions .prompt-info {
     background-color: var(--raised);
     box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.55);
   }

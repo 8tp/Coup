@@ -41,87 +41,68 @@ export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, pr
 
   return (
     <Modal open={open} onClose={onClose} title="Settings" maxWidth="max-w-sm">
-      <div className="space-y-5">
+      <div className="space-y-2">
         {/* Sound effects */}
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-300">Sound Effects</span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={!isMuted}
-            onClick={() => { haptic(); setMuted(!isMuted); }}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${!isMuted ? 'bg-coup-accent' : 'bg-gray-600'}`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${!isMuted ? 'translate-x-6' : 'translate-x-1'}`}
-            />
-          </button>
-        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={!isMuted}
+          className="menu-switch"
+          onClick={() => { haptic(); setMuted(!isMuted); }}
+        >
+          <span className="font-semibold text-coup-ink">Sound Effects</span>
+          <span className={`switch-track ${!isMuted ? 'is-on' : ''}`} aria-hidden="true"><span /></span>
+        </button>
 
         {/* Music */}
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-300">Music</span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={musicEnabled}
-            aria-label="Background music"
-            onClick={() => { haptic(); setMusicEnabled(!musicEnabled); }}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${musicEnabled ? 'bg-coup-accent' : 'bg-gray-600'}`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${musicEnabled ? 'translate-x-6' : 'translate-x-1'}`}
-            />
-          </button>
-        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={musicEnabled}
+          className="menu-switch"
+          onClick={() => { haptic(); setMusicEnabled(!musicEnabled); }}
+        >
+          <span className="font-semibold text-coup-ink">Music</span>
+          <span className={`switch-track ${musicEnabled ? 'is-on' : ''}`} aria-hidden="true"><span /></span>
+        </button>
 
         {/* Haptic Feedback — touch devices only */}
         {isTouchDevice && (
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-300">Haptic Feedback</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={hapticEnabled}
-              onClick={() => { haptic(); setHapticEnabled(!hapticEnabled); }}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${hapticEnabled ? 'bg-coup-accent' : 'bg-gray-600'}`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${hapticEnabled ? 'translate-x-6' : 'translate-x-1'}`}
-              />
-            </button>
-          </div>
-        )}
-
-        {/* Reduced Animation */}
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-sm text-gray-300">Reduced Animation</span>
           <button
             type="button"
             role="switch"
-            aria-checked={reducedMotionEnabled}
-            onClick={() => { haptic(); setReducedMotionEnabled(!reducedMotionEnabled); }}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${reducedMotionEnabled ? 'bg-coup-accent' : 'bg-gray-600'}`}
+            aria-checked={hapticEnabled}
+            className="menu-switch"
+            onClick={() => { haptic(); setHapticEnabled(!hapticEnabled); }}
           >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${reducedMotionEnabled ? 'translate-x-6' : 'translate-x-1'}`}
-            />
+            <span className="font-semibold text-coup-ink">Haptic Feedback</span>
+            <span className={`switch-track ${hapticEnabled ? 'is-on' : ''}`} aria-hidden="true"><span /></span>
           </button>
-        </div>
+        )}
+
+        {/* Reduced Animation */}
+        <button
+          type="button"
+          role="switch"
+          aria-checked={reducedMotionEnabled}
+          className="menu-switch"
+          onClick={() => { haptic(); setReducedMotionEnabled(!reducedMotionEnabled); }}
+        >
+          <span className="font-semibold text-coup-ink">Reduced Animation</span>
+          <span className={`switch-track ${reducedMotionEnabled ? 'is-on' : ''}`} aria-hidden="true"><span /></span>
+        </button>
 
         {/* Text Size */}
         <div>
           <span className="text-sm text-gray-300 block mb-2">Text Size</span>
-          <div className="flex rounded-lg overflow-hidden border border-coup-line">
+          <div className="lobby-seg !grid-cols-3" role="radiogroup" aria-label="Text size">
             {TEXT_SIZE_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
                 onClick={() => { haptic(); setTextSize(opt.value); }}
-                className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                  textSize === opt.value
-                    ? 'bg-coup-accent text-coup-bg'
-                    : 'bg-coup-card text-gray-400 hover:text-white'
-                }`}
+                role="radio"
+                aria-checked={textSize === opt.value}
+                className={textSize === opt.value ? 'is-on' : ''}
               >
                 {opt.label}
               </button>
@@ -136,7 +117,7 @@ export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, pr
             <div className="space-y-2">
               {onOpenTutorial && (
                 <button
-                  className="w-full py-2.5 px-3 rounded-lg border border-coup-accent/50 text-sm text-coup-accent hover:bg-coup-accent/10 transition text-center font-medium"
+                  className="btn-secondary w-full"
                   onClick={() => { haptic(); onClose(); onOpenTutorial(); }}
                 >
                   New Player Tutorial
@@ -145,20 +126,20 @@ export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, pr
               {onPracticeBot && (
                 <div className="grid grid-cols-2 gap-2">
                   <button
-                    className="rounded-lg border border-coup-line px-3 py-2.5 text-center text-sm font-medium text-gray-300 transition hover:border-coup-accent hover:text-coup-accent disabled:cursor-not-allowed disabled:opacity-50"
+                    className="btn-secondary !flex-col !gap-0.5"
                     onClick={() => { haptic(80); onClose(); onPracticeBot(GameMode.Classic); }}
                     disabled={practiceLoading}
                   >
                     <span className="block">Classic</span>
-                    <span className="mt-0.5 block text-[10px] font-normal text-coup-ink-mute">Practice vs Bot</span>
+                    <span className="block font-sans text-xs font-normal text-coup-ink-mute">Practice vs Bot</span>
                   </button>
                   <button
-                    className="rounded-lg border border-teal-600/70 px-3 py-2.5 text-center text-sm font-medium text-teal-300 transition hover:border-teal-400 hover:bg-teal-950/40 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="btn-secondary !flex-col !gap-0.5"
                     onClick={() => { haptic(80); onClose(); onPracticeBot(GameMode.Reformation); }}
                     disabled={practiceLoading}
                   >
                     <span className="block">Reformation</span>
-                    <span className="mt-0.5 block text-[10px] font-normal text-coup-ink-mute">Guided Bot Game</span>
+                    <span className="block font-sans text-xs font-normal text-coup-ink-mute">Guided Bot Game</span>
                   </button>
                 </div>
               )}
@@ -175,7 +156,7 @@ export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, pr
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => haptic()}
-              className="flex-1 py-2 px-3 rounded-lg border border-coup-line text-sm text-gray-300 hover:border-red-400 hover:text-red-400 transition text-center"
+              className="btn-ghost flex-1"
             >
               Report Bug
             </a>
@@ -184,7 +165,7 @@ export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, pr
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => haptic()}
-              className="flex-1 py-2 px-3 rounded-lg border border-coup-line text-sm text-gray-300 hover:border-coup-accent hover:text-coup-accent transition text-center"
+              className="btn-ghost flex-1"
             >
               Send Feedback
             </a>
