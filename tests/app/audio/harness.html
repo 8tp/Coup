@@ -17,7 +17,17 @@
   const status = document.getElementById('status');
   const out = document.getElementById('out');
   try {
-    const report = await window.__COUP_AUDIO.run();
+    // ?mode=solve re-solves every hero clip's gain instead of measuring.
+    // ?mode=clips measures each decoded clip raw, outside the graph.
+    // ?mode=live drives the live engine (music + every cue) and reports errors.
+    const mode = new URLSearchParams(location.search).get('mode');
+    const report = mode === 'solve'
+      ? { solve: await window.__COUP_AUDIO.solve(), userAgent: navigator.userAgent, rows: [] }
+      : mode === 'clips'
+        ? { clips: await window.__COUP_AUDIO.inspectClips(), userAgent: navigator.userAgent, rows: [] }
+        : mode === 'live'
+          ? { live: await window.__COUP_AUDIO.liveSmoke(), userAgent: navigator.userAgent, rows: [] }
+        : await window.__COUP_AUDIO.run();
     window.__COUP_REPORT = report;
     status.textContent = 'done — ' + report.rows.length + ' rows';
     out.textContent = JSON.stringify(report, null, 2);

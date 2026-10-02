@@ -23,6 +23,7 @@ import {
   HERO_CLIP_GAIN,
   MIX_TIER_OF,
   MIX_TRIM_DB,
+  VOICE_TAIL_S,
   softClipCeiling,
   type MixTier,
   type SoundId,
@@ -30,6 +31,10 @@ import {
 import {
   MEASURED,
   MEASURED_AT,
+  MEASURED_BEDS,
+  MEASURED_MASKING,
+  MEASURED_CLIP_CONTRAST,
+  MEASURED_CLIP_PAIRS,
   MEASURED_CONTRAST,
   MEASURED_HERO_CLIP,
   MEASURED_HERO_CLIP_GAIN,
@@ -38,6 +43,8 @@ import {
   MEASURED_ST_RMS_DBFS,
   MEASURED_TRIM_DB,
   SOFT_CLIP_CEILING_DBFS,
+  shippedLevels,
+  type ClipLevels,
 } from './measurements';
 
 /** Minimum gap between adjacent tiers, in dB. Below this it is a coin-flip. */
@@ -46,8 +53,13 @@ const TIER_MARGIN_DB = 1.5;
 /** Minimum gap between the quietest loss and the loudest routine cue, on peak. */
 const STAB_MARGIN_DB = 1.5;
 
-/** Clip and fallback must land this close on loudness. */
-const HERO_PARITY_DB = 1.5;
+/**
+ * Clip and fallback must land this close on loudness. Was 1.5dB when only the
+ * two stingers had clips; every clip is now SOLVED onto its fallback (the
+ * harness iterates to <0.05dB), so anything wider than this is a gain that was
+ * not re-solved.
+ */
+const HERO_PARITY_DB = 0.25;
 
 /**
  * How much gain reduction a single cue may take before it is the LIMITER, not
@@ -168,8 +180,10 @@ describe('audio mix — the ceiling is a property of the graph', () => {
     for (const id of IDS) {
       expect(MEASURED_PEAK_DBFS[id], `${id} peak`).toBeLessThan(SOFT_CLIP_CEILING_DBFS);
     }
-    for (const [id, levels] of Object.entries(MEASURED_HERO_CLIP)) {
-      if (levels) expect(levels.peakDb, `${id} clip peak`).toBeLessThan(SOFT_CLIP_CEILING_DBFS);
+    for (const [id, variants] of Object.entries(MEASURED_HERO_CLIP)) {
+      for (const [v, levels] of (variants ?? []).entries()) {
+        expect(levels.peakDb, `${id} clip ${v} peak`).toBeLessThan(SOFT_CLIP_CEILING_DBFS);
+      }
     }
   });
 
@@ -178,9 +192,9 @@ describe('audio mix — the ceiling is a property of the graph', () => {
       expect(MEASURED[id].limiterDb, `${id} gain reduction`)
         .toBeLessThanOrEqual(MAX_LIMITER_DB);
     }
-    for (const [id, levels] of Object.entries(MEASURED_HERO_CLIP)) {
-      if (levels) {
-        expect(levels.limiterDb, `${id} clip gain reduction`)
+    for (const [id, variants] of Object.entries(MEASURED_HERO_CLIP)) {
+      for (const [v, levels] of (variants ?? []).entries()) {
+        expect(levels.limiterDb, `${id} clip ${v} gain reduction`)
           .toBeLessThanOrEqual(MAX_LIMITER_DB);
       }
     }
@@ -274,24 +288,169 @@ describe('audio mix — denied cannot be mistaken for a loss', () => {
 
 describe('audio mix — the fallback matches the clip it replaces', () => {
   it.each(Object.keys(MEASURED_HERO_CLIP) as SoundId[])(
-    '%s: mastered clip and synth fallback land within 1.5dB',
+    `%s: every mastered variant and the synth fallback land within ${HERO_PARITY_DB}dB`,
     (id) => {
-      const clip = MEASURED_HERO_CLIP[id];
-      expect(clip, `${id} has no clip measurement`).toBeDefined();
-      if (!clip) return;
-      const delta = Math.abs(clip.stRmsDb - MEASURED[id].stRmsDb);
-      expect(
-        delta,
-        `${id}: clip ${clip.stRmsDb} dBFS loud vs fallback ${MEASURED[id].stRmsDb} — `
-        + `${delta.toFixed(2)}dB apart. A fallback at a different level from the `
-        + 'clip is a bug nobody notices until the fetch fails.',
-      ).toBeLessThanOrEqual(HERO_PARITY_DB);
+      const variants = MEASURED_HERO_CLIP[id];
+      expect(variants?.length, `${id} has no clip measurement`).toBeGreaterThan(0);
+      for (const [v, clip] of (variants ?? []).entries()) {
+        const delta = Math.abs(clip.stRmsDb - MEASURED[id].stRmsDb);
+        expect(
+          delta,
+          `${id} variant ${v}: clip ${clip.stRmsDb} dBFS loud vs fallback ${MEASURED[id].stRmsDb} — `
+          + `${delta.toFixed(2)}dB apart. A fallback at a different level from the `
+          + 'clip is a bug nobody notices until the fetch fails.',
+        ).toBeLessThanOrEqual(HERO_PARITY_DB);
+      }
     },
   );
 
-  it('every hero clip in the engine has a recorded measurement', () => {
-    for (const id of Object.keys(HERO_CLIP_GAIN) as SoundId[]) {
-      expect(MEASURED_HERO_CLIP[id], `${id} clip not measured`).toBeDefined();
+  it('every hero clip variant in the engine has a recorded measurement', () => {
+    for (const [id, gains] of Object.entries(HERO_CLIP_GAIN) as [SoundId, readonly number[]][]) {
+      expect(MEASURED_HERO_CLIP[id]?.length, `${id}: ${gains.length} variants, measured `
+        + `${MEASURED_HERO_CLIP[id]?.length ?? 0}`).toBe(gains.length);
     }
+    expect(Object.keys(MEASURED_HERO_CLIP).sort()).toEqual(Object.keys(HERO_CLIP_GAIN).sort());
+  });
+
+  it('the voice budget covers every routine clip for as long as it sounds', () => {
+    // VOICE.tail is how long a voice holds its budget slot. A coin clip that
+    // rings 420ms on a 200ms tail lets the budget admit voices the graph is
+    // still playing. The two mastered stingers are exempt: priority voices
+    // only meet the runaway cap.
+    for (const [id, variants] of Object.entries(MEASURED_HERO_CLIP) as [SoundId, readonly ClipLevels[]][]) {
+      if (id === 'gameOverWin' || id === 'gameOverLose') continue;
+      const longest = Math.max(...variants.map(v => v.activeMs));
+      expect(VOICE_TAIL_S[id] * 1000, `${id}: tail ${VOICE_TAIL_S[id]}s vs clip ${longest}ms`)
+        .toBeGreaterThanOrEqual(longest);
+    }
+  });
+});
+
+/**
+ * ── THE SHIPPED LADDER ──────────────────────────────────────────────────────
+ *
+ * The tests above order the SYNTH bank, which since 2026-10-01 is what plays
+ * only when a fetch fails. What a player hears is the clips. Parity (above)
+ * keeps each clip within HERO_PARITY_DB of its fallback on loudness, but a
+ * clip's PEAK is its own — a recorded coin clink carries far more crest than a
+ * sine — so the headline rules are asserted again on the ladder as shipped:
+ * every variant of every hero cue, and the synth voice for anything without
+ * one.
+ */
+describe('audio mix — the shipped ladder (clips) holds the same rules', () => {
+  const shippedSt = (id: SoundId): number[] => shippedLevels(id).map(l => l.stRmsDb);
+  const shippedPeak = (id: SoundId): number[] => shippedLevels(id).map(l => l.peakDb);
+
+  it.each([0, 1, 2, 3] as MixTier[])(
+    'tier %i sits at least 1.5dB above the tier below it, as shipped',
+    (upper) => {
+      const lower = (upper + 1) as MixTier;
+      const quietestAbove = Math.min(...idsInTier(upper).flatMap(shippedSt));
+      const loudestBelow = Math.max(...idsInTier(lower).flatMap(shippedSt));
+      expect(
+        quietestAbove - loudestBelow,
+        `shipped tier ${upper} bottoms at ${quietestAbove} and tier ${lower} tops at ${loudestBelow}`,
+      ).toBeGreaterThanOrEqual(TIER_MARGIN_DB);
+    },
+  );
+
+  it('no routine clip STABS above a loss on true peak', () => {
+    const quietestLoss = Math.min(...[...idsInTier(0), ...idsInTier(1)].flatMap(shippedPeak));
+    const hottestRoutine = Math.max(...[...idsInTier(3), ...idsInTier(4)].flatMap(shippedPeak));
+    expect(
+      quietestLoss - hottestRoutine,
+      `quietest loss peaks at ${quietestLoss} dBFS, hottest routine at ${hottestRoutine}`,
+    ).toBeGreaterThanOrEqual(STAB_MARGIN_DB);
+  });
+
+  it('the beats a game produces, as clips, do not sum into the limiter', () => {
+    expect(MEASURED_CLIP_PAIRS.length).toBe(MEASURED_PAIRS.length);
+    for (const pair of MEASURED_CLIP_PAIRS) {
+      expect(pair.peakDb, `${pair.label} peak`).toBeLessThan(SOFT_CLIP_CEILING_DBFS);
+      expect(pair.limiterDb, `${pair.label} gain reduction`).toBeLessThanOrEqual(MAX_PAIR_LIMITER_DB);
+    }
+    const tap = MEASURED_CLIP_PAIRS.find(p => p.label === 'denied x2 @90ms');
+    expect(tap, 'denied x2 not in MEASURED_CLIP_PAIRS').toBeDefined();
+    expect(tap?.stRmsDb ?? 0).toBeLessThan(Math.min(...shippedSt('influenceLoss')));
+  });
+});
+
+/**
+ * The refusal-is-not-a-loss contrast, on the clips. `influenceLoss`'s clip is a
+ * card slammed and torn, not a bare sine, so the synth-only "one octave band"
+ * test does not transfer — but every separation that is about the OBJECT
+ * rather than the synthesis method does, and is asserted here.
+ */
+describe('audio mix — the denied clip cannot be mistaken for a loss clip', () => {
+  const denied = MEASURED_CLIP_CONTRAST.denied;
+  const influenceLoss = MEASURED_CLIP_CONTRAST.influenceLoss;
+  const challengeRevealFail = MEASURED_CLIP_CONTRAST.challengeRevealFail;
+  const timerWarning = MEASURED_CLIP_CONTRAST.timerWarning;
+
+  it('every contrast cue has a clip measurement', () => {
+    for (const c of [denied, influenceLoss, challengeRevealFail, timerWarning]) expect(c).toBeDefined();
+  });
+
+  it('is over before either loss clip is a third done', () => {
+    expect(denied.activeMs).toBeLessThan(influenceLoss.activeMs / 3);
+    expect(denied.activeMs).toBeLessThan(challengeRevealFail.activeMs / 3);
+  });
+
+  it('has no chest — the caught bluff is bass, the refusal is mid', () => {
+    expect(challengeRevealFail.lowDb).toBeGreaterThan(-3);
+    expect(denied.lowDb).toBeLessThan(challengeRevealFail.lowDb - 12);
+    expect(denied.centroidHz).toBeGreaterThan(challengeRevealFail.centroidHz * 2);
+  });
+
+  it('is a dull knock, not the torn card — a different region of the spectrum', () => {
+    // influenceLoss is paper: its weight is above 2kHz. denied is a padded
+    // knock behind a 240Hz highpass: its weight is 250–500Hz.
+    expect(influenceLoss.centroidHz).toBeGreaterThan(denied.centroidHz * 4);
+  });
+
+  it('is closed, unlike the timerWarning tick', () => {
+    expect(timerWarning.centroidHz).toBeGreaterThan(1200);
+    expect(denied.centroidHz).toBeLessThan(timerWarning.centroidHz / 3);
+  });
+});
+
+/**
+ * ── CUE OVER BED ────────────────────────────────────────────────────────────
+ *
+ * Measured for the first time on 2026-10-01. Broadband, the table bed sits at
+ * −26.4 dBFS on the cues' 300ms axis — above every tier-3 and tier-4 cue —
+ * because velvet-court is almost all bass. That number is the wrong question.
+ * What decides whether a cue is heard over a bed is the cue's OWN loudest
+ * octave against the bed's level in that octave, which is what
+ * MEASURED_MASKING records (chudopoly's rule: a card sound clears every
+ * in-match bed in its own loudest octave).
+ *
+ * The thresholds are what the shipped bank clears with room to notice a
+ * regression, not chudopoly's 6dB: `denied`'s loudest octave is 500Hz and a
+ * tier-4 cue cannot be made louder without collapsing the 3/4 boundary, so it
+ * clears the table bed by 3.1dB. Ducking is not counted — the consequence
+ * cues (tier 0–1, coup) dip the bed a further 3–6dB live.
+ */
+describe('audio mix — every cue clears the bed it plays over, in its own octave', () => {
+  const IN_MATCH = ['table', 'endgame'] as const;
+  const ROUTINE_MIN_DB = 4;
+  const CHROME_MIN_DB = 2.5;
+
+  it('every bed has been measured', () => {
+    for (const bed of ['lobby', 'table', 'endgame']) expect(MEASURED_BEDS[bed], bed).toBeDefined();
+    expect(Object.keys(MEASURED_MASKING).sort()).toEqual([...IDS].sort());
+  });
+
+  it.each(IDS)('%s clears both in-match beds', (id) => {
+    const m = MEASURED_MASKING[id];
+    const need = MIX_TIER_OF[id] === 4 ? CHROME_MIN_DB : ROUTINE_MIN_DB;
+    for (const bed of IN_MATCH) {
+      expect(m.margins[bed], `${id} @${m.octaveHz}Hz vs ${bed}: ${m.margins[bed]}dB`)
+        .toBeGreaterThanOrEqual(need);
+    }
+  });
+
+  it('a chat message clears the lobby bed — the one cue the lobby plays', () => {
+    expect(MEASURED_MASKING.chatMessage.margins.lobby).toBeGreaterThanOrEqual(CHROME_MIN_DB);
   });
 });

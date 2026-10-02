@@ -3,9 +3,17 @@
 The levels in `src/app/audio/SoundEngine.ts` are measured, not estimated. This file
 records what was measured, how, what the numbers mean, and what is still unmeasured.
 
-Measured on **2026-08-10**, Chrome 151.0.0.0 / macOS, `OfflineAudioContext` 2ch @ 48 kHz.
-Committed as data in `tests/app/audio/measurements.ts` and gated by
-`tests/app/audio/mix.test.ts`.
+Measured on **2026-10-01**, HeadlessChrome 153.0.0.0 / macOS, `OfflineAudioContext`
+2ch @ 48 kHz (first pass 2026-08-10 on Chrome 151 — every synth row that existed then
+came back identical to 0.01 dB). Committed as data in `tests/app/audio/measurements.ts`
+and gated by `tests/app/audio/mix.test.ts`.
+
+**Since 2026-10-01 almost every cue plays a recording.** ElevenLabs sound-generation
+clips (`public/audio/sfx/`, `HERO_CLIPS` in `SoundEngine.ts`) cover all 22 cues, with
+2–3 round-robin variants on the frequent ones; the synth voices remain as fallbacks.
+Each clip's gain is *solved* onto its fallback's loudness, so the synth ladder below is
+also the clip ladder — and the clips are gated again on their own, as shipped, because
+a recording's peak and spectrum are its own. See [The shipped ladder](#the-shipped-ladder).
 
 ## The rule
 
@@ -16,7 +24,7 @@ Committed as data in `tests/app/audio/measurements.ts` and gated by
 | 0 | the game turned | `gameOverWin` `gameOverLose` `playerEliminated` |
 | 1 | you lost | `influenceLoss` `challengeRevealFail` `block` |
 | 2 | a play resolved | `coup` `challengeRevealSuccess` `assassinationAlert` `exchange` |
-| 3 | cards being handled | `cardShuffle` `actionDeclared` `coinsGained` `coinsLost` |
+| 3 | cards being handled | `cardShuffle` `cardDeal` `actionDeclared` `coinsGained` `coinsLost` |
 | 4 | chrome | `timerWarning` `denied` `chatMessage` `reaction` `yourTurn` `blockOpportunity` `challengeWindow` |
 
 The tier of each cue is `MIX_TIER` in `SoundEngine.ts` — data, so a test can catch it
@@ -49,9 +57,13 @@ Trim is `MIX_DB`; all levels are dBFS at the graph output, at the shipped trim.
 `lim` is how much gain reduction the master compressor + soft clip apply — 0 means the
 chain is linear there and `MIX_DB` alone is setting the level.
 
+This table is the **synth bank** — what each cue sounds like when its clip has not
+loaded or failed to. It is the reference the clips are solved onto; the clips
+themselves are in [the shipped ladder](#the-shipped-ladder).
+
 | tier | cue | trim | peak | loud | rms | lim |
 |---|---|---:|---:|---:|---:|---:|
-| 0 | `gameOverWin` (clip) | −2.8 | −4.61 | **−17.15** | −20.48 | 1.54 |
+| 0 | `gameOverWin` (clip) | −2.8 | −4.58 | **−17.08** | −20.41 | 1.59 |
 | 0 | `gameOverWin` (synth) | −2.8 | −5.63 | **−17.07** | −18.76 | 0.42 |
 | 0 | `gameOverLose` (clip) | −5.0 | −7.23 | **−17.02** | −26.23 | 0 |
 | 0 | `gameOverLose` (synth) | −5.0 | −8.58 | **−17.01** | −19.42 | 0 |
@@ -66,6 +78,7 @@ chain is linear there and `MIX_DB` alone is setting the level.
 | 3 | `coinsGained` | −0.7 | −14.20 | **−24.97** | −21.93 | 0 |
 | 3 | `coinsLost` | −0.4 | −14.00 | **−26.42** | −23.39 | 0 |
 | 3 | `actionDeclared` | −0.3 | −13.93 | **−29.06** | −23.29 | 0 |
+| 3 | `cardDeal` | +0.7 | −13.66 | **−32.53** | −33.21 | 0 |
 | 3 | `cardShuffle` | +1.2 | −14.01 | **−32.58** | −29.53 | 0 |
 | 4 | `timerWarning` | −9.4 | −21.67 | **−34.56** | −27.54 | 0 |
 | 4 | `chatMessage` | −7.4 | −22.85 | **−34.57** | −30.56 | 0 |
@@ -79,7 +92,7 @@ Tier boundaries on `loud`, quietest-above minus loudest-below:
 
 | boundary | margin |
 |---|---:|
-| 0 / 1 | 1.82 dB |
+| 0 / 1 | 1.90 dB |
 | 1 / 2 | 1.84 dB |
 | 2 / 3 | 1.92 dB |
 | 3 / 4 | 1.98 dB |
@@ -95,8 +108,87 @@ and the margin is exactly what it was. **No other trim moved.**
 `denied` is played from `ActionBar.tsx` through a single `DENIED_SOUND`
 constant, which pointed at `timerWarning` while no refusal voice existed.
 
+`cardDeal` (added 2026-10-01, the opening deal) went in on the same principle, at
+the **floor** of tier 3: +0.7 puts it level with `cardShuffle`, so the 3/4 margin
+did not move. Its synth fallback is four pink-noise flicks ~120 ms apart. Again **no
+other trim moved** — the clips were solved onto the trims, not the trims onto the
+clips.
+
 On peak, the headline rule holds too: the quietest loss (`influenceLoss`, −11.86) stabs
-2.07 dB above the hottest routine cue (`actionDeclared`, −13.93).
+1.80 dB above the hottest routine cue (`cardDeal`, −13.66; it was `actionDeclared`,
+−13.93, at 2.07 dB before `cardDeal` existed).
+
+## The shipped ladder
+
+What a player hears when the fetch succeeds: every hero cue as each of its clip
+variants, every other cue as its synth. Each clip's pre-trim `gain` in `HERO_CLIPS`
+was **solved** in the browser render — render, compare its 300 ms loudness with the
+fallback's, correct, repeat (5 passes, converges under 0.05 dB) — so clip and fallback
+land on the same `loud`. Parity is now gated at **0.25 dB** (it was 1.5 dB when only the
+two stingers had clips and their gains were hand-set).
+
+| tier | cue | file | KB | ms | peak | loud | gain |
+|---|---|---|---:|---:|---:|---:|---:|
+| 0 | `gameOverWin` | court-crowned.mp3 | 110.7 | 7027 | −4.58 | −17.08 | 0.815 |
+| 0 | `gameOverLose` | plot-unraveled.mp3 | 110.7 | 7027 | −7.23 | −17.02 | 0.557 |
+| 0 | `playerEliminated` | playerEliminated.mp3 | 18.4 | 1500 | −7.77 | −17.04 | 0.360 |
+| 1 | `influenceLoss` | influenceLoss.mp3 | 7.4 | 559 | −6.07 | −18.96 | 0.361 |
+| 1 | `challengeRevealFail` | challengeRevealFail.mp3 | 8.6 | 664 | −6.08 | −18.99 | 0.364 |
+| 1 | `block` | block.mp3 | 6.2 | 450 | −6.84 | −21.12 | 0.150 |
+| 2 | `coup` | coup.mp3 | 6.2 | 460 | −9.09 | −22.97 | 0.989 |
+| 2 | `challengeRevealSuccess` | challengeRevealSuccess.mp3 | 6.8 | 510 | −8.52 | −22.97 | 0.446 |
+| 2 | `assassinationAlert` | assassinationAlert.mp3 | 6.8 | 505 | −8.59 | −22.99 | 0.328 |
+| 2 | `exchange` | exchange.mp3 | 9.2 | 720 | −6.92 | −23.06 | 0.461 |
+| 3 | `coinsGained` ×2 | coinsGained-1/2.mp3 | 5.9 / 4.9 | 420 / 350 | −9.89 / −9.90 | −24.95 / −24.96 | 0.200 / 0.201 |
+| 3 | `coinsLost` ×2 | coinsLost-1/2.mp3 | 3.1 / 4.0 | 186 / 272 | −10.20 / −9.66 | −26.43 / −26.42 | 0.163 / 0.187 |
+| 3 | `actionDeclared` ×3 | actionDeclared-1/2/3.mp3 | 2.5 / 2.2 / 3.7 | 144 / 121 / 260 | −9.71 / −11.08 / −9.86 | −29.08 / −29.04 / −29.05 | 0.176 / 0.159 / 0.196 |
+| 3 | `cardDeal` | cardDeal.mp3 | 12.6 | 1000 | −9.91 | −32.51 | 0.149 |
+| 3 | `cardShuffle` ×3 | cardShuffle-1/2/3.mp3 | 2.8 / 3.7 / 3.7 | 172 / 241 / 260 | −9.80 / −9.70 / −9.67 | −32.56 / −32.57 / −32.56 | 0.173 / 0.168 / 0.177 |
+| 4 | `timerWarning` | timerWarning.mp3 | 2.2 | 120 | −10.74 | −34.56 | 0.536 |
+| 4 | `chatMessage` | chatMessage.mp3 | 2.5 | 140 | −10.45 | −34.58 | 0.460 |
+| 4 | `yourTurn` | yourTurn.mp3 | 7.7 | 579 | −23.77 | −34.61 | 0.252 |
+| 4 | `challengeWindow` | challengeWindow.mp3 | 1.9 | 91 | −10.48 | −34.61 | 0.924 |
+| 4 | `reaction` | reaction.mp3 | 4.3 | 300 | −13.91 | −34.61 | 0.303 |
+| 4 | `denied` | denied.mp3 | 1.9 | 100 | −9.98 | −34.63 | 0.790 |
+| 4 | `blockOpportunity` | blockOpportunity.mp3 | 2.5 | 134 | −10.01 | −34.64 | 0.708 |
+
+All SFX clips together are 145 KB (mono, 96 kbps). Margins as shipped:
+
+| boundary | margin |
+|---|---:|
+| 0 / 1 | 1.88 dB |
+| 1 / 2 | 1.85 dB |
+| 2 / 3 | 1.89 dB |
+| 3 / 4 | 1.99 dB |
+| stab: quietest loss peak (`playerEliminated`, −7.77) − hottest routine peak (`coinsLost` v2, −9.66) | 1.89 dB |
+
+### Crest control — why the routine clips can sit on their tier
+
+A recording's peak is its own. A coin clink or a card slap carries 20–28 dB of crest
+(peak over 300 ms loudness) against 7–15 dB for the synth voices, so a clip solved onto
+`coinsGained`'s −24.97 loudness would peak around −5 dBFS — **above every loss** — and
+the stab rule would fail. `scripts/generate-sfx.ts` therefore caps each clip's crest
+(`crestDb`) with a lookahead limiter in mastering, iterated (on a transient-dominated
+clip the loudest 300 ms window *is* the transient, so one pass buys back only a
+fraction) and checked on the **encoded** file (MP3 rings up to ~2 dB over a limited
+transient). The caps are derived from the gate: after the solve, peak = loud + crest,
+and every routine peak must sit 1.5 dB under the quietest loss —
+
+| cue | loud | crest cap | resulting peak |
+|---|---:|---:|---:|
+| `coinsGained` | −24.97 | 15 | ≈ −9.9 |
+| `coinsLost` | −26.42 | 16.5 | ≈ −9.9 |
+| `actionDeclared` | −29.06 | 19 | ≈ −10 |
+| `cardShuffle`, `cardDeal` | −32.5 | 22.5 | ≈ −10 |
+| tier 4 | −34.6 | 24.5 | ≈ −10 |
+
+The loss clips are not crest-limited for the gate; their natural crest (9–14 dB) is what
+puts the quietest loss peak up at −7.77.
+
+**A measurement trap found on the way:** `shortTermRms()` clamps its 300 ms window to the
+buffer, so a 100 ms clip measured *bare* reads 10·log10(3) = 4.8 dB louder than the same
+clip in the harness render, which has silence around it. The mastering script zero-pads
+to 400 ms before measuring; the crest caps were wrong by exactly that much until it did.
 
 ## The ceiling
 
@@ -105,10 +197,12 @@ table lookup, so its output cannot exceed `curve[last]` = `0.7 + 0.3·tanh(1)` =
 **−0.645 dBFS**. That is a property of the graph, not a mixing opinion. The render
 confirms the arithmetic.
 
-The hottest single cue is `gameOverWin`'s mastered clip at −4.61 dBFS — **3.97 dB of
-headroom**. The hottest realistic two-cue beat is `exchange` + `cardShuffle` at −6.92 dBFS.
+The hottest single cue is `gameOverWin`'s mastered clip at −4.58 dBFS — **3.94 dB of
+headroom**. The hottest realistic two-cue beat is now `influenceLoss` + `playerEliminated`
+as clips, at −5.03 dBFS (it was `exchange` + `cardShuffle` at −6.92 with the synth bank).
 Nothing is close to the ceiling and nothing is being levelled by the limiter: the worst
-single-cue gain reduction is 2.11 dB (`block`) and the worst pair is 0.04 dB.
+single-cue gain reduction is 2.11 dB (`block`'s synth fallback; its clip takes 0.03 dB),
+the worst clip 1.59 dB (`gameOverWin`), and the worst pair 0.94 dB.
 
 ## Two cues in one beat
 
@@ -124,6 +218,7 @@ Beats a real game produces, rendered as one summed pass:
 | `cardShuffle` ×2 @90 ms (multi-card exchange) | −14.01 | −29.74 | 0 |
 | `coinsGained` + `actionDeclared` @60 ms | −10.25 | −23.53 | 0 |
 | `denied` ×2 @90 ms (double-tap on a refused control) | −21.56 | −31.63 | 0 |
+| `cardDeal` + `yourTurn` @300 ms (added 2026-10-01) | −13.66 | −31.95 | 0 |
 
 The double-tap is the tightest a real one can be: `RATE_DEFAULT` drops a repeat
 inside 80 ms, and 90 ms is still inside `FLAM_WINDOW`, so live the second tap
@@ -134,6 +229,21 @@ identical to one tap (−21.56), because at 90 ms the two do not overlap at all.
 None of them sums into the limiter. Before the retune, `influenceLoss` + `playerEliminated`
 took 6.81 dB of gain reduction and `challengeRevealFail` + `influenceLoss` took 6.26 dB —
 the compressor, not the mix, was deciding how loud an elimination landed.
+
+The same beats with every hero cue as its clip (variant 0) — the beats a player
+actually hears — are `MEASURED_CLIP_PAIRS`, gated identically:
+
+| beat (clips) | peak | loud | lim |
+|---|---:|---:|---:|
+| `challengeRevealFail` + `cardShuffle` @400 ms | −6.08 | −18.99 | 0.22 |
+| `challengeRevealFail` + `influenceLoss` @120 ms | −5.52 | −18.29 | 0.47 |
+| `influenceLoss` + `playerEliminated` @150 ms | −5.03 | −15.38 | 0.94 |
+| `coup` + `influenceLoss` @250 ms | −6.07 | −18.96 | 0.22 |
+| `exchange` + `cardShuffle` @0 ms | −6.92 | −23.06 | 0.02 |
+| `cardShuffle` ×2 @90 ms | −9.80 | −29.53 | 0 |
+| `coinsGained` + `actionDeclared` @60 ms | −9.60 | −23.55 | 0 |
+| `denied` ×2 @90 ms | −9.98 | −31.62 | 0 |
+| `cardDeal` + `yourTurn` @300 ms (new: the deal under the first turn chime) | −9.91 | −31.50 | 0 |
 
 ## Timbre, not level
 
@@ -174,20 +284,76 @@ The FFT behind these is hand-rolled in `tests/app/audio/analysis.ts` (no new
 dependency for a mix measurement) and is itself tested against signals whose
 spectrum is known in advance, in `tests/app/audio/analysis.test.ts`.
 
-## The mastered stingers and their fallbacks
+**The clips, `MEASURED_CLIP_CONTRAST`.** The four contrast cues all play recordings now:
+a dull knock (`denied`), a wooden clock tick (`timerWarning`), a card slammed and torn
+(`influenceLoss`), a card slap over a sinking timpani hit (`challengeRevealFail`).
 
-`HERO_CLIPS` plays a mastered mp3 and falls back to the synth voice when the fetch fails.
-Both go through the same head, so `MIX_DB` sets the pair's level and the clip's pre-trim
-`gain` sets the clip **relative to its fallback**. Those two gains were solved for from
-the render:
+| clip | active | 63 | 125 | 250 | 500 | 1k | 2k | 4k | 8k | low | centroid |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `denied` | 83.1 ms | −30.6 | −18.8 | −6.2 | **−2.5** | −7.4 | −21.1 | −36.7 | −33.2 | −21.0 | 552 Hz |
+| `timerWarning` | 89.8 ms | −40.7 | −35.4 | −31.4 | −31.6 | −8.4 | **−1.1** | −14.4 | −14.7 | −35.4 | 1917 Hz |
+| `influenceLoss` | 489.6 ms | −22.3 | −12.7 | −17.9 | −22.4 | −15.6 | −8.6 | −7.2 | **−2.9** | −12.3 | 5985 Hz |
+| `challengeRevealFail` | 603.3 ms | −21.9 | **−0.6** | −9.6 | −17.5 | −28.6 | −35.6 | −41.5 | −38.9 | −0.6 | 121 Hz |
 
-| cue | clip loud | synth loud | Δ | clip gain |
+Every separation that is about the *object* rather than the synthesis method carries
+over and is gated on the clips too: the knock is 5.9× / 7.3× shorter than the two losses;
+the caught bluff is bass (−0.6 dB under 160 Hz) and the refusal has none (−21.0 dB, 350 Hz
+highpass in mastering — the "no chest" rule); the refusal is closed (552 Hz) against the
+tick (1917 Hz). The one test that does not transfer is "buzz vs tone" — `influenceLoss`'s
+recording is broadband paper, not a sine — so the clip gate asserts instead that it lives
+in a different region of the spectrum from the knock (centroid 5985 Hz vs 552 Hz, >4×).
+
+## Hero clips and their fallbacks
+
+`HERO_CLIPS` plays a mastered mp3 and falls back to the synth voice when the clip is not
+decoded. Both go through the same head, so `MIX_DB` sets the pair's level and the clip's
+pre-trim `gain` sets the clip **relative to its fallback**. Every gain is solved, never
+chosen (`npx tsx scripts/render-audio-mix.ts solve --apply`).
+
+Three rules govern which one plays (`SoundEngine.play()`):
+
+- **Decoded → the clip, now.** At `t0`, in the same tick the synth would have started —
+  a tactile cue that waited on a promise would land behind its animation. Chrome trims
+  the MP3 encoder delay (`mode=clips` measures every decoded clip's lead: 0–2 ms), so a
+  clip's onset is its first sample.
+- **Not decoded yet → the synth, and start the load**, except tier 0, which waits for its
+  recording (the stinger *is* the moment; from the SW cache the wait is milliseconds).
+  All clips are preloaded on the first-gesture `unlock()`.
+- **Round-robin variants** (coins, the card on the table, the card landing): uniform over
+  the others, never the one played last, each variant with its own solved gain. A clip
+  plays at the voice's pitch — jitter and the opponent detune — as its playback rate.
+
+The two original stingers were re-solved too: `gameOverWin` 0.808 → 0.815 (the 0.08 dB
+it was off by, now 0.01).
+
+## Cue over bed
+
+Measured for the first time on 2026-10-01: `renderMusicOffline()` renders each music bed
+through the same `buildGraph()` at `MUSIC_GAIN`, on the cues' own 300 ms-RMS axis
+(`MEASURED_BEDS`).
+
+| bed | median | p90 | max | peak |
 |---|---:|---:|---:|---:|
-| `gameOverWin` | −17.15 | −17.07 | 0.08 dB | 0.808 (was 0.61) |
-| `gameOverLose` | −17.02 | −17.01 | 0.01 dB | 0.557 (was 0.52) |
+| lobby | −28.49 | −27.06 | −25.23 | −13.01 |
+| table | −26.42 | −25.88 | −23.97 | −13.35 |
+| endgame | −29.37 | −21.74 | −18.82 | −7.96 |
 
-At the old gains the clips were 2.07 dB and 2.57 dB **quieter** than the fallbacks they
-replace. Re-solve them whenever a tier-0 trim moves.
+Broadband, the table bed sits **above** every tier-3 and tier-4 cue. That was already
+true of the bed this pass inherited (same file, same level) and it is the wrong question:
+velvet-court is almost all bass (−1.4 dB of its energy is under 160 Hz; 1–4 kHz is
+−31.8 dB), so a broadband level says nothing about whether a 2 kHz coin is audible over
+it. `MEASURED_MASKING` asks the right one — each cue (as shipped) in its **own loudest
+octave**, against each bed's level in that octave:
+
+- In-match (table, endgame) every cue clears both beds. The thinnest margins are
+  `denied` (500 Hz, +3.1 dB over table), `block` (63 Hz, +5.0 dB) and `coup` (125 Hz,
+  +6.0 dB) — and the last two duck the bed a further 3–4 dB live.
+- Gated: tier 0–3 ≥ 4 dB, tier 4 ≥ 2.5 dB over both in-match beds, and `chatMessage` ≥
+  2.5 dB over the lobby bed (+2.5 dB; it is the one cue the lobby plays).
+- Fixes this measurement drove, in mastering: `chatMessage` 400 Hz highpass (its weight
+  was at 250 Hz, −8.1 dB **under** the lobby bed), `cardDeal` 250 Hz highpass (was −9.0 dB
+  under the table bed at 125 Hz), `actionDeclared` v1 120 Hz highpass (−4.7 dB under, and
+  the dull one of its three variants), `denied` 240 → 350 Hz.
 
 ## What was wrong before
 
@@ -233,25 +399,40 @@ There is **one graph implementation**. `renderSoundOffline()` is exported from
 three functions the live `play()` path calls. There is no offline-only chain and no
 offline-only copy of `MIX_DB`, so the harness cannot measure a mix the player never hears.
 
+**Automated (2026-10-01):** `scripts/render-audio-mix.ts` bundles the harness with
+esbuild, serves it next to `public/audio`, opens it in headless Chrome over the DevTools
+protocol and saves `window.__COUP_REPORT`. It finds Chrome via `CHROME_PATH`, then
+`/Applications/Google Chrome.app`, then the newest Playwright Chromium in
+`~/Library/Caches/ms-playwright` (which is what produced these numbers).
+
+```sh
+npx tsx scripts/render-audio-mix.ts solve --apply   # re-solve every HERO_CLIPS gain, write them into SoundEngine.ts
+npx tsx scripts/render-audio-mix.ts                 # measure → artifacts/audio-mix-report.json,
+                                                    # print both ladders + margins, write
+                                                    # artifacts/measurements-snippet.txt
+npx tsx scripts/render-audio-mix.ts clips           # each decoded clip raw: lead-in, length, crest
+npx tsx scripts/render-audio-mix.ts live            # drive the LIVE engine: every cue, the music
+                                                    # walk lobby → table → endgame, stop; reports errors
+```
+
+Then paste the snippet's blocks over the data blocks of `tests/app/audio/measurements.ts`,
+set `MEASURED_AT`, and `npx vitest run tests/app/audio`. Two runs agree byte-for-byte.
+
+**By hand**, as originally done:
+
 ```sh
 D=$(mktemp -d)
 npx esbuild tests/app/audio/harness.entry.ts \
   --bundle --format=esm --target=es2022 --outfile="$D/harness.bundle.js"
 cp tests/app/audio/harness.html "$D/"
-ln -s "$PWD/public/audio" "$D/audio"     # the mastered stingers
+ln -s "$PWD/public/audio" "$D/audio"     # the hero clips and the beds
 python3 -m http.server 8137 --directory "$D"
 ```
 
-Open `http://localhost:8137/harness.html`. The page renders on load and prints the JSON
-report; it is also on `window.__COUP_REPORT`, and `window.__COUP_AUDIO.probe(id, opts)`
-renders a single cue for ad-hoc work. Then:
-
-1. Paste `rows` into `MEASURED` / `MEASURED_HERO_CLIP` in
-   `tests/app/audio/measurements.ts`, `pairs` into `MEASURED_PAIRS`, and
-   `contrast` into `MEASURED_CONTRAST`.
-2. Update `MEASURED_TRIM_DB` and `MEASURED_HERO_CLIP_GAIN` to the values you rendered at,
-   and `MEASURED_AT` to today.
-3. `npx vitest run tests/app/audio`.
+Open `http://localhost:8137/harness.html` (`?mode=solve`, `?mode=clips`, `?mode=live` for the
+other modes). The page renders on load and prints the JSON report; it is also on
+`window.__COUP_REPORT`, and `window.__COUP_AUDIO.probe(id, opts)` renders a single cue for
+ad-hoc work.
 
 Renders are deterministic — the noise buffers are seeded per graph and the jitter is
 rendered at nominal pitch, so two runs agree exactly. Retuning is a loop: change `MIX_DB`,
@@ -263,11 +444,20 @@ recorded table now describes a mix nobody hears.
 
 ## Still unmeasured
 
-- **The music bed.** `MUSIC_GAIN` (0.18) is untouched and was not rendered. The tier
-  ladder is now 17.6 dB tall, and tier 4 sits at −34.6 dBFS loud, so the chrome cues may
-  well sit under the bed. Cue-versus-bed is a separate measurement — chudopoly's gate does
-  it as "a card sound clears every in-match bed by 6 dB in the cue's own loudest octave",
-  and Coup has no equivalent assertion yet.
+- ~~The music bed~~ — measured and gated since 2026-10-01, see [Cue over bed](#cue-over-bed).
+  The beds are rendered from the loop start without ducking; the duck is not in the figures.
+- **Perceptual weighting.** The ladder runs on unweighted RMS, and the clips are far more
+  varied in spectrum than the synth voices: a 6 kHz card tear and a 120 Hz timpani hit at
+  the same `loud` are not equally loud to a listener (K-weighting would put the tear
+  roughly 4 dB up and the timpani down). With 1.8–2 dB between tiers, a weighted axis could
+  swap some neighbours. Not measured; it would be the next gate worth having.
+- **Small speakers.** Nothing models a phone or laptop speaker, which plays little below
+  ~200 Hz. `block`, `coup` and `challengeRevealFail` put their weight at 63–125 Hz; each has
+  a card/palm transient layered on top in mastering so it still reads there, but how much
+  of it reads is unmeasured.
+- **Variant spread.** Each round-robin variant is solved onto the same `loud`, but the
+  variants are different recordings; how alike they sound is judged from their octave
+  shapes and envelopes (scripts/generate-sfx.ts `analyze`), not gated.
 - **The `theirs` treatment.** Every cue was rendered as `mine`. `THEIRS_DB` (−6) is a flat
   offset on the same head, so it moves the whole ladder together and the ordering survives,
   but the 5.2 kHz lowpass's effect on loudness is not in the table.
@@ -301,3 +491,10 @@ them, and were left alone:
   loudness at −32.58 dBFS, which in turn pins the whole chrome tier below −34.5. Roughly
   4 dB of the ladder's total height is this one cue's crest. A longer, more sustained
   shuffle would let tiers 3 and 4 come up.
+
+**2026-10-01:** both now play recordings — `block` a wooden thud with a palm slap on
+top (its clip takes 0.03 dB of limiting where the synth took 2.11), `cardShuffle` three
+felt-landing variants. Their *synth fallbacks* are unchanged, and so is the ladder they
+pin: the clips were solved onto the existing trims rather than the trims re-opened, so
+tier 3 and 4 did not come up. That retune is still available, now with recordings that
+could carry it.
