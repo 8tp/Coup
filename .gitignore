@@ -8,3 +8,4 @@ dist/
 .claude/
 data/game-logs/*.json
 test_output.txt
+artifacts/

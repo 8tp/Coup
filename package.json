@@ -26,6 +26,8 @@
     "test:e2e": "vitest run tests/e2e",
     "test:watch": "vitest",
     "generate:music": "tsx scripts/generate-music.ts",
+    "generate:sfx": "tsx scripts/generate-sfx.ts",
+    "audio:mix": "tsx scripts/render-audio-mix.ts",
     "simulate": "tsx scripts/simulate.ts"
   },
   "dependencies": {
