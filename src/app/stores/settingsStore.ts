@@ -8,6 +8,10 @@ interface SettingsStore {
   musicEnabled: boolean;
   setMusicEnabled: (enabled: boolean) => void;
 
+  /** 0–100; 50 is the measured mix level (SoundEngine.musicVolumeGain). */
+  musicVolume: number;
+  setMusicVolume: (volume: number) => void;
+
   hapticEnabled: boolean;
   setHapticEnabled: (enabled: boolean) => void;
 
@@ -44,6 +48,17 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
       getSoundEngine().setMusicEnabled(enabled);
     });
     set({ musicEnabled: enabled });
+  },
+
+  musicVolume:
+    typeof window === 'undefined' || localStorage.getItem('coup_music_volume') === null
+      ? 50
+      : Number(localStorage.getItem('coup_music_volume')) || 0,
+  setMusicVolume: (volume) => {
+    import('../audio/SoundEngine').then(({ getSoundEngine }) => {
+      getSoundEngine().setMusicVolume(volume);
+    });
+    set({ musicVolume: volume });
   },
 
   hapticEnabled:

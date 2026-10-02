@@ -152,6 +152,17 @@ export const MUSIC_LUFS: Readonly<Record<MusicState, number>> = {
 const MUSIC_GAIN = 0.052;
 
 /**
+ * The player's music volume, 0–100, on top of MUSIC_GAIN. 50 is exactly the
+ * measured level the gate solves for; each step is 0.24 dB, so the slider
+ * spans −12 dB to +12 dB. The gate never sees this — it measures the default.
+ */
+export const MUSIC_VOLUME_DEFAULT = 50;
+export function musicVolumeGain(volume: number): number {
+  const v = Math.min(100, Math.max(0, volume));
+  return Math.pow(10, ((v - MUSIC_VOLUME_DEFAULT) * 0.24) / 20);
+}
+
+/**
  * The music-bus EQ, on the music path only (musicGain → here → musicDuck):
  *
  *   highpass   100Hz, Q 0.707   — nothing under the card thuds; phones play
@@ -1657,6 +1668,7 @@ class SoundEngine {
   private lastVariant = new Map<SoundId, number>();
   private _muted: boolean;
   private _musicEnabled: boolean;
+  private _musicVolume: number;
 
   // Voice budget, reaped by scheduled end time — see reap().
   private voiceEnd: number[] = [];
@@ -1677,6 +1689,25 @@ class SoundEngine {
       && localStorage.getItem('coup_sound_muted') === 'true';
     this._musicEnabled = typeof window === 'undefined'
       || localStorage.getItem('coup_music_enabled') !== 'false';
+    const storedVolume = typeof window === 'undefined' ? null : localStorage.getItem('coup_music_volume');
+    this._musicVolume = storedVolume === null || Number.isNaN(Number(storedVolume))
+      ? MUSIC_VOLUME_DEFAULT
+      : Number(storedVolume);
+  }
+
+  get musicVolume(): number {
+    return this._musicVolume;
+  }
+
+  /** The player's music volume (0–100). Applies at once to a playing piece. */
+  setMusicVolume(volume: number): void {
+    this._musicVolume = Math.min(100, Math.max(0, volume));
+    if (typeof window !== 'undefined') localStorage.setItem('coup_music_volume', String(this._musicVolume));
+    if (this.current && this.graph) this.rampGain(this.graph.musicGain, this.musicLevel(), 120);
+  }
+
+  private musicLevel(): number {
+    return MUSIC_GAIN * musicVolumeGain(this._musicVolume);
   }
 
   get muted(): boolean {
@@ -2125,7 +2156,7 @@ class SoundEngine {
       g.musicGain.gain.setValueAtTime(0, now);
       this.current = this.startPiece(g, piece, state, buffer, now, state === 'lobby' ? 0 : piece.entryS, 0);
       this.scheduleHandoff(g, this.current);
-      this.rampGain(g.musicGain, MUSIC_GAIN, 900);
+      this.rampGain(g.musicGain, this.musicLevel(), 900);
     }).catch((error: unknown) => {
       if (version === this.musicVersion) this.musicPending = null;
       console.warn('Unable to start background music', error);

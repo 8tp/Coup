@@ -26,6 +26,8 @@ export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, pr
   const setMuted = useGameStore(s => s.setMuted);
   const musicEnabled = useSettingsStore(s => s.musicEnabled);
   const setMusicEnabled = useSettingsStore(s => s.setMusicEnabled);
+  const musicVolume = useSettingsStore(s => s.musicVolume);
+  const setMusicVolume = useSettingsStore(s => s.setMusicVolume);
   const hapticEnabled = useSettingsStore(s => s.hapticEnabled);
   const setHapticEnabled = useSettingsStore(s => s.setHapticEnabled);
   const textSize = useSettingsStore(s => s.textSize);
@@ -65,6 +67,26 @@ export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, pr
           <span className="font-semibold text-coup-ink">Music</span>
           <span className={`switch-track ${musicEnabled ? 'is-on' : ''}`} aria-hidden="true"><span /></span>
         </button>
+        {musicEnabled && (
+          <div className="lobby-setting px-0.5">
+            <div className="lobby-setting-head">
+              <span className="text-sm font-normal text-coup-ink-mute">Music volume</span>
+              <span className="figure text-sm text-coup-accent">
+                {musicVolume === 50 ? 'Balanced' : `${musicVolume > 50 ? '+' : ''}${Math.round((musicVolume - 50) * 0.24)} dB`}
+              </span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              value={musicVolume}
+              aria-label="Music volume"
+              onChange={(e) => setMusicVolume(Number(e.target.value))}
+              className="lobby-range"
+            />
+          </div>
+        )}
 
         {/* Haptic Feedback — touch devices only */}
         {isTouchDevice && (
