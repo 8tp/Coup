@@ -2785,7 +2785,7 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    min-height: 40px;
+    min-height: 44px;
     padding: 0 0.75rem;
     color: var(--ink);
     font-size: var(--step-0);
@@ -2809,7 +2809,7 @@
   }
 
   .chat-quick > button {
-    min-height: 32px;
+    min-height: 40px;
     padding: 0 0.6rem;
     border-radius: 9999px;
     background-color: var(--raised);

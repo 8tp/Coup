@@ -46,7 +46,7 @@ Play Coup with 2–6 players from any device — no app install, no accounts. Cr
 - **Room codes** — 4-letter codes for easy sharing, no accounts required; your name is remembered
 - **Public/private rooms** — browse public lobbies, join open games, or watch live games as a spectator
 - **QR sharing** — lobby share button opens a scannable room link
-- **Practice vs Bot** — first-time players can start a disposable Classic or Reformation game against a conservative bot, with contextual coaching for claims, challenges, blocks, factions, influence loss, and hand-building
+- **Practice vs Bots** — pick 1–3 opponents, a bot style (Gentle, Sharp, Ruthless) and Classic or Reformation; an optional coach points at the part of the table each tip is about
 - **Computer players** — add 1–5 AI opponents with 7 personality types (Aggressive, Conservative, Vengeful, Deceptive, Analytical, Optimal, Random)
 - **Reconnection** — signed session tokens let players rejoin mid-game without losing their seat; a refresh in the lobby holds your seat for 45 seconds
 - **Host moderation** — hosts can remove lobby players or spectators before the game starts
@@ -66,13 +66,13 @@ Play Coup with 2–6 players from any device — no app install, no accounts. Cr
 - **Heraldic character emblems** — fleur-de-lis (Duke), stiletto (Assassin), anchor (Captain), sealed scroll (Ambassador), fan (Contessa) and radiant eye (Inquisitor), on every card and prompt
 - **Mobile-first** — every tap target is at least 44px (audited at 360×640, 390×844 and desktop); on phones every decision lives in a bottom sheet in the thumb zone
 - **Table talk** — chat stays on screen beside your hand on desktop, with one-tap quick lines; on phones it lives in the log drawer, and chat lines appear at the speaker's seat
-- **Sound and music** — recorded sound effects for every game event, mixed in loudness tiers so a lost influence always outranks routine sounds, plus an adaptive soundtrack that follows the state of the game; independent music and SFX toggles
+- **Sound and music** — recorded sound effects for every game event, mixed in loudness tiers so a lost influence always outranks routine sounds, and an adaptive score of 15 pieces that shifts with the game (court, tension, the 1v1 duel, sudden death, and a quieter bed once you are out); sound, music and music-volume controls
 - **Motion and impact** — one animation clock, card flights, hitstop, screen shake on the felt only, and a reduced-animation setting that collapses motion to fades without losing information
 - **Haptic feedback** — vibration on taps and incoming events for mobile devices (with iOS Safari fallback), togglable in settings
 - **Settings** — sound, music, haptics (touch devices), reduced animation and text size (Normal / Large / Extra Large), from home, lobby and in-game
 - **Player stats** — local lifetime stats, awards, and match history are available from the home screen
 - **Emoji reactions** — 12 reactions visible to all players. Bots fire context-aware reactions driven by per-bot personality traits (emotiveness and meanness)
-- **Rules and guides** — built-in rules, a new-player tutorial, guided practice games against bots, and an interactive Reformation walkthrough
+- **Rules and guides** — a six-chapter interactive tutorial played out on a miniature court table (the goal, your turn, claims, challenges, blocks, coins), built-in rules, coached practice games, and an interactive Reformation walkthrough
 - **Action log** — the latest events beside your hand, the full history in the log drawer
 - **Contextual game over screen** — personalized flavor text, staged winning-hand/table-truth reveal, recap cards, up to 4 awards, and copy/download recap export
 - **Player mute controls** — locally hide a player's chat messages and reaction bubbles without changing the table for everyone else
