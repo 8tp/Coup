@@ -8,6 +8,11 @@ Measured on **2026-10-01**, HeadlessChrome 153.0.0.0 / macOS, `OfflineAudioConte
 came back identical to 0.01 dB). Committed as data in `tests/app/audio/measurements.ts`
 and gated by `tests/app/audio/mix.test.ts`.
 
+**2026-10-02: the music.** The adaptive score replaced the looping beds; the music bus
+gained an EQ and `MUSIC_GAIN` was re-solved 0.243 → 0.052 — see
+[Cue over music](#cue-over-music). Every effects figure was re-rendered with it and came
+back byte-identical: the effects path does not touch the music bus.
+
 **Since 2026-10-01 almost every cue plays a recording.** ElevenLabs sound-generation
 clips (`public/audio/sfx/`, `HERO_CLIPS` in `SoundEngine.ts`) cover all 22 cues, with
 2–3 round-robin variants on the frequent ones; the synth voices remain as fallbacks.
@@ -326,34 +331,134 @@ Three rules govern which one plays (`SoundEngine.play()`):
 The two original stingers were re-solved too: `gameOverWin` 0.808 → 0.815 (the 0.08 dB
 it was off by, now 0.01).
 
-## Cue over bed
+## Cue over music
 
-Measured for the first time on 2026-10-01: `renderMusicOffline()` renders each music bed
-through the same `buildGraph()` at `MUSIC_GAIN`, on the cues' own 300 ms-RMS axis
-(`MEASURED_BEDS`).
+Re-measured **2026-10-02** for the adaptive score (fifteen through-composed pieces in six
+state pools — [AUDIO.md](AUDIO.md#music--publicaudiomusic)). `renderMusicOffline()` renders
+every piece through the same `buildGraph()` — so through the new music-bus EQ — at
+`MUSIC_GAIN`, decoded at 32 kHz exactly as the engine decodes it, over the piece's body
+(`entryS` → `handoffS`), on the cues' own 300 ms-RMS axis (`MEASURED_BEDS`).
 
-| bed | median | p90 | max | peak |
-|---|---:|---:|---:|---:|
-| lobby | −28.49 | −27.06 | −25.23 | −13.01 |
-| table | −26.42 | −25.88 | −23.97 | −13.35 |
-| endgame | −29.37 | −21.74 | −18.82 | −7.96 |
+### What was wrong
 
-Broadband, the table bed sits **above** every tier-3 and tier-4 cue. That was already
-true of the bed this pass inherited (same file, same level) and it is the wrong question:
-velvet-court is almost all bass (−1.4 dB of its energy is under 160 Hz; 1–4 kHz is
-−31.8 dB), so a broadband level says nothing about whether a 2 kHz coin is audible over
-it. `MEASURED_MASKING` asks the right one — each cue (as shipped) in its **own loudest
-octave**, against each bed's level in that octave:
+The 2026-10-01 figures for the old beds, at `MUSIC_GAIN` 0.243 with no EQ:
 
-- In-match (table, endgame) every cue clears both beds. The thinnest margins are
-  `denied` (500 Hz, +3.1 dB over table), `block` (63 Hz, +5.0 dB) and `coup` (125 Hz,
-  +6.0 dB) — and the last two duck the bed a further 3–4 dB live.
-- Gated: tier 0–3 ≥ 4 dB, tier 4 ≥ 2.5 dB over both in-match beds, and `chatMessage` ≥
-  2.5 dB over the lobby bed (+2.5 dB; it is the one cue the lobby plays).
-- Fixes this measurement drove, in mastering: `chatMessage` 400 Hz highpass (its weight
-  was at 250 Hz, −8.1 dB **under** the lobby bed), `cardDeal` 250 Hz highpass (was −9.0 dB
-  under the table bed at 125 Hz), `actionDeclared` v1 120 Hz highpass (−4.7 dB under, and
-  the dull one of its three variants), `denied` 240 → 350 Hz.
+| bed | median | p90 | max | peak | <150 Hz |
+|---|---:|---:|---:|---:|---:|
+| lobby | −28.49 | −27.06 | −25.23 | −13.01 | 6.7 % |
+| table | −26.42 | −25.88 | −23.97 | −13.35 | **71.9 %** |
+| endgame | −29.37 | −21.74 | −18.82 | −7.96 | **89.8 %** |
+
+The table bed's *median* sat above every tier-3 cue (−24.97 … −32.58) — the music was as
+loud as the cards — and almost all of it was bass, a rumble that headphones and good
+speakers make the loudest thing in the room. It passed the masking gate only because it
+put nothing in the octaves the cues live in (1–4 kHz was −31.8 dB of its energy).
+
+### The music-bus EQ — `MUSIC_EQ`, on the music path only
+
+`musicGain → highpass → low shelf → presence dip → musicDuck → preMaster`
+
+| stage | setting | why |
+|---|---|---|
+| high-pass | 110 Hz, Q 0.707 (12 dB/oct) | nothing under the card thuds; phones play none of it |
+| low shelf | 220 Hz, −5 dB | the chest of the low strings and taiko, down a step |
+| peaking | 3 kHz, −3 dB, Q 1 | a small dip where the coin, card and chrome cues put their weight |
+
+Energy share below 150 Hz, file → through the bus (harness, `lowPctFile` → `lowPctBus`):
+`sudden-death-one-card-each` 35.5 % → 16.3 %, `duel-two-chairs-remain` 27.0 % → 12.6 %,
+`duel-audience-of-one` 23.9 % → 11.4 %, `sudden-death-final-wager` 23.4 % → 9.7 %,
+`court-ledger-and-quill` 11.8 % → 3.9 %, `court-whispering-gallery` 9.0 % → 5.9 %; the
+other eight are under 2 % before the EQ. Gated: under 20 % for every piece after the EQ, and the EQ never adds.
+The EQ settings are gated to the ranges asked for (HP 90–110 Hz, shelf −3…−5 dB, a ≤4 dB
+dip at 2.5–3.5 kHz) and pinned to the render (`MEASURED_MUSIC_EQ`).
+
+### The level — `MUSIC_GAIN` 0.243 → 0.052 (−13.4 dB), solved
+
+Through-composed pieces breathe: between a piece's median and its 90th percentile, in a
+single octave, there is up to 17 dB. A cue has to clear the music's **loud** moments, not
+its average, so the masking gate is **tightened** from "each bed's median octave level"
+(right for a 0.6-LU loop) to **each piece's 90th-percentile octave level over ~340 ms
+frames**, against **every piece of every in-match pool**. Thresholds unchanged: tier 0–3
+≥ 4 dB, tier 4 ≥ 2.5 dB, `chatMessage` ≥ 2.5 dB over both lobby pieces.
+
+`MUSIC_GAIN` is the highest level that passes that, less 0.3 dB. The chain is linear at
+these levels (the compressor's threshold is −14 dBFS), so a margin moves dB-for-dB with the
+gain and one render solves it. At 0.243 the binding cue, `denied` (a 500 Hz knock at
+−37.17 dBFS in its octave), sat **10.5 dB under** `court-whispering-gallery`'s loud moments
+(a bassoon at 500 Hz); `chatMessage` (1 kHz) sat 7.9 dB under `court-ledger-and-quill`. The
+new pieces put their weight where instruments do — 250 Hz to 2 kHz — which is where the
+chrome cues live; the old bed did not, which is why it could sit 13 dB higher and still
+pass. With the EQ at its strongest asked-for settings, only level could carry it.
+
+Each piece at the shipped level, over its body:
+
+| state | piece | median | p90 | max | peak |
+|---|---|---:|---:|---:|---:|
+| `lobby` | lobby-antechamber-waltz | −43.03 | −39.85 | −35.39 | −23.90 |
+| `lobby` | lobby-petitioners-bench | −50.10 | −39.46 | −33.50 | −22.01 |
+| `court` | court-whispering-gallery | −45.28 | −37.53 | −35.24 | −21.94 |
+| `court` | court-ministry-minuet | −43.21 | −41.46 | −38.96 | −27.64 |
+| `court` | court-ledger-and-quill | −43.46 | −40.02 | −37.95 | −23.37 |
+| `court` | court-velvet-procession | −43.71 | −39.33 | −35.51 | −24.20 |
+| `tension` | tension-counting-house | −42.74 | −39.81 | −37.22 | −25.63 |
+| `tension` | tension-quiet-knife | −43.80 | −43.43 | −43.04 | −25.34 |
+| `duel` | duel-two-chairs-remain | −41.61 | −38.84 | −36.15 | −21.97 |
+| `duel` | duel-audience-of-one | −42.37 | −39.95 | −38.39 | −23.96 |
+| `duel` | duel-crossed-signets | −40.96 | −38.13 | −35.00 | −22.74 |
+| `sudden_death` | sudden-death-one-card-each | −43.56 | −38.58 | −33.78 | −21.42 |
+| `sudden_death` | sudden-death-final-wager | −41.86 | −38.60 | −34.61 | −21.87 |
+| `fallen` | fallen-from-the-gallery | −49.44 | −38.55 | −35.04 | −26.17 |
+| `fallen` | fallen-after-the-verdict | −46.25 | −38.05 | −33.19 | −21.99 |
+
+Every piece's p90 sits at −37.53 or below: **≥ 5.0 dB under the quietest routine
+(tier-3) cue** (`cardShuffle` / `cardDeal`, −32.5), and under the whole chrome tier
+(−34.6). Gated: p90 ≥ 3 dB under the quietest tier-3 cue, for every piece — the owner's
+"the bed must sit under the game", as a number. Duel and sudden death are mastered 1.5 LU
+hotter and land ~1.5–2 dB above court on the median; they are held to the same lines.
+Ducking is unchanged (tier 0–1 and `coup` dip the music a further 3.1–6 dB live) and is
+not counted in any figure here.
+
+### Every cue over the music, in its own octave
+
+Each cue as shipped (clip variant 0), in its own loudest octave, against the **thinnest**
+in-match piece in that octave (p90). Full matrix: `MEASURED_MASKING`.
+
+| cue | tier | octave | cue level | margin | thinnest over | need |
+|---|---:|---:|---:|---:|---|---:|
+| `denied` | 4 | 500 | −37.17 | **2.83** | court-whispering-gallery | 2.5 |
+| `chatMessage` | 4 | 1000 | −40.19 | **5.47** | court-ledger-and-quill | 2.5 |
+| `challengeWindow` | 4 | 2000 | −39.60 | **9.62** | duel-crossed-signets | 2.5 |
+| `yourTurn` | 4 | 1000 | −35.35 | **10.31** | court-ledger-and-quill | 2.5 |
+| `timerWarning` | 4 | 2000 | −35.63 | **13.59** | duel-crossed-signets | 2.5 |
+| `reaction` | 4 | 4000 | −39.79 | **13.77** | duel-audience-of-one | 2.5 |
+| `actionDeclared` | 3 | 2000 | −35.16 | **14.06** | duel-crossed-signets | 4 |
+| `cardShuffle` | 3 | 2000 | −34.55 | **14.67** | duel-crossed-signets | 4 |
+| `challengeRevealSuccess` | 2 | 500 | −25.17 | **14.83** | court-whispering-gallery | 4 |
+| `cardDeal` | 3 | 8000 | −39.45 | **17.60** | duel-audience-of-one | 4 |
+| `coup` | 2 | 125 | −25.87 | **19.22** | sudden-death-one-card-each | 4 |
+| `coinsLost` | 3 | 2000 | −29.95 | **19.27** | duel-crossed-signets | 4 |
+| `gameOverWin` | 0 | 500 | −20.39 | **19.61** | court-whispering-gallery | 4 |
+| `playerEliminated` | 0 | 500 | −18.37 | **21.63** | court-whispering-gallery | 4 |
+| `blockOpportunity` | 4 | 8000 | −35.39 | **21.66** | duel-audience-of-one | 2.5 |
+| `coinsGained` | 3 | 2000 | −25.72 | **23.50** | duel-crossed-signets | 4 |
+| `challengeRevealFail` | 1 | 125 | −19.63 | **25.46** | sudden-death-one-card-each | 4 |
+| `gameOverLose` | 0 | 125 | −18.01 | **27.08** | sudden-death-one-card-each | 4 |
+| `block` | 1 | 63 | −24.11 | **27.99** | sudden-death-one-card-each | 4 |
+| `exchange` | 2 | 8000 | −28.07 | **28.98** | duel-audience-of-one | 4 |
+| `assassinationAlert` | 2 | 8000 | −25.57 | **31.48** | duel-audience-of-one | 4 |
+| `influenceLoss` | 1 | 8000 | −21.87 | **35.18** | duel-audience-of-one | 4 |
+
+`chatMessage` over the lobby pieces: +6.92 dB (waltz), +17.59 dB (petitioners' bench).
+
+Against the old table bed (its median, at 0.243) the thinnest margins were `denied` +3.1,
+`block` +5.0 and `coup` +6.0 dB; `block` and `coup` — weight at 63/125 Hz, right where the
+old bed lived — now clear the music by 28.0 and 19.2 dB.
+
+**What `MUSIC_GAIN` costs to raise.** `denied` binds with 0.33 dB to spare. Without it the
+next binder is `chatMessage` (+2.97 dB of room), then `challengeWindow` (+7.1). A louder
+score therefore wants either the tier-4 retune [below](#cues-worth-re-synthesising) (the
+chrome tier sits at −34.6 because `cardShuffle`'s crest pinned the ladder) or a quieter
+mid-range in the two binding pieces — not a looser gate.
 
 ## What was wrong before
 
@@ -412,7 +517,8 @@ npx tsx scripts/render-audio-mix.ts                 # measure → artifacts/audi
                                                     # artifacts/measurements-snippet.txt
 npx tsx scripts/render-audio-mix.ts clips           # each decoded clip raw: lead-in, length, crest
 npx tsx scripts/render-audio-mix.ts live            # drive the LIVE engine: every cue, the music
-                                                    # walk lobby → table → endgame, stop; reports errors
+                                                    # through every state, a mid-load switch and a switch
+                                                    # back, a forced pool handoff, stop; reports errors
 ```
 
 Then paste the snippet's blocks over the data blocks of `tests/app/audio/measurements.ts`,
@@ -444,8 +550,15 @@ recorded table now describes a mix nobody hears.
 
 ## Still unmeasured
 
-- ~~The music bed~~ — measured and gated since 2026-10-01, see [Cue over bed](#cue-over-bed).
-  The beds are rendered from the loop start without ducking; the duck is not in the figures.
+- ~~The music bed~~ — measured and gated since 2026-10-01; every piece of the adaptive score
+  since 2026-10-02, see [Cue over music](#cue-over-music). Rendered over each piece's body
+  without ducking; the duck, the 3 s state crossfades and the pool handoffs (two pieces
+  overlapping for ≤ 8 s, equal-power — the sum is at most the louder piece's level) are
+  not in the figures.
+- **Music loudness as a listener hears it.** The score's level is set by masking, not by
+  taste: it is the loudest the gate allows. On the K-weighted scale it is ~13 LU under the
+  old bed. Whether that reads as "under the game" or as "barely there" on a phone speaker
+  is unmeasured — nothing here models one.
 - **Perceptual weighting.** The ladder runs on unweighted RMS, and the clips are far more
   varied in spectrum than the synth voices: a 6 kHz card tear and a 120 Hz timpani hit at
   the same `loud` are not equally loud to a listener (K-weighting would put the tear

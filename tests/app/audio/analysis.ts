@@ -288,3 +288,92 @@ export function measure(
 function round2(v: number): number {
   return Number.isFinite(v) ? Math.round(v * 100) / 100 : v;
 }
+
+/* ── long signals (music) ─────────────────────────────────────────────────── */
+
+export interface LongSpectrum {
+  /**
+   * Octave-band level (OCTAVE_CENTRES), median over ~340ms frames, ABSOLUTE
+   * dBFS on the same per-channel RMS axis as `shortTermRms` — so a cue's
+   * octave level and a piece's can be subtracted.
+   */
+  bandsP50Db: number[];
+  /** The same, 90th percentile: the piece's loud moments in that octave. */
+  bandsP90Db: number[];
+  /** Linear % of the signal's total energy below `lowHz`. */
+  lowPct: number;
+  /** Linear % in 1–4kHz, where the coin, card and chrome cues live. */
+  presencePct: number;
+}
+
+/**
+ * Octave levels of a LONG signal — a two-minute piece, where one FFT of the
+ * whole thing is the wrong tool (it averages a quiet intro into the body and
+ * says nothing about the loud moments a cue has to clear). Frames of `frame`
+ * samples, hop frame/2, Hann-windowed, each channel's power spectrum summed.
+ * Each frame's band SHARES are scaled onto that frame's unwindowed mean-square,
+ * so a band level is "how much of this frame's RMS lives in this octave".
+ */
+export function longSpectrum(
+  channels: readonly Float32Array[],
+  sampleRate: number,
+  frame = 16384,
+  lowHz = 150,
+): LongSpectrum {
+  const n = channels[0]?.length ?? 0;
+  const hop = frame >> 1;
+  const win = new Float64Array(frame);
+  for (let i = 0; i < frame; i++) win[i] = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (frame - 1)));
+  const half = frame >> 1;
+  const hzPerBin = sampleRate / frame;
+  const bandOf = new Int8Array(half).fill(-1);
+  for (let k = 1; k < half; k++) {
+    const hz = k * hzPerBin;
+    OCTAVE_CENTRES.forEach((c, b) => { if (hz >= c / Math.SQRT2 && hz < c * Math.SQRT2) bandOf[k] = b; });
+  }
+  const perBand: number[][] = OCTAVE_CENTRES.map(() => []);
+  let total = 0;
+  let low = 0;
+  let presence = 0;
+  const re = new Float64Array(frame);
+  const im = new Float64Array(frame);
+  for (let s = 0; s + frame <= n; s += hop) {
+    const power = new Float64Array(half);
+    let meanSq = 0;
+    for (const ch of channels) {
+      for (let i = 0; i < frame; i++) {
+        const v = ch[s + i];
+        meanSq += v * v;
+        re[i] = v * win[i];
+        im[i] = 0;
+      }
+      fftInPlace(re, im);
+      for (let k = 0; k < half; k++) power[k] += re[k] * re[k] + im[k] * im[k];
+    }
+    meanSq /= frame * channels.length;
+    let frameTotal = 0;
+    const bands = new Float64Array(OCTAVE_CENTRES.length);
+    for (let k = 1; k < half; k++) {
+      frameTotal += power[k];
+      if (bandOf[k] >= 0) bands[bandOf[k]] += power[k];
+      const hz = k * hzPerBin;
+      if (hz < lowHz) low += power[k];
+      if (hz >= 1000 && hz < 4000) presence += power[k];
+    }
+    total += frameTotal;
+    for (let b = 0; b < bands.length; b++) {
+      perBand[b].push(frameTotal > 0 && meanSq > 0 ? 10 * Math.log10((bands[b] / frameTotal) * meanSq + 1e-20) : -200);
+    }
+  }
+  const q = (xs: number[], p: number): number => {
+    const sorted = [...xs].sort((a, b) => a - b);
+    return round2(sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))] ?? -Infinity);
+  };
+  const pct = (v: number): number => (total > 0 ? Math.round((v / total) * 1000) / 10 : 0);
+  return {
+    bandsP50Db: perBand.map(xs => q(xs, 0.5)),
+    bandsP90Db: perBand.map(xs => q(xs, 0.9)),
+    lowPct: pct(low),
+    presencePct: pct(presence),
+  };
+}
