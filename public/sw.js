@@ -1,12 +1,12 @@
 // v5: the ElevenLabs sound bank (public/audio/sfx/) and the three looping
 // music beds (public/audio/music/). Bumping the name is what evicts v4 —
 // including the old single bed, velvet-court.mp3, which nothing plays now.
-const CACHE_NAME = 'coup-assets-v6';
+const CACHE_NAME = 'coup-assets-v7';
 const ASSET_URLS = [
-  '/icons/icon-192-v2.png',
-  '/icons/icon-512-v2.png',
-  '/icons/icon-maskable-512-v2.png',
-  '/apple-touch-icon-v2.png',
+  '/icons/icon-192-v3.png',
+  '/icons/icon-512-v3.png',
+  '/icons/icon-maskable-512-v3.png',
+  '/apple-touch-icon-v3.png',
   '/assets/backgrounds/menu-chamber-wide-v1.webp',
   '/assets/backgrounds/menu-chamber-tall-v1.webp',
   '/assets/brand/coup-wordmark-v3.webp',
