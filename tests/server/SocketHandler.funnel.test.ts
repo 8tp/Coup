@@ -278,6 +278,63 @@ describe('SocketHandler — funnel and resilience flows', () => {
     expect(update.hostId).toBe(hostId);
   });
 
+  it('solo vs bots, a friend joins after it ends, host leaves: the friend is sent to a usable lobby as host', async () => {
+    const host = await connectClient();
+    const created = await emitAck<RoomResponse>(host, 'room:create', { playerName: 'Solo', origin: 'quick_play' });
+    const roomCode = created.roomCode!;
+    await emitAck(host, 'bot:add_many', { bots: [{ name: 'B1', personality: 'random' }, { name: 'B2', personality: 'random' }] });
+    await startGame(host);
+    const engine = roomManager.getEngine(roomCode)!;
+    for (const p of engine.game.players) if (p.id !== created.playerId) for (const inf of p.influences) inf.revealed = true;
+    engine.game.checkWinCondition();
+    (engine as unknown as { broadcastState(): void }).broadcastState();
+
+    const friend = await connectClient();
+    const joined = await emitAck<RoomResponse>(friend, 'room:join', { roomCode, playerName: 'Friend' });
+    expect(joined.success).toBe(true);
+
+    const toLobby = waitFor<void>(friend, 'game:rematch_to_lobby', () => true, 'auto reset to lobby');
+    const hostUpdate = waitForRoom(friend, d => d.hostId === joined.playerId, 'friend becomes host');
+    host.emit('room:leave');
+    await toLobby;
+    await hostUpdate;
+
+    const started = waitForState(friend, s => s.status === GameStatus.InProgress, 'friend starts');
+    friend.emit('game:start');
+    await expect(started).resolves.toMatchObject({ myId: joined.playerId });
+  });
+
+  it('any connected player may rematch when the host has dropped', async () => {
+    const { host, guest, roomCode, guestId, hostId } = await createTwoPlayerRoom();
+    await startGame(host, [guest]);
+    const engine = roomManager.getEngine(roomCode)!;
+    for (const inf of engine.game.getPlayer(hostId)!.influences) inf.revealed = true;
+    engine.game.checkWinCondition();
+    const over = waitForState(guest, s => s.turnPhase === TurnPhase.GameOver, 'game over');
+    (engine as unknown as { broadcastState(): void }).broadcastState();
+    await over;
+
+    host.disconnect();
+    await waitForRoom(guest, d => d.players.some(p => p.id === hostId && !p.connected), 'host dropped');
+
+    const toLobby = waitFor<void>(guest, 'game:rematch_to_lobby', () => true, 'rematch');
+    guest.emit('game:rematch');
+    await toLobby;
+    expect(roomManager.getRoom(roomCode)?.hostId).toBe(guestId);
+    // The host's seat is still held for their reconnect window.
+    expect(roomManager.getRoom(roomCode)?.players.find(p => p.id === hostId)?.connected).toBe(false);
+  });
+
+  it('refuses to let a socket rejoin as a bot', async () => {
+    const host = await connectClient();
+    const created = await emitAck<RoomResponse>(host, 'room:create', { playerName: 'Host' });
+    const added = await emitAck<{ success: boolean; botId?: string }>(host, 'bot:add', { name: 'Robo', personality: 'random' });
+    const attacker = await connectClient();
+    const response = await emitAck<RoomResponse>(attacker, 'room:rejoin', { roomCode: created.roomCode, playerId: added.botId });
+    expect(response.success).toBe(false);
+    expect(roomManager.getPlayerRoom(attacker.id!)).toBeNull();
+  });
+
   // ─── 6. Fill with bots (server side) ───
 
   it(`fills a solo lobby up to ${FILL_WITH_BOTS_TARGET} players with bot:add_many, keeping the human host`, async () => {

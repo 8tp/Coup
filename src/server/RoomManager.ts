@@ -18,6 +18,15 @@ export interface RoomManagerOptions {
   gameLogStorage?: GameLogStorage | null;
 }
 
+/**
+ * Room changes that happen outside a direct request (timers, automatic
+ * resets), so the socket layer can broadcast them.
+ */
+export type RoomEvent =
+  | { type: 'updated'; roomCode: string; room: Room }
+  | { type: 'reset_to_lobby'; roomCode: string; room: Room; promoted: Array<{ spectator: Spectator; playerId: string; sessionToken: string }> }
+  | { type: 'closed'; roomCode: string; wasPublic: boolean };
+
 /** Result of a socket dropping (as opposed to an explicit leave). */
 export type DisconnectOutcome =
   | { kind: 'in_game'; room: Room }
@@ -38,12 +47,26 @@ export class RoomManager {
   /** Server-only funnel bookkeeping per room (never sent to clients). */
   private roomMeta: Map<string, RoomMeta> = new Map();
   private gameLogStorage: GameLogStorage | null;
+  private roomEventListener: ((event: RoomEvent) => void) | null = null;
   private cleanupInterval: ReturnType<typeof setInterval>;
 
   constructor(options: RoomManagerOptions = {}) {
     this.gameLogStorage = options.gameLogStorage ?? null;
     // Periodic cleanup of stale rooms
     this.cleanupInterval = setInterval(() => this.cleanup(), 60_000);
+  }
+
+  /** Subscribe to timer-driven / automatic room changes (one listener). */
+  setRoomEventListener(listener: ((event: RoomEvent) => void) | null): void {
+    this.roomEventListener = listener;
+  }
+
+  private notify(event: RoomEvent): void {
+    try {
+      this.roomEventListener?.(event);
+    } catch (err) {
+      console.error('Error in room event listener:', err);
+    }
   }
 
   generateRoomCode(): string {
@@ -86,10 +109,11 @@ export class RoomManager {
 
     this.rooms.set(code, room);
     this.lastHumanActivityAt.set(code, Date.now());
-    this.roomMeta.set(code, { origin, gamesStarted: 0, gamesFinished: 0, currentGame: null });
+    const meta = this.createMeta(origin);
+    this.roomMeta.set(code, meta);
     emitMetric({
       event: 'room_created',
-      room: code,
+      room: meta.metricId,
       isPublic: room.settings.isPublic,
       viaQuickPlay: origin === 'quick_play',
       practice: origin === 'practice',
@@ -216,17 +240,22 @@ export class RoomManager {
     const player = room.players.find(p => p.id === playerId);
     if (!player) return { error: 'Player not found in room' };
 
-    // Validate session token if the player has one stored
-    if (player.sessionToken && player.sessionToken !== sessionToken) {
-      return { error: 'Invalid session token' };
-    }
-
     if (player.replacedByBot) {
       return { error: 'You have been replaced by a bot due to inactivity' };
     }
 
+    // Bot seats are never claimable by a socket (bot ids are public in room:updated).
+    if (player.isBot) return { error: 'Player not found in room' };
+
+    // Every human seat has a session token; it is always required.
+    if (!player.sessionToken || typeof sessionToken !== 'string' || player.sessionToken !== sessionToken) {
+      return { error: 'Invalid session token' };
+    }
+
     player.socketId = socketId;
     player.connected = true;
+    // Coming back proves they're present: forget earlier idle timeouts.
+    this.afkStrikes.delete(`${room.code}:${playerId}`);
 
     return { room, player };
   }
@@ -255,10 +284,87 @@ export class RoomManager {
       }
       player.connected = false;
       player.socketId = '';
+      if (room.hostId === playerId) this.reassignHost(room, playerId);
       return room;
     }
 
     return this.removePlayerFromRoom(room, playerId);
+  }
+
+  /** Human ids dealt into the current (possibly finished) game. */
+  private seatedIds(roomCode: string): Set<string> {
+    const engine = this.engines.get(roomCode);
+    return new Set(engine ? engine.game.players.map(p => p.id) : []);
+  }
+
+  /**
+   * Move host away from `departingId`, never to a bot. Preference: a connected
+   * human seated in the current game, then any connected human, then any human.
+   * Returns false if no human is left to take it.
+   */
+  private reassignHost(room: Room, departingId: string): boolean {
+    const seated = this.seatedIds(room.code);
+    const humans = room.players.filter(p => p.id !== departingId && !p.isBot);
+    const next = humans.find(p => p.connected && seated.has(p.id))
+      ?? humans.find(p => p.connected)
+      ?? humans[0];
+    if (!next) return false;
+    room.hostId = next.id;
+    return true;
+  }
+
+  /** Arm (or re-arm) the lobby grace timer for a disconnected human. */
+  private armLobbyGrace(roomCode: string, playerId: string, onGraceExpired?: (room: Room | null) => void): void {
+    this.startDisconnectTimer(roomCode, playerId, () => {
+      const result = this.releaseDisconnectedSeat(roomCode, playerId);
+      if (result === 'kept') return;
+      onGraceExpired?.(result);
+      if (result) this.notify({ type: 'updated', roomCode, room: result });
+    }, LOBBY_DISCONNECT_GRACE_MS);
+  }
+
+  /**
+   * A finished room whose host is not one of the players from that game (e.g.
+   * a newcomer who joined after it ended) can't be rematched by anyone — only
+   * seated players see the Play Again button. Reset it to the lobby instead.
+   */
+  private maybeAutoResetFinishedRoom(room: Room): Room | null {
+    const engine = this.engines.get(room.code);
+    if (!engine || engine.game.status !== GameStatus.Finished) return room;
+    if (this.seatedIds(room.code).has(room.hostId)) return room;
+
+    const result = this.resetToLobby(room.code);
+    if (!result) return null;
+    this.notify({ type: 'reset_to_lobby', roomCode: room.code, room: result.room, promoted: result.promoted });
+    return result.room;
+  }
+
+  /**
+   * Game just ended: humans who dropped mid-game (in-game timers no longer
+   * apply after the finish) now get the normal lobby grace, so an unreturned
+   * seat is eventually released instead of lingering until the 24h TTL. If the
+   * host is gone, host passes to a connected human.
+   */
+  onGameFinished(roomCode: string): GameLog | null {
+    const code = roomCode.toUpperCase();
+    const log = this.recordGameFinished(code);
+    const room = this.rooms.get(code);
+    if (!room) return log;
+    for (const player of room.players) {
+      if (player.isBot || player.connected) continue;
+      if (player.socketId === '') {
+        // Explicitly left mid-game: nothing to wait for.
+        this.cancelDisconnectTimer(code, player.id);
+        continue;
+      }
+      this.armLobbyGrace(code, player.id);
+    }
+    const host = room.players.find(p => p.id === room.hostId);
+    if (!host || host.isBot || !host.connected) {
+      const connected = room.players.find(p => !p.isBot && p.connected && p.id !== room.hostId);
+      if (connected) room.hostId = connected.id;
+    }
+    return log;
   }
 
   /**
@@ -284,10 +390,7 @@ export class RoomManager {
       return { kind: 'in_game', room };
     }
 
-    this.startDisconnectTimer(roomCode, playerId, () => {
-      const result = this.releaseDisconnectedSeat(roomCode, playerId);
-      if (result !== 'kept') onGraceExpired?.(result);
-    }, LOBBY_DISCONNECT_GRACE_MS);
+    this.armLobbyGrace(roomCode, playerId, onGraceExpired);
 
     return { kind: 'lobby_grace', room };
   }
@@ -321,18 +424,13 @@ export class RoomManager {
     }
 
     // If host left, assign new host (skip bots; prefer someone connected)
-    if (room.hostId === playerId) {
-      const humanPlayer = room.players.find(p => !p.isBot && p.connected) ?? room.players.find(p => !p.isBot);
-      if (humanPlayer) {
-        room.hostId = humanPlayer.id;
-      } else {
-        // All remaining are bots — delete the room
-        this.deleteRoom(roomCode, 'empty');
-        return null;
-      }
+    if (room.hostId === playerId && !this.reassignHost(room, playerId)) {
+      // All remaining are bots — delete the room
+      this.deleteRoom(roomCode, 'empty');
+      return null;
     }
 
-    return room;
+    return this.maybeAutoResetFinishedRoom(room);
   }
 
   updateSettings(roomCode: string, settings: RoomSettings): { success: boolean } | { error: string } {
@@ -453,7 +551,7 @@ export class RoomManager {
     const rematchIndex = meta.gamesStarted;
     meta.gamesStarted += 1;
     meta.currentGame = {
-      gameId: `${roomCode}-${startedAt.toString(36)}`,
+      gameId: `${meta.metricId}-${startedAt.toString(36)}`,
       startedAt,
       humans,
       bots: bots.length,
@@ -462,7 +560,7 @@ export class RoomManager {
     };
     emitMetric({
       event: 'game_started',
-      room: roomCode,
+      room: meta.metricId,
       gameId: meta.currentGame.gameId,
       players: room.players.length,
       humans,
@@ -514,7 +612,7 @@ export class RoomManager {
     const gamePlayerIds = new Set(engine.game.players.map(p => p.id));
     emitMetric({
       event: 'game_finished',
-      room: code,
+      room: meta.metricId,
       gameId: current.gameId,
       durationMs,
       turns: engine.game.turnNumber,
@@ -582,10 +680,16 @@ export class RoomManager {
   private getMeta(roomCode: string): RoomMeta {
     let meta = this.roomMeta.get(roomCode);
     if (!meta) {
-      meta = { origin: 'standard', gamesStarted: 0, gamesFinished: 0, currentGame: null };
+      meta = this.createMeta('standard');
       this.roomMeta.set(roomCode, meta);
     }
     return meta;
+  }
+
+  private createMeta(origin: RoomOrigin): RoomMeta {
+    // Room codes are join credentials for private rooms, so metrics use an
+    // unrelated random id that is stable for the room's lifetime.
+    return { metricId: randomBytes(5).toString('hex'), origin, gamesStarted: 0, gamesFinished: 0, currentGame: null };
   }
 
   // ─── Chat ───
@@ -691,12 +795,20 @@ export class RoomManager {
     const meta = this.roomMeta.get(roomCode);
     if (meta) meta.currentGame = null;
 
+    // Humans who dropped but are still inside their reconnect window keep their seat
+    const inGrace = new Set(
+      room.players
+        .filter(p => !p.isBot && !p.connected && p.socketId !== '' && this.disconnectTimers.has(`${roomCode}:${p.id}`))
+        .map(p => p.id),
+    );
+
     // Clear all disconnect timers for this room
     this.clearDisconnectTimersForRoom(roomCode);
     this.clearAfkStrikesForRoom(roomCode);
 
-    // Remove disconnected human players and bot-replaced players; original bots survive
-    room.players = room.players.filter(p => (p.isBot && !p.replacedByBot) || p.connected);
+    // Remove disconnected human players (unless in grace) and bot-replaced players; original bots survive
+    room.players = room.players.filter(p => (p.isBot && !p.replacedByBot) || p.connected || inGrace.has(p.id));
+    for (const playerId of inGrace) this.armLobbyGrace(roomCode, playerId);
 
     // If room is empty after filtering, delete it
     if (room.players.length === 0) {
@@ -704,9 +816,9 @@ export class RoomManager {
       return null;
     }
 
-    // Reassign host if needed (skip bots)
+    // Reassign host if needed (skip bots; prefer connected)
     if (!room.players.find(p => p.id === room.hostId && !p.isBot)) {
-      const humanPlayer = room.players.find(p => !p.isBot);
+      const humanPlayer = room.players.find(p => !p.isBot && p.connected) ?? room.players.find(p => !p.isBot);
       if (humanPlayer) {
         room.hostId = humanPlayer.id;
       } else {
@@ -917,12 +1029,9 @@ export class RoomManager {
     }
 
     // Reassign host if the replaced player was host (never to a bot)
-    if (room.hostId === playerId) {
-      const humanPlayer = room.players.find(p => !p.isBot && p.connected) ?? room.players.find(p => !p.isBot);
-      if (humanPlayer) {
-        room.hostId = humanPlayer.id;
-      }
-    }
+    const humansLeft = room.hostId === playerId
+      ? this.reassignHost(room, playerId)
+      : room.players.some(p => !p.isBot);
 
     // Log replacement
     const message = reason === 'afk'
@@ -932,13 +1041,20 @@ export class RoomManager {
         : `${roomPlayer.name} has been replaced by a bot.`;
     engine.game.log(message, 'bot_replace', null, playerId, roomPlayer.name);
 
+    const meta = this.getMeta(roomCode);
     emitMetric({
       event: 'player_replaced_by_bot',
-      room: roomCode,
-      gameId: this.roomMeta.get(roomCode)?.currentGame?.gameId ?? null,
+      room: meta.metricId,
+      gameId: meta.currentGame?.gameId ?? null,
       reason,
       turn: engine.game.turnNumber,
     });
+
+    if (!humansLeft) {
+      // Every seat is a bot now and replaced humans can't rejoin: nobody can
+      // ever host or rematch this room, so close it.
+      this.deleteRoom(roomCode, 'empty');
+    }
 
     return true;
   }
@@ -971,7 +1087,7 @@ export class RoomManager {
     if (engine && engine.game.status === GameStatus.InProgress && meta?.currentGame) {
       emitMetric({
         event: 'game_abandoned',
-        room: roomCode,
+        room: meta.metricId,
         gameId: meta.currentGame.gameId,
         durationMs: now - meta.currentGame.startedAt,
         turns: engine.game.turnNumber,
@@ -983,7 +1099,7 @@ export class RoomManager {
     if (room) {
       emitMetric({
         event: 'room_closed',
-        room: roomCode,
+        room: meta?.metricId ?? 'unknown',
         reason,
         everStarted: (meta?.gamesStarted ?? 0) > 0,
         gamesStarted: meta?.gamesStarted ?? 0,
@@ -1007,6 +1123,7 @@ export class RoomManager {
     this.chatMessages.delete(roomCode);
     this.lastHumanActivityAt.delete(roomCode);
     this.spectators.delete(roomCode);
+    if (room) this.notify({ type: 'closed', roomCode, wasPublic: room.settings.isPublic });
   }
 
   private cleanup(): void {

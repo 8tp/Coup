@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { RoomManager } from '@/server/RoomManager';
+import { RoomEvent, RoomManager } from '@/server/RoomManager';
 import { METRIC_PREFIX } from '@/server/metrics';
 import { GameLogStorage } from '@/server/storage/GameLogStorage';
 import {
@@ -274,6 +274,198 @@ describe('RoomManager — lobby resilience, AFK and finished rooms', () => {
     });
   });
 
+  // ─── Review regressions ───
+
+  describe('finished rooms never get stuck', () => {
+    function soloQuickPlayFinished() {
+      const { room, playerId } = manager.createRoom('Alice', 's1', true, 'quick_play');
+      manager.addBot(room.code, 'Bot1', 'random');
+      manager.addBot(room.code, 'Bot2', 'random');
+      manager.addBot(room.code, 'Bot3', 'random');
+      manager.startGame(room.code);
+      finishGame(manager, room.code, playerId);
+      manager.onGameFinished(room.code);
+      return { room, aliceId: playerId };
+    }
+
+    it('solo Play-vs-Bots, friend joins after the game, host leaves: room resets so the friend can host', () => {
+      const events: RoomEvent[] = [];
+      manager.setRoomEventListener(e => events.push(e));
+      const { room, aliceId } = soloQuickPlayFinished();
+      const carol = manager.joinRoom(room.code, 'Carol', 's3');
+      if ('error' in carol) throw new Error(carol.error);
+
+      manager.leaveRoom(room.code, aliceId);
+
+      expect(manager.getEngine(room.code)).toBeUndefined();
+      expect(room.gameState).toBeNull();
+      expect(room.hostId).toBe(carol.playerId);
+      expect(room.players.map(p => p.name)).toEqual(['Bot1', 'Bot2', 'Bot3', 'Carol']);
+      expect(events.map(e => e.type)).toContain('reset_to_lobby');
+      expect(manager.getPublicRooms()[0]).toMatchObject({ hasGame: false, betweenGames: false });
+
+      // The new host can actually play
+      expect('error' in manager.addBot(room.code, 'Bot4', 'random')).toBe(false);
+      expect('error' in manager.startGame(room.code)).toBe(false);
+    });
+
+    it('same when the original host drops and never comes back', () => {
+      const { room, aliceId } = soloQuickPlayFinished();
+      const carol = manager.joinRoom(room.code, 'Carol', 's3');
+      if ('error' in carol) throw new Error(carol.error);
+
+      manager.disconnectPlayer(room.code, aliceId);
+      expect(room.hostId).toBe(aliceId); // seat held during grace
+      vi.advanceTimersByTime(LOBBY_DISCONNECT_GRACE_MS);
+
+      expect(room.gameState).toBeNull();
+      expect(room.hostId).toBe(carol.playerId);
+    });
+
+    it('keeps the game-over screen while a seated human is still around', () => {
+      const { room, playerId } = manager.createRoom('Alice', 's1');
+      const bob = manager.joinRoom(room.code, 'Bob', 's2');
+      if ('error' in bob) throw new Error(bob.error);
+      manager.startGame(room.code);
+      finishGame(manager, room.code, playerId);
+      manager.onGameFinished(room.code);
+      manager.joinRoom(room.code, 'Carol', 's3');
+
+      manager.leaveRoom(room.code, playerId);
+      expect(room.hostId).toBe(bob.playerId); // seated human preferred over the newcomer
+      expect(manager.getEngine(room.code)).toBeDefined();
+    });
+  });
+
+  describe('grace across game end and rematch', () => {
+    it('a player who refreshed on the game-over screen survives a quick rematch', () => {
+      const { room, playerId } = manager.createRoom('Alice', 's1');
+      const bob = manager.joinRoom(room.code, 'Bob', 's2');
+      if ('error' in bob) throw new Error(bob.error);
+      manager.startGame(room.code);
+      finishGame(manager, room.code, playerId);
+      manager.onGameFinished(room.code);
+
+      manager.disconnectPlayer(room.code, bob.playerId);
+      manager.resetToLobby(room.code);
+
+      expect(room.players.find(p => p.id === bob.playerId)?.connected).toBe(false);
+      expect(manager.hasDisconnectTimer(room.code, bob.playerId)).toBe(true);
+      expect('error' in manager.rejoinRoom(room.code, bob.playerId, 's2b', bob.sessionToken)).toBe(false);
+    });
+
+    it('a grace player who never returns after the rematch is still released', () => {
+      const { room, playerId } = manager.createRoom('Alice', 's1');
+      const bob = manager.joinRoom(room.code, 'Bob', 's2');
+      if ('error' in bob) throw new Error(bob.error);
+      manager.startGame(room.code);
+      finishGame(manager, room.code, playerId);
+      manager.disconnectPlayer(room.code, bob.playerId);
+      manager.resetToLobby(room.code);
+
+      vi.advanceTimersByTime(LOBBY_DISCONNECT_GRACE_MS);
+      expect(room.players.map(p => p.name)).toEqual(['Alice']);
+    });
+
+    it('players who dropped mid-game get lobby grace once the game ends, then are released', () => {
+      const { room, playerId } = manager.createRoom('Alice', 's1');
+      const bob = manager.joinRoom(room.code, 'Bob', 's2');
+      if ('error' in bob) throw new Error(bob.error);
+      manager.addBot(room.code, 'Bot1', 'random');
+      manager.startGame(room.code);
+      // Bob is eliminated, then drops: eliminated players get no bot timer.
+      for (const inf of manager.getEngine(room.code)!.game.getPlayer(bob.playerId)!.influences) inf.revealed = true;
+      manager.disconnectPlayer(room.code, bob.playerId);
+
+      finishGame(manager, room.code, playerId);
+      manager.onGameFinished(room.code);
+      expect(manager.hasDisconnectTimer(room.code, bob.playerId)).toBe(true);
+
+      vi.advanceTimersByTime(LOBBY_DISCONNECT_GRACE_MS);
+      expect(room.players.find(p => p.id === bob.playerId)).toBeUndefined();
+    });
+
+    it('a host who dropped mid-game hands host to a connected human at game end', () => {
+      const { room, playerId } = manager.createRoom('Alice', 's1');
+      const bob = manager.joinRoom(room.code, 'Bob', 's2');
+      if ('error' in bob) throw new Error(bob.error);
+      manager.startGame(room.code);
+      manager.disconnectPlayer(room.code, playerId);
+
+      finishGame(manager, room.code, bob.playerId);
+      manager.onGameFinished(room.code);
+      expect(room.hostId).toBe(bob.playerId);
+    });
+
+    it('an eliminated host leaving mid-game hands host to a connected human', () => {
+      const { room, playerId } = manager.createRoom('Alice', 's1');
+      const bob = manager.joinRoom(room.code, 'Bob', 's2');
+      if ('error' in bob) throw new Error(bob.error);
+      manager.joinRoom(room.code, 'Carol', 's3');
+      manager.startGame(room.code);
+      for (const inf of manager.getEngine(room.code)!.game.getPlayer(playerId)!.influences) inf.revealed = true;
+
+      manager.leaveRoom(room.code, playerId);
+      expect(manager.replaceWithBot(room.code, playerId, 'left')).toBe(false); // dead seat: no bot
+      expect(room.hostId).toBe(bob.playerId);
+    });
+  });
+
+  describe('rejoin hardening', () => {
+    it('never lets a socket rejoin as a bot', () => {
+      const { room } = manager.createRoom('Alice', 's1');
+      const bot = manager.addBot(room.code, 'Bot1', 'random');
+      if ('error' in bot) throw new Error(bot.error);
+      expect(manager.rejoinRoom(room.code, bot.botId, 'evil')).toEqual({ error: 'Player not found in room' });
+      expect(manager.rejoinRoom(room.code, bot.botId, 'evil', 'anything')).toEqual({ error: 'Player not found in room' });
+      expect(room.players.find(p => p.id === bot.botId)?.socketId).toBe('');
+    });
+
+    it('always requires the session token', () => {
+      const { room, playerId } = manager.createRoom('Alice', 's1');
+      manager.disconnectPlayer(room.code, playerId);
+      expect(manager.rejoinRoom(room.code, playerId, 's1b')).toEqual({ error: 'Invalid session token' });
+      expect(manager.rejoinRoom(room.code, playerId, 's1b', 'wrong')).toEqual({ error: 'Invalid session token' });
+    });
+
+    it('resets AFK strikes on a successful rejoin', () => {
+      const { room, playerId, sessionToken } = manager.createRoom('Alice', 's1');
+      manager.joinRoom(room.code, 'Bob', 's2');
+      manager.startGame(room.code);
+      manager.recordTurnTimeout(room.code, playerId);
+      expect(manager.getAfkStrikes(room.code, playerId)).toBe(1);
+
+      manager.disconnectPlayer(room.code, playerId);
+      manager.rejoinRoom(room.code, playerId, 's1b', sessionToken);
+      expect(manager.getAfkStrikes(room.code, playerId)).toBe(0);
+    });
+  });
+
+  describe('host is never left on a bot', () => {
+    it('closes the room when the last human seat goes to a bot', () => {
+      const events: RoomEvent[] = [];
+      manager.setRoomEventListener(e => events.push(e));
+      const { room, playerId } = manager.createRoom('Alice', 's1', true);
+      manager.addBot(room.code, 'Bot1', 'random');
+      manager.startGame(room.code);
+
+      expect(manager.replaceWithBot(room.code, playerId, 'afk')).toBe(true);
+      expect(manager.getRoom(room.code)).toBeUndefined();
+      expect(events).toContainEqual({ type: 'closed', roomCode: room.code, wasPublic: true });
+    });
+
+    it('falls back to a disconnected human rather than a bot', () => {
+      const { room, playerId } = manager.createRoom('Alice', 's1');
+      const bob = manager.joinRoom(room.code, 'Bob', 's2');
+      if ('error' in bob) throw new Error(bob.error);
+      manager.startGame(room.code);
+      manager.disconnectPlayer(room.code, bob.playerId);
+
+      manager.replaceWithBot(room.code, playerId, 'afk');
+      expect(room.hostId).toBe(bob.playerId);
+    });
+  });
+
   // ─── 9. Metrics ───
 
   describe('structured metrics', () => {
@@ -304,10 +496,14 @@ describe('RoomManager — lobby resilience, AFK and finished rooms', () => {
       expect(events.map(e => e.event)).toEqual(['room_created', 'game_started', 'game_finished', 'room_closed']);
 
       const [created, started, finished, closed] = events;
-      expect(created).toMatchObject({ event: 'room_created', room: room.code, isPublic: false, viaQuickPlay: true, practice: false });
+      // Metrics never carry the room code (a join credential) — a random per-room id instead.
+      const roomId = created.room;
+      expect(roomId).toMatch(/^[0-9a-f]{10}$/);
+      expect(roomId).not.toBe(room.code);
+      expect(events.every(e => e.room === roomId)).toBe(true);
+      expect(created).toMatchObject({ event: 'room_created', isPublic: false, viaQuickPlay: true, practice: false });
       expect(started).toMatchObject({
         event: 'game_started',
-        room: room.code,
         players: 3,
         humans: 1,
         bots: 2,
@@ -324,7 +520,6 @@ describe('RoomManager — lobby resilience, AFK and finished rooms', () => {
       expect(typeof (started as { gameId: string }).gameId).toBe('string');
       expect(finished).toMatchObject({
         event: 'game_finished',
-        room: room.code,
         gameId: (started as { gameId: string }).gameId,
         winnerIsBot: false,
         winnerWasReplaced: false,
@@ -339,7 +534,6 @@ describe('RoomManager — lobby resilience, AFK and finished rooms', () => {
       expect((finished as { turns: number }).turns).toBeGreaterThanOrEqual(1);
       expect(closed).toMatchObject({
         event: 'room_closed',
-        room: room.code,
         reason: 'empty',
         everStarted: true,
         gamesStarted: 1,
@@ -354,6 +548,7 @@ describe('RoomManager — lobby resilience, AFK and finished rooms', () => {
         expect(line).not.toContain(sessionToken);
         expect(line).not.toContain(playerId);
         expect(line).not.toContain('Alice');
+        expect(line).not.toContain(`"${room.code}`);
       }
     });
 
@@ -370,8 +565,9 @@ describe('RoomManager — lobby resilience, AFK and finished rooms', () => {
       expect(starts.map(e => (e as { rematchIndex: number }).rematchIndex)).toEqual([0, 1]);
 
       const { room: idle, playerId: idleHost } = manager.createRoom('Zed', 's9');
+      const idleId = metrics().filter(e => e.event === 'room_created').pop()!.room;
       manager.leaveRoom(idle.code, idleHost);
-      const closed = metrics().find(e => e.event === 'room_closed' && e.room === idle.code);
+      const closed = metrics().find(e => e.event === 'room_closed' && e.room === idleId);
       expect(closed).toMatchObject({ everStarted: false, gamesStarted: 0, gamesPlayed: 0, reason: 'empty' });
     });
 
@@ -385,8 +581,9 @@ describe('RoomManager — lobby resilience, AFK and finished rooms', () => {
       manager.leaveRoom(room.code, bob.playerId); // last human leaves mid-game
 
       const events = metrics();
-      expect(events.find(e => e.event === 'player_replaced_by_bot')).toMatchObject({ room: room.code, reason: 'afk' });
-      expect(events.find(e => e.event === 'game_abandoned')).toMatchObject({ room: room.code, humans: 2, bots: 0, reason: 'empty' });
+      const roomId = events.find(e => e.event === 'room_created')!.room;
+      expect(events.find(e => e.event === 'player_replaced_by_bot')).toMatchObject({ room: roomId, reason: 'afk' });
+      expect(events.find(e => e.event === 'game_abandoned')).toMatchObject({ room: roomId, humans: 2, bots: 0, reason: 'empty' });
       expect(events.find(e => e.event === 'room_closed')).toMatchObject({ everStarted: true, gamesPlayed: 0 });
     });
 
@@ -401,9 +598,10 @@ describe('RoomManager — lobby resilience, AFK and finished rooms', () => {
       expect(metrics().find(e => e.event === 'room_closed')).toMatchObject({ reason: 'inactive' });
       expect(metrics().find(e => e.event === 'game_abandoned')).toMatchObject({ reason: 'inactive' });
 
-      const { room: old } = manager.createRoom('Old', 's2');
+      manager.createRoom('Old', 's2');
+      const oldId = metrics().filter(e => e.event === 'room_created').pop()!.room;
       vi.advanceTimersByTime(24 * 60 * 60 * 1000 + 60_000);
-      expect(metrics().find(e => e.event === 'room_closed' && e.room === old.code)).toMatchObject({ reason: 'ttl' });
+      expect(metrics().find(e => e.event === 'room_closed' && e.room === oldId)).toMatchObject({ reason: 'ttl' });
     });
 
     it('hands finished games to durable storage without letting failures escape', async () => {

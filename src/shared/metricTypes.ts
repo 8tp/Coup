@@ -2,6 +2,8 @@ import { BotPersonality, BotReplaceReason, GameMode, RoomOrigin } from './types'
 
 /** Server-only per-room funnel bookkeeping held by RoomManager (never sent to clients). */
 export interface RoomMeta {
+  /** Random, non-reversible id used as `room` in metric lines (room codes are join credentials). */
+  metricId: string;
   origin: RoomOrigin;
   gamesStarted: number;
   gamesFinished: number;
@@ -24,6 +26,7 @@ export type RoomCloseReason = 'empty' | 'ttl' | 'inactive';
 
 export interface RoomCreatedMetric {
   event: 'room_created';
+  /** Per-room random metric id — never the room code. */
   room: string;
   isPublic: boolean;
   viaQuickPlay: boolean;
