@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, type ReactNode } from 'react';
 import { ChatMessage } from '@/shared/types';
 import { CHAT_MAX_MESSAGE_LENGTH } from '@/shared/constants';
 import { haptic } from '../../utils/haptic';
@@ -14,9 +14,11 @@ interface ChatPanelProps {
   variant?: 'compact' | 'roomy';
   /** One-tap lines shown above the field. */
   quickPhrases?: readonly string[];
+  /** A control at the start of the composer row (Table talk puts the reaction picker here). */
+  accessory?: ReactNode;
 }
 
-export function ChatPanel({ messages, myId, onSend, variant = 'compact', quickPhrases }: ChatPanelProps) {
+export function ChatPanel({ messages, myId, onSend, variant = 'compact', quickPhrases, accessory }: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState('');
   const mutedPlayerIds = useGameStore(s => s.mutedPlayerIds);
@@ -40,7 +42,7 @@ export function ChatPanel({ messages, myId, onSend, variant = 'compact', quickPh
     <div className="flex flex-col h-full">
       <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-1 px-3 py-2 min-h-0">
         {visibleMessages.length === 0 && (
-          <p className={`${variant === 'roomy' ? 'text-sm' : 'text-xs'} text-coup-ink-mute italic`}>No messages yet...</p>
+          <p className={`${variant === 'roomy' ? 'text-sm' : 'text-xs'} text-coup-ink-mute italic`}>No messages yet.</p>
         )}
         {visibleMessages.map((msg) => {
           const isOwn = msg.playerId === myId;
@@ -65,12 +67,14 @@ export function ChatPanel({ messages, myId, onSend, variant = 'compact', quickPh
         </div>
       )}
       <form onSubmit={handleSubmit} className="flex gap-2 px-3 py-2 border-t border-coup-line/70">
+        {accessory}
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           maxLength={CHAT_MAX_MESSAGE_LENGTH}
-          placeholder="Type a message..."
+          placeholder="Message the table"
+          aria-label="Chat message"
           className="input-field flex-1 min-w-0 !text-base"
         />
         <button

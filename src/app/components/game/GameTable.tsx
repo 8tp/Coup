@@ -878,32 +878,32 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
         gameState.pendingAction?.actorId !== gameState.myId &&
         !challengePassed
       ) {
-        title = `Challenge? | ${titleSuffix}`;
+        title = `Challenge or pass | ${titleSuffix}`;
       } else if (
         gameState.turnPhase === TurnPhase.AwaitingBlock &&
         gameState.pendingAction?.actorId !== gameState.myId &&
         !blockPassed &&
         (!gameState.pendingAction?.targetId || gameState.pendingAction.targetId === gameState.myId)
       ) {
-        title = `Block? | ${titleSuffix}`;
+        title = `Block or allow | ${titleSuffix}`;
       } else if (
         gameState.turnPhase === TurnPhase.AwaitingBlockChallenge &&
         gameState.pendingBlock?.blockerId !== gameState.myId &&
         !challengePassed
       ) {
-        title = `Challenge block? | ${titleSuffix}`;
+        title = `Challenge the block | ${titleSuffix}`;
       } else if (
         gameState.turnPhase === TurnPhase.AwaitingInfluenceLoss &&
         gameState.influenceLossRequest?.playerId === gameState.myId
       ) {
-        title = `Reveal influence | ${titleSuffix}`;
+        title = `Lose a card | ${titleSuffix}`;
       } else if (gameState.turnPhase === TurnPhase.AwaitingExchange && gameState.exchangeState) {
-        title = `Choose cards | ${titleSuffix}`;
+        title = `Choose cards to keep | ${titleSuffix}`;
       } else if (
         gameState.turnPhase === TurnPhase.AwaitingExamineSelection &&
         gameState.examineSelectionState?.targetId === gameState.myId
       ) {
-        title = `Choose a card | ${titleSuffix}`;
+        title = `Show a card | ${titleSuffix}`;
       } else if (gameState.turnPhase === TurnPhase.AwaitingExamineDecision && gameState.examineState) {
         title = `Examine card | ${titleSuffix}`;
       }
@@ -1056,7 +1056,9 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
           >
             {isMuted ? <SpeakerMutedGlyph size={16} /> : <SpeakerGlyph size={16} />}
           </button>
-          <ReactionPicker onReact={onSendReaction} disabled={isSpectator || (me ? !me.isAlive : true)} />
+          <span className="court-react-header">
+            <ReactionPicker onReact={onSendReaction} disabled={isSpectator || (me ? !me.isAlive : true)} />
+          </span>
           <button
             onClick={() => { haptic(); setShowSettings(true); }}
             className="court-icon-btn"
@@ -1070,8 +1072,8 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
           <button
             onClick={() => { haptic(); setShowRules(true); }}
             className="court-icon-btn type-display"
-            title="How to Play"
-            aria-label="How to Play"
+            title="How to play"
+            aria-label="How to play"
           >
             ?
           </button>
@@ -1131,7 +1133,15 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
       <div className={`court-dock ${isMyActionTurn ? 'is-acting' : ''}`} data-coach-anchor="sheet">
         <div className="court-dock-log">
           <LogTicker log={gameState.actionLog} count={isSpectator ? 4 : 2} onOpen={() => setLogOpen(true)} />
-          {!isSpectator && <TableTalk messages={chatMessages} myId={gameState.myId} onSend={onSendChat} />}
+          {!isSpectator && (
+            <TableTalk
+              messages={chatMessages}
+              myId={gameState.myId}
+              onSend={onSendChat}
+              onReact={onSendReaction}
+              reactDisabled={me ? !me.isAlive : true}
+            />
+          )}
         </div>
 
         {me && (

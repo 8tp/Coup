@@ -2829,6 +2829,18 @@
     align-self: flex-start;
   }
 
+  .table-talk-react { flex: none; }
+
+  /* A wrapper only so CSS can hide it; it adds no box of its own. */
+  .court-react-header { display: contents; }
+
+  /* On desktop the reaction picker lives in Table talk's composer. The
+     header keeps its copy only while Table talk is folded (or absent, as
+     for a spectator). */
+  @media (min-width: 1024px) {
+    body:has(.table-talk.is-open) .court-react-header { display: none; }
+  }
+
   /* ── The log drawer ─────────────────────────────────────────────────── */
 
   .court-drawer-scrim {
