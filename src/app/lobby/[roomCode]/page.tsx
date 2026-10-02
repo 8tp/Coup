@@ -12,6 +12,7 @@ import { QRShareModal } from '../../components/lobby/QRShareModal';
 import { SettingsModal } from '../../components/settings/SettingsModal';
 import { HowToPlay } from '../../components/home/HowToPlay';
 import { haptic } from '../../utils/haptic';
+import { useLobbyMusic } from '../../hooks/useMusicDirector';
 import { botsNeededToFill, buildBots } from '../../utils/botFill';
 
 /** How long a refreshed lobby waits for the automatic rejoin before sending the player home. */
@@ -35,6 +36,7 @@ export default function LobbyPage() {
     rejoinStatus,
   } = useGameStore();
 
+  useLobbyMusic();
   const leavingRef = useRef(false);
   const copyStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showAddBotModal, setShowAddBotModal] = useState(false);

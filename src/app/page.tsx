@@ -14,6 +14,7 @@ import { GameMode } from '@/shared/types';
 import { haptic } from './utils/haptic';
 import { loadSavedPlayerName, savePlayerName } from './utils/playerName';
 import { buildBots } from './utils/botFill';
+import { useLobbyMusic } from './hooks/useMusicDirector';
 
 export default function Home() {
   return (
@@ -29,6 +30,7 @@ function HomeContent() {
   const { createRoom, joinRoom, spectateRoom, addBot, addBots, startGame, leaveRoom, updateRoomSettings, subscribeToBrowser, unsubscribeFromBrowser } = useSocket();
   const { error, setError, setRoom, clearRoom, publicRooms, playersOnline, gamesInProgress } = useGameStore();
   const joinCode = searchParams.get('join');
+  useLobbyMusic();
   const [mode, setMode] = useState<'idle' | 'create' | 'join' | 'browse' | 'quick'>(joinCode ? 'join' : 'idle');
   const [name, setName] = useState('');
   const [roomCode, setRoomCode] = useState(joinCode ?? '');

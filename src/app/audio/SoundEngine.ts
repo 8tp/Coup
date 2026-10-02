@@ -34,6 +34,7 @@ export type SoundId =
   | 'playerEliminated'
   | 'exchange'
   | 'cardShuffle'
+  | 'cardDeal'
   | 'reaction'
   | 'chatMessage';
 
@@ -52,32 +53,138 @@ export interface SoundStats {
   /** Must read 0 after a game — see `take()`. */
   droppedPriority: number;
   gatedVoices: number;
+  /** Hero cues played as their recording. */
+  heroClipVoices: number;
+  /** Hero cues that fell back to the synth because the clip was not decoded yet. */
+  heroFallbackVoices: number;
 }
 
-const MUSIC_URL = '/audio/velvet-court.mp3';
-const MUSIC_GAIN = 0.18;
+/* ── music ────────────────────────────────────────────────────────────────── */
 
 /**
- * Mastered stingers, with the synth voices below as fallbacks when the fetch
- * fails. These gains are PRE-TRIM: MIX_DB is applied to the whole voice at the
- * head gain (the single choke point), and this number sets the clip's level
- * RELATIVE TO its synth fallback.
+ * The adaptive score. Three seamless loops from one key/tempo family, every one
+ * normalised to the same integrated loudness (MUSIC_LUFS) so MUSIC_GAIN means
+ * the same thing whichever bed is playing — see docs/AUDIO.md.
  *
- * ── WHY THESE TWO NUMBERS ARE MEASURED, NOT CHOSEN ──────────────────────────
- * A fallback at a different level from the clip it replaces is a bug nobody
- * notices until the fetch fails and the endgame sting arrives 8dB off. At the
- * old gains (0.61 / 0.52) the mastered clips rendered 2.07dB and 2.57dB QUIETER
- * than their fallbacks. These gains were solved for from the render: the clip
- * and the synth now land within 0.08dB of each other on 300ms loudness.
- *
- *   gameOverWin   clip −17.15 / synth −17.07 dBFS loud   (Δ 0.08)
- *   gameOverLose  clip −17.02 / synth −17.01 dBFS loud   (Δ 0.01)
- *
- * Re-solve them whenever the tier-0 trims move — see docs/AUDIO-MIX.md.
+ *   lobby    home + lobby, after the first gesture unlocks audio
+ *   table    gameplay
+ *   endgame  the final duel — two players left — crossfaded in from `table`
  */
-const HERO_CLIPS: Partial<Record<SoundId, { url: string; gain: number }>> = {
-  gameOverWin: { url: '/audio/court-crowned.mp3', gain: 0.808 },
-  gameOverLose: { url: '/audio/plot-unraveled.mp3', gain: 0.557 },
+export type MusicTrack = 'lobby' | 'table' | 'endgame';
+
+export interface MusicBed {
+  readonly url: string;
+  /**
+   * The loop region, seconds. Each file is [wrap-around padding][loop][wrap-
+   * around padding] so the MP3 codec's edge effects land outside the region
+   * the buffer loops over — gapless MP3 is exact-length but not seamless. The
+   * figures are printed by `scripts/generate-music.ts master` (PAD = 4096
+   * samples at 44.1kHz); they are a property of the file, not a tuning.
+   */
+  readonly loopStart: number;
+  readonly loopEnd: number;
+  /** Measured, not requested: every bed's onset comb peaks at exactly 84.00. */
+  readonly bpm: number;
+}
+
+const LOOP_PAD_S = 4096 / 44100;
+
+export const MUSIC_BEDS: Readonly<Record<MusicTrack, MusicBed>> = {
+  lobby: { url: '/audio/music/lobby-antechamber.mp3', loopStart: LOOP_PAD_S, loopEnd: LOOP_PAD_S + 1764182 / 44100, bpm: 84 },
+  table: { url: '/audio/music/table-velvet-court.mp3', loopStart: LOOP_PAD_S, loopEnd: LOOP_PAD_S + 2520342 / 44100, bpm: 84 },
+  endgame: { url: '/audio/music/endgame-last-favour.mp3', loopStart: LOOP_PAD_S, loopEnd: LOOP_PAD_S + 2393982 / 44100, bpm: 84 },
+};
+
+/** Integrated loudness every bed is mastered to. */
+export const MUSIC_LUFS = -20;
+
+/**
+ * 0.243 at −20 LUFS is the level 0.18 was at −17.4 LUFS — the loudness the
+ * single shipped bed (`velvet-court.mp3`) was mastered to. Normalising every
+ * bed 2.6dB down and raising this by 2.6dB keeps the bed exactly where it was;
+ * what changed is that all three beds now sit at that level, not one.
+ */
+const MUSIC_GAIN = 0.243;
+
+/** Equal-power crossfade between beds. Long enough to read as a decision. */
+const MUSIC_XFADE_S = 2.0;
+
+/* ── hero clips ───────────────────────────────────────────────────────────── */
+
+/** One mastered recording of a cue. `gain` is PRE-TRIM — see HERO_CLIPS. */
+export interface HeroClip {
+  readonly url: string;
+  readonly gain: number;
+}
+
+/**
+ * Mastered recordings, with the synth voices below as fallbacks when the fetch
+ * fails or has not finished. These gains are PRE-TRIM: MIX_DB is applied to the
+ * whole voice at the head gain (the single choke point), and this number sets
+ * the clip's level RELATIVE TO its synth fallback.
+ *
+ * ── WHY EVERY GAIN HERE IS MEASURED, NOT CHOSEN ─────────────────────────────
+ * A fallback at a different level from the clip it replaces is a bug nobody
+ * notices until the fetch fails and the cue arrives 8dB off. Each gain was
+ * solved for from the offline render: the clip and its synth land within 0.1dB
+ * of each other on 300ms loudness, so the tier ladder the gate measures on the
+ * synth bank IS the ladder the player hears from the clips. The shipped-ladder
+ * gate in tests/app/audio/mix.test.ts also checks the clips directly.
+ *
+ * ── VARIANTS ────────────────────────────────────────────────────────────────
+ * More than one entry is a round-robin: `play()` picks one at random, never
+ * the one it played last. Only the cues a game fires dozens of times have them
+ * — coins, the card on the table, the card landing. Each variant has its OWN
+ * solved gain, so a variant can never be the loud one.
+ *
+ * The recordings are ElevenLabs sound-generation output, chosen by analysis and
+ * mastered (trimmed to onset, crest-limited, peak-normalised) by
+ * scripts/generate-sfx.ts. Re-solve whenever a trim moves — docs/AUDIO-MIX.md.
+ */
+const SFX = '/audio/sfx/';
+
+const HERO_CLIPS: Partial<Record<SoundId, readonly HeroClip[]>> = {
+  // tier 0
+  gameOverWin: [{ url: '/audio/court-crowned.mp3', gain: 0.815 }],
+  gameOverLose: [{ url: '/audio/plot-unraveled.mp3', gain: 0.557 }],
+  playerEliminated: [{ url: `${SFX}playerEliminated.mp3`, gain: 0.36 }],
+  // tier 1
+  influenceLoss: [{ url: `${SFX}influenceLoss.mp3`, gain: 0.361 }],
+  challengeRevealFail: [{ url: `${SFX}challengeRevealFail.mp3`, gain: 0.364 }],
+  block: [{ url: `${SFX}block.mp3`, gain: 0.15 }],
+  // tier 2
+  coup: [{ url: `${SFX}coup.mp3`, gain: 0.989 }],
+  challengeRevealSuccess: [{ url: `${SFX}challengeRevealSuccess.mp3`, gain: 0.446 }],
+  assassinationAlert: [{ url: `${SFX}assassinationAlert.mp3`, gain: 0.328 }],
+  exchange: [{ url: `${SFX}exchange.mp3`, gain: 0.461 }],
+  // tier 3 — the round-robin cues
+  coinsGained: [
+    { url: `${SFX}coinsGained-1.mp3`, gain: 0.2 },
+    { url: `${SFX}coinsGained-2.mp3`, gain: 0.201 },
+  ],
+  coinsLost: [
+    { url: `${SFX}coinsLost-1.mp3`, gain: 0.163 },
+    { url: `${SFX}coinsLost-2.mp3`, gain: 0.187 },
+  ],
+  actionDeclared: [
+    { url: `${SFX}actionDeclared-1.mp3`, gain: 0.176 },
+    { url: `${SFX}actionDeclared-2.mp3`, gain: 0.159 },
+    { url: `${SFX}actionDeclared-3.mp3`, gain: 0.196 },
+  ],
+  cardShuffle: [
+    { url: `${SFX}cardShuffle-1.mp3`, gain: 0.173 },
+    { url: `${SFX}cardShuffle-2.mp3`, gain: 0.168 },
+    { url: `${SFX}cardShuffle-3.mp3`, gain: 0.177 },
+  ],
+  cardDeal: [{ url: `${SFX}cardDeal.mp3`, gain: 0.149 }],
+  // tier 4 — chrome
+  yourTurn: [{ url: `${SFX}yourTurn.mp3`, gain: 0.252 }],
+  challengeWindow: [{ url: `${SFX}challengeWindow.mp3`, gain: 0.924 }],
+  blockOpportunity: [{ url: `${SFX}blockOpportunity.mp3`, gain: 0.708 }],
+  timerWarning: [{ url: `${SFX}timerWarning.mp3`, gain: 0.536 }],
+  denied: [{ url: `${SFX}denied.mp3`, gain: 0.79 }],
+  reaction: [{ url: `${SFX}reaction.mp3`, gain: 0.303 }],
+  chatMessage: [{ url: `${SFX}chatMessage.mp3`, gain: 0.46 }],
 };
 
 /* ── pure DSP helpers ─────────────────────────────────────────────────────── */
@@ -226,7 +333,7 @@ const JITTER_AMOUNT = 0.025;
 
 /** The cues that repeat often enough to fatigue. One-shot stings stay exact. */
 const JITTERED: ReadonlySet<SoundId> = new Set<SoundId>([
-  'coinsGained', 'coinsLost', 'actionDeclared', 'cardShuffle',
+  'coinsGained', 'coinsLost', 'actionDeclared', 'cardShuffle', 'cardDeal',
   'reaction', 'chatMessage', 'block', 'denied',
 ]);
 
@@ -249,10 +356,11 @@ const JITTERED: ReadonlySet<SoundId> = new Set<SoundId>([
  *   tier 4  chrome               timerWarning denied chatMessage reaction
  *                                yourTurn blockOpportunity challengeWindow
  *
- * ── MEASURED 2026-08-10 ─────────────────────────────────────────────────────
+ * ── MEASURED 2026-10-01 (first pass 2026-08-10) ────────────────────────────
  * These trims are no longer estimates. Every figure below is an offline render
  * of THIS graph — buildGraph() → startVoice() → OfflineAudioContext, 48kHz,
- * Chrome 151, 1s compressor pre-roll — by tests/app/audio/harness.html. The
+ * Chrome 153 (151 for the first pass — every synth row came back identical to
+ * 0.01dB), 1s compressor pre-roll — by tests/app/audio/harness.html. The
  * numbers are committed as data in tests/app/audio/measurements.ts and gated by
  * tests/app/audio/mix.test.ts. Regeneration: docs/AUDIO-MIX.md.
  *
@@ -265,7 +373,7 @@ const JITTERED: ReadonlySet<SoundId> = new Set<SoundId>([
  *
  *   id                      trim dB    peak dBFS   loud dBFS
  *   ─────────────────────── ────────── ─────────── ───────────
- *   gameOverWin (clip)        −2.8       −4.61      −17.15   ┐ tier 0
+ *   gameOverWin (clip)        −2.8       −4.58      −17.08   ┐ tier 0
  *   gameOverWin (synth)       −2.8       −5.63      −17.07   │
  *   gameOverLose (clip)       −5.0       −7.23      −17.02   │
  *   gameOverLose (synth)      −5.0       −8.58      −17.01   │
@@ -280,6 +388,7 @@ const JITTERED: ReadonlySet<SoundId> = new Set<SoundId>([
  *   coinsGained               −0.7      −14.20      −24.97   ┐ tier 3
  *   coinsLost                 −0.4      −14.00      −26.42   │
  *   actionDeclared            −0.3      −13.93      −29.06   │
+ *   cardDeal                  +0.7      −13.66      −32.53   │
  *   cardShuffle               +1.2      −14.01      −32.58   ┘
  *   timerWarning              −9.4      −21.67      −34.56   ┐ tier 4
  *   chatMessage               −7.4      −22.85      −34.57   │
@@ -290,9 +399,15 @@ const JITTERED: ReadonlySet<SoundId> = new Set<SoundId>([
  *   denied                   −12.0      −21.56      −34.64   ┘
  *
  * Tier boundaries on loudness, quietest-above minus loudest-below:
- *   0/1 = 1.82dB   1/2 = 1.84dB   2/3 = 1.92dB   3/4 = 1.98dB
+ *   synth bank   0/1 = 1.90dB   1/2 = 1.84dB   2/3 = 1.92dB   3/4 = 1.98dB
+ *   as shipped   0/1 = 1.88dB   1/2 = 1.85dB   2/3 = 1.89dB   3/4 = 1.99dB
+ * ("as shipped" is every cue as its clip variants — HERO_CLIPS above; the
+ * rows in this table are the synth fallbacks, which the clips are solved onto).
  * The headline rule on peak: the quietest loss (influenceLoss, −11.86) stabs
- * 2.07dB above the hottest routine cue (actionDeclared, −13.93).
+ * 1.80dB above the hottest routine cue (cardDeal, −13.66); as shipped, the
+ * quietest loss clip (playerEliminated, −7.77) stabs 1.89dB above the hottest
+ * routine clip (coinsLost variant 2, −9.66). Routine clips are crest-limited
+ * in mastering for exactly this — scripts/generate-sfx.ts `crestDb`.
  *
  * `denied` was added in the 2026-08-10 pass and the whole bank was re-rendered
  * with it; every other figure above came back byte-identical. It was solved
@@ -300,6 +415,11 @@ const JITTERED: ReadonlySet<SoundId> = new Set<SoundId>([
  * tops out at −34.56 and the 3/4 margin is only 1.98dB — a new chrome cue that
  * landed above `timerWarning` would eat the boundary. −12.0 puts it level with
  * `blockOpportunity`, so the margin is exactly what it was. No other trim moved.
+ *
+ * `cardDeal` (2026-10-01) went in at the FLOOR of tier 3 for the same reason:
+ * +0.7 puts it level with `cardShuffle`, so the 3/4 margin did not move, and
+ * its synth peak (−13.66) still sits 1.80dB under the quietest loss. Again no
+ * other trim moved — the clips were solved onto the trims, not the reverse.
  *
  * ── WHAT WAS ACTUALLY WRONG ─────────────────────────────────────────────────
  * The previous trims were hand-derived from summed oscillator gains. Measured,
@@ -310,9 +430,14 @@ const JITTERED: ReadonlySet<SoundId> = new Set<SoundId>([
  * and only 1.3dB under a lost influence.
  *
  * ── STILL UNMEASURED ────────────────────────────────────────────────────────
- *  • The music bed. MUSIC_GAIN is untouched and unmeasured, and the tier ladder
- *    is now 17.6dB tall, so tier 4 may sit under the bed. Cue-vs-bed is a
- *    separate measurement this pass did not make.
+ *  • (Measured since 2026-10-01: cue vs bed. Broadband the table bed sits
+ *    ABOVE tier 4 — it is nearly all bass — but in each cue's own loudest
+ *    octave every cue clears both in-match beds, the thinnest being `denied`
+ *    at 3.1dB over the table bed. Gated in mix.test.ts; MEASURED_MASKING.)
+ *  • Perceptual weighting. The ladder is unweighted RMS. A 6kHz card tear and
+ *    a 120Hz timpani at the same "loud" are not equally loud to a listener —
+ *    K-weighting would put the tear ~4dB up. The tiers are 1.8–2dB apart, so
+ *    on a weighted axis some neighbours could swap; not measured.
  *  • The mine/theirs treatment (−6dB + 5.2kHz lowpass + pan) is rendered only in
  *    the `mine` form. THEIRS_DB is a flat offset on the same head, so it moves
  *    the whole ladder together, but the lowpass's effect on loudness is not
@@ -341,6 +466,7 @@ const MIX_DB: Record<SoundId, number> = {
   exchange: -4.3,
   // tier 3 — cards being handled. Down, all of it.
   cardShuffle: 1.2,
+  cardDeal: 0.7,
   actionDeclared: -0.3,
   coinsGained: -0.7,
   coinsLost: -0.4,
@@ -374,6 +500,7 @@ const MIX_TIER: Record<SoundId, MixTier> = {
   challengeRevealSuccess: 2,
   exchange: 2,
   cardShuffle: 3,
+  cardDeal: 3,
   actionDeclared: 3,
   coinsGained: 3,
   coinsLost: 3,
@@ -419,27 +546,36 @@ const MAX_VOICES = 32;
  */
 const MAX_VOICES_PRIORITY = 64;
 
+/**
+ * `tail` is the LONGER of the synth voice and its longest hero clip — the
+ * budget has to describe what is actually sounding, and since the clips landed
+ * that is usually the recording. The gate checks every routine cue's tail
+ * covers its clips (tests/app/audio/mix.test.ts). The two mastered stingers
+ * keep their synth-length tails: they are priority, and the priority cap only
+ * guards against a runaway loop.
+ */
 const VOICE: Record<SoundId, VoiceSpec> = {
   gameOverWin: { tail: 1.30, weight: 8, priority: true },
   gameOverLose: { tail: 1.85, weight: 8, priority: true },
-  playerEliminated: { tail: 0.45, weight: 6, priority: true },
-  influenceLoss: { tail: 0.40, weight: 4, priority: true },
+  playerEliminated: { tail: 1.50, weight: 6, priority: true },
+  influenceLoss: { tail: 0.56, weight: 4, priority: true },
   challengeRevealFail: { tail: 0.78, weight: 4, priority: true },
   challengeRevealSuccess: { tail: 0.70, weight: 4, priority: true },
   coup: { tail: 0.67, weight: 4, priority: true },
-  block: { tail: 0.20, weight: 3, priority: true },
-  assassinationAlert: { tail: 0.45, weight: 3, priority: true },
-  exchange: { tail: 0.30, weight: 2, priority: true },
-  cardShuffle: { tail: 0.20, weight: 2, priority: false },
+  block: { tail: 0.45, weight: 3, priority: true },
+  assassinationAlert: { tail: 0.51, weight: 3, priority: true },
+  exchange: { tail: 0.72, weight: 2, priority: true },
+  cardShuffle: { tail: 0.26, weight: 2, priority: false },
+  cardDeal: { tail: 1.00, weight: 2, priority: false },
   challengeWindow: { tail: 0.35, weight: 2, priority: false },
-  yourTurn: { tail: 0.30, weight: 2, priority: false },
-  actionDeclared: { tail: 0.13, weight: 1, priority: false },
-  coinsGained: { tail: 0.20, weight: 1, priority: false },
-  coinsLost: { tail: 0.20, weight: 1, priority: false },
+  yourTurn: { tail: 0.58, weight: 2, priority: false },
+  actionDeclared: { tail: 0.26, weight: 1, priority: false },
+  coinsGained: { tail: 0.42, weight: 1, priority: false },
+  coinsLost: { tail: 0.28, weight: 1, priority: false },
   blockOpportunity: { tail: 0.27, weight: 1, priority: false },
-  timerWarning: { tail: 0.11, weight: 1, priority: false },
+  timerWarning: { tail: 0.12, weight: 1, priority: false },
   denied: { tail: 0.12, weight: 1, priority: false },
-  reaction: { tail: 0.13, weight: 1, priority: false },
+  reaction: { tail: 0.30, weight: 1, priority: false },
   chatMessage: { tail: 0.17, weight: 1, priority: false },
 };
 
@@ -1053,6 +1189,20 @@ const sounds: Record<SoundId, SoundDefinition> = {
     noiseBurst(g, out, t0, 0.12, 0, 0.15, 3000, 'pink');
   },
 
+  /**
+   * The opening deal: four cards off the deck, ~110ms apart and settling —
+   * each flick a little lower and a little quieter than the one before, the
+   * way a hand slows as it finishes. Fallback for HERO_CLIPS.cardDeal.
+   */
+  cardDeal(g, out, t0, o) {
+    const flicks: [number, number, number][] = [
+      [0.00, 0.12, 3200], [0.11, 0.11, 2900], [0.23, 0.10, 2700], [0.36, 0.09, 2500],
+    ];
+    for (const [at, amp, hz] of flicks) {
+      noiseBurst(g, out, t0, amp, at, 0.07, f(o, hz), 'pink');
+    }
+  },
+
   reaction(g, out, t0, o) {
     osc(g, out, t0, 'sine', f(o, 800), 0.1, 0, 0.08, f(o, 1200));
   },
@@ -1070,22 +1220,33 @@ const sounds: Record<SoundId, SoundDefinition> = {
  * come through here; neither has its own copy of the head, the trim, or the
  * clip-vs-fallback choice.
  *
- * `heroBuffer` null means "synth": either the cue has no hero clip, or the clip
- * fetch failed and the fallback is what the player is about to hear.
+ * `hero` null means "synth": either the cue has no hero clip, or the clip is
+ * not decoded (fetch failed or still in flight) and the fallback is what the
+ * player is about to hear.
+ *
+ * A clip carries the voice's pitch as its playback rate — the opponent detune
+ * and the ±2.5% jitter — so a round-robin variant retriggered is never the
+ * same recording at the same speed twice.
  */
+interface HeroVoice {
+  readonly buffer: AudioBuffer;
+  /** The variant's solved pre-trim gain. */
+  readonly gain: number;
+}
+
 function startVoice(
   g: Graph,
   id: SoundId,
   t0: number,
   o: VoiceOptions,
-  heroBuffer: AudioBuffer | null,
+  hero: HeroVoice | null,
 ): GainNode {
   const head = makeHead(g, o);
-  const hero = HERO_CLIPS[id];
-  if (hero && heroBuffer) {
+  if (hero) {
     const source = g.ctx.createBufferSource();
     const gain = g.ctx.createGain();
-    source.buffer = heroBuffer;
+    source.buffer = hero.buffer;
+    source.playbackRate.value = o.pitch;
     gain.gain.value = hero.gain;
     source.connect(gain).connect(head);
     source.start(t0);
@@ -1104,6 +1265,8 @@ export interface RenderLayer {
   at?: number;
   /** Decoded hero clip for this layer; null/omitted renders the synth voice. */
   heroBuffer?: AudioBuffer | null;
+  /** Which HERO_CLIPS variant `heroBuffer` is. Defaults to 0. */
+  heroVariant?: number;
   /** Defaults to true. False applies the full opponent treatment. */
   mine?: boolean;
 }
@@ -1139,6 +1302,14 @@ export interface RenderOptions {
    * is measured twice, once each way, and the two are compared.
    */
   heroBuffer?: AudioBuffer | null;
+  /** Which HERO_CLIPS variant `heroBuffer` is. Defaults to 0. */
+  heroVariant?: number;
+  /**
+   * MEASUREMENT ONLY: render the base cue's clip at this pre-trim gain instead
+   * of the HERO_CLIPS one. It is how the harness SOLVES a clip's gain — render,
+   * compare to the synth, correct, repeat — without a second copy of the graph.
+   */
+  heroGainOverride?: number;
   /** Extra cues summed into the same render — the two-cues-at-once check. */
   layers?: readonly RenderLayer[];
   /**
@@ -1185,13 +1356,22 @@ export function renderSoundOffline(
   const g = buildGraph(ctx, false);
   const t0 = preRoll + 0.004;
 
-  const all: readonly RenderLayer[] = [
-    { id, heroBuffer: opts.heroBuffer ?? null },
+  const all: readonly (RenderLayer & { gainOverride?: number })[] = [
+    {
+      id,
+      heroBuffer: opts.heroBuffer ?? null,
+      heroVariant: opts.heroVariant,
+      gainOverride: opts.heroGainOverride,
+    },
     ...(opts.layers ?? []),
   ];
   const offset = dbToGain(opts.trimOffsetDb ?? 0);
   for (const layer of all) {
     const mine = layer.mine !== false;
+    const clip = HERO_CLIPS[layer.id]?.[layer.heroVariant ?? 0];
+    const hero = clip && layer.heroBuffer
+      ? { buffer: layer.heroBuffer, gain: layer.gainOverride ?? clip.gain }
+      : null;
     startVoice(
       g,
       layer.id,
@@ -1202,14 +1382,36 @@ export function renderSoundOffline(
         pan: mine ? 0 : THEIRS_PAN,
         pitch: mine ? 1 : THEIRS_DETUNE,
       },
-      layer.heroBuffer ?? null,
+      hero,
     );
   }
   return ctx.startRendering();
 }
 
+/**
+ * Render a music bed through the REAL chain at MUSIC_GAIN — the same
+ * `buildGraph()`, into `musicGain` exactly as `startBed()` connects it — so the
+ * bed can be measured on the same axis as the cues. Browser-only, harness-only.
+ * Discard the first RENDER_PRE_ROLL_S of the result (compressor makeup ramp).
+ */
+export function renderMusicOffline(
+  buffer: AudioBuffer,
+  opts: { seconds?: number; sampleRate?: number; offsetS?: number } = {},
+): Promise<AudioBuffer> {
+  const sampleRate = opts.sampleRate ?? 48000;
+  const seconds = opts.seconds ?? 20;
+  const ctx = new OfflineAudioContext(2, Math.ceil((RENDER_PRE_ROLL_S + seconds) * sampleRate), sampleRate);
+  const g = buildGraph(ctx, false);
+  g.musicGain.gain.value = MUSIC_GAIN;
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  source.connect(g.musicGain);
+  source.start(0, opts.offsetS ?? 0);
+  return ctx.startRendering();
+}
+
 /** The hero-clip table, so a harness can fetch and decode the same URLs. */
-export function heroClips(): Readonly<Partial<Record<SoundId, { url: string; gain: number }>>> {
+export function heroClips(): Readonly<Partial<Record<SoundId, readonly HeroClip[]>>> {
   return HERO_CLIPS;
 }
 
@@ -1224,11 +1426,18 @@ export const MIX_TRIM_DB: Readonly<Record<SoundId, number>> = MIX_DB;
 /** The tier table, read-only. The gate imports this. */
 export const MIX_TIER_OF: Readonly<Record<SoundId, MixTier>> = MIX_TIER;
 
-/** Pre-trim hero-clip gains, read-only. The gate checks these are re-solved. */
-export const HERO_CLIP_GAIN: Readonly<Partial<Record<SoundId, number>>> =
+/**
+ * Pre-trim hero-clip gains, one per variant, read-only. The gate checks these
+ * are re-solved.
+ */
+export const HERO_CLIP_GAIN: Readonly<Partial<Record<SoundId, readonly number[]>>> =
   Object.fromEntries(
-    Object.entries(HERO_CLIPS).map(([id, clip]) => [id, clip.gain]),
+    Object.entries(HERO_CLIPS).map(([id, clips]) => [id, clips.map(c => c.gain)]),
   );
+
+/** Voice-budget tail per cue, read-only — the gate checks it covers every clip. */
+export const VOICE_TAIL_S: Readonly<Record<SoundId, number>> =
+  Object.fromEntries(Object.entries(VOICE).map(([id, v]) => [id, v.tail])) as Record<SoundId, number>;
 
 /* ── the engine ───────────────────────────────────────────────────────────── */
 
@@ -1236,14 +1445,26 @@ class SoundEngine {
   private graph: Graph | null = null;
   /** The same object as `graph.ctx`, narrowed. Only `resume()` needs it. */
   private liveCtx: AudioContext | null = null;
-  private musicBuffer: AudioBuffer | null = null;
-  private musicBufferPromise: Promise<AudioBuffer> | null = null;
+  // ── music state ──
+  /** The bed the current scene wants. `startMusic()` plays this one. */
+  private musicTrack: MusicTrack = 'table';
+  /** The bed actually sounding, or null. */
+  private playingTrack: MusicTrack | null = null;
   private musicSource: AudioBufferSourceNode | null = null;
+  /** Per-source gain, so two beds can crossfade under the one musicGain. */
+  private musicSourceGain: GainNode | null = null;
+  /** Beds fading out (crossfade or stop). Stopped at once if music restarts. */
+  private retiringMusic = new Set<AudioBufferSourceNode>();
+  private musicBuffers = new Map<MusicTrack, AudioBuffer>();
+  private musicBufferPromises = new Map<MusicTrack, Promise<AudioBuffer>>();
+  private musicRequestVersion = 0;
+  private musicXfadeVersion = 0;
+  /** Context time the playing bed was at loop position 0 — for beatPhase(). */
+  private bedStartedAt = 0;
   private clipBuffers = new Map<string, AudioBuffer>();
   private clipBufferPromises = new Map<string, Promise<AudioBuffer>>();
-  private fadingMusicSource: AudioBufferSourceNode | null = null;
-  private musicRequestVersion = 0;
-  private musicStopTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Last round-robin variant per cue — never picked twice running. */
+  private lastVariant = new Map<SoundId, number>();
   private _muted: boolean;
   private _musicEnabled: boolean;
 
@@ -1255,6 +1476,8 @@ class SoundEngine {
   private droppedVoices = 0;
   private droppedPriority = 0;
   private gatedVoices = 0;
+  private heroClipVoices = 0;
+  private heroFallbackVoices = 0;
   private lastAt = new Map<SoundId, number>();
   private flamAt = new Map<SoundId, number>();
   private flamRun = new Map<SoundId, number>();
@@ -1276,6 +1499,11 @@ class SoundEngine {
 
   get musicEnabled(): boolean {
     return this._musicEnabled;
+  }
+
+  /** True once a gesture has resumed the context. Never constructs one. */
+  get running(): boolean {
+    return this.liveCtx?.state === 'running';
   }
 
   /**
@@ -1334,25 +1562,173 @@ class SoundEngine {
     }
   }
 
-  private async loadMusic(ctx: BaseAudioContext): Promise<AudioBuffer> {
-    if (this.musicBuffer) return this.musicBuffer;
-    if (!this.musicBufferPromise) {
-      this.musicBufferPromise = fetch(MUSIC_URL)
-        .then((response) => {
-          if (!response.ok) throw new Error(`Music request failed: ${response.status}`);
-          return response.arrayBuffer();
-        })
-        .then(audio => ctx.decodeAudioData(audio))
-        .then((buffer) => {
-          this.musicBuffer = buffer;
-          return buffer;
-        })
-        .catch((error: unknown) => {
-          this.musicBufferPromise = null;
-          throw error;
-        });
+  /**
+   * Fetch + decode one bed. A decoded 90s stereo bed is ~35MB of float32, so at
+   * most the wanted bed and the one sounding are kept; anything else is evicted
+   * (the encoded bytes stay in the HTTP / service-worker cache).
+   */
+  private loadMusic(ctx: BaseAudioContext, track: MusicTrack): Promise<AudioBuffer> {
+    const cached = this.musicBuffers.get(track);
+    if (cached) return Promise.resolve(cached);
+    const pending = this.musicBufferPromises.get(track);
+    if (pending) return pending;
+    const promise = fetch(MUSIC_BEDS[track].url)
+      .then((response) => {
+        if (!response.ok) throw new Error(`Music request failed: ${response.status}`);
+        return response.arrayBuffer();
+      })
+      .then(audio => ctx.decodeAudioData(audio))
+      .then((buffer) => {
+        this.musicBufferPromises.delete(track);
+        this.musicBuffers.set(track, buffer);
+        for (const t of this.musicBuffers.keys()) {
+          if (t !== track && t !== this.musicTrack && t !== this.playingTrack) this.musicBuffers.delete(t);
+        }
+        return buffer;
+      })
+      .catch((error: unknown) => {
+        this.musicBufferPromises.delete(track);
+        throw error;
+      });
+    this.musicBufferPromises.set(track, promise);
+    return promise;
+  }
+
+  /**
+   * One looping bed through its own crossfade gain into musicGain, looping over
+   * the bed's loop region (never its wrap-around padding). `phase` is seconds
+   * into the loop region to start at — see crossfadeTo().
+   */
+  private startBed(
+    g: Graph, track: MusicTrack, buffer: AudioBuffer, at: number, gain: number, phase = 0,
+  ): AudioBufferSourceNode {
+    const bed = MUSIC_BEDS[track];
+    const source = g.ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    // A buffer shorter than the declared region (a different file at the same
+    // URL) loops whole rather than over a region it does not have.
+    if (buffer.duration >= bed.loopEnd - 0.001) {
+      source.loopStart = bed.loopStart;
+      source.loopEnd = bed.loopEnd;
     }
-    return this.musicBufferPromise;
+    this.bedStartedAt = at - phase;
+    const sg = g.ctx.createGain();
+    sg.gain.setValueAtTime(gain, at);
+    source.connect(sg).connect(g.musicGain);
+    source.onended = () => {
+      sg.disconnect();
+      this.retiringMusic.delete(source);
+      if (this.musicSource === source) {
+        this.musicSource = null;
+        this.musicSourceGain = null;
+        this.playingTrack = null;
+      }
+    };
+    source.start(at, (source.loopEnd > 0 ? bed.loopStart : 0) + phase);
+    this.musicSource = source;
+    this.musicSourceGain = sg;
+    return source;
+  }
+
+  /**
+   * Seconds into the current beat of the bed that is playing. Every bed is
+   * 84 BPM and every loop region starts on an onset, so starting the incoming
+   * bed at the outgoing one's beat phase keeps the two grids together through
+   * the crossfade — two beds a fraction of a beat apart for two seconds is the
+   * flam a listener names instantly.
+   */
+  private beatPhase(now: number, track: MusicTrack): number {
+    const bed = MUSIC_BEDS[track];
+    const period = bed.loopEnd - bed.loopStart;
+    const pos = ((now - this.bedStartedAt) % period + period) % period;
+    return pos % (60 / bed.bpm);
+  }
+
+  /** Stop every bed that is on its way out, now. */
+  private dropRetiringMusic(): void {
+    for (const source of this.retiringMusic) {
+      try { source.stop(); } catch { /* already stopped */ }
+    }
+    this.retiringMusic.clear();
+  }
+
+  /**
+   * Choose the bed for the current scene. If music is playing a different bed,
+   * crossfade to this one (equal-power, MUSIC_XFADE_S); if music is not playing,
+   * only record the choice — `startMusic()` (or the first-gesture `unlock()`)
+   * will play it. Never starts audio on its own, so it is safe to call from an
+   * effect before the page has had a gesture.
+   */
+  setMusicTrack(track: MusicTrack): void {
+    this.musicTrack = track;
+    const g = this.graph;
+    if (!g || !this.musicSource || this.playingTrack === track) return;
+    if (!this._musicEnabled || g.ctx.state !== 'running') return;
+    const version = ++this.musicXfadeVersion;
+    void this.loadMusic(g.ctx, track).then((buffer) => {
+      if (
+        version !== this.musicXfadeVersion
+        || this.musicTrack !== track
+        || !this.musicSource
+        || this.playingTrack === track
+        || g.ctx.state !== 'running'
+      ) return;
+      this.crossfadeTo(g, track, buffer);
+    }).catch((error: unknown) => {
+      console.warn('Unable to switch background music', error);
+    });
+  }
+
+  /** The bed `setMusicTrack()` last chose. */
+  get currentMusicTrack(): MusicTrack {
+    return this.musicTrack;
+  }
+
+  /** The bed actually sounding (null when stopped or still loading). */
+  get playingMusicTrack(): MusicTrack | null {
+    return this.playingTrack;
+  }
+
+  /**
+   * Equal-power: the outgoing bed follows cos, the incoming one sin, so the
+   * summed power is constant through the fade — a linear fade between two
+   * uncorrelated beds dips 3dB in the middle, which reads as the music
+   * hesitating. Both curves are scheduled on the audio clock and the old
+   * source's stop is too, so nothing here depends on a main-thread timer.
+   */
+  private crossfadeTo(g: Graph, track: MusicTrack, buffer: AudioBuffer): void {
+    const now = g.ctx.currentTime + 0.02;
+    const n = 64;
+    const fadeIn = new Float32Array(n);
+    const fadeOut = new Float32Array(n);
+    const from = this.musicSourceGain?.gain.value ?? 1;
+    for (let i = 0; i < n; i++) {
+      const x = i / (n - 1);
+      fadeIn[i] = Math.sin(x * Math.PI / 2);
+      fadeOut[i] = Math.cos(x * Math.PI / 2) * from;
+    }
+    const oldSource = this.musicSource;
+    const oldGain = this.musicSourceGain;
+    if (oldSource && oldGain) {
+      // Hold, don't cancel: a switch that lands mid-way through the previous
+      // crossfade must fade out from where the bed IS, not jump back to where
+      // its last automation started. The curve starts 1ms after the hold so
+      // the two events never share a time.
+      const p = oldGain.gain;
+      if (typeof p.cancelAndHoldAtTime === 'function') p.cancelAndHoldAtTime(now);
+      else {
+        p.cancelScheduledValues(now);
+        p.setValueAtTime(from, now);
+      }
+      p.setValueCurveAtTime(fadeOut, now + 0.001, MUSIC_XFADE_S);
+      this.retiringMusic.add(oldSource);
+      try { oldSource.stop(now + MUSIC_XFADE_S + 0.05); } catch { /* already stopped */ }
+    }
+    const phase = this.playingTrack ? this.beatPhase(now, this.playingTrack) : 0;
+    this.startBed(g, track, buffer, now, 0, phase);
+    this.musicSourceGain?.gain.setValueCurveAtTime(fadeIn, now + 0.001, MUSIC_XFADE_S);
+    this.playingTrack = track;
   }
 
   private loadClip(ctx: BaseAudioContext, url: string): Promise<AudioBuffer> {
@@ -1381,63 +1757,75 @@ class SoundEngine {
   }
 
   private preloadHeroClips(ctx: BaseAudioContext): void {
-    for (const clip of Object.values(HERO_CLIPS)) {
-      if (clip) void this.loadClip(ctx, clip.url).catch(() => undefined);
+    for (const clips of Object.values(HERO_CLIPS)) {
+      for (const clip of clips ?? []) void this.loadClip(ctx, clip.url).catch(() => undefined);
     }
   }
 
   /**
-   * The mastered stinger, with the synth voice as the fallback. Both go through
-   * `startVoice()`, so both carry the same mix trim and the same mine/theirs
-   * treatment — the fallback cannot be at a different level than the clip.
+   * Which round-robin variant to play: uniform over the others, never the one
+   * played last. A fair pick over three plays the same take twice running a
+   * third of the time, and twice running is exactly what reads as a sample.
    */
-  private playClip(g: Graph, id: SoundId, o: VoiceOptions): void {
-    const clip = HERO_CLIPS[id];
-    if (!clip) return;
+  private pickVariant(id: SoundId, n: number, rng: () => number): number {
+    if (n <= 1) return 0;
+    const last = this.lastVariant.get(id);
+    let i = Math.floor(rng() * (last === undefined ? n : n - 1));
+    if (last !== undefined && i >= last) i += 1;
+    this.lastVariant.set(id, i);
+    return i;
+  }
+
+  /**
+   * A tier-0 sting whose clip is not decoded yet: wait for it rather than play
+   * the fallback, because the mastered stinger IS the moment and a fetch from
+   * the SW cache is a few ms. The fallback plays only if the fetch fails. Both
+   * go through `startVoice()`, so both carry the same trim and treatment.
+   */
+  private playClipWhenLoaded(g: Graph, id: SoundId, o: VoiceOptions, clip: HeroClip): void {
     void this.loadClip(g.ctx, clip.url).then((buffer) => {
       if (this._muted || g.ctx.state !== 'running') return;
       // The scheduled t0 is long gone by the time the fetch resolves.
-      startVoice(g, id, g.ctx.currentTime + 0.004, o, buffer);
+      startVoice(g, id, g.ctx.currentTime + 0.004, o, { buffer, gain: clip.gain });
     }).catch(() => {
       if (this._muted || g.ctx.state !== 'running') return;
       startVoice(g, id, g.ctx.currentTime + 0.004, o, null);
     });
   }
 
+  /**
+   * Start the bed `setMusicTrack()` chose, fading in. No-op until the context is
+   * running (a gesture has unlocked it), when music is disabled, or when a bed
+   * is already playing — switching beds is `setMusicTrack()`'s job.
+   */
   startMusic(): void {
     if (!this._musicEnabled || this.musicSource) return;
     const g = this.getGraph();
     if (!g || g.ctx.state !== 'running') return;
 
-    if (this.musicStopTimer) {
-      clearTimeout(this.musicStopTimer);
-      this.musicStopTimer = null;
-    }
-    if (this.fadingMusicSource) {
-      try { this.fadingMusicSource.stop(); } catch { /* already stopped */ }
-      this.fadingMusicSource = null;
-    }
+    // A restart inside a stop's fade: the old bed must not reappear under the
+    // new one's fade-in.
+    this.dropRetiringMusic();
 
+    const track = this.musicTrack;
     const requestVersion = ++this.musicRequestVersion;
-    void this.loadMusic(g.ctx).then((buffer) => {
+    void this.loadMusic(g.ctx, track).then((buffer) => {
       if (
         requestVersion !== this.musicRequestVersion
         || !this._musicEnabled
         || this.musicSource
         || g.ctx.state !== 'running'
       ) return;
-
-      const source = g.ctx.createBufferSource();
-      source.buffer = buffer;
-      source.loop = true;
-      source.connect(g.musicGain);
-      source.onended = () => {
-        if (this.musicSource === source) this.musicSource = null;
-        if (this.fadingMusicSource === source) this.fadingMusicSource = null;
-      };
-      this.musicSource = source;
-      g.musicGain.gain.setValueAtTime(0, g.ctx.currentTime);
-      source.start();
+      // The scene moved on while this bed was loading: load the right one.
+      if (track !== this.musicTrack) {
+        this.startMusic();
+        return;
+      }
+      const now = g.ctx.currentTime;
+      g.musicGain.gain.cancelScheduledValues(now);
+      g.musicGain.gain.setValueAtTime(0, now);
+      this.startBed(g, track, buffer, now, 1);
+      this.playingTrack = track;
       this.rampGain(g.musicGain, MUSIC_GAIN, 900);
     }).catch((error: unknown) => {
       console.warn('Unable to start background music', error);
@@ -1446,6 +1834,7 @@ class SoundEngine {
 
   stopMusic(fadeMs = 500): void {
     this.musicRequestVersion += 1;
+    this.musicXfadeVersion += 1;
     const g = this.graph;
     if (g) {
       const now = g.ctx.currentTime;
@@ -1454,16 +1843,16 @@ class SoundEngine {
     }
 
     const source = this.musicSource;
-    if (!source) return;
+    if (!source || !g) return;
     this.musicSource = null;
-    this.fadingMusicSource = source;
-    this.rampGain(g?.musicGain ?? null, 0, fadeMs);
-    if (this.musicStopTimer) clearTimeout(this.musicStopTimer);
-    this.musicStopTimer = setTimeout(() => {
-      try { source.stop(); } catch { /* already stopped */ }
-      if (this.fadingMusicSource === source) this.fadingMusicSource = null;
-      this.musicStopTimer = null;
-    }, fadeMs + 50);
+    this.musicSourceGain = null;
+    this.playingTrack = null;
+    this.retiringMusic.add(source);
+    this.rampGain(g.musicGain, 0, fadeMs);
+    const end = g.ctx.currentTime + fadeMs / 1000 + 0.05;
+    for (const s of this.retiringMusic) {
+      try { s.stop(end); } catch { /* already stopped */ }
+    }
   }
 
   /**
@@ -1527,8 +1916,27 @@ class SoundEngine {
         * (JITTERED.has(id) ? jitter(JITTER_AMOUNT) : 1),
     };
 
-    if (HERO_CLIPS[id]) this.playClip(g, id, o);
-    else startVoice(g, id, t0, o, null);
+    // A decoded clip plays NOW, at t0, in the same tick as the synth would —
+    // a tactile cue that waits on a promise lands behind its animation. A
+    // clip that is not decoded yet plays its fallback (and starts the load),
+    // except a tier-0 sting, which waits — see playClipWhenLoaded().
+    const clips = HERO_CLIPS[id];
+    if (clips) {
+      const clip = clips[this.pickVariant(id, clips.length, g.rng)];
+      const buffer = this.clipBuffers.get(clip.url);
+      if (buffer) {
+        this.heroClipVoices += 1;
+        startVoice(g, id, t0, o, { buffer, gain: clip.gain });
+        return;
+      }
+      if (MIX_TIER[id] === 0) {
+        this.playClipWhenLoaded(g, id, o, clip);
+        return;
+      }
+      this.heroFallbackVoices += 1;
+      void this.loadClip(g.ctx, clip.url).catch(() => undefined);
+    }
+    startVoice(g, id, t0, o, null);
   }
 
   /** Voice-budget and rate-limit counters. `droppedPriority` must read 0. */
@@ -1540,6 +1948,8 @@ class SoundEngine {
       droppedVoices: this.droppedVoices,
       droppedPriority: this.droppedPriority,
       gatedVoices: this.gatedVoices,
+      heroClipVoices: this.heroClipVoices,
+      heroFallbackVoices: this.heroFallbackVoices,
     };
   }
 
