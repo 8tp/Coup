@@ -141,10 +141,10 @@ function ConvertStep({ converted, onConvert, onReset }: { converted: boolean; on
     <ChapterLayout
       kicker={kicker(1)}
       title="Convert moves the lines"
-      lede={<>Pay <b>1 coin</b> to switch your own faction, or <b>2</b> to switch someone else. It can't be challenged or blocked, and the coins go to the <b>Treasury Reserve</b>.</>}
+      lede={<>Pay <b>1 coin</b> to switch your faction, or <b>2</b> to switch someone else. No one can challenge or block it; the coins go to the <b>reserve</b>.</>}
       noteTone={converted ? 'done' : 'info'}
       note={converted
-        ? 'You joined the Reformists and 1 coin went to the reserve. Everyone left shares a faction, so anyone may target anyone.'
+        ? 'You are a Reformist now. Everyone shares a faction, so anyone may target anyone.'
         : 'A heads-up game: you against Tutor Bot.'}
       demo={(
         <Felt>

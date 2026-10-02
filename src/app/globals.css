@@ -3516,6 +3516,14 @@
     .onb-felt { min-height: 20rem; padding: 1.5rem 1.25rem; gap: 1rem; border-radius: 3.4rem; }
   }
 
+  /* A short phone (360x640) gets the felt and the gaps tightened so a chapter
+     fits without scrolling. */
+  @media (max-height: 700px) {
+    .onb-chapter { gap: 0.55rem; }
+    .onb-felt { min-height: 0; padding: 0.75rem 0.7rem; gap: 0.55rem; }
+    .onb-note { min-height: 2.5rem; padding-top: 0.4rem; padding-bottom: 0.4rem; }
+  }
+
   .onb-row {
     display: flex;
     flex-wrap: wrap;
@@ -3536,8 +3544,9 @@
     .onb-seat { width: 7.25rem; }
   }
 
-  /* A scripted seat has nobody to mute. */
+  /* A scripted seat has nobody to mute, and its refusal reason is read, not glanced at. */
   .onb-seat .court-seat-mute { display: none; }
+  .onb-seat .court-seat-reason { font-size: 0.75rem; }
 
   .onb-plaque-slot {
     min-height: 3.6rem;
@@ -3918,12 +3927,105 @@
     transition: none;
   }
 
+  /* ── Practice setup sheet (onboarding/PracticeSetupSheet.tsx) ──────── */
+
+  .practice-sheet-root {
+    position: fixed;
+    inset: 0;
+    z-index: 65;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+  }
+
+  .practice-sheet-scrim {
+    position: absolute;
+    inset: 0;
+    background-color: rgba(4, 7, 8, 0.7);
+  }
+
+  .practice-sheet {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-height: calc(100dvh - 1rem);
+    border-radius: 3px 3px 0 0;
+    background-color: rgba(23, 35, 31, 0.98);
+    background-image: linear-gradient(var(--brass), var(--brass));
+    background-repeat: no-repeat;
+    background-size: 100% 3px;
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.5),
+      0 -18px 40px rgba(0, 0, 0, 0.45);
+    animation: slideUp 0.3s ease-out both;
+  }
+
+  @media (min-width: 640px) and (min-height: 600px) {
+    .practice-sheet-root { align-items: center; }
+    .practice-sheet {
+      width: min(28rem, calc(100vw - 2rem));
+      border-radius: 3px;
+    }
+  }
+
+  .practice-sheet-head {
+    flex: none;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 1rem 1rem 0.25rem;
+  }
+
+  .practice-sheet-head > .court-icon-btn { flex: none; }
+
+  .practice-sheet-title {
+    font-size: var(--step-3);
+    line-height: 1.05;
+    color: var(--ink);
+  }
+
+  .practice-sheet-lede {
+    margin-top: 0.25rem;
+    font-size: var(--step-0);
+    line-height: 1.35;
+    color: var(--ink-mute);
+  }
+
+  .practice-sheet-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    padding: 0.5rem 1rem;
+  }
+
+  .practice-seg-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+  .practice-sheet-hint {
+    min-height: 1.3em;
+    font-size: var(--step--1);
+    line-height: 1.3;
+    color: var(--ink-mute);
+  }
+
+  .practice-sheet-foot {
+    flex: none;
+    padding: 0.5rem 1rem max(1rem, env(safe-area-inset-bottom));
+  }
+
   @media (prefers-reduced-motion: reduce) {
+    .practice-sheet,
     .onb-chapter,
     .onb-root .claim-plaque {
       animation: onb-fade 120ms ease-out both;
     }
   }
+
 
 }
 
