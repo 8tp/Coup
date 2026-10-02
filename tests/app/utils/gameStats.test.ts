@@ -135,13 +135,13 @@ describe('computeGameRecap', () => {
         },
       ],
       actionLog: [
-        { message: 'Game started! Alice\'s turn.', eventType: 'game_start', character: null, turnNumber: 1, actorId: null, actorName: null, timestamp: 0 },
+        { message: 'Game started. Alice goes first.', eventType: 'game_start', character: null, turnNumber: 1, actorId: null, actorName: null, timestamp: 0 },
         { message: 'Bob declares Tax claiming Duke.', eventType: 'claim_action', character: Character.Duke, turnNumber: 1, actorId: 'p2', actorName: 'Bob', timestamp: 0, wasBluff: true },
         { message: 'Alice challenges Bob\'s claim of Duke!', eventType: 'challenge', character: Character.Duke, turnNumber: 1, actorId: 'p1', actorName: 'Alice', timestamp: 0 },
         { message: 'Challenge succeeds! Bob was bluffing.', eventType: 'challenge_success', character: Character.Duke, turnNumber: 1, actorId: 'p1', actorName: 'Alice', timestamp: 0 },
         { message: 'Alice launches a Coup against Bob.', eventType: 'coup', character: null, turnNumber: 5, actorId: 'p1', actorName: 'Alice', targetId: 'p2', timestamp: 0 },
-        { message: 'Bob has been eliminated!', eventType: 'elimination', character: null, turnNumber: 5, actorId: 'p2', actorName: 'Bob', timestamp: 0 },
-        { message: 'Alice wins the game!', eventType: 'win', character: null, turnNumber: 5, actorId: 'p1', actorName: 'Alice', timestamp: 0 },
+        { message: 'Bob is out.', eventType: 'elimination', character: null, turnNumber: 5, actorId: 'p2', actorName: 'Bob', timestamp: 0 },
+        { message: 'Alice wins the game.', eventType: 'win', character: null, turnNumber: 5, actorId: 'p1', actorName: 'Alice', timestamp: 0 },
       ],
     });
 
@@ -154,10 +154,10 @@ describe('computeGameRecap', () => {
       'Bluff table',
       'Challenge reads',
     ]);
-    expect(recap[0].value).toContain('You kept 1 influence');
-    expect(recap[1].value).toBe('Bob was eliminated');
+    expect(recap[0].value).toContain('You kept 1 card');
+    expect(recap[1].value).toBe('Bob went out');
     expect(recap[2].value).toBe('You spent 7 coins');
     expect(recap[3].value).toBe('1/1 claims were bluffs');
-    expect(recap[4].value).toBe('1/1 challenges hit');
+    expect(recap[4].value).toBe('1/1 challenges won');
   });
 });

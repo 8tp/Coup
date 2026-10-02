@@ -254,7 +254,7 @@ function selectAwards(stats: Map<string, PlayerStats>): Award[] {
         glyph: 'coup',
         title: 'Coup Machine',
         playerName: mostCoups.playerName,
-        description: `${mostCoups.coupsMade} coups launched`,
+        description: `${mostCoups.coupsMade} Coups launched`,
       },
     });
   }
@@ -288,7 +288,7 @@ function selectAwards(stats: Map<string, PlayerStats>): Award[] {
         glyph: 'dice',
         title: 'Bold Strategy',
         playerName: mostLost.playerName,
-        description: `${mostLost.challengesLost} challenges backfired`,
+        description: `${mostLost.challengesLost} challenges lost`,
       },
     });
   }
@@ -335,118 +335,112 @@ function buildFlavorStats(gameState: ClientGameState) {
 
 export function getWinnerFlavorText(gameState: ClientGameState): string {
   const winnerId = gameState.winnerId;
-  if (!winnerId) return 'Your bluffs were legendary.';
+  if (!winnerId) return 'Everyone else is out.';
 
   const w = buildFlavorStats(gameState).get(winnerId);
-  if (!w) return 'Your bluffs were legendary.';
+  if (!w) return 'Everyone else is out.';
 
   // Pure Income + Coup — no character claims at all
   if (w.actionsClaimed === 0) {
-    return 'Sometimes honesty is the best strategy.';
+    return 'You won without claiming a character on your turn.';
   }
 
-  // Caught bluffing multiple times but still won
+  // Caught bluffing but still won
   if (w.timesCaughtBluffing >= 2) {
-    return 'Caught bluffing and still standing. Impressive.';
+    return `You were caught bluffing ${w.timesCaughtBluffing} times and still won.`;
   }
-
-  // Caught bluffing once but still won
   if (w.timesCaughtBluffing === 1) {
-    return "Caught red-handed, and it didn't even matter.";
+    return 'You were caught bluffing once and still won.';
   }
 
   // Great at reading opponents
   if (w.challengesWon >= 2) {
-    return 'You read them like an open book.';
+    return `You won ${w.challengesWon} challenges.`;
   }
 
-  // Proven honest multiple times — truth as a weapon
+  // Proven honest multiple times (never caught, checked above)
   if (w.timesProvenHonest >= 2) {
-    return 'The truth was your greatest weapon.';
+    return `You were challenged ${w.timesProvenHonest} times and had the card every time.`;
   }
 
   // Assassination-heavy victory
   if (w.assassinationsMade >= 2) {
-    return "The Assassin's blade served you well.";
+    return `You won with ${w.assassinationsMade} assassinations.`;
   }
 
   // Coup-heavy victory
   if (w.coupsMade >= 2) {
-    return 'Brute force gets the job done.';
+    return `You won with ${w.coupsMade} Coups.`;
   }
 
-  // Block-heavy — defensive fortress
+  // Block-heavy
   if (w.blocksMade >= 2) {
-    return 'An impenetrable defense.';
+    return `You blocked ${w.blocksMade} actions.`;
   }
 
-  // Many claims, never caught — unquestioned authority
+  // Many claims, never caught
   if (w.actionsClaimed >= 3 && w.timesCaughtBluffing === 0) {
-    return 'Nobody dared question you.';
+    return `You made ${w.actionsClaimed} claims and were never caught.`;
   }
 
-  // Quick victory
-  if (gameState.turnNumber <= 6) {
-    return 'Swift and decisive.';
-  }
-
-  return 'Your bluffs were legendary.';
+  return 'Everyone else is out.';
 }
 
 export function getLoserFlavorText(gameState: ClientGameState): string {
   const myId = gameState.myId;
-  if (!myId) return 'Better luck next time.';
+  // Spectators have no stats entry.
+  if (!myId) return 'Thanks for watching.';
 
   const stats = buildFlavorStats(gameState);
   const m = stats.get(myId);
-  if (!m) return 'Better luck next time.';
+  if (!m) return 'Thanks for watching.';
 
   // First player eliminated
   if (m.eliminationOrder === 1) {
-    return 'First out. It happens to the best of us.';
+    return 'You were the first player out.';
   }
 
-  // Caught bluffing multiple times
+  // Caught bluffing
   if (m.timesCaughtBluffing >= 2) {
-    return 'Your poker face needs some work.';
+    return `You were caught bluffing ${m.timesCaughtBluffing} times.`;
   }
-
-  // Caught bluffing once — the fatal bluff
   if (m.timesCaughtBluffing === 1) {
-    return 'That one bluff cost you everything.';
+    return 'You were caught bluffing once.';
   }
 
-  // Bad reads — lost multiple challenges
+  // Lost multiple challenges
   if (m.challengesLost >= 2) {
-    return 'Your reads were a bit off.';
+    return `You lost ${m.challengesLost} challenges.`;
   }
 
   // Played it safe with no claims
   if (m.actionsClaimed === 0) {
-    return "Playing it safe wasn't safe enough.";
+    return 'You never claimed a character on your turn.';
   }
 
   // Good challenges but still lost
   if (m.challengesWon >= 2) {
-    return 'Great reads, but it wasn\'t enough.';
+    return `You won ${m.challengesWon} challenges.`;
   }
 
   // Strong defense but still fell
   if (m.blocksMade >= 2) {
-    return 'You held them off as long as you could.';
+    return `You blocked ${m.blocksMade} actions.`;
   }
 
-  // Put up a fight with assassinations or coups
+  // Landed assassinations or coups
   if (m.assassinationsMade >= 1 || m.coupsMade >= 1) {
-    return 'You fought hard, but fell short.';
+    const hits: string[] = [];
+    if (m.coupsMade >= 1) hits.push(plural(m.coupsMade, 'Coup'));
+    if (m.assassinationsMade >= 1) hits.push(plural(m.assassinationsMade, 'assassination'));
+    return `You landed ${hits.join(' and ')}.`;
   }
 
-  // Quick game
-  if (gameState.turnNumber <= 6) {
-    return 'It was over before it started.';
+  if (m.eliminationOrder > 1) {
+    return `You were the ${ordinal(m.eliminationOrder)} player out.`;
   }
 
-  return 'Better luck next time.';
+  return "You're out.";
 }
 
 export interface BluffSummaryEntry {
@@ -506,6 +500,11 @@ function plural(count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? '' : 's'}`;
 }
 
+function ordinal(n: number): string {
+  const suffix = n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th';
+  return `${n}${suffix}`;
+}
+
 function displayName(gameState: ClientGameState, playerId: string | null | undefined, fallback = 'Unknown'): string {
   if (!playerId) return fallback;
   const player = gameState.players.find(p => p.id === playerId);
@@ -519,7 +518,7 @@ function decisiveTitle(entry: LogEntry, gameState: ClientGameState): string {
 
   switch (entry.eventType) {
     case 'elimination':
-      return `${actor} was eliminated`;
+      return `${actor} went out`;
     case 'coup':
       return `${actor} launched a Coup`;
     case 'assassination':
@@ -533,11 +532,11 @@ function decisiveTitle(entry: LogEntry, gameState: ClientGameState): string {
     case 'block_challenge_fail':
       return `${actor} proved the block`;
     case 'influence_loss':
-      return `${actor} lost influence`;
+      return `${actor} lost a card`;
     case 'embezzle':
       return `${actor} took the reserve`;
     case 'convert':
-      return `${actor} shifted factions`;
+      return `${actor} changed faction`;
     case 'examine_decision':
       return `${actor} resolved an examine`;
     case 'action_resolve':
@@ -633,7 +632,7 @@ export function computeGameRecap(gameState: ClientGameState): GameRecapItem[] {
     const influenceLeft = winner.influences.filter(influence => !influence.revealed).length;
     items.push({
       label: 'Winner standing',
-      value: `${displayName(gameState, winner.id)} kept ${plural(influenceLeft, 'influence')}`,
+      value: `${displayName(gameState, winner.id)} kept ${plural(influenceLeft, 'card')}`,
       detail: `${winner.coins} coin${winner.coins === 1 ? '' : 's'} left after ${plural(gameState.turnNumber, 'turn')}.`,
       tone: 'gold',
     });
@@ -677,7 +676,7 @@ export function computeGameRecap(gameState: ClientGameState): GameRecapItem[] {
         : 'Every logged claim was honest',
       detail: biggestBluffer
         ? `${biggestBluffer.playerName} led with ${plural(biggestBluffer.actualBluffs, 'bluff')}; ${plural(totalCaught, 'bluff')} caught.`
-        : 'No one was marked as bluffing by the final truth reveal.',
+        : "Each claim was checked against the claimer's hand at the time.",
       tone: totalBluffs > 0 ? 'red' : 'green',
     });
   }
@@ -691,10 +690,10 @@ export function computeGameRecap(gameState: ClientGameState): GameRecapItem[] {
   if (totalChallenges > 0) {
     items.push({
       label: 'Challenge reads',
-      value: `${totalChallengeWins}/${totalChallenges} challenges hit`,
+      value: `${totalChallengeWins}/${totalChallenges} challenges won`,
       detail: bestReader
-        ? `${bestReader.playerName} had the sharpest read with ${plural(bestReader.challengesWon, 'correct challenge')}.`
-        : 'Every challenge at the table missed.',
+        ? `${bestReader.playerName} won the most, with ${plural(bestReader.challengesWon, 'correct challenge')}.`
+        : 'Every challenge failed.',
       tone: totalChallengeWins > 0 ? 'blue' : 'gray',
     });
   }

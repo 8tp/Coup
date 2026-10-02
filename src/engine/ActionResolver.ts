@@ -119,7 +119,7 @@ export class ActionResolver {
     // Faction restriction check (Reformation mode)
     if (targetId && [ActionType.Coup, ActionType.Assassinate, ActionType.Steal, ActionType.Examine].includes(actionType)) {
       if (game.isFactionRestricted(actorId, targetId)) {
-        return { error: 'Cannot target a player on your same faction' };
+        return { error: "You can't target a player in the same faction" };
       }
     }
 
@@ -262,7 +262,7 @@ export class ActionResolver {
     const claimedChar = pendingAction.claimedCharacter!;
     const sideEffects: SideEffect[] = [
       { type: 'clear_timer' },
-      { type: 'log', message: `${challenger.name} challenges ${challenged.name}'s claim of ${claimedChar}!`, eventType: 'challenge', character: claimedChar, actorId: challengerId, actorName: challenger.name },
+      { type: 'log', message: `${challenger.name} challenges ${challenged.name}'s ${claimedChar} claim.`, eventType: 'challenge', character: claimedChar, actorId: challengerId, actorName: challenger.name },
     ];
 
     if (challenged.hasCharacter(claimedChar)) {
@@ -278,7 +278,7 @@ export class ActionResolver {
       });
       sideEffects.push({
         type: 'log',
-        message: `${challenged.name} reveals ${claimedChar} — challenge fails! ${challenger.name} must lose an influence.`,
+        message: `${challenged.name} has ${claimedChar}. ${challenger.name} must lose a card.`,
         eventType: 'challenge_fail',
         character: claimedChar,
         actorId: challenged.id,
@@ -340,7 +340,7 @@ export class ActionResolver {
       });
       sideEffects.push({
         type: 'log',
-        message: `${challenged.name} does NOT have ${claimedChar} — challenge succeeds!`,
+        message: `${challenged.name} has no ${claimedChar} and must lose a card.`,
         eventType: 'challenge_success',
         character: claimedChar,
         actorId: challengerId,
@@ -449,14 +449,14 @@ export class ActionResolver {
 
     const def = ACTION_DEFINITIONS[pendingAction.type];
     if (!def.blockedBy.includes(claimedCharacter)) {
-      return { error: `${claimedCharacter} cannot block ${pendingAction.type}` };
+      return { error: `${claimedCharacter} cannot block ${ACTION_DISPLAY_NAMES[pendingAction.type]}` };
     }
 
     if (
       pendingAction.type === ActionType.ForeignAid &&
       game.isFactionRestricted(blockerId, pendingAction.actorId)
     ) {
-      return { error: 'Cannot block Foreign Aid for a player on your same faction' };
+      return { error: "You can't block Foreign Aid for a player in the same faction" };
     }
 
     // For Steal/Assassinate blocks, only the target can block (Contessa) or any player (Captain/Ambassador for steal)
@@ -472,7 +472,7 @@ export class ActionResolver {
 
     const sideEffects: SideEffect[] = [
       { type: 'clear_timer' },
-      { type: 'log', message: `${blocker.name} blocks with ${claimedCharacter}!`, eventType: 'block', character: claimedCharacter, actorId: blockerId, actorName: blocker.name, wasBluff: !blocker.hasCharacter(claimedCharacter) },
+      { type: 'log', message: `${blocker.name} blocks with ${claimedCharacter}.`, eventType: 'block', character: claimedCharacter, actorId: blockerId, actorName: blocker.name, wasBluff: !blocker.hasCharacter(claimedCharacter) },
       { type: 'set_timer', durationMs: this.timerMs },
     ];
 
@@ -529,7 +529,7 @@ export class ActionResolver {
     const claimedChar = pendingBlock.claimedCharacter;
     const sideEffects: SideEffect[] = [
       { type: 'clear_timer' },
-      { type: 'log', message: `${challenger.name} challenges ${blocker.name}'s block with ${claimedChar}!`, eventType: 'block_challenge', character: claimedChar, actorId: challengerId, actorName: challenger.name },
+      { type: 'log', message: `${challenger.name} challenges ${blocker.name}'s ${claimedChar} block.`, eventType: 'block_challenge', character: claimedChar, actorId: challengerId, actorName: challenger.name },
     ];
 
     if (blocker.hasCharacter(claimedChar)) {
@@ -546,7 +546,7 @@ export class ActionResolver {
       });
       sideEffects.push({
         type: 'log',
-        message: `${blocker.name} reveals ${claimedChar} — block stands! ${challenger.name} must lose an influence.`,
+        message: `${blocker.name} has ${claimedChar}, so the block stands. ${challenger.name} must lose a card.`,
         eventType: 'block_challenge_fail',
         character: claimedChar,
         actorId: blocker.id,
@@ -599,7 +599,7 @@ export class ActionResolver {
       });
       sideEffects.push({
         type: 'log',
-        message: `${blocker.name} does NOT have ${claimedChar} — block fails! Action proceeds.`,
+        message: `${blocker.name} has no ${claimedChar} and must lose a card. The block fails and the action goes ahead.`,
         eventType: 'block_challenge_success',
         character: claimedChar,
         actorId: challengerId,
@@ -638,7 +638,7 @@ export class ActionResolver {
   ): ResolverResult {
     const sideEffects: SideEffect[] = [
       { type: 'clear_timer' },
-      { type: 'log', message: 'Block is not challenged — action is blocked.', eventType: 'block_unchallenged', character: null, actorId: null, actorName: null },
+      { type: 'log', message: 'No one challenges the block. The action is blocked.', eventType: 'block_unchallenged', character: null, actorId: null, actorName: null },
     ];
 
     // No cost refund — per official rules, a counteracted action's cost remains spent
@@ -766,7 +766,7 @@ export class ActionResolver {
     const expectedKeep = player.aliveInfluenceCount;
 
     if (keepIndices.length !== expectedKeep) {
-      return { error: `Must keep exactly ${expectedKeep} card(s)` };
+      return { error: `Must keep exactly ${expectedKeep} card${expectedKeep === 1 ? '' : 's'}` };
     }
 
     // Validate indices
@@ -843,7 +843,7 @@ export class ActionResolver {
         });
         sideEffects.push({
           type: 'log',
-          message: `${actor.name} steals ${stealAmount} coin(s) from ${target.name}.`,
+          message: `${actor.name} steals ${stealAmount} coin${stealAmount === 1 ? '' : 's'} from ${target.name}.`,
           eventType: 'action_resolve',
           character: Character.Captain,
           actorId: actor.id,
@@ -865,7 +865,7 @@ export class ActionResolver {
         if (target.aliveInfluenceCount === 1) {
           const idx = target.influences.findIndex(inf => !inf.revealed);
           sideEffects.push({ type: 'reveal_influence', playerId: target.id, influenceIndex: idx });
-          sideEffects.push({ type: 'log', message: `${target.name} loses an influence to assassination.`, eventType: 'assassination', character: Character.Assassin, actorId: actor.id, actorName: actor.name, targetId: target.id });
+          sideEffects.push({ type: 'log', message: `${target.name} loses a card to the assassination.`, eventType: 'assassination', character: Character.Assassin, actorId: actor.id, actorName: actor.name, targetId: target.id });
           sideEffects.push({ type: 'eliminate_check', playerId: target.id });
           sideEffects.push({ type: 'win_check' });
           sideEffects.push({ type: 'advance_turn' });
@@ -873,7 +873,7 @@ export class ActionResolver {
         }
 
         // Target chooses which influence to lose
-        sideEffects.push({ type: 'log', message: `${target.name} must lose an influence to assassination.`, eventType: 'assassination', character: Character.Assassin, actorId: actor.id, actorName: actor.name, targetId: target.id });
+        sideEffects.push({ type: 'log', message: `${target.name} must lose a card to the assassination.`, eventType: 'assassination', character: Character.Assassin, actorId: actor.id, actorName: actor.name, targetId: target.id });
         return {
           newPhase: TurnPhase.AwaitingInfluenceLoss,
           pendingAction,
@@ -892,7 +892,7 @@ export class ActionResolver {
         const drawnCards = game.deck.drawMultiple(drawCount);
         if (drawnCards.length === 0) {
           // Deck exhausted — resolve exchange with no new cards (player keeps current hand)
-          sideEffects.push({ type: 'log', message: `${actor.name} exchanges but the deck is empty.`, eventType: 'exchange', character: pendingAction.claimedCharacter!, actorId: actor.id, actorName: actor.name });
+          sideEffects.push({ type: 'log', message: `${actor.name} draws no cards. The deck is empty.`, eventType: 'exchange', character: pendingAction.claimedCharacter!, actorId: actor.id, actorName: actor.name });
           sideEffects.push({ type: 'advance_turn' });
           return this.resolved(sideEffects);
         }
@@ -925,7 +925,7 @@ export class ActionResolver {
         if (hiddenIndices.length > 1) {
           sideEffects.push({
             type: 'log',
-            message: `${actor.name} asks ${target.name} to present a card for examination.`,
+            message: `${actor.name} asks ${target.name} for a card to examine.`,
             eventType: 'examine',
             character: Character.Inquisitor,
             actorId: actor.id,
@@ -951,7 +951,7 @@ export class ActionResolver {
 
         sideEffects.push({
           type: 'log',
-          message: `${target.name} presents a card for ${actor.name} to examine.`,
+          message: `${target.name} shows ${actor.name} a card.`,
           eventType: 'examine',
           character: Character.Inquisitor,
           actorId: actor.id,
@@ -981,7 +981,7 @@ export class ActionResolver {
         sideEffects.push({ type: 'take_from_reserve', playerId: actor.id });
         sideEffects.push({
           type: 'log',
-          message: `${actor.name} embezzles the Treasury Reserve!`,
+          message: `${actor.name} embezzles the Treasury Reserve.`,
           eventType: 'embezzle',
           character: null,
           actorId: actor.id,
@@ -1079,7 +1079,7 @@ export class ActionResolver {
 
     sideEffects.push({
       type: 'log',
-      message: `${actor.name} claims to NOT have Duke and attempts to embezzle the Treasury Reserve (${game.treasuryReserve} coins).`,
+      message: `${actor.name} claims no Duke to Embezzle the Treasury Reserve (${game.treasuryReserve} coin${game.treasuryReserve === 1 ? '' : 's'}).`,
       eventType: 'claim_action',
       character: Character.Duke,
       actorId: actor.id,
@@ -1131,7 +1131,7 @@ export class ActionResolver {
     const challenged = game.getPlayer(pendingAction.actorId)!;
     const sideEffects: SideEffect[] = [
       { type: 'clear_timer' },
-      { type: 'log', message: `${challenger.name} challenges ${challenged.name}'s claim of not having Duke!`, eventType: 'challenge', character: Character.Duke, actorId: challengerId, actorName: challenger.name },
+      { type: 'log', message: `${challenger.name} challenges ${challenged.name}'s claim to have no Duke.`, eventType: 'challenge', character: Character.Duke, actorId: challengerId, actorName: challenger.name },
     ];
 
     // INVERSE: if challenged player HAS Duke, challenge SUCCEEDS (they were lying)
@@ -1147,7 +1147,7 @@ export class ActionResolver {
       });
       sideEffects.push({
         type: 'log',
-        message: `${challenged.name} DOES have Duke — embezzle fails! ${challenged.name} must lose an influence.`,
+        message: `${challenged.name} has Duke and must lose a card. The Embezzle fails.`,
         eventType: 'challenge_success',
         character: Character.Duke,
         actorId: challengerId,
@@ -1187,7 +1187,7 @@ export class ActionResolver {
       });
       sideEffects.push({
         type: 'log',
-        message: `${challenged.name} shows every hidden influence and has no Duke — challenge fails! Their shown cards are replaced, ${challenger.name} must lose an influence, and Embezzle proceeds.`,
+        message: `${challenged.name} shows every hidden card and has no Duke, so those cards are replaced. ${challenger.name} must lose a card and the Embezzle goes ahead.`,
         eventType: 'challenge_fail',
         character: Character.Duke,
         actorId: challenged.id,
@@ -1203,7 +1203,7 @@ export class ActionResolver {
         sideEffects.push({ type: 'take_from_reserve', playerId: challenged.id });
         sideEffects.push({
           type: 'log',
-          message: `${challenged.name} embezzles the Treasury Reserve!`,
+          message: `${challenged.name} embezzles the Treasury Reserve.`,
           eventType: 'embezzle',
           character: null,
           actorId: challenged.id,
@@ -1259,7 +1259,7 @@ export class ActionResolver {
 
     const sideEffects: SideEffect[] = [{
       type: 'log',
-      message: `${target.name} presents a card for ${examiner.name} to examine.`,
+      message: `${target.name} shows ${examiner.name} a card.`,
       eventType: 'examine',
       character: Character.Inquisitor,
       actorId: examiner.id,
@@ -1323,7 +1323,7 @@ export class ActionResolver {
         // Deck empty — cannot complete swap, treat as return
         sideEffects.push({
           type: 'log',
-          message: `${game.getPlayer(playerId)?.name} attempts to force swap but the deck is empty. Card returned.`,
+          message: `${game.getPlayer(playerId)?.name} can't force a swap with an empty deck. The card goes back.`,
           eventType: 'examine_decision',
           character: Character.Inquisitor,
           actorId: playerId,

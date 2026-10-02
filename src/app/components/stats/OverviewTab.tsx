@@ -34,7 +34,7 @@ export function OverviewTab({ lifetime }: OverviewTabProps) {
     return (
       <div className="text-center py-8">
         <p className="text-coup-ink-mute text-sm">No games played yet.</p>
-        <p className="text-coup-ink-mute text-xs mt-1">Play a game to start tracking your stats!</p>
+        <p className="text-coup-ink-mute text-xs mt-1">Finish a game to start tracking stats. Practice games don&apos;t count.</p>
       </div>
     );
   }
@@ -52,7 +52,7 @@ export function OverviewTab({ lifetime }: OverviewTabProps) {
       <StatCard label="Games Played" value={lifetime.gamesPlayed} />
       <StatCard label="Games Won" value={lifetime.gamesWon} />
       <StatCard label="Win Rate" value={winRate} />
-      <StatCard label="Win Streak" value={`${lifetime.currentWinStreak} (Best: ${lifetime.bestWinStreak})`} />
+      <StatCard label="Win Streak" value={`${lifetime.currentWinStreak} (best ${lifetime.bestWinStreak})`} />
       <StatCard label="Challenges Made" value={lifetime.challengesMade} />
       <StatCard label="Challenges Won" value={`${lifetime.challengesWon} (${challengeAccuracy})`} />
       <StatCard label="Blocks Made" value={lifetime.blocksMade} />

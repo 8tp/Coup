@@ -34,7 +34,7 @@ export function AwardsTab({ awardCounts }: AwardsTabProps) {
     <div>
       {totalEarned === 0 && (
         <p className="text-center text-coup-ink-mute text-sm mb-3">
-          Play games to earn awards!
+          Finish games to earn awards.
         </p>
       )}
       <div className="grid grid-cols-2 gap-2">

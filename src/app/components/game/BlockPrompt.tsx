@@ -31,9 +31,8 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
     return (
       <div className="prompt-info">
         <p className="text-center text-gray-300 text-sm">
-          Your {ACTION_DISPLAY_NAMES[pendingAction.type]} is proceeding...
-          {target && <> Waiting for <span className="font-bold">{target.name}</span> to respond.</>}
-          {!target && ' Waiting for potential blocks.'}
+          Your {ACTION_DISPLAY_NAMES[pendingAction.type]} goes ahead unless{' '}
+          {target ? <><span className="font-bold">{target.name}</span> blocks it.</> : 'someone blocks it.'}
         </p>
         <Timer expiresAt={gameState.timerExpiry} />
       </div>
@@ -47,7 +46,7 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
         <p className="text-center text-gray-400 text-sm">
           <span className="font-bold">{actor?.name}</span> uses {ACTION_DISPLAY_NAMES[pendingAction.type]} on{' '}
           <span className="font-bold">{target?.name}</span>.
-          Waiting for their response...
+          Waiting for their response.
         </p>
         <Timer expiresAt={gameState.timerExpiry} />
       </div>
@@ -68,8 +67,8 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
     return (
       <div className="prompt-info">
         <p className="text-center text-gray-400 text-sm">
-          You cannot block <span className="font-bold text-gray-300">{actor?.name}</span>&apos;s Foreign Aid
-          while you share a faction and both factions remain.
+          You can&apos;t block <span className="font-bold text-gray-300">{actor?.name}</span>&apos;s Foreign Aid.
+          You share a faction, and both factions are still in the game.
         </p>
         <Timer expiresAt={gameState.timerExpiry} />
       </div>
@@ -80,7 +79,7 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
   if (gameState.blockPassedPlayerIds?.includes(myId)) {
     return (
       <div className="prompt-info">
-        <p className="text-center text-gray-400 text-sm">You passed. Waiting for others...</p>
+        <p className="text-center text-gray-400 text-sm">You passed. Waiting for the others.</p>
         <Timer expiresAt={gameState.timerExpiry} />
       </div>
     );
@@ -97,18 +96,18 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
   let subtext: string;
 
   if (isAssassination) {
-    headline = `${actor?.name} is trying to ASSASSINATE you!`;
-    subtext = 'Block with Contessa to survive (you don\'t need to actually have her!)';
+    headline = `${actor?.name} is assassinating you`;
+    subtext = 'Block with Contessa or lose a card. You can claim Contessa without holding one.';
   } else if (isStealing) {
-    headline = `${actor?.name} is trying to steal 2 of your coins!`;
+    headline = `${actor?.name} is stealing 2 of your coins`;
     const blocker = gameState.useInquisitor ? 'Captain or Inquisitor' : 'Captain or Ambassador';
-    subtext = `Block with ${blocker} to keep your coins`;
+    subtext = `Block with ${blocker} to keep them. You can claim either without holding it.`;
   } else if (isForeignAid) {
     headline = `${actor?.name} is taking Foreign Aid (+2 coins)`;
-    subtext = 'Claim Duke to block them from getting coins';
+    subtext = 'Claim Duke to stop them taking the coins. You can claim Duke without holding one.';
   } else {
-    headline = `${actor?.name} is using ${ACTION_DISPLAY_NAMES[pendingAction.type]}`;
-    subtext = 'You can block this action';
+    headline = `${actor?.name} uses ${ACTION_DISPLAY_NAMES[pendingAction.type]}`;
+    subtext = 'You can block it.';
   }
 
   return (
@@ -144,7 +143,7 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
           className="btn-secondary w-full"
           onClick={() => { haptic(80); socket.emit('game:pass_block'); }}
         >
-          {isAssassination ? 'Don\'t block (lose an influence)' : 'Don\'t block'}
+          Don&apos;t block
         </button>
       </div>
     </div>

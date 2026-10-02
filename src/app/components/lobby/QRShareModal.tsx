@@ -43,7 +43,7 @@ export function QRShareModal({ open, onClose, roomCode }: QRShareModalProps) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Share Room">
+    <Modal open={open} onClose={onClose} title="Share room">
       <div className="flex flex-col items-center space-y-4">
         {/* QR Code */}
         <div className="bg-white rounded-xl p-4">
@@ -54,7 +54,7 @@ export function QRShareModal({ open, onClose, roomCode }: QRShareModalProps) {
         <p className="text-gray-400 text-sm text-center break-all">{url}</p>
         <p className="min-h-4 text-xs text-center" aria-live="polite">
           {copied && <span className="text-green-400">Invite link copied</span>}
-          {copyError && <span className="text-red-300">Copy failed - select the link above</span>}
+          {copyError && <span className="text-red-300">Copy failed. Select the link above.</span>}
         </p>
 
         {/* Copy Link Button */}
@@ -63,7 +63,7 @@ export function QRShareModal({ open, onClose, roomCode }: QRShareModalProps) {
           onClick={handleCopyLink}
           className="btn-primary w-full"
         >
-          {copied ? 'Copied!' : 'Copy Link'}
+          {copied ? 'Copied' : 'Copy link'}
         </button>
 
         {/* Close */}

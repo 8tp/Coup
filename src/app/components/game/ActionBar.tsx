@@ -102,11 +102,11 @@ function coinLabel(amount: number): string {
  * button is a shrug.
  */
 function needCoins(cost: number, verb: string, have: number): string {
-  return `You need ${coinLabel(cost)} to ${verb} — you have ${have}.`;
+  return `You need ${coinLabel(cost)} to ${verb}. You have ${have}.`;
 }
 
-const SAME_FACTION_REASON = 'Same faction — Convert first or wait until factions match.';
-const PENDING_REASON = 'Your action is already on its way to the table.';
+const SAME_FACTION_REASON = 'Same faction. Convert first, or wait until everyone is in one faction.';
+const PENDING_REASON = 'You already chose an action.';
 
 /** Which actions the Reformation faction rule can forbid. */
 const FACTION_RESTRICTED: ReadonlyArray<ActionType> = [
@@ -118,18 +118,18 @@ const FACTION_RESTRICTED: ReadonlyArray<ActionType> = [
 
 function getActionConfig(isReformation: boolean, useInquisitor: boolean, treasuryReserve: number): ActionConfig[] {
   const config: ActionConfig[] = [
-    { type: ActionType.Income, label: 'Income', desc: '+1 coin (safe)', icon: CoinIcon },
+    { type: ActionType.Income, label: 'Income', desc: '+1 coin (no block)', icon: CoinIcon },
     { type: ActionType.ForeignAid, label: 'Foreign Aid', desc: '+2 coins (blockable)', icon: CoinsIcon },
     { type: ActionType.Tax, label: 'Tax', desc: '+3 coins (claim Duke)', icon: DukeIcon },
-    { type: ActionType.Steal, label: 'Steal', desc: 'Take 2 (claim Captain)', icon: CaptainIcon },
-    { type: ActionType.Assassinate, label: 'Assassinate', desc: 'Pay 3, kill (claim Assassin)', icon: AssassinIcon },
+    { type: ActionType.Steal, label: 'Steal', desc: 'Take 2 coins (claim Captain)', icon: CaptainIcon },
+    { type: ActionType.Assassinate, label: 'Assassinate', desc: 'Pay 3, they lose a card (claim Assassin)', icon: AssassinIcon },
     {
       type: ActionType.Exchange,
       label: 'Exchange',
-      desc: useInquisitor ? 'Swap 1 card (claim Inquisitor)' : 'Swap cards (claim Ambassador)',
+      desc: useInquisitor ? 'Draw 1, put back 1 (claim Inquisitor)' : 'Draw 2, put back 2 (claim Ambassador)',
       icon: useInquisitor ? InquisitorIcon : AmbassadorIcon,
     },
-    { type: ActionType.Coup, label: 'Coup', desc: 'Pay 7, guaranteed kill', icon: SwordsIcon },
+    { type: ActionType.Coup, label: 'Coup', desc: 'Pay 7, they lose a card (no block)', icon: SwordsIcon },
   ];
 
   if (isReformation) {
@@ -138,7 +138,7 @@ function getActionConfig(isReformation: boolean, useInquisitor: boolean, treasur
       config.splice(-1, 0, {
         type: ActionType.Examine,
         label: 'Examine',
-        desc: 'Look at card (claim Inquisitor)',
+        desc: 'Look at a card (claim Inquisitor)',
         icon: InquisitorIcon,
       });
     }
@@ -146,13 +146,13 @@ function getActionConfig(isReformation: boolean, useInquisitor: boolean, treasur
     config.splice(-1, 0, {
       type: ActionType.Convert,
       label: 'Convert',
-      desc: `Switch faction (${CONVERSION_SELF_COST}/${CONVERSION_OTHER_COST} coins)`,
+      desc: `Switch a faction (${CONVERSION_SELF_COST} or ${CONVERSION_OTHER_COST} coins)`,
       icon: SwapIcon,
     });
     config.splice(-1, 0, {
       type: ActionType.Embezzle,
       label: 'Embezzle',
-      desc: treasuryReserve > 0 ? `Take ${treasuryReserve} from reserve` : 'Reserve is empty',
+      desc: treasuryReserve > 0 ? `Take ${coinLabel(treasuryReserve)} from the reserve (claim no Duke)` : 'The reserve is empty',
       icon: TreasuryIcon,
     });
   }
@@ -408,7 +408,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
   ) : null;
 
   if (selectingTarget) {
-    const actionName = selectingTarget === ActionType.Coup ? 'Coup' :
+    const actionVerb = selectingTarget === ActionType.Coup ? 'Coup' :
                        selectingTarget === ActionType.Assassinate ? 'Assassinate' :
                        selectingTarget === ActionType.Steal ? 'Steal from' :
                        selectingTarget === ActionType.Examine ? 'Examine' :
@@ -421,7 +421,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
       return (
         <div className="prompt-action">
           <Timer expiresAt={gameState.timerExpiry} />
-          <p className="text-center text-white font-bold mb-3">Convert who?</p>
+          <p className="text-center text-white font-bold mb-3">Choose who to Convert</p>
           <div className="flex flex-col gap-2">
             <RefusalHost
               active={shaking && refusal?.id === 'convert:self'}
@@ -491,7 +491,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
       <div className="prompt-action">
         <Timer expiresAt={gameState.timerExpiry} />
         <p className="text-center text-white font-bold mb-3">
-          {actionName} who?
+          Choose who to {actionVerb}
         </p>
         <div className="flex flex-col gap-2">
           {targetOptions.map(({ player, eligible, reason }) => (
@@ -507,7 +507,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
                 aria-disabled={eligible && !actionPending ? undefined : true}
                 onClick={() => chooseTarget(player.id)}
               >
-                <span className="block">{player.name} ({player.coins} coins)</span>
+                <span className="block">{player.name} ({coinLabel(player.coins)})</span>
                 {!eligible && (
                   <span className="mt-0.5 block text-[11px] font-normal leading-tight text-gray-300">
                     {reason}
@@ -518,11 +518,11 @@ export function ActionBar({ gameState }: ActionBarProps) {
           ))}
           {noneEligible && (
             <p className="text-gray-400 text-sm text-center py-2">
-              {stealBlocked ? 'No valid Steal targets — nobody has coins.' : SAME_FACTION_REASON}
+              {stealBlocked ? 'Nobody has coins to steal.' : SAME_FACTION_REASON}
             </p>
           )}
           {targetOptions.length === 0 && (
-            <p className="text-gray-400 text-sm text-center py-2">No valid targets — nobody else is left.</p>
+            <p className="text-gray-400 text-sm text-center py-2">Nobody else is left to target.</p>
           )}
           <button
             className="btn-ghost w-full mt-1"
@@ -541,10 +541,10 @@ export function ActionBar({ gameState }: ActionBarProps) {
       <div className="prompt-urgent">
         <Timer expiresAt={gameState.timerExpiry} />
         <p className="text-center text-red-300 font-bold mb-1">
-          You have {me.coins} coins — you must Coup!
+          You have {me.coins} coins, so you must Coup
         </p>
         <p className="text-center text-gray-400 text-xs mb-3">
-          Choose a player to eliminate
+          Choose who loses a card
         </p>
         <div className="flex flex-col gap-2">
           {targetOptions.map(({ player, eligible, reason }) => (
@@ -600,7 +600,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
 
             if (a.type === ActionType.Embezzle) {
               if (gameState.treasuryReserve === 0) {
-                return { ok: false, reason: 'The treasury reserve is empty — there is nothing to embezzle.' };
+                return { ok: false, reason: 'The reserve is empty, so there\'s nothing to Embezzle.' };
               }
               return { ok: true, reason: '' };
             }
@@ -612,11 +612,11 @@ export function ActionBar({ gameState }: ActionBarProps) {
             if (def.requiresTarget) {
               const options = buildTargetOptions(a.type, opponents, me, factionsSplit);
               if (options.length === 0) {
-                return { ok: false, reason: `No ${a.label} targets — nobody else is left.` };
+                return { ok: false, reason: `Nobody else is left to ${a.label}.` };
               }
               if (options.every(o => !o.eligible)) {
                 if (a.type === ActionType.Steal && options.every(o => o.player.coins === 0)) {
-                  return { ok: false, reason: 'No valid Steal targets — nobody has coins.' };
+                  return { ok: false, reason: 'Nobody has coins to steal.' };
                 }
                 return { ok: false, reason: SAME_FACTION_REASON };
               }

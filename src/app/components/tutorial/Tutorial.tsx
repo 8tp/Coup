@@ -40,7 +40,6 @@ interface TutorialProps {
 }
 
 const TEACHING = TUTORIAL_CHAPTERS.slice(0, LAST_CHAPTER);
-const kicker = (n: number) => `${n + 1} of ${TEACHING.length} · ${TEACHING[n].label}`;
 
 type ChapterProps = { state: TutorialState; send: Dispatch<TutorialEvent> };
 
@@ -94,10 +93,10 @@ export function Tutorial({ open, onClose, onPlayGuided }: TutorialProps) {
 /* ── 1. The goal ─────────────────────────────────────────────────────── */
 
 const GOAL_COPY = {
-  dealt: { note: 'Your two cards are dealt face-down.', cta: 'Look at your cards' },
-  peeked: { note: 'Only you can see them. Everyone else sees two card backs.', cta: 'Lose a card' },
-  'lost-one': { note: 'A lost card turns face-up for everyone. One left — you are still in.', cta: 'Lose the other' },
-  out: { note: 'No cards left: you are out. The last player holding a card wins.', cta: 'Deal again' },
+  dealt: { note: 'Only you can look at your own cards.', cta: 'Look at your cards' },
+  peeked: { note: 'Everyone else sees two card backs.', cta: 'Lose a card' },
+  'lost-one': { note: 'A lost card turns face-up for the whole table. You still have one, so you\'re still in.', cta: 'Lose the other' },
+  out: { note: 'Both cards are face-up. You\'re out.', cta: 'Deal again' },
 } as const;
 
 function GoalChapter({ state, send }: ChapterProps) {
@@ -113,9 +112,8 @@ function GoalChapter({ state, send }: ChapterProps) {
 
   return (
     <ChapterLayout
-      kicker={kicker(0)}
-      title="Keep a card. Outlast the court."
-      lede={<>You hold <b>two secret cards</b> — your influence — and 2 coins. Lose both cards and you are out. <b>The last player holding a card wins.</b></>}
+      title="Lose both cards and you're out"
+      lede="You start with two face-down cards and 2 coins. The cards are your influence. The last player with a face-down card wins."
       noteTone={step === 'out' ? 'danger' : step === 'lost-one' ? 'done' : 'info'}
       note={copy.note}
       demo={(
@@ -145,7 +143,7 @@ function TurnChapter({ state, send }: ChapterProps) {
   const lastDef = last ? turnAction(last) : null;
 
   const note = !lastDef
-    ? 'Tap any action to try it.'
+    ? 'Tap an action.'
     : refused
       ? `${lastDef.label} costs ${-lastDef.delta}. You have ${coins} ${coins === 1 ? 'coin' : 'coins'}.`
       : lastDef.result;
@@ -162,9 +160,8 @@ function TurnChapter({ state, send }: ChapterProps) {
 
   return (
     <ChapterLayout
-      kicker={kicker(1)}
-      title="On your turn, do one thing"
-      lede={<>Three actions are open to <b>anyone</b>. The other four belong to a <b>character</b> — to use one, you claim that character.</>}
+      title="Take one action on your turn"
+      lede="Income, Foreign Aid and Coup are open to anyone. The other four each belong to a character. To use one, you claim that character."
       noteTone={refused ? 'danger' : lastDef ? 'done' : 'info'}
       note={note}
       demo={(
@@ -226,13 +223,12 @@ function ClaimsChapter({ state, send }: ChapterProps) {
   const claimed = state.claims.claimed;
   return (
     <ChapterLayout
-      kicker={kicker(2)}
-      title="Claim any character — even one you don't hold"
-      lede={<>Nobody sees your cards, so you can say anything. You hold a Captain and a Contessa. <b>Say you are the Duke</b> and take Tax.</>}
+      title="You can claim a character you don't have"
+      lede="Nobody can see your cards, so a claim is only your word. Your hand is a Captain and a Contessa. Claim the Duke and take Tax."
       noteTone={claimed ? 'done' : 'info'}
       note={claimed
-        ? 'A bluff — and it worked. Nobody challenged, so the 3 coins are yours.'
-        : 'No Duke in your hand. Claim it anyway.'}
+        ? 'Nobody challenged, so the bluff worked and the 3 coins are yours.'
+        : 'There\'s no Duke in your hand. Claim it anyway.'}
       demo={(
         <Felt>
           <div className="onb-plaque-slot" aria-live="off">
@@ -244,7 +240,7 @@ function ClaimsChapter({ state, send }: ChapterProps) {
           <div className="onb-actions">
             {claimed ? (
               <button type="button" className="btn-secondary" onClick={() => { haptic(); send({ type: 'claims/reset' }); }}>
-                Take it back
+                Try again
               </button>
             ) : (
               <button type="button" className="btn-primary" onClick={() => { hapticHeavy(); send({ type: 'claims/claim' }); }}>
@@ -300,24 +296,23 @@ function ChallengeChapter({ state, send }: ChapterProps) {
   let note: string;
   let tone: 'info' | 'danger' | 'done' = 'info';
   if (stage === 'passed') {
-    note = 'Alex takes 3 coins. Was it a bluff? You will never know.';
+    note = 'Alex takes the 3 coins. You\'ll never know if it was a bluff.';
   } else if (!revealed) {
-    note = truthful ? 'Alex claims the Duke again. Challenge it.' : 'Alex claims the Duke to take Tax. Bluff or not?';
+    note = truthful ? 'Alex claims the Duke again. Challenge it.' : 'Alex claims the Duke to take Tax. Challenge it or let it go.';
   } else if (!verdict) {
-    note = 'Alex shows a card…';
+    note = 'Alex turns over a card…';
   } else if (truthful) {
-    note = 'Alex really had the Duke — so you lose a card. Alex shuffles the Duke away and draws a new one.';
+    note = 'Alex had the Duke, so you lose a card. Alex shuffles the Duke into the deck and draws a new card.';
     tone = 'danger';
   } else {
-    note = 'Caught! Alex had no Duke, so Alex loses a card.';
+    note = 'No Duke. Alex was bluffing and loses a card.';
     tone = 'done';
   }
 
   return (
     <ChapterLayout
-      kicker={kicker(3)}
-      title="Think it's a lie? Challenge!"
-      lede={<>Anyone can challenge a claim. The claimed card is checked, and <b>whoever was wrong loses a card</b>.</>}
+      title="Challenge a claim you don't believe"
+      lede="Anyone can challenge a claim. If the claimer has the card, the challenger loses a card. If not, the claimer does."
       noteTone={tone}
       note={note}
       demo={(
@@ -339,7 +334,7 @@ function ChallengeChapter({ state, send }: ChapterProps) {
             {stage === 'claim' && (
               <>
                 <button type="button" className="btn-danger" onClick={() => { hapticHeavy(); send({ type: 'challenge/challenge' }); }}>
-                  Challenge!
+                  Challenge
                 </button>
                 {!truthful && (
                   <button type="button" className="btn-secondary" onClick={() => { haptic(); send({ type: 'challenge/pass' }); }}>
@@ -350,7 +345,7 @@ function ChallengeChapter({ state, send }: ChapterProps) {
             )}
             {stage === 'passed' && (
               <button type="button" className="btn-secondary" onClick={() => { haptic(); send({ type: 'challenge/rewind' }); }}>
-                Rewind
+                Try again
               </button>
             )}
             {revealed && verdict && (
@@ -359,7 +354,7 @@ function ChallengeChapter({ state, send }: ChapterProps) {
                 className={truthful ? 'btn-secondary' : 'btn-primary'}
                 onClick={() => { haptic(); send({ type: 'challenge/next-round' }); }}
               >
-                {truthful ? 'Play both again' : 'Next: a true claim'}
+                {truthful ? 'Start over' : 'Now a true claim'}
               </button>
             )}
           </div>
@@ -375,15 +370,15 @@ function ChallengeChapter({ state, send }: ChapterProps) {
 const BLOCK_CHOICES = [Character.Duke, Character.Assassin, Character.Captain, Character.Ambassador, Character.Contessa];
 
 const BLOCK_RESULT = [
-  'Blocked. A Duke stops Foreign Aid — anyone may claim it.',
-  'Blocked. The Captain and the Ambassador both stop a Steal.',
+  'Blocked. Any player can claim the Duke to stop Foreign Aid.',
+  'Blocked. The Captain and the Ambassador both stop Steal.',
   'Blocked. Only the Contessa stops an Assassination.',
 ];
 
 const THREAT_ASK = [
-  'Alex takes Foreign Aid. Who blocks it?',
-  'Alex steals from you. Who blocks it?',
-  'Alex assassinates you. Who blocks it?',
+  'Alex takes Foreign Aid. Tap the character that blocks it.',
+  'Alex steals 2 of your coins. Tap a character that blocks it.',
+  'Alex assassinates you. Tap the character that blocks it.',
 ];
 
 function BlocksChapter({ state, send }: ChapterProps) {
@@ -396,16 +391,15 @@ function BlocksChapter({ state, send }: ChapterProps) {
   const last = threat === BLOCK_THREATS.length - 1;
 
   const note = blocked
-    ? `${BLOCK_RESULT[threat]}${last ? ' A block is a claim too — Alex could challenge it.' : ''}`
+    ? `${BLOCK_RESULT[threat]}${last ? ' A block is a claim too, so Alex can challenge it.' : ''}`
     : miss
       ? `${miss} can't block ${t.action}. Try another.`
       : THREAT_ASK[threat];
 
   return (
     <ChapterLayout
-      kicker={kicker(4)}
-      title="Block it with the right character"
-      lede={<>Some actions can be stopped by claiming a character that counters them. <b>Tap the one that blocks</b> each threat.</>}
+      title="Blocking stops an action"
+      lede="A challenge says a claim is a lie. A block stops the action instead: you claim the character that counters it."
       noteTone={blocked ? 'done' : miss ? 'danger' : 'info'}
       note={note}
       demo={(
@@ -427,7 +421,7 @@ function BlocksChapter({ state, send }: ChapterProps) {
             )}
           </div>
           {!blocked ? (
-            <div className="onb-blockers" role="group" aria-label="Who blocks it?">
+            <div className="onb-blockers" role="group" aria-label="Blockers">
               {BLOCK_CHOICES.map(c => {
                 const wrong = miss === c;
                 return (
@@ -475,18 +469,17 @@ function CoinsChapter({ state, send }: ChapterProps) {
 
   const note = refusal
     ?? (couped
-      ? 'Coup! Alex loses a card — nobody could block or challenge it.'
+      ? 'Coup. Alex loses a card.'
       : forced
-        ? `${coins} coins: you must Coup now. Nothing else is allowed.`
+        ? `${coins} coins. Coup is your only move.`
         : ready
-          ? '7 coins: Coup is ready. Keep collecting to see the 10-coin rule.'
-          : `You have ${coins} coins. Collect more, then Coup.`);
+          ? 'You can Coup now. Keep collecting to see what happens at 10.'
+          : `You have ${coins} coins. Collect 7, then Coup.`);
 
   return (
     <ChapterLayout
-      kicker={kicker(5)}
-      title="7 coins buy a Coup. At 10 you must."
-      lede={<>A Coup costs 7 and <b>can't be blocked or challenged</b> — a card is lost, guaranteed. With 10 or more coins, Coup is your only move.</>}
+      title="Coup costs 7. At 10 coins you must Coup."
+      lede="Nobody can block or challenge a Coup, so the target always loses a card. If you start your turn with 10 or more coins, Coup is the only action you can take."
       noteTone={refusal || forced ? 'danger' : couped ? 'done' : 'info'}
       note={note}
       demo={(
@@ -510,7 +503,7 @@ function CoinsChapter({ state, send }: ChapterProps) {
           <div className="onb-actions onb-actions-3">
             {couped ? (
               <button type="button" className="btn-secondary" onClick={() => { haptic(); send({ type: 'coins/reset' }); }}>
-                Again
+                Start over
               </button>
             ) : (
               <>
@@ -557,9 +550,9 @@ function CoinsChapter({ state, send }: ChapterProps) {
 
 const REFERENCE: Array<{ character: Character; does: string; blocks: string; note?: string }> = [
   { character: Character.Duke, does: 'Tax: take 3 coins', blocks: 'Blocks Foreign Aid' },
-  { character: Character.Assassin, does: 'Assassinate: pay 3, a card is lost', blocks: 'Blocks nothing' },
+  { character: Character.Assassin, does: 'Assassinate: pay 3, a player loses a card', blocks: 'Blocks nothing' },
   { character: Character.Captain, does: 'Steal: take 2 coins', blocks: 'Blocks Steal' },
-  { character: Character.Ambassador, does: 'Exchange: swap with the deck', blocks: 'Blocks Steal' },
+  { character: Character.Ambassador, does: 'Exchange: draw 2, return 2', blocks: 'Blocks Steal' },
   { character: Character.Contessa, does: 'No action', blocks: 'Blocks Assassination' },
   { character: Character.Inquisitor, does: 'Exchange or Examine', blocks: 'Blocks Steal', note: 'Reformation' },
 ];
@@ -568,9 +561,8 @@ function FinishChapter() {
   return (
     <>
       <div className="onb-text">
-        <p className="onb-kicker">Ready</p>
-        <h3 className="onb-title type-display">That is the whole game</h3>
-        <p className="onb-lede">Anyone can do anything — the cards only matter when someone calls you on it. Here is every character, for reference.</p>
+        <h3 className="onb-title type-display">The characters</h3>
+        <p className="onb-lede">You can claim any of them at any time. Your real cards only matter when someone challenges.</p>
       </div>
       <ul className="onb-reference onb-demo" aria-label="The six characters">
         {REFERENCE.map(r => (
@@ -584,7 +576,7 @@ function FinishChapter() {
           </li>
         ))}
       </ul>
-      <p className="onb-note is-info">General actions for everyone: Income +1 · Foreign Aid +2 · Coup for 7.</p>
+      <p className="onb-note is-info">Anyone can take Income (+1), Foreign Aid (+2) or Coup (7 coins).</p>
     </>
   );
 }

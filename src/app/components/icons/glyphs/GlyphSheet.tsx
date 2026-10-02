@@ -50,6 +50,7 @@ const GLYPHS: [string, GlyphComponent][] = [
   ['BotGlyph', G.BotGlyph],
   ['SpeakerGlyph', G.SpeakerGlyph],
   ['SpeakerMutedGlyph', G.SpeakerMutedGlyph],
+  ['ReactGlyph', G.ReactGlyph],
   ['TargetGlyph', G.TargetGlyph],
   ['DiceGlyph', G.DiceGlyph],
   ['ExitGlyph', G.ExitGlyph],

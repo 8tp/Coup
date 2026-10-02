@@ -46,12 +46,12 @@ export interface TurnActionDef {
 
 export const TURN_ACTIONS: readonly TurnActionDef[] = [
   { id: 'income', label: 'Income', delta: 1, claim: null, result: 'Income: +1 coin. Nobody can stop it.' },
-  { id: 'foreign-aid', label: 'Foreign Aid', delta: 2, claim: null, result: 'Foreign Aid: +2 coins — unless someone blocks with a Duke.' },
-  { id: 'coup', label: 'Coup', delta: -COUP_COST, claim: null, result: 'Coup: pay 7 and a player of your choice loses a card.' },
+  { id: 'foreign-aid', label: 'Foreign Aid', delta: 2, claim: null, result: 'Foreign Aid: +2 coins, unless someone blocks it with a Duke.' },
+  { id: 'coup', label: 'Coup', delta: -COUP_COST, claim: null, result: 'Coup: pay 7 and pick a player to lose a card.' },
   { id: 'tax', label: 'Tax', delta: 3, claim: Character.Duke, result: 'Tax: you claim the Duke and take 3 coins.' },
-  { id: 'steal', label: 'Steal', delta: 2, claim: Character.Captain, result: 'Steal: you claim the Captain and take 2 coins from a player.' },
-  { id: 'assassinate', label: 'Assassinate', delta: -3, claim: Character.Assassin, result: 'Assassinate: you claim the Assassin, pay 3, and a player loses a card.' },
-  { id: 'exchange', label: 'Exchange', delta: 0, claim: Character.Ambassador, result: 'Exchange: you claim the Ambassador and swap cards with the deck.' },
+  { id: 'steal', label: 'Steal', delta: 2, claim: Character.Captain, result: 'Steal: you claim the Captain and take 2 coins from another player.' },
+  { id: 'assassinate', label: 'Assassinate', delta: -3, claim: Character.Assassin, result: 'Assassinate: you claim the Assassin, pay 3, and pick a player to lose a card.' },
+  { id: 'exchange', label: 'Exchange', delta: 0, claim: Character.Ambassador, result: 'Exchange: you claim the Ambassador, draw 2 cards and put back any 2.' },
 ];
 
 export function turnAction(id: TurnActionId): TurnActionDef {
@@ -214,7 +214,7 @@ export function tutorialReducer(state: TutorialState, event: TutorialEvent): Tut
     case 'coins/take': {
       if (state.coins.couped) return state;
       if (mustCoup(state.coins.coins)) {
-        return { ...state, coins: { ...state.coins, refusal: 'At 10 coins you must Coup — nothing else is allowed.' } };
+        return { ...state, coins: { ...state.coins, refusal: 'At 10 coins you must Coup.' } };
       }
       return { ...state, coins: { coins: state.coins.coins + event.amount, couped: false, refusal: null } };
     }

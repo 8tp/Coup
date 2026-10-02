@@ -17,7 +17,7 @@ function finishGame(manager: RoomManager, roomCode: string, winnerId: string): v
   for (const player of engine.game.players) {
     if (player.id === winnerId) continue;
     for (const influence of player.influences) influence.revealed = true;
-    engine.game.log(`${player.name} has been eliminated!`, 'elimination', null, player.id, player.name);
+    engine.game.log(`${player.name} is out.`, 'elimination', null, player.id, player.name);
   }
   engine.game.checkWinCondition();
   expect(engine.game.status).toBe(GameStatus.Finished);
@@ -186,7 +186,7 @@ describe('RoomManager — lobby resilience, AFK and finished rooms', () => {
       expect(room.players.find(p => p.id === playerId)).toMatchObject({ isBot: true, replacedByBot: true, personality: 'optimal' });
       expect(room.hostId).toBe(bob.playerId);
       const log = manager.getEngine(room.code)!.game.actionLog.map(e => e.message);
-      expect(log).toContain('Alice left — a bot took their seat.');
+      expect(log).toContain('Alice left, so a bot took their seat.');
     });
 
     it('closes the room instead when the last human walks away mid-game', () => {
@@ -242,7 +242,7 @@ describe('RoomManager — lobby resilience, AFK and finished rooms', () => {
       expect(manager.getPlayerRoom('s1')).toBeNull();
       expect(room.hostId).toBe(bobId); // host passes to a human, never a bot
       const log = manager.getEngine(room.code)!.game.actionLog.map(e => e.message);
-      expect(log).toContain('Alice was idle — a bot took their seat.');
+      expect(log).toContain('Alice was idle, so a bot took their seat.');
     });
 
     it('a disconnect-reason replacement still refuses a player who reconnected', () => {

@@ -63,7 +63,7 @@ export function PWAInstallPrompt() {
         <img src="/icons/icon-192-v3.png" alt="" className="h-10 w-10 rounded-lg" aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold text-gray-100">Install Coup</p>
-          <p className="text-xs text-gray-400">Faster launch and cached game assets on spotty Wi-Fi.</p>
+          <p className="text-xs text-gray-400">Opens faster, and cached game assets load on weak Wi-Fi.</p>
         </div>
         <button
           type="button"

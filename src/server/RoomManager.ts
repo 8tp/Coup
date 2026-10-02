@@ -241,7 +241,7 @@ export class RoomManager {
     if (!player) return { error: 'Player not found in room' };
 
     if (player.replacedByBot) {
-      return { error: 'You have been replaced by a bot due to inactivity' };
+      return { error: 'A bot took your seat while you were inactive' };
     }
 
     // Bot seats are never claimable by a socket (bot ids are public in room:updated).
@@ -1035,10 +1035,10 @@ export class RoomManager {
 
     // Log replacement
     const message = reason === 'afk'
-      ? `${roomPlayer.name} was idle — a bot took their seat.`
+      ? `${roomPlayer.name} was idle, so a bot took their seat.`
       : reason === 'left'
-        ? `${roomPlayer.name} left — a bot took their seat.`
-        : `${roomPlayer.name} has been replaced by a bot.`;
+        ? `${roomPlayer.name} left, so a bot took their seat.`
+        : `A bot took ${roomPlayer.name}'s seat.`;
     engine.game.log(message, 'bot_replace', null, playerId, roomPlayer.name);
 
     const meta = this.getMeta(roomCode);

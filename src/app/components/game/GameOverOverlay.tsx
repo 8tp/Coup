@@ -52,7 +52,7 @@ interface GameOverOverlayProps {
 function buildReplayExport(gameState: ClientGameState): string {
   const winner = gameState.players.find(p => p.id === gameState.winnerId);
   const lines = [
-    `Coup Online recap - room ${gameState.roomCode}`,
+    `Coup Online recap, room ${gameState.roomCode}`,
     `Winner: ${winner?.name ?? 'Unknown'}`,
     `Turns: ${gameState.turnNumber}`,
     `Mode: ${gameState.gameMode}${gameState.useInquisitor ? ' with Inquisitor' : ''}`,
@@ -60,7 +60,7 @@ function buildReplayExport(gameState: ClientGameState): string {
     'Final table:',
     ...gameState.players.map(player => {
       const cards = player.influences
-        .map(inf => `${inf.character ?? 'Hidden'}${inf.revealed ? ' revealed' : ' hidden'}`)
+        .map(inf => (inf.character ? `${inf.character} ${inf.revealed ? 'revealed' : 'hidden'}` : 'hidden card'))
         .join(', ');
       const status = player.id === gameState.winnerId ? 'winner' : player.isAlive ? 'alive' : 'eliminated';
       const faction = player.faction ? `, ${player.faction}` : '';
@@ -172,7 +172,7 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
           </div>
           {/* ART-DIRECTION.md §4: the game-over title is the largest Display use in the app. */}
           <h1 className="type-display text-step-4 mb-1 uppercase">
-            {isMe ? 'You Win!' : `${winner?.name} Wins!`}
+            {isMe ? 'You win' : `${winner?.name} wins`}
           </h1>
           <p className="text-coup-accent text-sm">
             {isMe ? winnerFlavor : loserFlavor}
@@ -209,10 +209,10 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
 
         {/* Table truth */}
         <div className="px-4 pb-4">
-          <p className="text-center text-xs text-coup-ink-mute uppercase tracking-wider mb-2">Table Truth</p>
+          <p className="text-center text-xs text-coup-ink-mute uppercase tracking-wider mb-2">Other hands</p>
           {!showFullTruth && nonWinnerPlayers.length > 0 ? (
             <div className="panel-sunk bg-coup-bg/60 px-4 py-4 text-center">
-              <p className="text-sm font-medium text-gray-300">Revealing the rest of the table...</p>
+              <p className="text-sm font-medium text-gray-300">Revealing the other hands</p>
               <button
                 type="button"
                 className="btn-ghost mt-3 !text-coup-accent"
@@ -263,7 +263,7 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
         {/* Final recap */}
         {showFullTruth && recap.length > 0 && (
           <div className="px-4 pb-4">
-            <p className="text-center text-xs text-coup-ink-mute uppercase tracking-wider mb-2">Final Recap</p>
+            <p className="text-center text-xs text-coup-ink-mute uppercase tracking-wider mb-2">Recap</p>
             <div className="grid grid-cols-2 gap-2">
               {recap.map(item => (
                 <div
@@ -303,7 +303,7 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
         {/* Truth Reveal */}
         {showFullTruth && totalBluffs > 0 && (
           <div className="px-4 pb-4">
-            <p className="text-center text-xs text-coup-ink-mute uppercase tracking-wider mb-2">Truth Reveal</p>
+            <p className="text-center text-xs text-coup-ink-mute uppercase tracking-wider mb-2">Bluffs</p>
             <div className="bg-coup-bg/60 panel-sunk divide-y divide-coup-line/60">
               {bluffSummary.map(entry => {
                 const bluffRate = entry.totalClaims > 0 ? Math.round((entry.bluffs / entry.totalClaims) * 100) : 0;
@@ -368,7 +368,7 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
           </div>
           <p className="min-h-4 text-center text-[11px] text-coup-ink-mute" aria-live="polite">
             {exportStatus === 'copied' && 'Recap copied'}
-            {exportStatus === 'error' && 'Copy unavailable - download the log instead'}
+            {exportStatus === 'error' && 'Can\'t copy here. Download the log instead.'}
           </p>
           <button
             className="btn-ghost w-full"
@@ -404,7 +404,7 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
             </button>
           ) : (
             <p className="text-coup-ink-mute text-sm text-center">
-              Waiting for host to start rematch...
+              Waiting for the host to start a rematch
             </p>
           )}
         </div>

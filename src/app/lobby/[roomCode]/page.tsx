@@ -11,6 +11,7 @@ import { AddBotModal } from '../../components/lobby/AddBotModal';
 import { QRShareModal } from '../../components/lobby/QRShareModal';
 import { SettingsModal } from '../../components/settings/SettingsModal';
 import { HowToPlay } from '../../components/home/HowToPlay';
+import { CrownGlyph } from '../../components/icons';
 import { haptic } from '../../utils/haptic';
 import { useLobbyMusic } from '../../hooks/useMusicDirector';
 import { botsNeededToFill, buildBots } from '../../utils/botFill';
@@ -53,7 +54,7 @@ export default function LobbyPage() {
     ? `Need ${MIN_PLAYERS - roomPlayers.length} more player${MIN_PLAYERS - roomPlayers.length === 1 ? '' : 's'}`
     : roomPlayers.length > MAX_PLAYERS
       ? 'Too many players'
-      : 'Ready when everyone has joined';
+      : 'Start when everyone has joined';
   const canAddBot = roomPlayers.length < MAX_PLAYERS;
   const hasBots = roomPlayers.some(p => p.isBot);
   // Host is the only human: offer to fill the table with bots instead of a dead "need players" state.
@@ -226,7 +227,7 @@ export default function LobbyPage() {
           </svg>
         </button>
         <div className="flex gap-2">
-          <button onClick={() => { haptic(); setShowRules(true); }} className="court-icon-btn type-display" title="How to Play" aria-label="How to Play">?</button>
+          <button onClick={() => { haptic(); setShowRules(true); }} className="court-icon-btn type-display" title="How to play" aria-label="How to play">?</button>
           <button onClick={() => { haptic(); setShowQRModal(true); }} className="court-icon-btn" title="Share room" aria-label="Share room">
             <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5" aria-hidden="true">
               <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
@@ -249,8 +250,8 @@ export default function LobbyPage() {
           <p className="lobby-copy-status" aria-live="polite">
             {copyStatus === 'code' && 'Room code copied'}
             {copyStatus === 'link' && 'Invite link copied'}
-            {copyStatus === 'error' && 'Copy failed — select the code or use the QR button'}
-            {copyStatus === 'idle' && 'Share it with friends to bring them to the table'}
+            {copyStatus === 'error' && 'Copy failed. Select the code, or tap Share for a QR code.'}
+            {copyStatus === 'idle' && 'Friends enter this code under Join room.'}
           </p>
           <div className="lobby-share">
             <button type="button" className="btn-secondary" onClick={copyRoomCode}>Copy code</button>
@@ -271,7 +272,7 @@ export default function LobbyPage() {
                 <li key={p.id} className={`lobby-player ${!p.isBot && !p.connected ? 'is-away' : ''}`}>
                   <div className="min-w-0 flex-1">
                     <p className={`lobby-player-name ${p.id === playerId ? 'text-coup-accent' : ''}`}>
-                      {p.id === lastWinnerId && <span title="Last game winner" aria-label="Last game winner">♛ </span>}
+                      {p.id === lastWinnerId && <CrownGlyph size={14} title="Last game winner" className="inline-block mr-1 align-[-2px] text-coup-accent" />}
                       {p.name}{p.id === playerId && ' (you)'}
                     </p>
                     <p className="lobby-player-meta">
@@ -362,7 +363,7 @@ export default function LobbyPage() {
                   <span>
                     <span className="block font-semibold text-coup-ink">Public room</span>
                     <span className="block text-sm text-coup-ink-mute">
-                      {roomSettings.isPublic ? 'Listed in open tables' : 'Private — only people with the code'}
+                      {roomSettings.isPublic ? 'Listed in Open tables. Anyone can join.' : 'Only people with the code can join.'}
                     </span>
                   </span>
                   <span className={`switch-track ${roomSettings.isPublic ? 'is-on' : ''}`} aria-hidden="true"><span /></span>
@@ -439,7 +440,7 @@ export default function LobbyPage() {
           {isHost ? (
             !canStart && botsToFill > 0 ? (
               <button className="btn-primary flex-1" disabled={fillingBots} onClick={handleFillWithBots}>
-                {fillingBots ? 'Adding bots…' : `Play now with bots (${FILL_WITH_BOTS_TARGET} players)`}
+                {fillingBots ? 'Adding bots…' : `Start with bots · ${FILL_WITH_BOTS_TARGET} players`}
               </button>
             ) : (
               <button className="btn-primary flex-1" disabled={!canStart} onClick={() => { haptic(80); startGame(); }} title={startReason}>

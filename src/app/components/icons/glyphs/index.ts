@@ -77,6 +77,7 @@ export { BotGlyph } from './BotGlyph';
 // Chrome
 export { SpeakerGlyph } from './SpeakerGlyph';
 export { SpeakerMutedGlyph } from './SpeakerMutedGlyph';
+export { ReactGlyph } from './ReactGlyph';
 
 // Awards
 export { TargetGlyph } from './TargetGlyph';

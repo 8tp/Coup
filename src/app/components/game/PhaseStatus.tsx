@@ -55,6 +55,14 @@ function remainingBlockNames(gameState: ClientGameState): string[] {
     .map(p => p.name);
 }
 
+/** What the actor claimed. Embezzle's claim is that they hold no Duke. */
+function claimText(gameState: ClientGameState): string {
+  const action = gameState.pendingAction;
+  if (!action) return 'a character';
+  if (action.type === ActionType.Embezzle) return 'no Duke';
+  return action.claimedCharacter ?? 'a character';
+}
+
 export function PhaseStatus({ gameState }: PhaseStatusProps) {
   const { turnPhase, pendingAction, pendingBlock, influenceLossRequest, myId } = gameState;
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
@@ -66,7 +74,7 @@ export function PhaseStatus({ gameState }: PhaseStatusProps) {
   switch (turnPhase) {
     case TurnPhase.AwaitingAction:
       if (isMyTurn) {
-        text = 'YOUR TURN — Choose an action';
+        text = 'Your turn: choose an action';
         tone = 'mine';
       } else {
         text = `${currentPlayer?.name}'s turn`;
@@ -77,11 +85,11 @@ export function PhaseStatus({ gameState }: PhaseStatusProps) {
       const actor = gameState.players.find(p => p.id === pendingAction?.actorId);
       const remainingNames = remainingChallengeNames(gameState, pendingAction?.actorId);
       if (myId === pendingAction?.actorId) {
-        text = `Waiting for ${formatNames(remainingNames)} to accept or challenge your ${pendingAction?.claimedCharacter} claim`;
+        text = `Waiting for ${formatNames(remainingNames)} to challenge or pass on your claim of ${claimText(gameState)}`;
       } else if (gameState.challengeState?.passedPlayerIds.includes(myId)) {
-        text = `Waiting for ${formatNames(remainingNames)} to accept or challenge`;
+        text = `Waiting for ${formatNames(remainingNames)} to challenge or pass`;
       } else {
-        text = `${actor?.name} claims ${pendingAction?.claimedCharacter} — Challenge or Pass?`;
+        text = `${actor?.name} claims ${claimText(gameState)}: challenge or pass`;
         tone = 'ask';
       }
       break;
@@ -94,7 +102,7 @@ export function PhaseStatus({ gameState }: PhaseStatusProps) {
       if (myId === pendingAction?.actorId) {
         text = `Waiting for ${formatNames(remainingNames)} to block or allow your ${pendingAction ? ACTION_DISPLAY_NAMES[pendingAction.type] : 'action'}`;
       } else if (isTarget) {
-        text = `${actor?.name} is targeting you — Block or allow?`;
+        text = `${actor?.name} is targeting you: block or allow`;
         tone = 'danger';
       } else if (gameState.blockPassedPlayerIds?.includes(myId)) {
         text = `Waiting for ${formatNames(remainingNames)} to block or allow`;
@@ -108,12 +116,12 @@ export function PhaseStatus({ gameState }: PhaseStatusProps) {
       const blocker = gameState.players.find(p => p.id === pendingBlock?.blockerId);
       const remainingNames = remainingChallengeNames(gameState, pendingBlock?.blockerId);
       if (myId === pendingAction?.actorId && !gameState.challengeState?.passedPlayerIds.includes(myId)) {
-        text = `${blocker?.name} blocks with ${pendingBlock?.claimedCharacter} — Challenge the block?`;
+        text = `${blocker?.name} blocks with ${pendingBlock?.claimedCharacter}: challenge or pass`;
         tone = 'ask';
       } else if (gameState.challengeState?.passedPlayerIds.includes(myId) || myId === pendingBlock?.blockerId) {
-        text = `Waiting for ${formatNames(remainingNames)} to accept or challenge ${blocker?.name}'s block`;
+        text = `Waiting for ${formatNames(remainingNames)} to challenge or pass on ${blocker?.name}'s block`;
       } else {
-        text = `${blocker?.name} blocks — Challenge or Pass?`;
+        text = `${blocker?.name} blocks with ${pendingBlock?.claimedCharacter}: challenge or pass`;
         tone = 'ask';
       }
       break;
@@ -122,10 +130,10 @@ export function PhaseStatus({ gameState }: PhaseStatusProps) {
     case TurnPhase.AwaitingInfluenceLoss: {
       const loser = gameState.players.find(p => p.id === influenceLossRequest?.playerId);
       if (influenceLossRequest?.playerId === myId) {
-        text = 'You must choose an influence to lose!';
+        text = 'Choose a card to lose';
         tone = 'danger';
       } else {
-        text = `${loser?.name} is choosing an influence to lose`;
+        text = `${loser?.name} is choosing a card to lose`;
       }
       break;
     }
@@ -145,26 +153,26 @@ export function PhaseStatus({ gameState }: PhaseStatusProps) {
     case TurnPhase.AwaitingExamineDecision: {
       const examiner = gameState.players.find(p => p.id === pendingAction?.actorId);
       if (myId === pendingAction?.actorId) {
-        text = 'Examine — Force swap or return the card?';
+        text = 'Return the card or force a swap';
         tone = 'ask';
       } else {
-        text = `${examiner?.name} is examining a card...`;
+        text = `${examiner?.name} is examining a card`;
       }
       break;
     }
 
     case TurnPhase.AwaitingExchange:
       if (gameState.exchangeState) {
-        text = 'Choose which cards to keep';
+        text = 'Choose the cards to keep';
         tone = 'ask';
       } else {
         const exchanger = gameState.players.find(p => p.id === pendingAction?.actorId);
-        text = `${exchanger?.name ?? 'A player'} is choosing cards`;
+        text = `${exchanger?.name ?? 'A player'} is choosing cards to keep`;
       }
       break;
 
     case TurnPhase.GameOver:
-      text = 'Game Over';
+      text = 'Game over';
       tone = 'mine';
       break;
 

@@ -517,7 +517,7 @@ describe('ActionResolver', () => {
       // Blocker must lose influence (or be auto-revealed)
       // The action should proceed (pendingAction kept or resolves)
       const logEffects = result.sideEffects.filter(e => e.type === 'log');
-      const failLog = logEffects.find(e => e.type === 'log' && (e as any).message.includes('does NOT have'));
+      const failLog = logEffects.find(e => e.type === 'log' && (e as any).eventType === 'block_challenge_success');
       expect(failLog).toBeDefined();
     });
   });
@@ -547,7 +547,7 @@ describe('ActionResolver', () => {
 
       // Block stands, challenger (actor p1) loses influence
       const logEffects = result.sideEffects.filter(e => e.type === 'log');
-      const standLog = logEffects.find(e => e.type === 'log' && (e as any).message.includes('block stands'));
+      const standLog = logEffects.find(e => e.type === 'log' && (e as any).eventType === 'block_challenge_fail');
       expect(standLog).toBeDefined();
 
       // Blocker gets replacement
@@ -1152,7 +1152,7 @@ describe('ActionResolver', () => {
       // challenge_reveal should come before the log about the reveal result
       const revealIdx = result.sideEffects.findIndex(e => e.type === 'challenge_reveal');
       const logIdx = result.sideEffects.findIndex(
-        e => e.type === 'log' && (e as any).message.includes('reveals'),
+        e => e.type === 'log' && (e as any).eventType === 'challenge_fail',
       );
       expect(revealIdx).toBeGreaterThanOrEqual(0);
       expect(logIdx).toBeGreaterThanOrEqual(0);

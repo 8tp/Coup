@@ -3,17 +3,22 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { REACTIONS } from '@/shared/constants';
 import { haptic } from '../../utils/haptic';
+import { ReactGlyph } from '../icons';
 
 interface ReactionPickerProps {
   onReact: (reactionId: string) => void;
   disabled?: boolean;
+  /** `above` opens the panel upward, for a button at the bottom of the screen (the chat composer). */
+  placement?: 'below' | 'above';
+  /** Classes for the trigger button. */
+  buttonClassName?: string;
 }
 
-export function ReactionPicker({ onReact, disabled }: ReactionPickerProps) {
+export function ReactionPicker({ onReact, disabled, placement = 'below', buttonClassName = 'court-icon-btn' }: ReactionPickerProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+  const [pos, setPos] = useState<{ top?: number; bottom?: number; left?: number; right?: number } | null>(null);
 
   const updatePos = useCallback(() => {
     if (!buttonRef.current) return;
@@ -22,8 +27,12 @@ export function ReactionPicker({ onReact, disabled }: ReactionPickerProps) {
     // never let its left edge run past an 8px gutter on a narrow phone.
     const panelW = Math.min(288, window.innerWidth - 16);
     const right = Math.min(window.innerWidth - rect.right, window.innerWidth - panelW - 8);
-    setPos({ top: rect.bottom + 6, right: Math.max(8, right) });
-  }, []);
+    // Opening upward from the composer at the screen's left, it hangs off the
+    // button's left edge instead.
+    setPos(placement === 'above'
+      ? { bottom: window.innerHeight - rect.top + 6, left: Math.max(8, Math.min(rect.left, window.innerWidth - panelW - 8)) }
+      : { top: rect.bottom + 6, right: Math.max(8, right) });
+  }, [placement]);
 
   useEffect(() => {
     if (!open) return;
@@ -43,17 +52,17 @@ export function ReactionPicker({ onReact, disabled }: ReactionPickerProps) {
         ref={buttonRef}
         onClick={() => { haptic(); setOpen((o) => !o); }}
         disabled={disabled}
-        className="court-icon-btn disabled:opacity-40 disabled:cursor-not-allowed"
-        title="Send reaction"
-        aria-label="Send reaction"
+        className={`${buttonClassName} disabled:opacity-40 disabled:cursor-not-allowed`}
+        title="Send a reaction"
+        aria-label="Send a reaction"
         aria-expanded={open}
       >
-        😄
+        <ReactGlyph size={18} />
       </button>
       {open && pos && (
         <div
           className="fixed z-50 bg-coup-surface panel-sunk p-3 animate-fade-in w-72 max-w-[calc(100vw-1rem)]"
-          style={{ top: pos.top, right: pos.right }}
+          style={{ top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right }}
         >
           <div className="grid grid-cols-4 gap-2">
             {REACTIONS.map((r) => (

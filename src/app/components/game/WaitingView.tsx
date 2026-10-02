@@ -20,7 +20,7 @@ export function WaitingView({ gameState }: WaitingViewProps) {
     return (
       <div className="prompt-info">
         <p className="text-center text-gray-400 text-sm">
-          You have been eliminated. Watching the game...
+          You&apos;re eliminated. You can watch the rest of the game.
         </p>
       </div>
     );
@@ -31,7 +31,7 @@ export function WaitingView({ gameState }: WaitingViewProps) {
     return (
       <div className="prompt-info">
         <p className="text-center text-gray-400 text-sm">
-          Waiting for <span className="font-bold text-gray-300">{currentPlayer?.name}</span> to choose an action...
+          Waiting for <span className="font-bold text-gray-300">{currentPlayer?.name}</span> to choose an action
         </p>
       </div>
     );
@@ -46,7 +46,7 @@ export function WaitingView({ gameState }: WaitingViewProps) {
       <div className="prompt-info">
         <p className="text-center text-gray-400 text-sm">
           <span className="font-bold text-gray-300">{target?.name}</span> is choosing a card to show{' '}
-          <span className="font-bold text-gray-300">{examiner?.name}</span>...
+          <span className="font-bold text-gray-300">{examiner?.name}</span>
         </p>
       </div>
     );
@@ -59,7 +59,7 @@ export function WaitingView({ gameState }: WaitingViewProps) {
       <div className="prompt-info">
         <p className="text-center text-gray-400 text-sm">
           <span className="font-bold text-gray-300">{examiner?.name}</span> is examining{' '}
-          <span className="font-bold text-gray-300">{target?.name}</span>&apos;s card...
+          <span className="font-bold text-gray-300">{target?.name}</span>&apos;s card
         </p>
       </div>
     );
@@ -70,7 +70,7 @@ export function WaitingView({ gameState }: WaitingViewProps) {
     return (
       <div className="prompt-info">
         <p className="text-center text-gray-400 text-sm">
-          Waiting for <span className="font-bold text-gray-300">{exchanger?.name ?? 'a player'}</span> to choose cards...
+          Waiting for <span className="font-bold text-gray-300">{exchanger?.name ?? 'a player'}</span> to choose cards to keep
         </p>
       </div>
     );
@@ -81,7 +81,7 @@ export function WaitingView({ gameState }: WaitingViewProps) {
     return (
       <div className="prompt-info">
         <p className="text-center text-gray-400 text-sm">
-          Waiting for <span className="font-bold text-gray-300">{loser?.name ?? 'a player'}</span> to reveal an influence...
+          Waiting for <span className="font-bold text-gray-300">{loser?.name ?? 'a player'}</span> to choose a card to lose
         </p>
       </div>
     );

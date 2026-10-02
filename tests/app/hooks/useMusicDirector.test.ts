@@ -203,7 +203,7 @@ describe('settleMusicCue — hysteresis', () => {
 });
 
 describe('isOpeningDeal — the first state of a new game', () => {
-  const start = { timestamp: 0, message: 'Game started!', eventType: 'game_start' as const, turnNumber: 1,
+  const start = { timestamp: 0, message: 'Game started.', eventType: 'game_start' as const, turnNumber: 1,
     character: null, actorId: null, actorName: null };
 
   it('is the opening state: turn 1, awaiting the first action, only the start logged', () => {

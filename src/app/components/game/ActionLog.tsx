@@ -85,7 +85,7 @@ export function ActionLog({ log, myName, turnPhase, showExplanations = false }: 
     <div className="px-3 py-2 flex-1 min-h-0 flex flex-col">
       <div ref={scrollRef} className="space-y-1.5 overflow-y-auto flex-1 min-h-0 pb-2">
         {log.length === 0 && (
-          <p className="text-sm text-coup-ink-mute italic">Game starting...</p>
+          <p className="text-sm text-coup-ink-mute italic">Game starting</p>
         )}
         {turnGroups.map((group, gi) => {
           const borderColor = getGroupBorderColor(group);
@@ -128,7 +128,7 @@ export function ActionLog({ log, myName, turnPhase, showExplanations = false }: 
                               ? 'bg-red-500/20 text-red-400 border border-red-500/30'
                               : 'bg-green-500/15 text-green-400/80 border border-green-500/20'
                           }`}>
-                            {entry.wasBluff ? 'BLUFF' : 'TRUE'}
+                            {entry.wasBluff ? 'bluff' : 'honest'}
                           </span>
                         )}
                         {explanation && (
@@ -145,7 +145,7 @@ export function ActionLog({ log, myName, turnPhase, showExplanations = false }: 
                             }}
                             aria-expanded={isExpanded}
                           >
-                            Why?
+                            Explain
                           </button>
                         )}
                       </span>

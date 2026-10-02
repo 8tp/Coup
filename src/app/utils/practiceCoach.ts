@@ -108,8 +108,8 @@ export function getPracticeCoachTip(
     return {
       id: 'exchange-hand',
       label: 'Exchange',
-      title: 'Keep the cards that fit your story',
-      body: 'Pick the cards that back up claims you have already made — or the ones that give you the most options. The rest go back in the deck.',
+      title: 'Keep the characters you\'ve claimed',
+      body: 'Holding them makes those claims safe to repeat. If you haven\'t claimed anything yet, keep the cards with the most uses. The rest go back into the deck.',
       tone: 'info',
       anchor: 'prompt',
     };
@@ -122,8 +122,8 @@ export function getPracticeCoachTip(
     return {
       id: 'examine-selection',
       label: 'Examined',
-      title: 'You choose which card the Inquisitor sees',
-      body: 'Show the card you can best afford to lose or have swapped. Only the examiner learns what it is.',
+      title: 'You choose which card they see',
+      body: 'Show the card you\'d mind least losing to a swap. Only the examiner learns what it is.',
       tone: 'info',
       anchor: 'prompt',
     };
@@ -133,8 +133,8 @@ export function getPracticeCoachTip(
     return {
       id: 'examine-decision',
       label: 'Examine',
-      title: 'Keep what you learned, or shake up their hand',
-      body: 'Return it and you know one of their cards. Force a swap and they lose it — but you no longer know what they hold.',
+      title: 'You\'ve seen one of their cards',
+      body: 'Return it and you know what they hold. Force a swap and the card goes into the deck, but you lose track of their hand.',
       tone: 'info',
       anchor: 'prompt',
     };
@@ -150,12 +150,12 @@ export function getPracticeCoachTip(
 
     if (pendingAction.targetId === myId && canShowOnce('first-targeted')) {
       const blockers = ACTION_DEFINITIONS[pendingAction.type].blockedBy.length > 0
-        ? ` or wait and block with ${formatCharacters(visibleBlockCharacters(gameState))}`
+        ? `, or wait and block with ${formatCharacters(visibleBlockCharacters(gameState))}`
         : '';
       return {
         id: 'first-targeted',
         label: 'You are the target',
-        title: `${actorName} is coming for you`,
+        title: `${actorName} is targeting you`,
         body: `${targetedConsequence(pendingAction.type)} Challenge now if you doubt their ${pendingAction.claimedCharacter ?? 'claim'}${blockers}.`,
         tone: 'danger',
         anchor: 'plaque',
@@ -166,10 +166,12 @@ export function getPracticeCoachTip(
     return {
       id: 'challenge-claim',
       label: 'Challenge?',
-      title: `Is ${actorName} lying?`,
+      title: pendingAction.type === ActionType.Embezzle
+        ? `${actorName} claims to have no Duke`
+        : `${actorName} claims ${pendingAction.claimedCharacter ?? 'a character'}`,
       body: pendingAction.type === ActionType.Embezzle
-        ? `Embezzle claims ${actorName} does not hold Duke. Challenge only if you think a Duke is in their hand; if none is found, you lose an influence.`
-        : `Challenge if you think they do not hold ${pendingAction.claimedCharacter ?? 'that card'}. If they do, you lose an influence — so passing is often the safe call.`,
+        ? `Challenge only if you think they have a Duke. If they don't, you lose a card.`
+        : `Challenge if you think they don't have ${pendingAction.claimedCharacter ?? 'that card'}. If they do, you lose a card, so letting it go is often safer.`,
       tone: 'info',
       anchor: 'plaque',
     };
@@ -186,7 +188,7 @@ export function getPracticeCoachTip(
       id: 'challenge-block',
       label: 'Blocked',
       title: 'A block is a claim too',
-      body: `${blocker?.name ?? 'The bot'} says they hold ${pendingBlock.claimedCharacter}. Challenge only if you will risk a card on that being a lie.`,
+      body: `${blocker?.name ?? 'The bot'} claims ${pendingBlock.claimedCharacter} to block. Challenge only if you'll risk a card on it being a lie.`,
       tone: 'info',
       anchor: 'plaque',
     };
@@ -207,8 +209,8 @@ export function getPracticeCoachTip(
       return {
         id: 'first-block',
         label: 'Your first block',
-        title: `You can stop this ${actionName}`,
-        body: `Claim ${formatCharacters(blockCharacters)} to block it — even if you do not hold one. They can challenge your block, so a caught bluff costs you a card.`,
+        title: `You can block this ${actionName}`,
+        body: `Claim ${formatCharacters(blockCharacters)} to stop it, even if you don't have one. They can challenge your block, and a caught bluff costs you a card.`,
         tone,
         anchor: 'prompt',
         once: true,
@@ -218,8 +220,8 @@ export function getPracticeCoachTip(
     return {
       id: 'make-block',
       label: 'Block?',
-      title: `You may block ${actionName}`,
-      body: `Blocking means claiming ${formatCharacters(blockCharacters)}. You may bluff it, but they get a chance to challenge.`,
+      title: `You can block ${actionName}`,
+      body: `Blocking means claiming ${formatCharacters(blockCharacters)}. You can bluff it, but they can challenge.`,
       tone,
       anchor: 'prompt',
     };
@@ -231,7 +233,7 @@ export function getPracticeCoachTip(
         id: 'must-coup',
         label: `${me.coins} coins`,
         title: 'At 10 coins you must Coup',
-        body: 'Coup is your only move now. Pick the opponent who worries you most — it cannot be blocked or challenged.',
+        body: 'Coup is your only move. Pick the opponent who worries you most. Nobody can block or challenge it.',
         tone: 'danger',
         anchor: 'dock',
       };
@@ -241,8 +243,8 @@ export function getPracticeCoachTip(
       return {
         id: 'coup-ready',
         label: `${me.coins} coins`,
-        title: 'You can Coup now',
-        body: 'Pay 7 and any opponent loses a card. Nobody can block or challenge it. Or keep saving — at 10 you have to.',
+        title: 'You can Coup',
+        body: 'Pay 7 and any opponent loses a card. Nobody can block or challenge it. You can keep saving, but at 10 you have to.',
         tone: 'info',
         anchor: 'dock',
       };
@@ -259,8 +261,8 @@ export function getPracticeCoachTip(
         return {
           id: 'reformation-free-for-all',
           label: 'One faction',
-          title: 'Everyone shares a faction: target anyone',
-          body: 'Coup, Assassinate, Steal, and Examine may target anyone again until another Convert splits the table.',
+          title: 'One faction left, so target anyone',
+          body: 'Coup, Assassinate, Steal and Examine can target anyone until a Convert splits the table again.',
           tone: 'info',
           anchor: 'dock',
         };
@@ -270,8 +272,8 @@ export function getPracticeCoachTip(
         return {
           id: 'reformation-factions',
           label: 'Factions',
-          title: 'Aim across faction lines',
-          body: 'Your faction marker limits who you can Coup, Assassinate, Steal from, or Examine. Challenges ignore factions; Foreign Aid may only be blocked across faction lines while both factions remain.',
+          title: 'Target the other faction',
+          body: 'Your faction limits who you can Coup, Assassinate, Steal from or Examine. Challenges ignore factions. While both factions remain, only the other faction can block your Foreign Aid.',
           tone: 'info',
           anchor: 'dock',
         };
@@ -284,10 +286,10 @@ export function getPracticeCoachTip(
         return {
           id: 'reformation-embezzle',
           label: `${gameState.treasuryReserve} in reserve`,
-          title: 'Embezzle is a Duke claim turned inside out',
+          title: 'Embezzle takes the reserve',
           body: holdsDuke
-            ? 'Embezzle claims you do not have Duke—but your hidden Duke would make a challenge succeed. Bluff only if the reserve is worth that risk.'
-            : 'Embezzle claims you do not have Duke. If challenged, your current hand supports that claim; the challenger would lose an influence.',
+            ? 'Embezzle claims you have no Duke, but you have one. Your hidden Duke would make a challenge succeed. Bluff only if the reserve is worth a card.'
+            : 'Embezzle claims you have no Duke. You really don\'t, so anyone who challenges loses a card.',
           tone: 'info',
           anchor: 'dock',
         };
@@ -296,8 +298,8 @@ export function getPracticeCoachTip(
       return {
         id: 'reformation-convert',
         label: 'Convert',
-        title: 'Convert moves the faction lines',
-        body: 'Pay 1 coin to switch yourself or 2 to switch another player. It cannot be challenged or blocked, and the coins go to the reserve for Embezzle.',
+        title: 'Convert switches a faction',
+        body: 'Pay 1 coin to switch yourself or 2 to switch another player. Nobody can challenge or block it, and the coins go to the reserve for Embezzle.',
         tone: 'info',
         anchor: 'dock',
       };
@@ -307,8 +309,8 @@ export function getPracticeCoachTip(
       return {
         id: 'opening-action',
         label: 'Your move',
-        title: 'Play it safe, or start a story',
-        body: 'Income is guaranteed. Character actions are stronger, and you may claim any role — but every claim can be challenged.',
+        title: 'Take Income or make a claim',
+        body: 'Income is guaranteed. Character actions pay more, and you can claim any character, but any claim can be challenged.',
         tone: 'info',
         anchor: 'dock',
       };
@@ -318,8 +320,8 @@ export function getPracticeCoachTip(
       return {
         id: 'repeat-claims',
         label: 'Your move',
-        title: 'Stick to your story',
-        body: 'Repeating a role you already claimed is believable. Suddenly switching roles invites a challenge.',
+        title: 'Repeat the character you claimed',
+        body: 'Claiming the same character again is believable. Switching to a new one invites a challenge.',
         tone: 'info',
         anchor: 'dock',
       };

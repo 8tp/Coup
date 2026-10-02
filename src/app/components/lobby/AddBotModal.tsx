@@ -24,7 +24,7 @@ const PERSONALITY_OPTIONS: Array<{
   {
     value: 'random',
     label: 'Random',
-    description: 'Hidden random personality',
+    description: 'Plays one of the six styles below, picked at random and kept hidden.',
     color: 'text-purple-400',
     bgColor: 'bg-purple-500/20',
     borderColor: 'border-purple-500',
@@ -32,7 +32,7 @@ const PERSONALITY_OPTIONS: Array<{
   {
     value: 'aggressive',
     label: 'Aggressive',
-    description: 'High bluff rates, offensive actions',
+    description: 'Bluffs often and favors attacks.',
     color: 'text-red-400',
     bgColor: 'bg-red-500/20',
     borderColor: 'border-red-500',
@@ -40,7 +40,7 @@ const PERSONALITY_OPTIONS: Array<{
   {
     value: 'conservative',
     label: 'Conservative',
-    description: 'Plays honest, rarely bluffs',
+    description: 'Plays honest and rarely bluffs.',
     color: 'text-green-400',
     bgColor: 'bg-green-500/20',
     borderColor: 'border-green-500',
@@ -48,7 +48,7 @@ const PERSONALITY_OPTIONS: Array<{
   {
     value: 'vengeful',
     label: 'Vengeful',
-    description: 'Retaliates against attackers',
+    description: 'Retaliates against whoever attacked it.',
     color: 'text-orange-400',
     bgColor: 'bg-orange-500/20',
     borderColor: 'border-orange-500',
@@ -56,7 +56,7 @@ const PERSONALITY_OPTIONS: Array<{
   {
     value: 'deceptive',
     label: 'Deceptive',
-    description: 'Constant bluffs, avoids challenges',
+    description: 'Bluffs the most and avoids challenges.',
     color: 'text-pink-400',
     bgColor: 'bg-pink-500/20',
     borderColor: 'border-pink-500',
@@ -64,7 +64,7 @@ const PERSONALITY_OPTIONS: Array<{
   {
     value: 'analytical',
     label: 'Analytical',
-    description: 'Evidence-based, calculated risks',
+    description: 'Challenges when the revealed cards point to a bluff.',
     color: 'text-blue-400',
     bgColor: 'bg-blue-500/20',
     borderColor: 'border-blue-500',
@@ -72,7 +72,7 @@ const PERSONALITY_OPTIONS: Array<{
   {
     value: 'optimal',
     label: 'Optimal',
-    description: 'Strategic play with card counting',
+    description: 'Counts revealed cards and bluffs selectively.',
     color: 'text-yellow-400',
     bgColor: 'bg-yellow-500/20',
     borderColor: 'border-yellow-500',
@@ -136,7 +136,6 @@ export function AddBotModal({ open, onClose, onAdd, existingNames }: AddBotModal
               value={name}
               onChange={e => setName(e.target.value)}
               maxLength={20}
-              placeholder="Bot name..."
               className="input-field flex-1 min-w-0"
             />
             <button
@@ -193,7 +192,7 @@ export function AddBotModal({ open, onClose, onAdd, existingNames }: AddBotModal
             disabled={submitting || !name.trim()}
             className="btn-primary flex-1"
           >
-            {submitting ? 'Adding...' : 'Add Bot'}
+            {submitting ? 'Adding…' : 'Add bot'}
           </button>
         </div>
       </div>

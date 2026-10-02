@@ -33,7 +33,7 @@ export function ExamineSelectionPrompt({ gameState }: ExamineSelectionPromptProp
         Choose a card to show {examiner?.name ?? 'the Inquisitor'}
       </p>
       <p className="mb-3 text-center text-xs text-gray-400">
-        Only the examiner sees the card. They may return it or force you to replace it.
+        Only the examiner sees it. They can return it or force you to swap it for a new card.
       </p>
       <div className="flex justify-center gap-3">
         {me.influences.map((influence, influenceIndex) => {

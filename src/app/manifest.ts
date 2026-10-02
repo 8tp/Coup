@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     id: '/',
     name: 'Coup Online',
     short_name: 'Coup',
-    description: 'Real-time multiplayer Coup with friends, bots, bluffing, challenges, and no accounts.',
+    description: 'Real-time multiplayer Coup. Bluff and challenge friends or bots, no account needed.',
     start_url: '/',
     scope: '/',
     display: 'standalone',

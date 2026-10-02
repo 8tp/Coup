@@ -110,7 +110,9 @@ export function ClaimPlaque({ gameState }: { gameState: ClientGameState }) {
         blocked={!!pendingBlock}
         detail={(pendingAction.claimedCharacter || target) && (
           <>
-            {pendingAction.claimedCharacter && <>as {pendingAction.claimedCharacter}</>}
+            {pendingAction.claimedCharacter && (pendingAction.type === ActionType.Embezzle
+              ? <>claims no Duke</>
+              : <>as {pendingAction.claimedCharacter}</>)}
             {pendingAction.claimedCharacter && target && ' · '}
             {target && <>on {target}</>}
           </>

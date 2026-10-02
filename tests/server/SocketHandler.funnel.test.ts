@@ -180,7 +180,7 @@ describe('SocketHandler — funnel and resilience flows', () => {
     await emitAck<RoomResponse>(third, 'room:join', { roomCode, playerName: 'Third' });
     await startGame(host, [guest, third]);
 
-    const replacedState = waitForState(host, s => s.actionLog.some(e => e.message === 'Guest left — a bot took their seat.'), 'bot replacement log');
+    const replacedState = waitForState(host, s => s.actionLog.some(e => e.message === 'Guest left, so a bot took their seat.'), 'bot replacement log');
     guest.emit('room:leave');
     await replacedState;
 
@@ -209,7 +209,7 @@ describe('SocketHandler — funnel and resilience flows', () => {
     await expect(removed).resolves.toMatchObject({ message: expect.stringContaining('idle') });
     const seat = roomManager.getRoom(roomCode)?.players.find(p => p.id === guestId);
     expect(seat).toMatchObject({ isBot: true, replacedByBot: true });
-    expect(engine.game.actionLog.map(e => e.message)).toContain('Guest was idle — a bot took their seat.');
+    expect(engine.game.actionLog.map(e => e.message)).toContain('Guest was idle, so a bot took their seat.');
   });
 
   it('acting between timeouts resets the AFK count', async () => {

@@ -1125,7 +1125,7 @@ export class SocketHandler {
     // An idle player is still connected: tell them, and detach their socket from the room.
     if (reason === 'afk' && previousSocketId) {
       this.io.to(previousSocketId).emit('room:removed', {
-        message: 'You were idle for too long — a bot took your seat.',
+        message: 'You were idle too long, so a bot took your seat.',
       });
       this.io.sockets.sockets.get(previousSocketId)?.leave(roomCode);
     }
