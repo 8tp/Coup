@@ -80,32 +80,31 @@ function OverviewTab() {
       <div>
         <h3 className="text-coup-accent font-bold text-base mb-2">What is Coup?</h3>
         <p>
-          Coup is a game of bluffing, deduction, and deception for 2-6 players.
-          Each player starts with 2 influence cards (face-down) and 2 coins.
-          The last player with influence remaining wins.
+          Coup is a bluffing game for 2 to 6 players. Everyone starts with two face-down
+          cards, called influence, and 2 coins. The last player with a face-down card wins.
         </p>
       </div>
       <div>
         <h3 className="text-coup-accent font-bold text-base mb-2">Goal</h3>
         <p>
-          Eliminate all other players&apos; influence cards. You lose an influence when
-          it&apos;s revealed (turned face-up). Lose both and you&apos;re out.
+          Make everyone else lose their influence. When you lose an influence, you turn
+          one of your cards face-up. Lose both and you&apos;re out.
         </p>
       </div>
       <div>
         <h3 className="text-coup-accent font-bold text-base mb-2">Basic Flow</h3>
         <ol className="list-decimal list-inside space-y-1.5">
-          <li>On your turn, choose one action (some claim a character role).</li>
-          <li>Other players can <span className="text-white font-medium">challenge</span> your claim &mdash; if you were bluffing, you lose an influence. If you were truthful, the challenger loses one.</li>
-          <li>Some actions can be <span className="text-white font-medium">blocked</span> by claiming a specific character. The original actor can then challenge the block.</li>
-          <li>If no one challenges or blocks, the action resolves.</li>
+          <li>On your turn, take one action. Some actions claim a character.</li>
+          <li>Any other player can <span className="text-white font-medium">challenge</span> a claim. If you were bluffing, you lose an influence. If you weren&apos;t, the challenger loses one.</li>
+          <li>Some actions can be <span className="text-white font-medium">blocked</span> by claiming the character that counters them. The player who acted can challenge the block.</li>
+          <li>If nobody challenges or blocks, the action happens.</li>
         </ol>
       </div>
       <div>
-        <h3 className="text-coup-accent font-bold text-base mb-2">Key Insight</h3>
-        <p className="text-gray-400 italic">
-          You can claim ANY character action regardless of what cards you actually hold.
-          Bluffing is not just allowed &mdash; it&apos;s essential!
+        <h3 className="text-coup-accent font-bold text-base mb-2">Bluffing</h3>
+        <p className="text-gray-400">
+          You can claim any character, whatever you hold. A claim only costs you if
+          someone challenges it and you were lying.
         </p>
       </div>
       <div className="border-t border-coup-line/70 pt-4 mt-2">
@@ -114,7 +113,7 @@ function OverviewTab() {
           Coup is a card game designed by <span className="text-white font-medium">Rikki Tahta</span>,
           originally published in 2012 by <span className="text-white font-medium">La Mame Games</span> and{' '}
           <span className="text-white font-medium">Indie Boards &amp; Cards</span>.
-          This is a fan-made digital adaptation &mdash; if you enjoy the game, please support the creators
+          This is a fan-made adaptation. If you enjoy it, please support the creators
           by{' '}
           <a
             href="https://www.amazon.com/Indie-Boards-and-Cards-COU1IBC/dp/B00GDI4HX4"
@@ -236,11 +235,9 @@ function RulesTab() {
       <div>
         <h3 className="text-coup-accent font-bold text-base mb-2">Challenging</h3>
         <p className="text-gray-400">
-          When a player claims a character to perform an action or block, any other player
-          can challenge. If the claimed player <span className="text-white">actually has</span> the
-          card, the challenger loses an influence and the claimer swaps their revealed card
-          for a new one. If the claimer was <span className="text-white">bluffing</span>,
-          they lose an influence instead.
+          Any player can challenge a claim, whether it&apos;s for an action or a block. If the
+          claimer has the card, they show it, shuffle it into the deck and draw a new one, and
+          the challenger loses an influence. If they don&apos;t, the claimer loses an influence.
         </p>
       </div>
 
@@ -248,9 +245,8 @@ function RulesTab() {
       <div>
         <h3 className="text-coup-accent font-bold text-base mb-2">Blocking</h3>
         <p className="text-gray-400">
-          Some actions can be blocked by claiming a counter-character. Blocking is itself
-          a claim and can be challenged. You don&apos;t need to actually hold the character
-          you claim &mdash; you can bluff a block!
+          Some actions can be blocked by claiming the character that counters them. A block
+          is a claim, so it can be challenged, and you can bluff it.
         </p>
       </div>
 
@@ -258,9 +254,7 @@ function RulesTab() {
       <div>
         <h3 className="text-coup-accent font-bold text-base mb-2">Forced Coup</h3>
         <p className="text-gray-400">
-          If you have <span className="text-white font-medium">10 or more coins</span> at the
-          start of your turn, you <span className="text-white font-medium">must</span> Coup.
-          No other action is allowed.
+          If you start your turn with 10 or more coins, you must Coup.
         </p>
       </div>
     </div>
@@ -279,9 +273,9 @@ function ReformationTab({
       <div>
         <h3 className="text-coup-accent font-bold text-base mb-2">What is Reformation?</h3>
         <p className="text-gray-400">
-          Reformation is an expansion that adds <span className="text-white font-medium">factions</span>,
-          new actions, and the <span className="text-teal-300 font-medium">Inquisitor</span> character.
-          Enable it in the lobby settings before starting a game.
+          Reformation is an expansion that adds factions, three actions (Convert, Embezzle
+          and Examine) and the <span className="text-teal-300 font-medium">Inquisitor</span>.
+          Turn it on in the lobby settings before the game starts.
         </p>
       </div>
 
@@ -291,7 +285,7 @@ function ReformationTab({
           <li>Check faction markers before targeting: <span className="text-blue-300 font-bold">▲ LOY</span> and <span className="text-red-300 font-bold">◆ REF</span>.</li>
           <li>Use Convert to fix targeting, rescue an ally, or put coins into the reserve.</li>
           <li>Only Embezzle when the reserve is worth the challenge risk.</li>
-          <li>If Inquisitor is enabled, Exchange is smaller but Examine gives direct information.</li>
+          <li>With the Inquisitor, Exchange draws 1 card instead of 2, and Examine shows you a player&apos;s card.</li>
         </ol>
         <button
           ref={walkthroughTriggerRef}
@@ -299,19 +293,18 @@ function ReformationTab({
           className="mt-3 w-full rounded-lg border border-coup-accent/50 bg-coup-bg/50 px-3 py-2 text-sm font-bold text-coup-accent transition hover:bg-coup-accent/10"
           onClick={() => { haptic(80); onOpenWalkthrough(); }}
         >
-          Try the Guided Walkthrough
+          Open the walkthrough
         </button>
       </div>
 
       <div>
         <h3 className="text-coup-accent font-bold text-base mb-2">Factions</h3>
         <p className="text-gray-400 mb-2">
-          Each player is assigned to either the <span className="text-blue-300 font-medium">▲ Loyalists</span> or{' '}
-          <span className="text-red-300 font-medium">◆ Reformists</span>. You{' '}
-          <span className="text-white font-medium">cannot target</span> players in your own faction with
-          Coup, Assassinate, Steal, or Examine. If all surviving players share the same faction,
-          this restriction is lifted.
-          While both factions remain, Foreign Aid may only be blocked by a player from the opposing faction.
+          Each player is a <span className="text-blue-300 font-medium">▲ Loyalist</span> or a{' '}
+          <span className="text-red-300 font-medium">◆ Reformist</span>. You can&apos;t Coup,
+          Assassinate, Steal from or Examine a player in your own faction. Once every player left
+          is in one faction, anyone can target anyone. While both factions remain, only the other
+          faction can block your Foreign Aid.
         </p>
       </div>
 
@@ -319,20 +312,19 @@ function ReformationTab({
         <h3 className="text-coup-accent font-bold text-base mb-2">New Actions</h3>
         <div className="space-y-3 text-gray-400">
           <div>
-            <span className="text-white font-medium">Convert</span> &mdash; Pay 1 coin to switch your own
-            faction, or 2 coins to switch another player&apos;s faction. Coins go to the Treasury Reserve.
-            Cannot be challenged or blocked.
+            <span className="text-white font-medium">Convert:</span> pay 1 coin to switch your own
+            faction, or 2 coins to switch another player&apos;s. The coins go to the Treasury Reserve.
+            Nobody can challenge or block it.
           </div>
           <div>
-            <span className="text-white font-medium">Embezzle</span> &mdash; Take all coins from the
-            Treasury Reserve. Claims you do <em>not</em> have a Duke. Uses{' '}
-            <span className="text-white font-medium">inverse challenge</span> logic: a challenger wins
-            if you actually <em>do</em> have a Duke.
+            <span className="text-white font-medium">Embezzle:</span> take every coin in the
+            Treasury Reserve by claiming you don&apos;t have a Duke. A challenge works the other way
+            round: the challenger wins if you do have one.
           </div>
           <div>
-            <span className="text-teal-300 font-medium">Examine</span> &mdash; The target chooses one of their
-            face-down cards for you to inspect (claims Inquisitor). You can then force them to swap it
-            for a random card from the deck, or return it unchanged.
+            <span className="text-teal-300 font-medium">Examine:</span> claim the Inquisitor. Your
+            target picks one of their face-down cards to show you. Then you return it, or make them
+            swap it for a random card from the deck.
           </div>
         </div>
       </div>
@@ -340,18 +332,16 @@ function ReformationTab({
       <div>
         <h3 className="text-coup-accent font-bold text-base mb-2">Inquisitor</h3>
         <p className="text-gray-400">
-          Replaces the Ambassador in Reformation mode. The Inquisitor can:{' '}
-          <span className="text-white font-medium">Exchange</span> (draw 1 card instead of 2),{' '}
-          <span className="text-white font-medium">Examine</span> an opponent&apos;s card, and{' '}
-          <span className="text-white font-medium">Block Steal</span> (same as Ambassador/Captain).
+          Replaces the Ambassador when it&apos;s turned on. The Inquisitor can Exchange (drawing
+          1 card instead of 2), Examine another player&apos;s card, and block Steal like the Captain.
         </p>
       </div>
 
       <div>
         <h3 className="text-coup-accent font-bold text-base mb-2">Treasury Reserve</h3>
         <p className="text-gray-400">
-          A shared pool of coins separate from the main treasury. Conversion costs go here.
-          The reserve can be claimed via Embezzle.
+          A pool of coins kept apart from the treasury. Convert payments go in, and Embezzle
+          takes them all out.
         </p>
       </div>
     </div>

@@ -119,7 +119,7 @@ describe('getPracticeCoachTip', () => {
 
     expect(tip?.id).toBe('opening-action');
     expect(tip?.body).toContain('Income is guaranteed');
-    expect(tip?.body).toContain('claim any role');
+    expect(tip?.body).toContain('claim any character');
   });
 
   it('explains the risk when an opponent claim can be challenged', () => {
@@ -141,7 +141,7 @@ describe('getPracticeCoachTip', () => {
 
     expect(tip?.id).toBe('challenge-claim');
     expect(tip?.title).toContain('Tutor Bot');
-    expect(tip?.body).toContain('you lose an influence');
+    expect(tip?.body).toContain('you lose a card');
   });
 
   it('explains that blocks are challengeable claims', () => {
@@ -253,8 +253,8 @@ describe('getPracticeCoachTip', () => {
     }));
 
     expect(tip?.id).toBe('challenge-claim');
-    expect(tip?.body).toContain('does not hold Duke');
-    expect(tip?.body).toContain('if none is found');
+    expect(tip?.body).toContain('they have a Duke');
+    expect(tip?.body).toContain('you lose a card');
   });
 
   it('explains that targeting unlocks when one faction remains', () => {

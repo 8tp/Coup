@@ -213,6 +213,7 @@ The `GameEngine.applySideEffect()` method interprets each effect and mutates the
 ## Important Conventions
 
 - **Server is authoritative** -- never add game logic to the client
+- **On-screen copy follows `docs/VOICE.md`** -- no em-dash clauses, slogans, rhetorical questions or eyebrow labels
 - **Types live in `src/shared/`** -- do not define game types in engine or server files
 - **Engine has no I/O** -- no `setTimeout`, no `socket.emit`, no `console.log` in `ActionResolver`. Timers and logging are expressed as side effects
 - **All game constants** are in `src/shared/constants.ts` -- do not hardcode magic numbers

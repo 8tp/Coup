@@ -30,14 +30,12 @@ export function useHandCardSize(compact = false): 'sm' | 'md' | 'lg' | 'xl' {
 
 /** One chapter: the words on one side, the demonstration on the other. */
 export function ChapterLayout({
-  kicker,
   title,
   lede,
   demo,
   note,
   noteTone = 'info',
 }: {
-  kicker: string;
   title: string;
   lede: ReactNode;
   demo: ReactNode;
@@ -47,7 +45,6 @@ export function ChapterLayout({
   return (
     <>
       <div className="onb-text">
-        <p className="onb-kicker">{kicker}</p>
         <h3 className="onb-title type-display">{title}</h3>
         <p className="onb-lede">{lede}</p>
       </div>

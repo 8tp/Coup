@@ -27,8 +27,8 @@ export const PRACTICE_STYLE_PERSONALITY: Record<PracticeStyle, Exclude<BotPerson
 
 export const PRACTICE_STYLES: ReadonlyArray<{ id: PracticeStyle; label: string; blurb: string }> = [
   { id: 'gentle', label: 'Gentle', blurb: 'Rarely bluffs, rarely challenges. Good for a first game.' },
-  { id: 'sharp', label: 'Sharp', blurb: 'Counts the cards and calls bluffs that do not add up.' },
-  { id: 'ruthless', label: 'Ruthless', blurb: 'Plays to win: picks its bluffs and goes for the leader.' },
+  { id: 'sharp', label: 'Sharp', blurb: 'Counts the cards and calls bluffs that don\'t add up.' },
+  { id: 'ruthless', label: 'Ruthless', blurb: 'Bluffs when it pays and goes after the leader.' },
 ];
 
 export const PRACTICE_OPPONENT_CHOICES: readonly PracticeOpponents[] = [1, 2, 3];

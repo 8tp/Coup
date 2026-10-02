@@ -156,10 +156,10 @@ export function PracticeSetupSheet({ open, onClose, onStart, loading = false }: 
             </div>
             <p className="practice-sheet-hint">
               {reformationSolo
-                ? 'Factions only bite with 2 or more opponents.'
+                ? 'Factions need at least 2 opponents to matter.'
                 : options.gameMode === GameMode.Reformation
                   ? 'Factions, Convert, Embezzle and the Inquisitor.'
-                  : 'The base game — start here.'}
+                  : 'The base game. Start here if you\'re new.'}
             </p>
           </div>
 
@@ -173,7 +173,7 @@ export function PracticeSetupSheet({ open, onClose, onStart, loading = false }: 
             <span className="text-left">
               <span className="block font-semibold text-coup-ink">Coach tips</span>
               <span className="block text-sm text-coup-ink-mute">
-                {options.coach ? 'Callouts point at what to do next' : 'No tips — just the game'}
+                {options.coach ? 'Callouts point at what to do next' : 'No tips'}
               </span>
             </span>
             <span className={`switch-track ${options.coach ? 'is-on' : ''}`} aria-hidden="true"><span /></span>
