@@ -343,7 +343,7 @@ export default function LobbyPage() {
                 className="flex-1 py-2 px-3 border border-dashed border-coup-line rounded-lg text-gray-400 hover:border-coup-accent hover:text-coup-accent transition text-sm"
                 onClick={() => { haptic(); setShowAddBotModal(true); }}
               >
-                + Add Computer Player
+                + Add Bot
               </button>
               {botsToFill > 0 && roomPlayers.length >= MIN_PLAYERS && (
                 <button
