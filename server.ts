@@ -4,9 +4,12 @@ import { Server } from 'socket.io';
 import next from 'next';
 import { RoomManager } from './src/server/RoomManager';
 import { SocketHandler } from './src/server/SocketHandler';
+import { createGameLogStorage } from './src/server/storage/PostgresGameLogStorage';
 import type { ClientToServerEvents, ServerToClientEvents } from './src/shared/protocol';
 
 const dev = process.env.NODE_ENV !== 'production';
+/** On shutdown, wait at most this long for in-flight game-log writes. */
+const SHUTDOWN_STORAGE_FLUSH_MS = 3000;
 const port = parseInt(process.env.PORT || '3000', 10);
 
 // Prevent the entire server from crashing on unhandled errors
@@ -47,7 +50,8 @@ app.prepare().then(() => {
     res.setHeader('X-XSS-Protection', '0');
     if (!dev) {
       res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' wss: ws:; img-src 'self' data:; font-src 'self'");
+      // Cloudflare Web Analytics is injected at the edge: allow its beacon script and its reporting endpoint.
+      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; connect-src 'self' wss: ws: https://cloudflareinsights.com; img-src 'self' data:; font-src 'self'");
     }
     next();
   });
@@ -64,7 +68,13 @@ app.prepare().then(() => {
     },
   }));
 
-  const roomManager = new RoomManager();
+  // Durable finished-game storage: only when DATABASE_URL is configured.
+  const gameLogStorage = createGameLogStorage();
+  console.log(gameLogStorage
+    ? '> Game log storage: Postgres (DATABASE_URL set)'
+    : '> Game log storage: disabled (set DATABASE_URL to enable)');
+
+  const roomManager = new RoomManager({ gameLogStorage });
   const socketHandler = new SocketHandler(io, roomManager);
 
   io.on('connection', (socket) => {
@@ -74,6 +84,21 @@ app.prepare().then(() => {
   // Health check endpoint
   server.get('/health', (_req, res) => {
     res.status(200).send('ok');
+  });
+
+  // Aggregate, PII-free game counts. Only exists when durable storage is configured.
+  server.get('/api/stats', async (_req, res) => {
+    if (!gameLogStorage) {
+      res.status(404).json({ error: 'Not found' });
+      return;
+    }
+    const stats = await gameLogStorage.getAggregateStats();
+    if (!stats) {
+      res.status(503).json({ error: 'Stats temporarily unavailable' });
+      return;
+    }
+    res.setHeader('Cache-Control', 'public, max-age=60');
+    res.json(stats);
   });
 
   // Let Next.js handle all other routes
@@ -86,16 +111,24 @@ app.prepare().then(() => {
   });
 
   // Graceful shutdown
-  const shutdown = () => {
+  let shuttingDown = false;
+  const shutdown = async () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     console.log('Shutting down gracefully...');
+    // Force exit after 5 seconds if connections don't close
+    setTimeout(() => process.exit(1), 5000).unref();
     roomManager.destroy();
     io.close();
+    // Let finished-game writes land before the pool goes away (bounded wait).
+    if (gameLogStorage) {
+      await gameLogStorage.flush(SHUTDOWN_STORAGE_FLUSH_MS);
+      await gameLogStorage.close();
+    }
     httpServer.close(() => {
       process.exit(0);
     });
-    // Force exit after 5 seconds if connections don't close
-    setTimeout(() => process.exit(1), 5000);
   };
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', () => { void shutdown(); });
+  process.on('SIGINT', () => { void shutdown(); });
 });

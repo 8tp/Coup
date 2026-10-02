@@ -9,9 +9,11 @@ import { HowToPlay } from './components/home/HowToPlay';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { StatsModal } from './components/stats/StatsModal';
 import { Tutorial } from './components/tutorial/Tutorial';
-import { DEFAULT_ROOM_SETTINGS, MAX_PLAYERS } from '@/shared/constants';
+import { DEFAULT_ROOM_SETTINGS, MAX_PLAYERS, QUICK_PLAY_BOT_COUNT } from '@/shared/constants';
 import { GameMode } from '@/shared/types';
 import { haptic } from './utils/haptic';
+import { loadSavedPlayerName, savePlayerName } from './utils/playerName';
+import { buildBots } from './utils/botFill';
 
 export default function Home() {
   return (
@@ -27,7 +29,7 @@ function HomeContent() {
   const { createRoom, joinRoom, spectateRoom, addBot, addBots, startGame, leaveRoom, updateRoomSettings, subscribeToBrowser, unsubscribeFromBrowser } = useSocket();
   const { error, setError, setRoom, clearRoom, publicRooms, playersOnline, gamesInProgress } = useGameStore();
   const joinCode = searchParams.get('join');
-  const [mode, setMode] = useState<'idle' | 'create' | 'join' | 'browse'>(joinCode ? 'join' : 'idle');
+  const [mode, setMode] = useState<'idle' | 'create' | 'join' | 'browse' | 'quick'>(joinCode ? 'join' : 'idle');
   const [name, setName] = useState('');
   const [roomCode, setRoomCode] = useState(joinCode ?? '');
   const [loading, setLoading] = useState(false);
@@ -36,6 +38,12 @@ function HomeContent() {
   const [showStats, setShowStats] = useState(false);
   const [isPublic, setIsPublic] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+
+  // Prefill the name the player used last time
+  useEffect(() => {
+    const saved = loadSavedPlayerName();
+    if (saved) setName(current => current || saved);
+  }, []);
 
   useEffect(() => {
     subscribeToBrowser();
@@ -63,6 +71,7 @@ function HomeContent() {
     setLoading(true);
     try {
       const result = await createRoom(name.trim(), isPublic);
+      savePlayerName(name);
       setRoom(result.roomCode, result.playerId);
       router.push(`/lobby/${result.roomCode}`);
     } catch (e: unknown) {
@@ -79,6 +88,7 @@ function HomeContent() {
     setLoading(true);
     try {
       const result = await joinRoom(roomCode.trim(), name.trim());
+      savePlayerName(name);
       setRoom(result.roomCode, result.playerId);
       router.push(`/lobby/${result.roomCode}`);
     } catch (e: unknown) {
@@ -94,6 +104,7 @@ function HomeContent() {
     setLoading(true);
     try {
       const result = await joinRoom(code, name.trim());
+      savePlayerName(name);
       setRoom(result.roomCode, result.playerId);
       router.push(`/lobby/${result.roomCode}`);
     } catch (e: unknown) {
@@ -125,7 +136,7 @@ function HomeContent() {
     setLoading(true);
     let practiceRoomCreated = false;
     try {
-      const result = await createRoom(practiceName, false);
+      const result = await createRoom(practiceName, false, 'practice');
       practiceRoomCreated = true;
       setRoom(result.roomCode, result.playerId);
       await updateRoomSettings({
@@ -150,6 +161,37 @@ function HomeContent() {
         clearRoom();
       }
       setError(e instanceof Error ? e.message : 'Could not start practice game');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /** One click to a running game: private room, random-personality bots, started immediately. */
+  const handleQuickPlay = async () => {
+    haptic(80);
+    if (!name.trim()) {
+      // No saved name yet — ask once, then play.
+      if (mode !== 'quick') { setMode('quick'); return; }
+      setError('Enter your name');
+      return;
+    }
+    setLoading(true);
+    let roomCreated = false;
+    try {
+      const playerName = name.trim();
+      const result = await createRoom(playerName, false, 'quick_play');
+      roomCreated = true;
+      savePlayerName(playerName);
+      setRoom(result.roomCode, result.playerId);
+      await addBots(buildBots(QUICK_PLAY_BOT_COUNT, [playerName]));
+      startGame();
+      router.push(`/game/${result.roomCode}`);
+    } catch (e: unknown) {
+      if (roomCreated) {
+        leaveRoom();
+        clearRoom();
+      }
+      setError(e instanceof Error ? e.message : 'Could not start a game');
     } finally {
       setLoading(false);
     }
@@ -224,6 +266,9 @@ function HomeContent() {
                 Join Room
               </button>
             </div>
+            <button className="btn-secondary w-full" onClick={handleQuickPlay} disabled={loading}>
+              {loading ? 'Dealing...' : 'Play vs Bots'}
+            </button>
             <button className="btn-secondary w-full" onClick={() => { haptic(); setMode('browse'); }}>
               Browse Public Games
             </button>
@@ -276,6 +321,33 @@ function HomeContent() {
               disabled={loading}
             >
               {loading ? 'Creating...' : 'Create Room'}
+            </button>
+            <button
+              className="btn-secondary w-full"
+              onClick={() => { haptic(); setMode('idle'); }}
+            >
+              Back
+            </button>
+          </div>
+        )}
+
+        {mode === 'quick' && (
+          <div className="space-y-3 animate-slide-up max-w-xs mx-auto">
+            <input
+              className="input-field"
+              placeholder="Your name"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleQuickPlay(); }}
+              maxLength={20}
+              autoFocus
+            />
+            <button
+              className="btn-primary w-full"
+              onClick={handleQuickPlay}
+              disabled={loading}
+            >
+              {loading ? 'Dealing...' : `Play vs ${QUICK_PLAY_BOT_COUNT} Bots`}
             </button>
             <button
               className="btn-secondary w-full"
@@ -360,6 +432,9 @@ function HomeContent() {
                           <span className="text-xs text-gray-600">
                             {room.settings.actionTimerSeconds}s/{room.settings.turnTimerSeconds}s timers
                           </span>
+                          {room.betweenGames && (
+                            <span className="text-xs text-coup-accent">Between games</span>
+                          )}
                         </div>
                       </div>
                       <button

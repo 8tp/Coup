@@ -931,10 +931,10 @@ describe('RoomManager', () => {
       expect(manager.getSpectators(room.code)).toHaveLength(0);
     });
 
-    it('still allows spectating a finished game, matching the browser\'s Watch affordance', () => {
-      // `PublicRoomInfo.hasGame` stays true until the host rematches, so the room
-      // browser keeps offering "Watch" during the post-game window. The server
-      // must not refuse it, or that button would be dead.
+    it('still allows spectating a finished game until the host rematches', () => {
+      // The browser lists finished rooms as joinable (hasGame is in-progress
+      // only), but anyone already holding a "Watch" link during the post-game
+      // window must not be refused while the engine still exists.
       const room = livePublicRoom();
       (manager.getEngine(room.code)!.game as any).status = GameStatus.Finished;
 

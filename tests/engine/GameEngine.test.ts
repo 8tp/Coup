@@ -297,6 +297,43 @@ describe('GameEngine', () => {
       expect(engine.game.getPlayer('p1')!.coins).toBe(2);
     });
 
+    it('reports the timed-out player after auto-resolving their turn', () => {
+      const engine = createEngine();
+      const timeouts: Array<{ playerId: string; phase: TurnPhase }> = [];
+      engine.setOnPlayerTimeout((playerId, phase) => timeouts.push({ playerId, phase }));
+
+      engine.handleTimerExpiry();
+
+      // Auto-income was applied first, then the callback fired for p1
+      expect(engine.game.getPlayer('p1')!.coins).toBe(3);
+      expect(timeouts).toEqual([{ playerId: 'p1', phase: TurnPhase.AwaitingAction }]);
+    });
+
+    it('reports the player who failed to choose an influence to lose', () => {
+      const engine = createEngine();
+      const timeouts: string[] = [];
+      engine.setOnPlayerTimeout(playerId => timeouts.push(playerId));
+      engine.game.getPlayer('p1')!.coins = 7;
+      engine.handleAction('p1', ActionType.Coup, 'p2');
+      expect(engine.game.turnPhase).toBe(TurnPhase.AwaitingInfluenceLoss);
+
+      engine.handleTimerExpiry();
+
+      expect(timeouts).toEqual(['p2']);
+    });
+
+    it('does not attribute shared challenge/block windows expiring to anyone', () => {
+      const engine = createEngine();
+      const timeouts: string[] = [];
+      engine.setOnPlayerTimeout(playerId => timeouts.push(playerId));
+      engine.handleAction('p1', ActionType.ForeignAid);
+      expect(engine.game.turnPhase).toBe(TurnPhase.AwaitingBlock);
+
+      engine.handleTimerExpiry();
+
+      expect(timeouts).toEqual([]);
+    });
+
     it('clears timer on manual resolution', () => {
       const engine = createEngine();
       engine.handleAction('p1', ActionType.ForeignAid);

@@ -1,9 +1,9 @@
 import { Server, Socket } from 'socket.io';
 import { ClientToServerEvents, ServerToClientEvents } from '../shared/protocol';
-import { ActionType, BotPersonality, Character, GameState, GameStatus, TurnPhase } from '../shared/types';
+import { ActionType, BotPersonality, BotReplaceReason, Character, GameState, GameStatus, RoomOrigin, TurnPhase } from '../shared/types';
 import { MAX_PLAYERS, REACTIONS, RATE_LIMIT_ROOM_CREATE_MS, RATE_LIMIT_ROOM_JOIN_MS, RATE_LIMIT_GAME_ACTION_MS, RATE_LIMIT_BOT_ADD_MS } from '../shared/constants';
 import { validateName, validateChatMessage } from './ContentFilter';
-import { RoomManager } from './RoomManager';
+import { RoomEvent, RoomManager } from './RoomManager';
 import { serializeForPlayer, serializeForSpectator } from './StateSerializer';
 import { BotController } from './BotController';
 
@@ -11,6 +11,7 @@ type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 
 const VALID_CHARACTERS = new Set(Object.values(Character));
 const VALID_BOT_PERSONALITIES = new Set<string>(['aggressive', 'conservative', 'vengeful', 'deceptive', 'analytical', 'optimal', 'random']);
+const VALID_ROOM_ORIGINS = new Set<string>(['standard', 'quick_play', 'practice']);
 
 export class SocketHandler {
   private io: Server<ClientToServerEvents, ServerToClientEvents>;
@@ -23,6 +24,42 @@ export class SocketHandler {
   constructor(io: Server<ClientToServerEvents, ServerToClientEvents>, roomManager: RoomManager) {
     this.io = io;
     this.roomManager = roomManager;
+    this.roomManager.setRoomEventListener(event => this.handleRoomEvent(event));
+  }
+
+  /** Broadcast room changes that happened on a timer or automatically. */
+  private handleRoomEvent(event: RoomEvent): void {
+    if (event.type === 'closed') {
+      if (event.wasPublic) this.broadcastPublicRoomList();
+      this.broadcastServerStats();
+      return;
+    }
+    if (event.type === 'reset_to_lobby') {
+      console.log(`Room ${event.roomCode} reset to lobby (host was not seated in the finished game)`);
+      this.announceResetToLobby(event.room, event.promoted);
+      return;
+    }
+    this.broadcastRoomUpdate(event.roomCode);
+    this.maybeBroadcastPublicRoomList(event.room, true);
+    this.broadcastServerStats();
+  }
+
+  /** Tell everyone in a room it's back in the lobby (rematch or automatic reset). */
+  private announceResetToLobby(
+    room: { code: string; settings: { isPublic: boolean } },
+    promoted: Array<{ spectator: { socketId: string; name: string }; playerId: string; sessionToken: string }>,
+  ): void {
+    this.io.to(room.code).emit('game:rematch_to_lobby');
+
+    // Notify promoted spectators so they switch to player mode
+    for (const { spectator, playerId, sessionToken } of promoted) {
+      this.io.to(spectator.socketId).emit('spectator:promoted', { playerId, sessionToken });
+      console.log(`Spectator ${spectator.name} promoted to player in room ${room.code}`);
+    }
+
+    this.broadcastRoomUpdate(room.code);
+    this.maybeBroadcastPublicRoomList(room);
+    this.broadcastServerStats();
   }
 
   private checkRateLimit(socketId: string, event: string, limitMs: number): boolean {
@@ -103,7 +140,10 @@ export class SocketHandler {
           return;
         }
 
-        const result = this.roomManager.createRoom(nameResult.sanitized, socket.id, data.isPublic);
+        const origin: RoomOrigin = typeof data.origin === 'string' && VALID_ROOM_ORIGINS.has(data.origin)
+          ? data.origin as RoomOrigin
+          : 'standard';
+        const result = this.roomManager.createRoom(nameResult.sanitized, socket.id, data.isPublic, origin);
         socket.leave('browser');
         socket.join(result.room.code);
         callback({
@@ -210,9 +250,10 @@ export class SocketHandler {
 
         this.broadcastRoomUpdate(result.room.code);
 
-        // If game in progress, send current state
+        // If this player has a seat in the current (or just-finished) game, send its state.
+        // Players who joined after the game ended stay in the lobby view.
         const engine = this.roomManager.getEngine(code);
-        if (engine) {
+        if (engine && engine.game.getPlayer(result.player.id)) {
           const state = engine.getFullState();
           socket.emit('game:state', serializeForPlayer(state, result.player.id, result.room.players));
         }
@@ -229,7 +270,7 @@ export class SocketHandler {
     });
 
     socket.on('room:leave', () => {
-      this.handleDisconnect(socket);
+      this.handleLeave(socket, true);
     });
 
     socket.on('room:remove_player', (data, callback) => {
@@ -572,7 +613,11 @@ export class SocketHandler {
           return;
         }
 
-        const result = this.roomManager.startGame(found.room.code);
+        const startingRoomCode = found.room.code;
+        const result = this.roomManager.startGame(startingRoomCode, {
+          // Seated humans who were mid-reconnect at start get the normal in-game grace.
+          onDisconnectedSeatExpired: (playerId) => this.handleBotReplacement(startingRoomCode, playerId, 'disconnect'),
+        });
         if ('error' in result) {
           socket.emit('game:error', { message: result.error });
           return;
@@ -591,6 +636,14 @@ export class SocketHandler {
           this.wireBotEmoteCallback(roomCode, botController);
         }
 
+        engine.setOnPlayerTimeout((playerId) => {
+          try {
+            this.handlePlayerTimeout(roomCode, playerId);
+          } catch (err) {
+            console.error(`Error in player timeout callback for room ${roomCode}:`, err);
+          }
+        });
+
         engine.setOnStateChange((state: GameState) => {
           try {
             this.broadcastGameState(roomCode, state);
@@ -605,7 +658,11 @@ export class SocketHandler {
                   console.log(`Game finished in room ${roomCode} — winner: ${winner.name}`);
                 }
                 room.lastWinnerId = state.winnerId;
+                this.roomManager.onGameFinished(roomCode);
                 this.broadcastRoomUpdate(roomCode);
+                // Finished rooms become joinable again
+                this.maybeBroadcastPublicRoomList(room);
+                this.broadcastServerStats();
               }
             }
 
@@ -698,7 +755,11 @@ export class SocketHandler {
           return;
         }
 
-        if (found.player.id !== found.room.hostId) {
+        // If the host has dropped, any connected human may start the rematch
+        // rather than leaving the whole table stuck on the game-over screen.
+        const host = found.room.players.find(p => p.id === found.room.hostId);
+        const hostAvailable = !!host && !host.isBot && host.connected;
+        if (found.player.id !== found.room.hostId && (hostAvailable || found.player.isBot)) {
           socket.emit('game:error', { message: 'Only the host can start a rematch' });
           return;
         }
@@ -718,18 +779,10 @@ export class SocketHandler {
         if (!result) return;
 
         const { room, promoted } = result;
-
-        this.io.to(room.code).emit('game:rematch_to_lobby');
-
-        // Notify promoted spectators so they switch to player mode
-        for (const { spectator, playerId, sessionToken } of promoted) {
-          this.io.to(spectator.socketId).emit('spectator:promoted', { playerId, sessionToken });
-          console.log(`Spectator ${spectator.name} promoted to player in room ${room.code}`);
+        if (room.hostId !== found.player.id && !room.players.some(p => p.id === room.hostId && p.connected)) {
+          room.hostId = found.player.id;
         }
-
-        this.broadcastRoomUpdate(room.code);
-        this.maybeBroadcastPublicRoomList(room);
-        this.broadcastServerStats();
+        this.announceResetToLobby(room, promoted);
       } catch (err) {
         console.error('Error in game:rematch handler:', err);
         socket.emit('game:error', { message: 'Failed to start rematch' });
@@ -952,7 +1005,7 @@ export class SocketHandler {
     socket.on('disconnect', () => {
       this.untrackConnection(socket);
       this.socketRateLimits.delete(socket.id);
-      this.handleDisconnect(socket);
+      this.handleLeave(socket, false);
     });
   }
 
@@ -969,9 +1022,11 @@ export class SocketHandler {
       return null;
     }
 
-    // Track human activity for inactive room cleanup
+    // Track human activity for inactive room cleanup, and reset the AFK count:
+    // any game input from the player proves they are at the table.
     if (!found.player.isBot) {
       this.roomManager.touchRoom(found.room.code);
+      this.roomManager.clearAfkStrikes(found.room.code, found.player.id);
     }
 
     return { room: found.room, player: found.player, engine };
@@ -985,7 +1040,16 @@ export class SocketHandler {
     this.broadcastRoomUpdate(result.roomCode);
   }
 
-  private handleDisconnect(socket: TypedSocket): void {
+  /**
+   * A player socket is going away. `explicit` = the client sent `room:leave`;
+   * otherwise the socket dropped (refresh, tab close, mobile backgrounding).
+   *
+   * - Lobby / finished game, explicit: seat removed immediately.
+   * - Lobby / finished game, dropped: seat held for LOBBY_DISCONNECT_GRACE_MS.
+   * - In-progress game, explicit: a bot takes the seat immediately.
+   * - In-progress game, dropped: a bot takes the seat after DISCONNECT_BOT_REPLACE_MS.
+   */
+  private handleLeave(socket: TypedSocket, explicit: boolean): void {
     // Check if this was a spectator first
     const spectatorResult = this.roomManager.removeSpectator(socket.id);
     if (spectatorResult) {
@@ -1006,21 +1070,36 @@ export class SocketHandler {
     // Check if game is in progress and player is alive before leaving
     const engine = this.roomManager.getEngine(roomCode);
     const gamePlayer = engine?.game.getPlayer(playerId);
-    const gameInProgress = engine && engine.game.status === 'InProgress';
+    const gameInProgress = this.roomManager.isGameInProgress(roomCode);
     const playerAlive = gamePlayer?.isAlive ?? false;
 
-    console.log(`Player ${playerName} disconnected from room ${roomCode}`);
-    const room = this.roomManager.leaveRoom(roomCode, playerId);
     socket.leave(roomCode);
 
-    if (room) {
-      // Start disconnect timer if game is in progress and player is alive
-      if (gameInProgress && playerAlive) {
-        this.roomManager.startDisconnectTimer(roomCode, playerId, () => {
-          this.handleBotReplacement(roomCode, playerId);
-        });
+    if (explicit) {
+      console.log(`Player ${playerName} left room ${roomCode}`);
+      const room = this.roomManager.leaveRoom(roomCode, playerId);
+      if (room && gameInProgress && playerAlive) {
+        this.handleBotReplacement(roomCode, playerId, 'left');
       }
+      this.afterSeatChange(room, wasPublic);
+      return;
+    }
 
+    console.log(`Player ${playerName} disconnected from room ${roomCode}`);
+    // Grace expiry is broadcast via the room event listener.
+    const outcome = this.roomManager.disconnectPlayer(roomCode, playerId);
+
+    if (outcome?.kind === 'in_game' && gameInProgress && playerAlive) {
+      this.roomManager.startDisconnectTimer(roomCode, playerId, () => {
+        this.handleBotReplacement(roomCode, playerId, 'disconnect');
+      });
+    }
+    this.afterSeatChange(outcome?.room ?? null, wasPublic);
+  }
+
+  /** Broadcast after a seat was vacated/marked disconnected (room may have been closed). */
+  private afterSeatChange(room: { code: string; settings: { isPublic: boolean } } | null, wasPublic: boolean): void {
+    if (room) {
       this.broadcastRoomUpdate(room.code);
       this.maybeBroadcastPublicRoomList(room, wasPublic);
     } else if (wasPublic) {
@@ -1030,9 +1109,26 @@ export class SocketHandler {
     this.broadcastServerStats();
   }
 
-  private handleBotReplacement(roomCode: string, playerId: string): void {
-    const replaced = this.roomManager.replaceWithBot(roomCode, playerId);
+  /** Turn timer auto-resolved one player's decision; replace them after repeated idling. */
+  private handlePlayerTimeout(roomCode: string, playerId: string): void {
+    if (this.roomManager.recordTurnTimeout(roomCode, playerId)) {
+      this.handleBotReplacement(roomCode, playerId, 'afk');
+    }
+  }
+
+  private handleBotReplacement(roomCode: string, playerId: string, reason: BotReplaceReason): void {
+    const previousSocketId = this.roomManager.getRoom(roomCode)?.players.find(p => p.id === playerId)?.socketId;
+    const replaced = this.roomManager.replaceWithBot(roomCode, playerId, reason);
     if (!replaced) return;
+    console.log(`Player seat in room ${roomCode} handed to a bot (${reason})`);
+
+    // An idle player is still connected: tell them, and detach their socket from the room.
+    if (reason === 'afk' && previousSocketId) {
+      this.io.to(previousSocketId).emit('room:removed', {
+        message: 'You were idle for too long — a bot took your seat.',
+      });
+      this.io.sockets.sockets.get(previousSocketId)?.leave(roomCode);
+    }
 
     // Ensure emote callback is wired (BotController may have been newly created)
     const bc = this.roomManager.getBotController(roomCode);
@@ -1104,9 +1200,11 @@ export class SocketHandler {
     const room = this.roomManager.getRoom(roomCode);
     if (!room) return;
 
-    // Send personalized state to each human player
+    // Send personalized state to each human player seated in this game
+    // (players who joined after it finished wait in the lobby view instead)
+    const seatedIds = new Set(state.players.map(p => p.id));
     for (const player of room.players) {
-      if (!player.connected || player.isBot) continue;
+      if (!player.connected || player.isBot || !seatedIds.has(player.id)) continue;
       const clientState = serializeForPlayer(state, player.id, room.players);
       this.io.to(player.socketId).emit('game:state', clientState);
     }
