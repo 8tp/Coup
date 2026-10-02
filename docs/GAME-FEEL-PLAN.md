@@ -509,6 +509,11 @@ most. If more tracks land, adopt the method: find the interior loop region by sp
 search, and size the crossfade so `period − xfade` is a **whole number of beats** in the
 source. 500ms out is a flam, and a flam is the one artifact a listener names instantly.
 
+> **2026-10-01 — done.** Three beds (lobby / table / endgame), each looped on whole bars
+> with a 4-beat equal-power crossfade and beat-phase-aligned switching; see
+> [AUDIO.md](AUDIO.md). Measured, the old 68 s velvet-court loop was 95.2 beats long and
+> clicked at its wrap (44× the loop's p99.9 second difference); it is re-looped at 20 bars.
+
 And once there is more than one track: **exclude the previous pick**. A fair coin over two
 beds plays the same one twice half the time, which *is* "there is only one track." The same
 rule applies to Coup's bot emote pool.
