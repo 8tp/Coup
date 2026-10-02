@@ -22,12 +22,15 @@ import {
   softClipCeiling,
   soundIds,
   MIX_TIER_OF,
-  MUSIC_BEDS,
   MIX_TRIM_DB,
+  MUSIC_DECODE_RATE,
+  MUSIC_POOLS,
+  MUSIC_STATES,
+  type MusicState,
   type RenderOptions,
   type SoundId,
 } from '../../../src/app/audio/SoundEngine';
-import { measure, spectrumOf, toDbfs, type CueMeasurement, type Spectrum } from './analysis';
+import { longSpectrum, measure, spectrumOf, toDbfs, type CueMeasurement, type Spectrum } from './analysis';
 
 /** Hero stingers are ~7s; every synth voice's longest tail is 1.85s. */
 const STINGER_SECONDS = 9;
@@ -92,23 +95,36 @@ const CONTRAST_IDS: readonly SoundId[] = [
   'denied', 'timerWarning', 'influenceLoss', 'challengeRevealFail',
 ];
 
-/** A music bed through the chain at MUSIC_GAIN, on the cues' 300ms-RMS axis. */
+/**
+ * One music piece through the chain at MUSIC_GAIN (so through the music-bus
+ * EQ), on the cues' 300ms-RMS axis, over its body: `entryS` → `handoffS`.
+ */
 export interface BedRow {
-  track: string;
+  state: MusicState;
+  /** File name without `.mp3`. */
+  piece: string;
   medianDb: number;
   p90Db: number;
   maxDb: number;
   peakDb: number;
-  /** Octave levels (63…8k Hz), absolute dBFS on the 300ms axis. */
+  /** Octave levels (63…8k Hz), absolute dBFS, 90th percentile over ~340ms frames. */
   bandsDb: number[];
+  /** The same, median. Recorded for the docs; the gate runs on the p90. */
+  bandsMedianDb: number[];
+  /** Linear % of energy below 150Hz in the decoded file — before the bus EQ. */
+  lowPctFile: number;
+  /** The same through the chain — after the bus EQ. */
+  lowPctBus: number;
+  /** Linear % in 1–4kHz through the chain. */
+  presencePctBus: number;
 }
 
-/** A cue's loudest octave against each bed's level in that octave. */
+/** A cue's loudest octave against each piece's (p90) level in that octave. */
 export interface MaskRow {
   id: SoundId;
   octaveHz: number;
   cueBandDb: number;
-  /** cue − bed in that octave, dB, per bed. */
+  /** cue − piece in that octave, dB, per piece. */
   margins: Record<string, number>;
 }
 
@@ -280,38 +296,56 @@ async function run(): Promise<HarnessReport> {
     }
   }
 
-  // The beds, on the cues' own axis: 300ms-window RMS through the same chain,
-  // sampled every 50ms over 30s of each loop (after the compressor pre-roll).
+  // The music, on the cues' own axis: every piece of every pool rendered
+  // through the same chain (so through the music-bus EQ) over its body —
+  // entryS → handoffS — and its 300ms-window RMS sampled every 50ms (after the
+  // compressor pre-roll). Decoded at MUSIC_DECODE_RATE, exactly as the engine
+  // decodes it.
   const beds: BedRow[] = [];
-  for (const [track, bed] of Object.entries(MUSIC_BEDS)) {
-    const response = await fetch(bed.url);
-    const ctx = new OfflineAudioContext(2, 128, SAMPLE_RATE);
-    const buffer = await ctx.decodeAudioData(await response.arrayBuffer());
-    const rendered = await renderMusicOffline(buffer, { seconds: 30, sampleRate: SAMPLE_RATE, offsetS: bed.loopStart });
-    const ch = channelsOf(rendered).map(c => c.subarray(SAMPLE_RATE));
-    const w = Math.round(0.3 * SAMPLE_RATE);
-    const step = Math.round(0.05 * SAMPLE_RATE);
-    const levels: number[] = [];
-    for (let s = 0; s + w <= ch[0].length; s += step) {
-      let sum = 0;
-      for (const c of ch) for (let i = s; i < s + w; i++) sum += c[i] * c[i];
-      levels.push(toDbfs(Math.sqrt(sum / (w * ch.length))));
+  const decoder = new OfflineAudioContext(2, 1, MUSIC_DECODE_RATE);
+  for (const state of MUSIC_STATES) {
+    for (const piece of MUSIC_POOLS[state]) {
+      const response = await fetch(piece.url);
+      if (!response.ok) throw new Error(`${piece.url}: ${response.status}`);
+      const buffer = await decoder.decodeAudioData(await response.arrayBuffer());
+      const seconds = piece.handoffS - piece.entryS;
+      const rendered = await renderMusicOffline(buffer, { seconds, sampleRate: SAMPLE_RATE, offsetS: piece.entryS });
+      const ch = channelsOf(rendered).map(c => c.subarray(SAMPLE_RATE));
+      const w = Math.round(0.3 * SAMPLE_RATE);
+      const step = Math.round(0.05 * SAMPLE_RATE);
+      const prefix = new Float64Array(ch[0].length + 1);
+      for (let i = 0; i < ch[0].length; i++) {
+        let s = 0;
+        for (const c of ch) s += c[i] * c[i];
+        prefix[i + 1] = prefix[i] + s;
+      }
+      const levels: number[] = [];
+      for (let s = 0; s + w <= ch[0].length; s += step) {
+        levels.push(toDbfs(Math.sqrt((prefix[s + w] - prefix[s]) / (w * ch.length))));
+      }
+      levels.sort((a, b) => a - b);
+      const q = (p: number): number => round2(levels[Math.min(levels.length - 1, Math.floor(levels.length * p))]);
+      const bus = longSpectrum(ch, SAMPLE_RATE);
+      const file = longSpectrum(channelsOf(buffer), buffer.sampleRate, 8192);
+      beds.push({
+        state,
+        piece: piece.url.split('/').pop()?.replace(/\.mp3$/, '') ?? piece.url,
+        medianDb: q(0.5), p90Db: q(0.9), maxDb: q(1), peakDb: measure(ch, SAMPLE_RATE).peakDb,
+        bandsDb: bus.bandsP90Db,
+        bandsMedianDb: bus.bandsP50Db,
+        lowPctFile: file.lowPct,
+        lowPctBus: bus.lowPct,
+        presencePctBus: bus.presencePct,
+      });
     }
-    levels.sort((a, b) => a - b);
-    const q = (p: number): number => round2(levels[Math.min(levels.length - 1, Math.floor(levels.length * p))]);
-    const sp = spectrumOf(ch, SAMPLE_RATE, -90);
-    beds.push({
-      track, medianDb: q(0.5), p90Db: q(0.9), maxDb: q(1), peakDb: measure(ch, SAMPLE_RATE).peakDb,
-      // Absolute octave levels on the same 300ms axis: shape × the median level.
-      bandsDb: sp.bandsDb.map(b => round2(b + q(0.5))),
-    });
   }
 
-  // Cue vs bed, in the cue's OWN loudest octave — the masking question, which
-  // a broadband level cannot answer (a bass-heavy bed can measure louder than
-  // a coin and still leave the coin's 2–4kHz octave clear). Each cue as
-  // shipped (clip variant 0, or synth), its octave shape scaled to its 300ms
-  // loudness, against each bed's median octave level.
+  // Cue vs music, in the cue's OWN loudest octave — the masking question,
+  // which a broadband level cannot answer (a bass-heavy piece can measure
+  // louder than a coin and still leave the coin's 2–4kHz octave clear). Each
+  // cue as shipped (clip variant 0, or synth), its octave shape scaled to its
+  // 300ms loudness, against each piece's LOUD moments in that octave (the 90th
+  // percentile over ~340ms frames — the beds were gated on their median).
   const masking: MaskRow[] = [];
   for (const id of soundIds()) {
     const buffer = heroBuffer(id);
@@ -323,7 +357,7 @@ async function run(): Promise<HarnessReport> {
     for (let i = 1; i < sp.bandsDb.length; i++) if (sp.bandsDb[i] > sp.bandsDb[k]) k = i;
     const cueBand = sp.bandsDb[k] + m.stRmsDb;
     const margins: Record<string, number> = {};
-    for (const b of beds) margins[b.track] = round2(cueBand - b.bandsDb[k]);
+    for (const b of beds) margins[b.piece] = round2(cueBand - b.bandsDb[k]);
     masking.push({ id, octaveHz: [63, 125, 250, 500, 1000, 2000, 4000, 8000][k], cueBandDb: round2(cueBand), margins });
   }
 
@@ -428,10 +462,11 @@ async function inspectClips(): Promise<Record<string, unknown>[]> {
  * A smoke run of the LIVE engine — the real `getSoundEngine()` singleton on a
  * real AudioContext (the runner launches Chrome with autoplay allowed, so no
  * gesture is needed): unlock, preload, fire every cue twice (so a round-robin
- * picks a second variant), walk the music through lobby → table → endgame,
- * switch again mid-load, and stop. It measures nothing; it proves the paths
- * the offline render does not take (clip cache, variant pick, crossfade
- * automation, loop regions) run without throwing.
+ * picks a second variant), walk the music through every state, switch again
+ * mid-load, force a pool handoff (prefetch → audio-clock handoff → promote),
+ * and stop. It measures nothing; it proves the paths the offline render does
+ * not take (clip cache, variant pick, shuffle bag, crossfade automation,
+ * handoff scheduling) run without throwing.
  */
 async function liveSmoke(): Promise<Record<string, unknown>> {
   const errors: string[] = [];
@@ -445,12 +480,15 @@ async function liveSmoke(): Promise<Record<string, unknown>> {
   const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
   const sound = getSoundEngine();
   const trace: string[] = [];
-  const mark = (label: string) => trace.push(`${label}: chose ${sound.currentMusicTrack}, playing ${sound.playingMusicTrack}`);
+  const piece = (): string => sound.playingMusicPiece?.split('/').pop() ?? 'none';
+  const mark = (label: string) => trace.push(
+    `${label}: chose ${sound.currentMusicState}, playing ${sound.playingMusicState} (${piece()})`,
+  );
 
-  sound.setMusicTrack('lobby');
+  sound.setMusicState('lobby');
   sound.unlock();
   for (let i = 0; i < 40 && !sound.running; i++) await sleep(50);
-  await sleep(1500); // hero clips + lobby bed load
+  await sleep(2000); // hero clips + the first lobby piece
   mark('after unlock');
   for (const id of soundIds()) {
     sound.play(id);
@@ -458,24 +496,31 @@ async function liveSmoke(): Promise<Record<string, unknown>> {
     sound.play(id, { mine: false, playerId: 'p2' });
     await sleep(120);
   }
-  sound.setMusicTrack('table');
-  await sleep(800);
-  mark('table requested +0.8s');
-  await sleep(2500);
-  mark('table +3.3s');
-  sound.setMusicTrack('endgame');
-  sound.setMusicTrack('table'); // a switch that lands while the first is loading
-  await sleep(1200);
-  mark('endgame then table');
-  sound.setMusicTrack('endgame');
-  await sleep(3000);
-  mark('endgame +3s');
+  for (const state of ['court', 'tension', 'duel', 'sudden_death', 'fallen'] as const) {
+    sound.setMusicState(state);
+    await sleep(4500);
+    mark(`${state} +4.5s`);
+  }
+  sound.setMusicState('duel');
+  sound.setMusicState('court'); // a switch that lands while the first is loading
+  await sleep(1500);
+  mark('duel then court');
+  sound.setMusicState('tension');
+  sound.setMusicState('court'); // straight back to what is playing, mid-load
+  await sleep(1500);
+  mark('tension then back to court');
+  // The pool handoff: jump to 22s before the handoff — the prefetch fires at
+  // 20s, the next piece is scheduled on the audio clock, and is promoted.
+  const before = piece();
+  sound.previewHandoff(22);
+  await sleep(26000);
+  mark(`handoff from ${before}`);
   sound.stopMusic(300);
   await sleep(500);
   mark('stopped');
-  sound.setMusicTrack('lobby');
+  sound.setMusicState('lobby');
   sound.startMusic();
-  await sleep(1500);
+  await sleep(2000);
   mark('restarted lobby');
   sound.stopMusic(100);
 

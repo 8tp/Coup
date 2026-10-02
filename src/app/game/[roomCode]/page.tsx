@@ -16,8 +16,9 @@ export default function GamePage() {
 
   const isHost = !isSpectator && playerId === hostId;
 
-  // Audio unlock on the first gesture, then table → endgame (two left) → stop
-  // at game over. See hooks/useMusicDirector.ts.
+  // Audio unlock on the first gesture, then the score follows the game —
+  // court / tension / duel / sudden death, or fallen once you are out — and
+  // stops at game over. See hooks/useMusicDirector.ts.
   useGameMusic(gameState);
 
   const clearPracticeSession = useCallback(() => {

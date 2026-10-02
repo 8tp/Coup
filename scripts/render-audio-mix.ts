@@ -69,8 +69,13 @@ interface Report {
   rows: ReportRow[];
   pairs: { label: string; clips: boolean; peakDb: number; stRmsDb: number; limiterDb: number }[];
   contrast: { id: string; source: string; activeMs: number; bandsDb: number[]; lowDb: number; centroidHz: number }[];
-  beds: { track: string; medianDb: number; p90Db: number; maxDb: number; peakDb: number; bandsDb: number[] }[];
+  beds: {
+    state: string; piece: string; medianDb: number; p90Db: number; maxDb: number; peakDb: number; bandsDb: number[];
+    lowPctFile: number; lowPctBus: number; presencePctBus: number;
+  }[];
   masking: { id: string; octaveHz: number; cueBandDb: number; margins: Record<string, number> }[];
+  musicGain: number;
+  musicEq: Record<string, number>;
 }
 
 /**
@@ -115,6 +120,19 @@ function summarise(report: Report): void {
   for (const p of report.pairs) {
     console.log(`  ${(p.clips ? 'clip ' : 'synth') } ${p.label.padEnd(44)} peak ${p.peakDb.toFixed(2)} loud ${p.stRmsDb.toFixed(2)} lim ${p.limiterDb.toFixed(2)}`);
   }
+  console.log('\n── music (through the bus EQ at MUSIC_GAIN, body only) ──');
+  for (const b of report.beds) {
+    console.log(`  ${b.state.padEnd(13)} ${b.piece.padEnd(28)} median ${b.medianDb.toFixed(2)} p90 ${b.p90Db.toFixed(2)} `
+      + `max ${b.maxDb.toFixed(2)} peak ${b.peakDb.toFixed(2)}  <150Hz ${b.lowPctFile}% → ${b.lowPctBus}%  1–4kHz ${b.presencePctBus}%`);
+  }
+  console.log('\n── thinnest masking margins (cue in its own octave over each piece\'s p90) ──');
+  const rows = report.masking.map((m) => {
+    const [piece, margin] = Object.entries(m.margins).sort((a, b) => a[1] - b[1])[0];
+    return { id: m.id, octaveHz: m.octaveHz, piece, margin };
+  }).sort((a, b) => a.margin - b.margin);
+  for (const r of rows.slice(0, 10)) {
+    console.log(`  ${r.id.padEnd(24)} @${String(r.octaveHz).padStart(4)}Hz  ${r.margin.toFixed(2).padStart(6)} dB over ${r.piece}`);
+  }
 }
 
 /** The report as the data blocks of measurements.ts, so nothing is hand-copied. */
@@ -154,13 +172,18 @@ function snippet(report: Report): string {
   }
   s += 'export const MEASURED_BEDS: Readonly<Record<string, BedLevels>> = {\n';
   for (const b of report.beds) {
-    s += `  ${b.track}: { medianDb: ${b.medianDb}, p90Db: ${b.p90Db}, maxDb: ${b.maxDb}, peakDb: ${b.peakDb}, bandsDb: [${b.bandsDb.join(', ')}] },\n`;
+    s += `  '${b.piece}': { state: '${b.state}', medianDb: ${b.medianDb}, p90Db: ${b.p90Db}, maxDb: ${b.maxDb}, peakDb: ${b.peakDb}, `
+      + `lowPctFile: ${b.lowPctFile}, lowPctBus: ${b.lowPctBus}, presencePctBus: ${b.presencePctBus}, bandsDb: [${b.bandsDb.join(', ')}] },\n`;
   }
   s += '};\n\nexport const MEASURED_MASKING: Readonly<Record<SoundId, MaskLevels>> = {\n';
   for (const m of report.masking) {
-    s += `  ${m.id}: { octaveHz: ${m.octaveHz}, cueBandDb: ${m.cueBandDb}, margins: { ${Object.entries(m.margins).map(([k, v]) => `${k}: ${v}`).join(', ')} } },\n`;
+    s += `  ${m.id}: {\n    octaveHz: ${m.octaveHz},\n    cueBandDb: ${m.cueBandDb},\n    margins: {\n`
+      + Object.entries(m.margins).map(([k, v]) => `      '${k}': ${v},\n`).join('')
+      + '    },\n  },\n';
   }
   s += '};\n\n';
+  s += `export const MEASURED_MUSIC_GAIN = ${report.musicGain};\n\n`;
+  s += `export const MEASURED_MUSIC_EQ = ${JSON.stringify(report.musicEq).replace(/"(\w+)":/g, '$1: ').replace(/,/g, ', ').replace(/^\{/, '{ ').replace(/\}$/, ' }')};\n\n`;
   s += 'export const MEASURED_TRIM_DB: Readonly<Record<SoundId, number>> = {\n';
   for (const r of synth) s += `  ${r.id}: ${r.trimDb},\n`;
   s += '};\n\nexport const MEASURED_HERO_CLIP_GAIN: Readonly<Partial<Record<SoundId, readonly number[]>>> = {\n';

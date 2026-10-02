@@ -12,6 +12,7 @@ import {
   LOW_BAND_HZ,
   OCTAVE_CENTRES,
   fftInPlace,
+  longSpectrum,
   spectrumOf,
 } from './analysis';
 
@@ -115,5 +116,29 @@ describe('spectrumOf', () => {
     expect(s.lowDb).toBe(-Infinity);
     expect(s.centroidHz).toBe(0);
     expect(s.bandsDb.every(v => v === -Infinity)).toBe(true);
+  });
+});
+
+describe('longSpectrum — octave levels of a two-minute piece', () => {
+  it('puts a steady 2kHz sine in the 2kHz octave at its own RMS', () => {
+    const s = longSpectrum([sine(2000, SR * 4)], SR);
+    const k = OCTAVE_CENTRES.indexOf(2000);
+    // A 0.5-amplitude sine has RMS 0.5/√2 → −9.03 dBFS.
+    expect(s.bandsP50Db[k]).toBeCloseTo(-9.03, 0);
+    for (let i = 0; i < OCTAVE_CENTRES.length; i++) {
+      if (i !== k) expect(s.bandsP50Db[i], `band ${OCTAVE_CENTRES[i]}Hz`).toBeLessThan(-50);
+    }
+    expect(s.presencePct).toBeGreaterThan(99);
+    expect(s.lowPct).toBeLessThan(0.1);
+  });
+
+  it('counts an 80Hz tone as low, and its loud quarter in the p90 but not the median', () => {
+    const x = new Float32Array(SR * 4);
+    x.set(sine(80, SR * 3, 0.05), 0);
+    x.set(sine(80, SR, 0.5), SR * 3);
+    const s = longSpectrum([x], SR);
+    const k = OCTAVE_CENTRES.indexOf(63);
+    expect(s.lowPct).toBeGreaterThan(99);
+    expect(s.bandsP90Db[k] - s.bandsP50Db[k]).toBeGreaterThan(15);
   });
 });
