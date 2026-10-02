@@ -55,6 +55,64 @@ function gameState(overrides: Partial<ClientGameState> = {}): ClientGameState {
   };
 }
 
+const stealOnMe = (overrides: Partial<ClientGameState> = {}) => gameState({
+  currentPlayerIndex: 1,
+  turnNumber: 3,
+  turnPhase: TurnPhase.AwaitingActionChallenge,
+  pendingAction: { type: ActionType.Steal, actorId: 'bot', targetId: 'me', claimedCharacter: Character.Captain },
+  challengeState: {
+    challengerId: '',
+    challengedPlayerId: 'bot',
+    claimedCharacter: Character.Captain,
+    passedPlayerIds: ['bot'],
+  },
+  ...overrides,
+});
+
+describe('getPracticeCoachTip — first-time tips', () => {
+  it('explains being targeted the first time, pointing at the claim', () => {
+    const tip = getPracticeCoachTip(stealOnMe());
+
+    expect(tip?.id).toBe('first-targeted');
+    expect(tip?.anchor).toBe('plaque');
+    expect(tip?.title).toContain('Tutor Bot');
+    expect(tip?.body).toContain('2 of your coins');
+    expect(tip?.body).toContain('Captain or Ambassador');
+  });
+
+  it('keeps a first-time tip up for the turn it was first shown', () => {
+    const history = new Map([['first-targeted', 3]]);
+    expect(getPracticeCoachTip(stealOnMe(), history)?.id).toBe('first-targeted');
+  });
+
+  it('never repeats a first-time tip on a later turn', () => {
+    const history = new Map([['first-targeted', 3]]);
+    expect(getPracticeCoachTip(stealOnMe({ turnNumber: 7 }), history)?.id).toBe('challenge-claim');
+  });
+
+  it('falls back to the plain block tip after the first block', () => {
+    const blockWindow = gameState({
+      currentPlayerIndex: 1,
+      turnNumber: 9,
+      turnPhase: TurnPhase.AwaitingBlock,
+      pendingAction: { type: ActionType.ForeignAid, actorId: 'bot' },
+    });
+    expect(getPracticeCoachTip(blockWindow)?.id).toBe('first-block');
+    const later = getPracticeCoachTip(blockWindow, new Map([['first-block', 2]]));
+    expect(later?.id).toBe('make-block');
+    expect(later?.body).toContain('Duke');
+  });
+
+  it('anchors every response tip to the prompt and every turn tip to the dock', () => {
+    const loss = getPracticeCoachTip(gameState({
+      turnPhase: TurnPhase.AwaitingInfluenceLoss,
+      influenceLossRequest: { playerId: 'me', reason: 'challenge_lost' },
+    }));
+    expect(loss?.anchor).toBe('prompt');
+    expect(getPracticeCoachTip(gameState())?.anchor).toBe('dock');
+  });
+});
+
 describe('getPracticeCoachTip', () => {
   it('coaches the opening action without prescribing one move', () => {
     const tip = getPracticeCoachTip(gameState());
@@ -98,7 +156,9 @@ describe('getPracticeCoachTip', () => {
       },
     }));
 
-    expect(tip?.id).toBe('make-block');
+    expect(tip?.id).toBe('first-block');
+    expect(tip?.once).toBe(true);
+    expect(tip?.anchor).toBe('prompt');
     expect(tip?.body).toContain('Captain or Ambassador');
     expect(tip?.body).toContain('challenge');
   });
@@ -112,14 +172,26 @@ describe('getPracticeCoachTip', () => {
     expect(tip?.id).toBe('choose-influence');
   });
 
-  it('highlights an available or mandatory coup', () => {
+  it('points out an affordable Coup at 7 coins', () => {
+    const state = gameState({ turnNumber: 6 });
+    state.players[0].coins = 7;
+
+    const tip = getPracticeCoachTip(state);
+
+    expect(tip?.id).toBe('coup-ready');
+    expect(tip?.anchor).toBe('dock');
+    expect(tip?.body).toContain('at 10 you have to');
+  });
+
+  it('insists on the Coup at 10 coins', () => {
     const state = gameState();
     state.players[0].coins = 10;
 
     const tip = getPracticeCoachTip(state);
 
-    expect(tip?.id).toBe('coup-ready');
-    expect(tip?.body).toContain('mandatory');
+    expect(tip?.id).toBe('must-coup');
+    expect(tip?.tone).toBe('danger');
+    expect(tip?.title).toContain('must Coup');
   });
 
   it('explains faction targeting at the start of Reformation practice', () => {

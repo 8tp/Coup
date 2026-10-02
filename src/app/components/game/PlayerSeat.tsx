@@ -30,6 +30,8 @@ interface PlayerSeatProps {
   /** Why this seat cannot be chosen. §6.2's "illegal half": marked, not omitted. */
   illegalReason?: string;
   timerExpiry?: number | null;
+  /** Tap a known card to preview it. Off for scripted seats (the tutorial). */
+  cardPreview?: boolean;
 }
 
 function TimerBar({ timerExpiry }: { timerExpiry: number }) {
@@ -72,6 +74,7 @@ export function PlayerSeat({
   selectable,
   illegalReason,
   timerExpiry,
+  cardPreview = true,
 }: PlayerSeatProps) {
   const mutedPlayerIds = useGameStore(s => s.mutedPlayerIds);
   const toggleMutedPlayer = useGameStore(s => s.toggleMutedPlayer);
@@ -126,7 +129,7 @@ export function PlayerSeat({
       >
         {player.influences.map((inf, i) => (
           <span key={i} className="seat-card-slot">
-            <CardFace influence={inf} size={isMe ? 'md' : 'sm'} priority={isMe} />
+            <CardFace influence={inf} size={isMe ? 'md' : 'sm'} priority={isMe} disablePreview={!cardPreview} />
           </span>
         ))}
       </div>
