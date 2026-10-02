@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSocket } from '../../hooks/useSocket';
 import { useGameStore } from '../../stores/gameStore';
-import { MIN_PLAYERS, MAX_PLAYERS, MIN_ACTION_TIMER, MAX_ACTION_TIMER, MIN_TURN_TIMER, MAX_TURN_TIMER, MIN_BOT_REACTION_SECONDS, MAX_BOT_REACTION_SECONDS } from '@/shared/constants';
+import { MIN_PLAYERS, MAX_PLAYERS, MIN_ACTION_TIMER, MAX_ACTION_TIMER, MIN_TURN_TIMER, MAX_TURN_TIMER, MIN_BOT_REACTION_SECONDS, MAX_BOT_REACTION_SECONDS, FILL_WITH_BOTS_TARGET } from '@/shared/constants';
 import { GameMode, GameStatus } from '@/shared/types';
 import { ChatPanel } from '../../components/chat/ChatPanel';
 import { AddBotModal } from '../../components/lobby/AddBotModal';
@@ -12,12 +12,16 @@ import { QRShareModal } from '../../components/lobby/QRShareModal';
 import { SettingsModal } from '../../components/settings/SettingsModal';
 import { HowToPlay } from '../../components/home/HowToPlay';
 import { haptic } from '../../utils/haptic';
+import { botsNeededToFill, buildBots } from '../../utils/botFill';
+
+/** How long a refreshed lobby waits for the automatic rejoin before sending the player home. */
+const REJOIN_WAIT_MS = 8000;
 
 export default function LobbyPage() {
   const router = useRouter();
   const params = useParams();
   const roomCode = params.roomCode as string;
-  const { startGame, leaveRoom, sendChat, addBot, removeBot, removePlayer, removeSpectator, updateRoomSettings } = useSocket();
+  const { startGame, leaveRoom, sendChat, addBot, addBots, removeBot, removePlayer, removeSpectator, updateRoomSettings } = useSocket();
   const {
     playerId,
     hostId,
@@ -28,6 +32,7 @@ export default function LobbyPage() {
     chatMessages,
     gameState,
     error,
+    rejoinStatus,
   } = useGameStore();
 
   const leavingRef = useRef(false);
@@ -38,6 +43,7 @@ export default function LobbyPage() {
   const [showRules, setShowRules] = useState(false);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'code' | 'link' | 'error'>('idle');
   const [inviteUrl, setInviteUrl] = useState(`https://coup.8tp.dev/lobby/${roomCode}`);
+  const [fillingBots, setFillingBots] = useState(false);
 
   const isHost = playerId === hostId;
   const canStart = roomPlayers.length >= MIN_PLAYERS && roomPlayers.length <= MAX_PLAYERS;
@@ -48,6 +54,9 @@ export default function LobbyPage() {
       : 'Ready when everyone has joined';
   const canAddBot = roomPlayers.length < MAX_PLAYERS;
   const hasBots = roomPlayers.some(p => p.isBot);
+  // Host is the only human: offer to fill the table with bots instead of a dead "need players" state.
+  const isOnlyHuman = isHost && roomPlayers.filter(p => !p.isBot).length === 1;
+  const botsToFill = isOnlyHuman ? botsNeededToFill(roomPlayers.length) : 0;
   const botReactionMax = Math.min(MAX_BOT_REACTION_SECONDS, roomSettings?.actionTimerSeconds ?? MAX_ACTION_TIMER);
 
   useEffect(() => {
@@ -71,21 +80,23 @@ export default function LobbyPage() {
 
   // Redirect home if no session for this room (QR scan / direct link) or rejoin failed
   useEffect(() => {
-    if (leavingRef.current) return;
+    if (leavingRef.current || playerId) return;
     // New user (e.g. QR code scan) — no session for this room, redirect immediately
     const storedRoom = sessionStorage.getItem('coup_room');
-    if (storedRoom !== roomCode) {
+    if (storedRoom !== roomCode || rejoinStatus === 'failed') {
       router.replace(`/?join=${roomCode}`);
       return;
     }
-    // Existing user reconnecting — wait for rejoin socket callback
+    // Existing user reconnecting (refresh / backgrounded tab). The server holds
+    // the seat for a grace period, so wait for the rejoin callback rather than
+    // bouncing slow mobile connections home after a fixed 2s.
     const timer = setTimeout(() => {
       if (!leavingRef.current && !useGameStore.getState().playerId) {
         router.replace(`/?join=${roomCode}`);
       }
-    }, 2000);
+    }, REJOIN_WAIT_MS);
     return () => clearTimeout(timer);
-  }, [playerId, roomCode, router]);
+  }, [playerId, rejoinStatus, roomCode, router]);
 
   const handleLeave = () => {
     haptic();
@@ -127,6 +138,21 @@ export default function LobbyPage() {
 
   const handleAddBot = async (name: string, personality: import('@/shared/types').BotPersonality) => {
     await addBot(name, personality);
+  };
+
+  const handleFillWithBots = async () => {
+    if (botsToFill <= 0 || fillingBots) return;
+    haptic(80);
+    setFillingBots(true);
+    try {
+      await addBots(buildBots(botsToFill, roomPlayers.map(p => p.name)));
+    } catch (e: unknown) {
+      const { setError } = useGameStore.getState();
+      setError(e instanceof Error ? e.message : 'Could not add bots');
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setFillingBots(false);
+    }
   };
 
   const handleRemoveBot = async (botId: string) => {
@@ -242,10 +268,13 @@ export default function LobbyPage() {
                 {p.id === lastWinnerId && (
                   <span className="text-yellow-400 shrink-0" title="Last game winner">&#128081;</span>
                 )}
-                <span className={`font-medium truncate min-w-0 ${p.id === playerId ? 'text-coup-accent' : ''}`}>
+                <span className={`font-medium truncate min-w-0 ${p.id === playerId ? 'text-coup-accent' : ''} ${!p.isBot && !p.connected ? 'opacity-60' : ''}`}>
                   {p.name}
                   {p.id === playerId && ' (You)'}
                 </span>
+                {!p.isBot && !p.connected && (
+                  <span className="shrink-0 text-[10px] text-gray-500 italic">reconnecting…</span>
+                )}
                 {(p.wins ?? 0) > 0 && (
                   <span className="shrink-0 text-[10px] bg-yellow-600/80 text-white px-1.5 py-px rounded-full font-bold">
                     {p.wins}W
@@ -296,21 +325,36 @@ export default function LobbyPage() {
                     </button>
                   )}
                   {!p.isBot && (
-                    <span className={`w-2 h-2 rounded-full ${p.connected ? 'bg-green-500' : 'bg-red-500'}`} />
+                    <span
+                      className={`w-2 h-2 rounded-full ${p.connected ? 'bg-green-500' : 'bg-red-500'}`}
+                      title={p.connected ? 'Connected' : 'Disconnected — seat held briefly'}
+                      aria-label={p.connected ? 'Connected' : 'Disconnected'}
+                    />
                   )}
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Add Bot Button */}
+          {/* Add Bot Buttons */}
           {isHost && canAddBot && (
-            <button
-              className="w-full mt-3 py-2 px-3 border border-dashed border-coup-line rounded-lg text-gray-400 hover:border-coup-accent hover:text-coup-accent transition text-sm"
-              onClick={() => { haptic(); setShowAddBotModal(true); }}
-            >
-              + Add Computer Player
-            </button>
+            <div className="flex gap-2 mt-3">
+              <button
+                className="flex-1 py-2 px-3 border border-dashed border-coup-line rounded-lg text-gray-400 hover:border-coup-accent hover:text-coup-accent transition text-sm"
+                onClick={() => { haptic(); setShowAddBotModal(true); }}
+              >
+                + Add Computer Player
+              </button>
+              {botsToFill > 0 && roomPlayers.length >= MIN_PLAYERS && (
+                <button
+                  className="flex-1 py-2 px-3 border border-dashed border-coup-line rounded-lg text-gray-400 hover:border-coup-accent hover:text-coup-accent transition text-sm disabled:opacity-50"
+                  onClick={handleFillWithBots}
+                  disabled={fillingBots}
+                >
+                  Fill with bots (+{botsToFill})
+                </button>
+              )}
+            </div>
           )}
 
           {spectators.length > 0 && (
@@ -345,13 +389,20 @@ export default function LobbyPage() {
           <div className="card-container mb-6">
             <h2 className="font-bold text-gray-400 text-sm uppercase mb-3">Room Settings</h2>
 
-            {/* Visibility Toggle */}
+            {/* Visibility Toggle — the switch means "Public room": OFF is private,
+                matching the "Tap to copy · Private" header. */}
             <div className="flex items-center justify-between mb-4">
-              <label className="text-sm text-gray-300">{roomSettings.isPublic ? 'Public' : 'Private'}</label>
+              <div>
+                <label className="text-sm text-gray-300" id="public-room-label">Public Room</label>
+                <p className="text-xs text-gray-600">
+                  {roomSettings.isPublic ? 'Listed in Browse Public Games' : 'Private: only people with the code can join'}
+                </p>
+              </div>
               {isHost ? (
                 <button
                   type="button"
                   role="switch"
+                  aria-labelledby="public-room-label"
                   aria-checked={roomSettings.isPublic}
                   onClick={() => {
                     haptic();
@@ -526,23 +577,36 @@ export default function LobbyPage() {
 
         {/* Controls */}
         <div className="space-y-3 lg:max-w-xs lg:mx-auto">
-          {isHost && (
-            <button
-              className="btn-primary w-full"
-              disabled={!canStart}
-              onClick={() => { haptic(80); startGame(); }}
-              title={startReason}
-            >
-              {canStart
-                ? `Start Game (${roomPlayers.length} players)`
-                : `Need ${MIN_PLAYERS}+ players`
-              }
-            </button>
-          )}
-          {isHost && (
-            <p className={`text-center text-xs ${canStart ? 'text-green-400' : 'text-yellow-300'}`}>
-              {startReason}
-            </p>
+          {isHost && !canStart && botsToFill > 0 ? (
+            <>
+              <button
+                className="btn-primary w-full"
+                disabled={fillingBots}
+                onClick={handleFillWithBots}
+              >
+                {fillingBots ? 'Adding bots...' : `Fill with Bots (${FILL_WITH_BOTS_TARGET} players)`}
+              </button>
+              <p className="text-center text-xs text-gray-400">
+                Share the code above to invite friends, or play now against bots.
+              </p>
+            </>
+          ) : isHost && (
+            <>
+              <button
+                className="btn-primary w-full"
+                disabled={!canStart}
+                onClick={() => { haptic(80); startGame(); }}
+                title={startReason}
+              >
+                {canStart
+                  ? `Start Game (${roomPlayers.length} players)`
+                  : `Need ${MIN_PLAYERS}+ players`
+                }
+              </button>
+              <p className={`text-center text-xs ${canStart ? 'text-green-400' : 'text-yellow-300'}`}>
+                {startReason}
+              </p>
+            </>
           )}
           {!isHost && (
             <p className="text-center text-gray-400">

@@ -9,6 +9,9 @@ interface GameStore {
   reconnecting: boolean;
   setConnected: (connected: boolean) => void;
   setReconnecting: (reconnecting: boolean) => void;
+  /** Outcome of the automatic `room:rejoin` attempted after (re)connecting. */
+  rejoinStatus: 'idle' | 'pending' | 'failed';
+  setRejoinStatus: (status: 'idle' | 'pending' | 'failed') => void;
 
   // Room state
   roomCode: string | null;
@@ -82,6 +85,8 @@ export const useGameStore = create<GameStore>((set) => ({
   reconnecting: false,
   setConnected: (connected) => set({ connected }),
   setReconnecting: (reconnecting) => set({ reconnecting }),
+  rejoinStatus: 'idle',
+  setRejoinStatus: (rejoinStatus) => set({ rejoinStatus }),
 
   roomCode: null,
   playerId: null,
@@ -91,7 +96,7 @@ export const useGameStore = create<GameStore>((set) => ({
   lastWinnerId: null,
   spectators: [],
   isSpectator: false,
-  setRoom: (roomCode, playerId) => set({ roomCode, playerId, isSpectator: false }),
+  setRoom: (roomCode, playerId) => set({ roomCode, playerId, isSpectator: false, rejoinStatus: 'idle' }),
   setSpectating: (roomCode, spectatorId) => set({ roomCode, playerId: spectatorId, isSpectator: true }),
   setRoomPlayers: (players, hostId, settings, lastWinnerId, spectators) => set({
     roomPlayers: players,

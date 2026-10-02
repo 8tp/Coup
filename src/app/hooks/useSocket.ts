@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import type { ClientToServerEvents, ServerToClientEvents } from '@/shared/protocol';
-import type { BotPersonality, ChallengeRevealEvent, ChatMessage, ClientGameState, ClientRoomPlayer, ClientSpectator, PublicRoomInfo, RoomSettings } from '@/shared/types';
+import type { BotPersonality, ChallengeRevealEvent, ChatMessage, ClientGameState, ClientRoomPlayer, ClientSpectator, PublicRoomInfo, RoomOrigin, RoomSettings } from '@/shared/types';
 import { useGameStore } from '../stores/gameStore';
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -91,6 +91,7 @@ export function useSocket() {
             }
           });
         } else {
+          useGameStore.getState().setRejoinStatus('pending');
           socket.emit('room:rejoin', {
             roomCode: storedRoom,
             playerId: storedPlayer,
@@ -99,7 +100,9 @@ export function useSocket() {
             if (response.success) {
               // Restore store state from sessionStorage after reconnection
               useGameStore.getState().setRoom(storedRoom, storedPlayer);
+              useGameStore.getState().setRejoinStatus('idle');
             } else {
+              useGameStore.getState().setRejoinStatus('failed');
               sessionStorage.removeItem('coup_room');
               sessionStorage.removeItem('coup_player');
               sessionStorage.removeItem('coup_session_token');
@@ -244,9 +247,9 @@ export function useSocket() {
     };
   }, [setConnected, setRoomPlayers, setGameState, setError, addChatMessage, setChatHistory, setChallengeReveal, setPublicRooms, setReaction, setServerStats]);
 
-  const createRoom = useCallback((playerName: string, isPublic?: boolean): Promise<{ roomCode: string; playerId: string }> => {
+  const createRoom = useCallback((playerName: string, isPublic?: boolean, origin?: RoomOrigin): Promise<{ roomCode: string; playerId: string }> => {
     return withTimeout(new Promise((resolve, reject) => {
-      socketRef.current.emit('room:create', { playerName, isPublic }, (response) => {
+      socketRef.current.emit('room:create', { playerName, isPublic, origin }, (response) => {
         if (response.success && response.roomCode && response.playerId) {
           sessionStorage.removeItem(PRACTICE_ROOM_KEY);
           sessionStorage.setItem('coup_room', response.roomCode);

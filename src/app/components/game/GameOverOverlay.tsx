@@ -81,6 +81,7 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
   const [showLog, setShowLog] = useState(false);
   const challengeReveal = useGameStore(s => s.challengeReveal);
   const roomPlayers = useGameStore(s => s.roomPlayers);
+  const hostId = useGameStore(s => s.hostId);
   const recordGame = useStatsStore(s => s.recordGame);
   const reducedMotionEnabled = useSettingsStore(s => s.reducedMotionEnabled);
   const [statsRecorded, setStatsRecorded] = useState(false);
@@ -120,6 +121,8 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
   const winner = gameState.players.find(p => p.id === gameState.winnerId);
   const isMe = !isSpectator && winner?.id === gameState.myId;
   const isOnlyHuman = !isSpectator && gameState.players.filter(p => !p.isBot).length <= 1;
+  // The server lets any connected player start the rematch once the host has dropped.
+  const hostAway = !isSpectator && !roomPlayers.some(rp => rp.id === hostId && rp.connected && !rp.isBot);
   const myName = gameState.players.find(p => p.id === gameState.myId)?.name ?? '';
 
   // Sort: winner first, then alive, then eliminated
@@ -395,7 +398,7 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
             <p className="text-purple-400 text-sm text-center">
               Spectating
             </p>
-          ) : isHost || isOnlyHuman ? (
+          ) : isHost || isOnlyHuman || hostAway ? (
             <button className="btn-primary w-full" onClick={() => { haptic(80); onRematch(); }}>
               Play Again
             </button>
