@@ -1,4 +1,4 @@
-import { ActionType, BotPersonality, Character, LogEntry, TurnPhase } from './types';
+import { ActionType, BotPersonality, Character, GameMode, LogEntry, TurnPhase } from './types';
 
 // ─── Game Log Types ───
 // Captured after each completed game for analysis.
@@ -15,6 +15,11 @@ export interface GameLog {
   actionLog: LogEntry[];
   stats: GameStats;
   source: 'online' | 'simulation';
+  /** Online games only: room settings and seat counts at game start. */
+  gameMode?: GameMode;
+  useInquisitor?: boolean;
+  humansAtStart?: number;
+  botsAtStart?: number;
   /** Per-decision snapshots — only populated by simulation */
   decisions?: DecisionRecord[];
 }

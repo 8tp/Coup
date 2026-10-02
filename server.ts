@@ -4,6 +4,7 @@ import { Server } from 'socket.io';
 import next from 'next';
 import { RoomManager } from './src/server/RoomManager';
 import { SocketHandler } from './src/server/SocketHandler';
+import { createGameLogStorage } from './src/server/storage/PostgresGameLogStorage';
 import type { ClientToServerEvents, ServerToClientEvents } from './src/shared/protocol';
 
 const dev = process.env.NODE_ENV !== 'production';
@@ -64,7 +65,13 @@ app.prepare().then(() => {
     },
   }));
 
-  const roomManager = new RoomManager();
+  // Durable finished-game storage: only when DATABASE_URL is configured.
+  const gameLogStorage = createGameLogStorage();
+  console.log(gameLogStorage
+    ? '> Game log storage: Postgres (DATABASE_URL set)'
+    : '> Game log storage: disabled (set DATABASE_URL to enable)');
+
+  const roomManager = new RoomManager({ gameLogStorage });
   const socketHandler = new SocketHandler(io, roomManager);
 
   io.on('connection', (socket) => {
@@ -74,6 +81,21 @@ app.prepare().then(() => {
   // Health check endpoint
   server.get('/health', (_req, res) => {
     res.status(200).send('ok');
+  });
+
+  // Aggregate, PII-free game counts. Only exists when durable storage is configured.
+  server.get('/api/stats', async (_req, res) => {
+    if (!gameLogStorage) {
+      res.status(404).json({ error: 'Not found' });
+      return;
+    }
+    const stats = await gameLogStorage.getAggregateStats();
+    if (!stats) {
+      res.status(503).json({ error: 'Stats temporarily unavailable' });
+      return;
+    }
+    res.setHeader('Cache-Control', 'public, max-age=60');
+    res.json(stats);
   });
 
   // Let Next.js handle all other routes
@@ -89,6 +111,7 @@ app.prepare().then(() => {
   const shutdown = () => {
     console.log('Shutting down gracefully...');
     roomManager.destroy();
+    void gameLogStorage?.close();
     io.close();
     httpServer.close(() => {
       process.exit(0);

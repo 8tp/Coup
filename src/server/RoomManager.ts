@@ -505,6 +505,10 @@ export class RoomManager {
     log.gameId = current.gameId;
     log.startedAt = new Date(current.startedAt).toISOString();
     log.durationMs = durationMs;
+    log.gameMode = room.settings.gameMode;
+    log.useInquisitor = room.settings.useInquisitor;
+    log.humansAtStart = current.humans;
+    log.botsAtStart = current.bots;
 
     const winner = room.players.find(p => p.id === engine.game.winnerId);
     const gamePlayerIds = new Set(engine.game.players.map(p => p.id));
