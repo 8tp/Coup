@@ -1208,8 +1208,6 @@
     .coin-motion-gain,
     .coin-motion-loss,
     .phase-status-enter,
-    .practice-coach,
-    .practice-coach::after,
     .action-choice-enter,
     .turn-ready-ring,
     .your-move-chip,
@@ -1389,46 +1387,6 @@
 
   .phase-status-enter {
     animation: phaseStatusEnter 0.28s ease-out both;
-  }
-
-  @keyframes practiceCoachEnter {
-    0% {
-      transform: translateY(8px) scale(0.98);
-      opacity: 0;
-    }
-    70% {
-      transform: translateY(-1px) scale(1.005);
-      opacity: 1;
-    }
-    100% {
-      transform: translateY(0) scale(1);
-      opacity: 1;
-    }
-  }
-
-  .practice-coach {
-    position: relative;
-    overflow: hidden;
-    animation: practiceCoachEnter 0.38s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-    backdrop-filter: blur(10px);
-  }
-
-  .practice-coach::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: linear-gradient(105deg, transparent 15%, rgba(255,255,255,0.07) 45%, transparent 72%);
-    transform: translateX(-120%);
-    animation: coachSheen 0.75s ease-out 0.2s both;
-  }
-
-  @keyframes coachSheen {
-    to { transform: translateX(120%); }
-  }
-
-  .practice-coach-mark {
-    box-shadow: 0 0 16px currentColor;
   }
 
   @keyframes actionChoiceEnter {
@@ -2202,13 +2160,6 @@
   .court-banner-action {
     color: var(--brass);
     font-weight: 600;
-  }
-
-  .court-coach {
-    flex: none;
-    width: 100%;
-    max-width: 40rem;
-    margin: 0 auto 0.4rem;
   }
 
   /* ── The stage: table, seats, and the middle of the felt ────────────── */
@@ -4018,7 +3969,182 @@
     padding: 0.5rem 1rem max(1rem, env(safe-area-inset-bottom));
   }
 
+  /* ── The practice coach callout (game/PracticeCoach.tsx) ─────────────── */
+
+  .coach-callout {
+    position: fixed;
+    z-index: 40;
+    width: 20rem;
+    padding: 0.55rem 0.75rem 0.65rem;
+    border-radius: 3px;
+    background-color: rgba(11, 18, 16, 0.97);
+    background-image: linear-gradient(var(--brass), var(--brass));
+    background-repeat: no-repeat;
+    background-size: 100% 3px;
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.55),
+      0 14px 32px rgba(0, 0, 0, 0.5);
+    color: var(--ink);
+    animation: coach-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  .coach-callout[data-tone='danger'] {
+    background-image: var(--hazard-rail);
+    background-size: 100% 4px;
+  }
+
+  /* Until it has been measured and placed, it is laid out but not shown. */
+  .coach-callout[data-placed='false'] {
+    visibility: hidden;
+    animation: none;
+  }
+
+  .coach-callout[data-mode='dock'] {
+    width: calc(100vw - 1rem);
+    max-width: 40rem;
+    padding: 0.35rem 0.6rem 0.55rem;
+  }
+
+  @keyframes coach-in {
+    from { opacity: 0; transform: translateY(6px); }
+  }
+
+  /* The brass pointer: a printed triangle on the edge that faces the anchor,
+     its tip a few pixels short of the thing it is about. */
+  .coach-pointer {
+    position: absolute;
+    width: 18px;
+    height: 10px;
+    background-color: var(--brass);
+    pointer-events: none;
+  }
+
+  /* With a stand-off (`--reach`), the triangle moves out to the anchor and a
+     2px brass leader line spans the distance back to the panel. */
+  .coach-callout[data-side='above'] .coach-pointer {
+    top: calc(100% + var(--reach, 0px));
+    left: calc(var(--pointer) - 9px);
+    clip-path: polygon(0 0, 100% 0, 50% 100%);
+  }
+
+  .coach-callout[data-side='below'] .coach-pointer {
+    bottom: calc(100% + var(--reach, 0px));
+    left: calc(var(--pointer) - 9px);
+    clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  }
+
+  .coach-callout[data-side='left'] .coach-pointer,
+  .coach-callout[data-side='right'] .coach-pointer {
+    width: 10px;
+    height: 18px;
+    top: calc(var(--pointer) - 9px);
+  }
+
+  .coach-callout[data-side='left'] .coach-pointer {
+    left: calc(100% + var(--reach, 0px));
+    clip-path: polygon(0 0, 100% 50%, 0 100%);
+  }
+
+  .coach-callout[data-side='right'] .coach-pointer {
+    right: calc(100% + var(--reach, 0px));
+    clip-path: polygon(100% 0, 100% 100%, 0 50%);
+  }
+
+  .coach-leader {
+    position: absolute;
+    background-color: var(--brass);
+    pointer-events: none;
+  }
+
+  .coach-callout[data-side='above'] .coach-leader,
+  .coach-callout[data-side='below'] .coach-leader {
+    width: 2px;
+    height: var(--reach);
+    left: calc(var(--pointer) - 1px);
+  }
+
+  .coach-callout[data-side='above'] .coach-leader { top: 100%; }
+  .coach-callout[data-side='below'] .coach-leader { bottom: 100%; }
+
+  .coach-callout[data-side='left'] .coach-leader,
+  .coach-callout[data-side='right'] .coach-leader {
+    height: 2px;
+    width: var(--reach);
+    top: calc(var(--pointer) - 1px);
+  }
+
+  .coach-callout[data-side='left'] .coach-leader { left: 100%; }
+  .coach-callout[data-side='right'] .coach-leader { right: 100%; }
+
+  .coach-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .coach-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--step--1);
+    font-weight: 700;
+    color: var(--brass);
+  }
+
+  .coach-callout[data-tone='danger'] .coach-label { color: var(--crimson); }
+
+  .coach-controls {
+    flex: none;
+    display: flex;
+    gap: 0.25rem;
+    margin-right: -0.35rem;
+  }
+
+  .coach-btn {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 0.5rem;
+    border-radius: 3px;
+    font-size: var(--step--1);
+    font-weight: 700;
+    color: var(--ink-mute);
+  }
+
+  .coach-btn:hover { color: var(--ink); }
+
+  .coach-got {
+    color: var(--ink);
+  }
+
+  .coach-got:hover { color: var(--brass); }
+
+  .coach-title {
+    font-size: var(--step-1);
+    line-height: 1.15;
+    color: var(--ink);
+  }
+
+  .coach-body {
+    margin-top: 0.2rem;
+    font-size: var(--step--1);
+    line-height: 1.4;
+    color: var(--ink-mute);
+  }
+
+  .coach-rules {
+    min-height: 44px;
+    margin-bottom: -0.5rem;
+    font-size: var(--step--1);
+    font-weight: 600;
+    color: var(--brass);
+  }
+
+  .coach-rules:hover { text-decoration: underline; }
+
   @media (prefers-reduced-motion: reduce) {
+    .coach-callout,
     .practice-sheet,
     .onb-chapter,
     .onb-root .claim-plaque {
@@ -4026,6 +4152,7 @@
     }
   }
 
+  html.reduce-motion .coach-callout { animation: none; }
 
 }
 

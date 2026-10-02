@@ -58,6 +58,60 @@ describe('placePointedCallout', () => {
   });
 });
 
+describe('placePointedCallout — soft avoid', () => {
+  it('prefers a side that leaves the phase line readable', () => {
+    const plaque = rect(620, 420, 200, 70);
+    const phase = rect(560, 380, 320, 30); // the phase line just above the plaque
+    const p = placePointedCallout({ anchor: plaque, size, viewport, soft: [phase] })!;
+    expect(intersectionArea(rect(p.left, p.top, size.width, size.height), phase)).toBe(0);
+  });
+
+  it('accepts covering a soft rect when nothing cleaner exists, but never a hard one', () => {
+    const anchor = rect(570, 0, 300, 900);
+    const everything = [rect(0, 0, 1440, 900)];
+    const p = placePointedCallout({ anchor, size, viewport, soft: everything })!;
+    expect(p).not.toBeNull();
+    expect(p.overlap).toBeGreaterThan(0);
+    expect(placePointedCallout({ anchor, size, viewport, avoid: everything })).toBeNull();
+  });
+});
+
+describe('placePointedCallout — stand-off', () => {
+  it('stands further off rather than cover the phase line, and says by how much', () => {
+    // A plaque with the phase line above it and a prompt just below: nothing
+    // right beside it is clean, but a little further right is.
+    const plaque = rect(620, 348, 200, 70);
+    const phase = rect(554, 318, 332, 24);
+    const prompt = rect(480, 428, 480, 155);
+    const p = placePointedCallout({
+      anchor: plaque, size: { width: 320, height: 178 }, viewport, avoid: [prompt], soft: [phase],
+    })!;
+    expect(p.overlap).toBe(0);
+    expect(p.reach).toBeGreaterThan(0);
+    const box = rect(p.left, p.top, 320, 178);
+    expect(intersectionArea(box, phase)).toBe(0);
+    expect(intersectionArea(box, prompt)).toBe(0);
+  });
+
+  it('points from right beside the anchor when that is clean', () => {
+    const dock = rect(920, 590, 500, 300);
+    expect(placePointedCallout({ anchor: dock, size, viewport })!.reach).toBe(0);
+  });
+});
+
+describe('placeDockBanner — under the seats', () => {
+  it('tries the slot just under the seats before the one under the header', () => {
+    const phone = { width: 390, height: 844 };
+    const plaque = rect(100, 460, 190, 66);
+    const seat = rect(150, 64, 90, 112);
+    const p = placeDockBanner({
+      sheetTop: 560, topLimit: 52, size: { width: 374, height: 114 }, viewport: phone,
+      avoid: [plaque], soft: [seat], extraTops: [184],
+    })!;
+    expect(p.top).toBe(184);
+  });
+});
+
 describe('placeDockBanner', () => {
   const phone = { width: 360, height: 640 };
   const banner = { width: 344, height: 96 };
