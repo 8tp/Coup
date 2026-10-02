@@ -25,6 +25,7 @@ import { ReactionPicker } from './ReactionPicker';
 import { SettingsModal } from '../settings/SettingsModal';
 import { PracticeCoach } from './PracticeCoach';
 import { ClaimPlaque } from './table/ClaimPlaque';
+import { CoinFlights } from './table/CoinFlights';
 import { LogTicker } from './table/LogTicker';
 import { SeatSpeech } from './table/SeatSpeech';
 import { seatAngles, seatPoint } from './table/seatLayout';
@@ -562,7 +563,7 @@ function CoinStack({ count, label, tone }: { count: number; label: string; tone:
   const discs = count === 0 ? 0 : Math.max(1, Math.min(COIN_MAX_DISCS, Math.round(count / 5)));
 
   return (
-    <div className="table-object">
+    <div className="table-object" data-coin-pool={tone}>
       <div className={`coin-well coin-well-${tone}`} aria-hidden="true">
         {Array.from({ length: discs }, (_, i) => (
           <span key={i} className="coin-disc" style={{ bottom: `${6 + i * 5}px` }} />
@@ -1177,6 +1178,7 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
           shake target: the card is thrown ACROSS a table that is shaking, and
           a card carried by the shake is a card that never left the seat. */}
       {actionFlight && <ActionCardFlight flight={actionFlight} onDone={clearActionFlight} />}
+      <CoinFlights gameState={gameState} />
       <HowToPlay open={showRules} onClose={() => setShowRules(false)} />
       <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
     </div>
