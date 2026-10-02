@@ -3173,6 +3173,758 @@
     transform: rotate(var(--discard-tilt, 0deg));
   }
 
+  /* ==================================================================
+     ONBOARDING — "How Coup works" (tutorial/Tutorial.tsx), the Reformation
+     walkthrough, the practice setup sheet, and the practice coach callout.
+
+     Built from the table's own materials rather than generic panels: the
+     walkthrough stage is the menu panel's enamel with its brass rail, each
+     demonstration plays on a miniature of the court table (oxblood rim,
+     milled brass inlay, felt), and the cards, seats and claim plaque in it
+     are the real components. Pressables are the enamel slabs; nothing glows.
+     ================================================================== */
+
+  /* ── The stage (onboarding/OnboardingShell.tsx) ─────────────────────── */
+
+  .onb-root {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .onb-scrim {
+    position: absolute;
+    inset: 0;
+    background-color: rgba(4, 7, 8, 0.82);
+  }
+
+  /* A phone gets the whole screen: a sheet, not a card floating in a margin. */
+  .onb-stage {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    background-color: #0d1614;
+    background-image:
+      linear-gradient(var(--brass), var(--brass)),
+      radial-gradient(ellipse 90% 55% at 50% 0%, rgba(30, 52, 46, 0.55), transparent 70%);
+    background-repeat: no-repeat;
+    background-size: 100% 3px, 100% 100%;
+    outline: none;
+  }
+
+  /* A desktop gets a stage of fixed height, so paging between chapters never
+     resizes the box under the pointer. */
+  @media (min-width: 768px) and (min-height: 600px) {
+    .onb-stage {
+      width: min(55rem, calc(100vw - 3rem));
+      height: min(42rem, calc(100dvh - 3rem));
+      border-radius: 3px;
+      background-color: rgba(23, 35, 31, 0.98);
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.55),
+        0 30px 80px rgba(0, 0, 0, 0.6);
+    }
+  }
+
+  .onb-head {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: max(0.5rem, env(safe-area-inset-top)) 0.75rem 0.25rem;
+  }
+
+  .onb-progress {
+    flex: 1;
+    display: flex;
+    min-width: 0;
+  }
+
+  .onb-progress-item {
+    flex: 1;
+    display: flex;
+    min-width: 0;
+  }
+
+  /* Each chapter is a 44px target; the visible mark is a rail milled into it. */
+  .onb-seg {
+    position: relative;
+    flex: 1;
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0 3px 3px;
+    color: var(--ink-mute);
+  }
+
+  .onb-seg::before {
+    content: '';
+    position: absolute;
+    left: 2px;
+    right: 2px;
+    top: 50%;
+    height: 5px;
+    margin-top: -2.5px;
+    border-radius: 1px;
+    background-color: var(--ground-deep);
+    box-shadow: var(--deboss);
+    transition: background-color 160ms;
+  }
+
+  .onb-seg.is-done::before {
+    background-color: rgba(214, 161, 42, 0.5);
+    box-shadow: none;
+  }
+
+  .onb-seg.is-current::before {
+    background-color: var(--brass);
+    box-shadow: none;
+  }
+
+  .onb-seg-label {
+    display: none;
+  }
+
+  @media (min-width: 768px) {
+    .onb-head { padding: 0.75rem 1rem 0.25rem 1.5rem; }
+    .onb-seg::before { top: 10px; margin-top: 0; }
+    .onb-seg-label {
+      display: block;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: var(--step--1);
+      font-weight: 600;
+    }
+    .onb-seg.is-current { color: var(--ink); }
+    .onb-seg:hover { color: var(--brass); }
+  }
+
+  .onb-close {
+    flex: none;
+  }
+
+  .onb-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    padding: 0.25rem 1rem 0.75rem;
+  }
+
+  /* One chapter: text, then the demonstration, then the line that says what
+     just happened. On a desktop the demonstration takes the right half. */
+  .onb-chapter {
+    min-height: 100%;
+    max-width: 30rem;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'text' 'demo' 'note';
+    align-content: center;
+    gap: 0.7rem;
+  }
+
+  @media (min-width: 768px) and (min-height: 600px) {
+    .onb-body { padding: 1rem 2rem; }
+    .onb-chapter {
+      max-width: none;
+      grid-template-columns: minmax(0, 18.5rem) minmax(0, 1fr);
+      grid-template-areas: 'text demo' 'note demo';
+      align-items: center;
+      align-content: center;
+      column-gap: 2.25rem;
+      row-gap: 1rem;
+    }
+    .onb-chapter > .onb-note { align-self: start; }
+    .onb-chapter > .onb-text { align-self: end; }
+  }
+
+  @keyframes onb-in-fwd {
+    from { opacity: 0; transform: translateX(18px); }
+  }
+
+  @keyframes onb-in-back {
+    from { opacity: 0; transform: translateX(-18px); }
+  }
+
+  @keyframes onb-fade {
+    from { opacity: 0; }
+  }
+
+  .onb-chapter[data-dir='fwd'] { animation: onb-in-fwd 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .onb-chapter[data-dir='back'] { animation: onb-in-back 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+  .onb-text {
+    grid-area: text;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .onb-kicker {
+    font-size: var(--step--1);
+    font-weight: 700;
+    color: var(--brass);
+  }
+
+  .onb-title {
+    font-size: var(--step-3);
+    line-height: 1.04;
+    color: var(--ink);
+  }
+
+  .onb-lede {
+    font-size: var(--step-0);
+    line-height: 1.4;
+    color: var(--ink-mute);
+  }
+
+  .onb-lede b {
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  @media (min-width: 768px) and (min-height: 600px) {
+    .onb-title { font-size: var(--step-4); }
+  }
+
+  .onb-demo {
+    grid-area: demo;
+    min-width: 0;
+  }
+
+  /* What just happened: a printed strip with a rail that says how it went —
+     a hairline while you read, brass when it worked, hazard when it cost. */
+  .onb-note {
+    grid-area: note;
+    min-height: 2.75rem;
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 0.75rem 0.5rem 0.9rem;
+    border-radius: 2px;
+    background-color: var(--ground-deep);
+    background-image: linear-gradient(var(--ink-mute), var(--ink-mute));
+    background-repeat: no-repeat;
+    background-size: 3px 100%;
+    box-shadow: var(--deboss);
+    color: var(--ink);
+    font-size: var(--step-0);
+    line-height: 1.35;
+  }
+
+  .onb-note.is-done { background-image: linear-gradient(var(--brass), var(--brass)); }
+  .onb-note.is-danger { background-image: var(--hazard-rail); background-size: 4px 100%; }
+  .onb-note:empty { visibility: hidden; }
+
+  .onb-foot {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem 1rem max(0.75rem, env(safe-area-inset-bottom));
+    box-shadow: 0 -1px 0 rgba(51, 68, 62, 0.6);
+  }
+
+  .onb-foot > .onb-back,
+  .onb-foot > .onb-next {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .onb-foot > .onb-cta { flex-grow: 2; }
+
+  .onb-keys { display: none; }
+
+  @media (min-width: 768px) and (min-height: 600px) {
+    .onb-foot { padding: 0.75rem 1.5rem 1rem; }
+    .onb-foot > .onb-back,
+    .onb-foot > .onb-next { flex: 0 0 auto; min-width: 9.5rem; }
+    .onb-foot > .onb-back:only-child,
+    .onb-foot > .onb-next:only-child { margin-left: auto; }
+    .onb-foot > .onb-cta { min-width: 15rem; margin-left: auto; }
+  }
+
+  @media (min-width: 768px) and (min-height: 600px) and (hover: hover) {
+    .onb-keys {
+      display: block;
+      flex: 1;
+      text-align: center;
+      font-size: var(--step--1);
+      color: var(--ink-mute);
+    }
+  }
+
+  /* ── The miniature table ─────────────────────────────────────────────── */
+
+  .onb-table {
+    position: relative;
+    padding: 0.55rem;
+    border-radius: 2.75rem;
+    background:
+      radial-gradient(ellipse 60% 40% at 50% 8%, rgba(255, 220, 200, 0.10), transparent 70%),
+      linear-gradient(180deg, #6e1a23 0%, #4a1017 55%, #2c0a0e 100%);
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.6),
+      0 18px 40px rgba(0, 0, 0, 0.5);
+  }
+
+  .onb-table::before {
+    content: '';
+    position: absolute;
+    inset: 0.3rem;
+    border-radius: 2.5rem;
+    border: 2px solid rgba(214, 161, 42, 0.75);
+    box-shadow:
+      inset 0 1px 0 rgba(0, 0, 0, 0.5),
+      0 1px 0 rgba(255, 230, 170, 0.18);
+    pointer-events: none;
+  }
+
+  .onb-felt {
+    position: relative;
+    min-height: 11rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.7rem;
+    padding: 1rem 0.85rem;
+    border-radius: 2.2rem;
+    background-color: var(--surface);
+    background-image:
+      radial-gradient(ellipse 70% 55% at 50% 42%, rgba(70, 120, 96, 0.30), transparent 72%),
+      repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.012) 0 2px, transparent 2px 4px),
+      radial-gradient(ellipse at 50% 50%, #1e3a30 0%, #142a22 60%, #0c1b16 100%);
+    box-shadow:
+      inset 0 10px 24px rgba(0, 0, 0, 0.55),
+      inset 0 -2px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  @media (min-width: 768px) and (min-height: 600px) {
+    .onb-table { border-radius: 4rem; }
+    .onb-table::before { border-radius: 3.75rem; }
+    .onb-felt { min-height: 20rem; padding: 1.5rem 1.25rem; gap: 1rem; border-radius: 3.4rem; }
+  }
+
+  .onb-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    width: 100%;
+  }
+
+  .onb-row-seats { gap: 1.25rem; }
+
+  .onb-seat {
+    flex: none;
+    width: 5.6rem;
+  }
+
+  @media (min-width: 768px) {
+    .onb-seat { width: 7.25rem; }
+  }
+
+  /* A scripted seat has nobody to mute. */
+  .onb-seat .court-seat-mute { display: none; }
+
+  .onb-plaque-slot {
+    min-height: 3.6rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .onb-plaque-ghost {
+    padding: 0.7rem 1.25rem;
+    border-radius: 6px;
+    background-color: rgba(5, 9, 10, 0.4);
+    box-shadow: var(--deboss);
+    color: var(--ink-mute);
+    font-size: var(--step--1);
+  }
+
+  /* The hand plate is the court table's own (.court-hand-plate); only its
+     card row and the "out" stamp are new. */
+  .onb-hand {
+    position: relative;
+  }
+
+  .onb-hand-cards {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+  }
+
+  /* §1.2 refused/finished: an ink slab stamped across the hand. */
+  .onb-stamp {
+    position: absolute;
+    left: -4%;
+    right: -4%;
+    top: 40%;
+    padding: 0.15rem 0;
+    background-color: var(--ink);
+    color: var(--ground);
+    font-size: var(--step-2);
+    text-align: center;
+    transform: rotate(-4deg);
+    box-shadow: var(--shadow-paper);
+    pointer-events: none;
+  }
+
+  .onb-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .onb-actions > button {
+    flex: 1 1 8rem;
+    max-width: 16rem;
+  }
+
+  .onb-actions-3 > button {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    font-size: var(--step-0);
+  }
+
+  /* ── Chapter 2: the dock, two groups of actions ──────────────────────── */
+
+  .onb-dock {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .onb-dock-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .onb-group-label {
+    font-size: var(--step--1);
+    font-weight: 700;
+    color: var(--ink-mute);
+  }
+
+  .onb-purse {
+    color: var(--brass-lit);
+  }
+
+  .onb-tiles {
+    display: grid;
+    gap: 0.4rem;
+  }
+
+  .onb-tiles-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .onb-tiles-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  .onb-tile {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+    min-height: 52px;
+    padding: 0.4rem 0.5rem;
+    border-radius: 3px;
+    text-align: left;
+    background-color: var(--raised);
+    color: var(--ink);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.05),
+      var(--shadow-chrome);
+    transition: transform 80ms cubic-bezier(0.3, 0.8, 0.4, 1), box-shadow 80ms, background-color 120ms;
+  }
+
+  .onb-tile:hover { background-color: #2a3a34; }
+
+  .onb-tile:active {
+    transform: translate(3px, 3px);
+    box-shadow: 0 0 0 var(--ground-deep);
+  }
+
+  .onb-tile.is-picked {
+    box-shadow:
+      inset 0 -3px 0 var(--brass),
+      var(--shadow-chrome);
+  }
+
+  .onb-tile-mark {
+    flex: none;
+    display: inline-flex;
+    color: var(--brass-lit);
+  }
+
+  .onb-tile-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.15;
+  }
+
+  .onb-tile-name {
+    font-size: var(--step-0);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .onb-tile-sub {
+    font-size: 0.75rem;
+    color: var(--ink-mute);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Three across is too tight for a glyph beside a name on a phone. */
+  @media (max-width: 420px) {
+    .onb-tiles-3 .onb-tile {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.15rem;
+    }
+  }
+
+  /* ── Chapter 5: who blocks it ────────────────────────────────────────── */
+
+  .onb-threat-count {
+    font-size: var(--step--1);
+    color: var(--ink-mute);
+  }
+
+  .onb-blockers {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.4rem;
+    width: 100%;
+    max-width: 22rem;
+  }
+
+  @media (min-width: 768px) and (min-height: 600px) {
+    .onb-blockers { grid-template-columns: repeat(5, minmax(0, 1fr)); max-width: none; }
+  }
+
+  .onb-blocker {
+    width: 100%;
+    min-height: 64px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    padding: 0.35rem 0.2rem;
+    border-radius: 3px;
+    background-color: var(--raised);
+    color: var(--ink);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.05),
+      var(--shadow-chrome);
+    transition: transform 80ms cubic-bezier(0.3, 0.8, 0.4, 1), box-shadow 80ms, background-color 120ms;
+  }
+
+  .onb-blocker:hover { background-color: #2a3a34; }
+
+  .onb-blocker:active {
+    transform: translate(3px, 3px);
+    box-shadow: 0 0 0 var(--ground-deep);
+  }
+
+  .onb-blocker-name {
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  /* ── Chapter 6: the coin meter ───────────────────────────────────────── */
+
+  .onb-meter {
+    position: relative;
+    display: flex;
+    gap: 3px;
+    width: 100%;
+    max-width: 20rem;
+    padding-top: 1.3rem;
+  }
+
+  .onb-meter-slot {
+    flex: 1;
+    height: 14px;
+    border-radius: 9999px;
+    background-color: var(--ground-deep);
+    box-shadow: var(--deboss);
+    transition: background-color 160ms;
+  }
+
+  /* Coins are circles (§3.9), in the coin figure's own brass. */
+  .onb-meter-slot.is-full {
+    background-color: var(--brass-lit);
+    box-shadow:
+      0 0 0 1px var(--oxblood),
+      0 1px 0 rgba(0, 0, 0, 0.55);
+  }
+
+  .onb-meter-mark {
+    position: absolute;
+    top: 0;
+    left: calc(var(--at) * 100%);
+    transform: translateX(-100%);
+    padding-right: 0.15rem;
+    white-space: nowrap;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--ink-mute);
+  }
+
+  .onb-meter-mark.is-must { color: var(--crimson); }
+
+  .onb-purse-line {
+    font-size: var(--step--1);
+    color: var(--ink-mute);
+  }
+
+  .onb-purse-line .figure {
+    color: var(--brass-lit);
+    font-weight: 800;
+  }
+
+  /* ── Reformation: the reserve pool ───────────────────────────────────── */
+
+  .onb-reserve {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    padding: 0.5rem 0.85rem;
+    border-radius: 2px;
+    background-color: rgba(5, 9, 10, 0.45);
+    box-shadow: var(--deboss);
+  }
+
+  .onb-reserve-label {
+    font-size: var(--step--1);
+    color: var(--ink-mute);
+  }
+
+  .onb-reserve-coins {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: var(--brass-lit);
+    font-weight: 800;
+    font-size: var(--step-1);
+  }
+
+  /* ── The finish: a reference card of the six ─────────────────────────── */
+
+  .onb-reference,
+  .onb-recap {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.4rem;
+  }
+
+  .onb-recap { grid-template-columns: minmax(0, 1fr); }
+
+  .onb-ref {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-width: 0;
+    padding: 0.45rem 0.55rem;
+    border-radius: 2px;
+    background-color: var(--ground-deep);
+    box-shadow: var(--deboss);
+  }
+
+  .onb-ref > svg { flex: none; }
+
+  .onb-ref-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.2;
+  }
+
+  .onb-ref-name {
+    font-size: var(--step-0);
+    color: var(--ink);
+  }
+
+  .onb-ref-does {
+    font-size: var(--step--1);
+    color: var(--ink);
+  }
+
+  .onb-ref-blocks {
+    font-size: var(--step--1);
+    color: var(--ink-mute);
+  }
+
+  .onb-recap-n {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 9999px;
+    background-color: var(--brass);
+    color: var(--ground);
+    font-weight: 800;
+  }
+
+  @media (max-width: 380px) {
+    .onb-ref { gap: 0.4rem; padding: 0.4rem; }
+    .onb-ref > svg { width: 30px; height: 30px; }
+  }
+
+  /* ── Reduced motion (§7): every entrance collapses to a ≤120ms fade ─── */
+
+  .onb-root[data-motion='reduce'] .onb-chapter,
+  .onb-root[data-motion='reduce'] .claim-plaque {
+    animation: onb-fade 120ms ease-out both;
+  }
+
+  .onb-root[data-motion='reduce'] .animate-card-flip-reveal {
+    animation: onb-fade 120ms ease-out both;
+  }
+
+  .onb-root[data-motion='reduce'] .card-flip-back-face {
+    display: none;
+  }
+
+  .onb-root[data-motion='reduce'] .onb-tile,
+  .onb-root[data-motion='reduce'] .onb-blocker,
+  .onb-root[data-motion='reduce'] .onb-meter-slot,
+  .onb-root[data-motion='reduce'] .onb-seg::before {
+    transition: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .onb-chapter,
+    .onb-root .claim-plaque {
+      animation: onb-fade 120ms ease-out both;
+    }
+  }
+
 }
 
 /* Unlayered on purpose: ActionBar's grid is a Tailwind utility, and a layered
