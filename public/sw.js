@@ -1,12 +1,15 @@
-// v5: the ElevenLabs sound bank (public/audio/sfx/) and the three looping
-// music beds (public/audio/music/). Bumping the name is what evicts v4 —
-// including the old single bed, velvet-court.mp3, which nothing plays now.
-const CACHE_NAME = 'coup-assets-v6';
+// v8: the v3 icons and v4 social images, and the adaptive score. Music (public/audio/music/, ~24MB across 15
+// pieces) is deliberately NOT precached — the engine fetches only the piece
+// it is about to play and prefetches the next ~20s ahead, and the fetch
+// handler below caches each one at runtime. Sound effects (~145KB) are still
+// precached. Bumping the name evicts older caches, the three old looping beds
+// and the v2 icons with them.
+const CACHE_NAME = 'coup-assets-v8';
 const ASSET_URLS = [
-  '/icons/icon-192-v2.png',
-  '/icons/icon-512-v2.png',
-  '/icons/icon-maskable-512-v2.png',
-  '/apple-touch-icon-v2.png',
+  '/icons/icon-192-v3.png',
+  '/icons/icon-512-v3.png',
+  '/icons/icon-maskable-512-v3.png',
+  '/apple-touch-icon-v3.png',
   '/assets/backgrounds/menu-chamber-wide-v1.webp',
   '/assets/backgrounds/menu-chamber-tall-v1.webp',
   '/assets/brand/coup-wordmark-v3.webp',
@@ -26,9 +29,6 @@ const ASSET_URLS = [
   '/assets/cards/focus/inquisitor-v3.webp',
   '/audio/court-crowned.mp3',
   '/audio/plot-unraveled.mp3',
-  '/audio/music/lobby-antechamber.mp3',
-  '/audio/music/table-velvet-court.mp3',
-  '/audio/music/endgame-last-favour.mp3',
   '/audio/sfx/actionDeclared-1.mp3',
   '/audio/sfx/actionDeclared-2.mp3',
   '/audio/sfx/actionDeclared-3.mp3',

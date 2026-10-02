@@ -27,6 +27,7 @@ import { PracticeCoach } from './PracticeCoach';
 import { ClaimPlaque } from './table/ClaimPlaque';
 import { CoinFlights } from './table/CoinFlights';
 import { LogTicker } from './table/LogTicker';
+import { TableTalk } from './table/TableTalk';
 import { SeatSpeech } from './table/SeatSpeech';
 import { seatAngles, seatPoint } from './table/seatLayout';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
@@ -982,13 +983,16 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
     );
   };
 
-  const compactTable = useMediaQuery('(max-width: 767px)');
+  /* The far-half arc on phones, and on short screens of any width (a 720px
+     laptop): there the dock's chat and action panels rise over the near
+     flanks, so the flank seats must sit higher. */
+  const compactTable = useMediaQuery('(max-width: 767px), (max-height: 820px)');
   /* Below a desktop, every decision you tap lives in the bottom sheet with the
      actions — the thumb zone — instead of floating over the felt, where a tall
      prompt (an exchange, a lost influence) ran down underneath your hand. */
   const promptsInDock = useMediaQuery('(max-width: 1023px)');
   const promptStack = (
-    <div className="court-prompts">
+    <div className="court-prompts" data-coach-anchor="prompt">
       <ChallengePrompt gameState={gameState} />
       <BlockPrompt gameState={gameState} />
       <BlockChallengePrompt gameState={gameState} />
@@ -1086,10 +1090,10 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
       )}
       {reconnecting && <div className="court-banner court-banner-warn">Reconnecting to server…</div>}
 
+      {/* A callout over the table that points at what each tip is about —
+          see PracticeCoach. It takes no layout space of its own. */}
       {isPracticeRoom && !isSpectator && (
-        <div className="court-coach">
-          <PracticeCoach gameState={gameState} onOpenRules={() => setShowRules(true)} />
-        </div>
+        <PracticeCoach gameState={gameState} onOpenRules={() => setShowRules(true)} />
       )}
 
       {/* THE STAGE: the table and its seats (the shake target), with the middle
@@ -1124,14 +1128,16 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
       </div>
 
       {/* THE DOCK: what just happened, your hand, and what you can do. */}
-      <div className={`court-dock ${isMyActionTurn ? 'is-acting' : ''}`}>
+      <div className={`court-dock ${isMyActionTurn ? 'is-acting' : ''}`} data-coach-anchor="sheet">
         <div className="court-dock-log">
-          <LogTicker log={gameState.actionLog} onOpen={() => setLogOpen(true)} />
+          <LogTicker log={gameState.actionLog} count={isSpectator ? 4 : 2} onOpen={() => setLogOpen(true)} />
+          {!isSpectator && <TableTalk messages={chatMessages} myId={gameState.myId} onSend={onSendChat} />}
         </div>
 
         {me && (
           <div
             className="court-hand"
+            data-coach-anchor="hand"
             /* Your own seat for every purpose the opponents' seats serve: the FX
                registry, and §6's Refuse verb, which shoves this plate when the
                challenge or the block landed on you. */
@@ -1176,7 +1182,7 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
         )}
 
         {!isSpectator && (
-          <div className="court-dock-actions">
+          <div className="court-dock-actions" data-coach-anchor="dock">
             {promptsInDock && promptStack}
             <ActionBar gameState={gameState} />
           </div>

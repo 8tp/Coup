@@ -4,15 +4,14 @@ This app should use generated raster assets where they add mood, identity, or ca
 
 ## Good Imagegen Targets
 
-- **Home title banner** -- The first screen benefits from a branded raster masthead instead of plain SVG text. Current asset: `public/assets/brand/coup-online-banner-v2.webp`.
 - **Influence card faces** -- Character portraits make known and revealed cards feel like real influence cards. Current UI assets: `public/assets/cards/{duke,assassin,captain,ambassador,contessa,inquisitor}-v3.webp`.
 - **Small-card close crops** -- Tiny mobile cards should use face/prop-forward crops instead of the full portrait composition. Duke, Assassin, Captain, and Inquisitor use v3 focus assets; Ambassador and Contessa use the refined v4 focus crops.
 - **Influence card back** -- Hidden cards need one recognizable card-back treatment. Current assets: `public/assets/cards/back-v3.webp` and `public/assets/cards/focus/back-v3.webp` (a calm blackened-teal field with one brass rosette, chosen because it reads as "hidden card" at 36 px and resembles no character emblem; the v2 back's red V read as a red blob at seat size).
 - **Menu backgrounds** -- `public/assets/backgrounds/menu-chamber-wide-v1.webp` and `menu-chamber-tall-v1.webp`: a painted council chamber behind the home and lobby screens (separate phone composition, not a crop). The game screen draws its table and room in CSS instead.
-- **Wordmark** -- `public/assets/brand/coup-wordmark-v3.webp` (COUP with ONLINE on a brass plate, transparent).
-- **Game table backgrounds (retired from the UI)** -- The shared app background can use subtle raster tabletops because they add atmosphere without carrying gameplay state. Current assets: `public/assets/backgrounds/game-table-v2.webp` and `public/assets/backgrounds/game-table-mobile-v2.webp`; responsive CSS fading layers mute their contrast behind the UI.
-- **App/project icon** -- Home-screen/PWA icons need a strong raster emblem that reads at 16-512 px. The 1024 px master is `public/assets/brand/app-icon-v2.png`; versioned PWA, Apple touch, maskable, and favicon derivatives live under `public/icons/` and `public/`.
-- **Social/share imagery** -- Open Graph, README screenshots, and store/promotional surfaces can use composed raster art because they are not interactive controls. Current assets: `public/og-image-v3.png` and `public/embed-image-v3.png`.
+- **Wordmark** -- The home masthead. Current asset: `public/assets/brand/coup-wordmark-v3.webp` (crimson-enamel COUP over an ONLINE brass plate, transparent, 960×347).
+- **Game screen** -- No raster: the oval court table and the room are drawn in CSS (`globals.css`, "THE COURT TABLE"), so the layout never fights a painted frame. The v2 table backgrounds were deleted in October 2026.
+- **App/project icon** -- Home-screen/PWA icons need a strong raster emblem that reads at 16-512 px. Two marks from one family: the **favicon** (16/32/48, `public/favicon-v3.ico`, `favicon-{16x16,32x32}-v3.png`) is the crimson **C** alone, the most legible shape at tab size; the **app icon** (`public/assets/brand/app-icon-v3.png` master, `public/apple-touch-icon-v3.png`, `public/icons/icon-{192,512,maskable-512}-v3.png`) is the same C with the card back's brass rosette in its counter. The maskable icon pads the mark into the central 80% safe circle.
+- **Social/share imagery** -- Open Graph, README screenshots, and store/promotional surfaces can use composed raster art because they are not interactive controls. Current assets: `public/og-image-v4.jpg` and `public/embed-image-v4.jpg` (1200×630: the painted chamber, the v3 wordmark, the tagline and the six v3 portraits, composed in HTML and rendered headless so the text is exact). README screenshots live in `docs/screenshots/`.
 
 ## Keep Code-Native
 
@@ -24,14 +23,14 @@ This app should use generated raster assets where they add mood, identity, or ca
 
 ## Loading Strategy
 
-- Preload the home title banner and the viewport-specific table background from `src/app/layout.tsx`.
+- Preload the home wordmark from `src/app/layout.tsx`. The menu chamber backgrounds are CSS backgrounds on the home and lobby only.
 - Prefetch the focus card faces and focus card back after the initial page so gameplay reveal/exchange surfaces can reuse the browser cache.
 - Card artwork uses fixed intrinsic dimensions, `decoding="async"`, lazy loading by default, and `fetchPriority="high"` only for immediately visible or interactive cards.
 - Production image responses from `public/` get a one-day browser cache with stale-while-revalidate; keep filenames versioned when replacing important assets that need instant cache busting.
 
 ## Generated Asset Prompts
 
-The v2 brand, environment, icon, and card-back system was generated in Midjourney V8.1 using the approved character portraits as style references. The palette is blackened teal, crimson enamel, aged brass, and restrained cyan, with screen-printed gouache texture and a fictional 1970s dystopian civic-design language.
+**Historical (v2, August 2026, superseded except for the character portraits):** the v2 brand, environment, icon, and card-back system was generated in Midjourney V8.1 using the approved character portraits as style references. The palette is blackened teal, crimson enamel, aged brass, and restrained cyan, with screen-printed gouache texture and a fictional 1970s dystopian civic-design language.
 
 | Source download | Repository output | Production treatment |
 | --- | --- | --- |
@@ -147,7 +146,12 @@ built-in image tool from the brief in `docs/asset-briefs/2026-10-01-codex-imageg
 v3 Duke and Contessa portraits attached as style references. Three candidates per asset were
 proofed on a contact sheet at their real display sizes (card backs at 36-64 px beside a face card,
 wordmarks at 240-320 px on `--ground`). Choices: back **c** (rosette, the first, larger-emblem pass),
-wordmark **c**. Back **b** was rejected because its fleur-de-lis is now the Duke's emblem.
+wordmark **c**.
+
+The v3 app icon and favicon came from `docs/asset-briefs/2026-10-02-codex-app-icon.md` the same way:
+three variants proofed at 16/32/64/180/512 px on dark and light browser chrome. The plain crimson C
+(variant a) is the favicon; the C with the inset rosette (variant c) is every larger icon. Variant b
+(a bare rosette) was rejected as too generic for a brand mark. Back **b** was rejected because its fleur-de-lis is now the Duke's emblem.
 Encoding: `cwebp -q 82` for the backs (focus crop = centred 68% so the rosette fills a tiny card),
 `-q 90 -alpha_q 100` for the wordmark (trimmed to its alpha bounds, 960 px wide), `-q 68` for the
 dark backgrounds.

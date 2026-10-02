@@ -8,7 +8,7 @@ This file provides context to help AI assistants (like Claude Code) work effecti
 
 Coup Online is a real-time multiplayer web adaptation of the card game Coup (2-6 players). Players bluff, challenge, and block to eliminate opponents' influences. The project is a full-stack TypeScript application with a server-authoritative architecture.
 
-**Stack:** Next.js 15 (App Router) + Express + Socket.io + Zustand + Tailwind CSS + Vitest
+**Stack:** Next.js 16 (App Router) + Express + Socket.io + Zustand + Tailwind CSS + Vitest
 
 ---
 
@@ -103,11 +103,13 @@ Not every turn visits every phase. Income resolves immediately. Coup skips to In
 | `src/app/stores/gameStore.ts` | Zustand store: connection, room, game, chat, sound, reactions, error |
 | `src/app/stores/settingsStore.ts` | Zustand store: hapticEnabled, textSize (persisted to localStorage) |
 | `src/app/utils/haptic.ts` | Haptic feedback: vibration API with iOS Safari checkbox-switch fallback |
-| `src/app/audio/SoundEngine.ts` | Web Audio API synthesizer: 21+ sound types, mute toggle |
+| `src/app/audio/SoundEngine.ts` | Audio graph and measured mix: recorded ElevenLabs cues with synth fallbacks, music beds with crossfades and ducking (see docs/AUDIO.md, docs/AUDIO-MIX.md) |
 | `src/app/components/game/GameTable.tsx` | Main game layout: the oval "court table" (seats on the rim, centre stage, dock, log drawer) |
 | `src/app/components/game/table/` | Court table parts: `seatLayout.ts` (seat angles on the rim), `ClaimPlaque`, `CoinFlights`, `LogTicker`, `SeatSpeech` |
 | `src/app/components/icons/emblems.tsx` | The six character emblems (fleur-de-lis, stiletto, anchor, sealed scroll, fan, radiant eye) — rendered by `*Glyph` and `CharacterMedallion` |
-| `src/app/components/chat/ChatPanel.tsx` | Chat message list + text input |
+| `src/app/components/chat/ChatPanel.tsx` | Chat message list + text input (compact/roomy variants, optional quick phrases) |
+| `src/app/components/game/table/TableTalk.tsx` | Desktop always-on-screen chat beside the hand (hidden below 1024px, where chat lives in the log drawer) |
+| `ART-DIRECTION.md` | Binding visual rules: tokens, materials, type, depth, motion budget |
 | `src/app/components/game/GameCenterTabs.tsx` | Log/Chat tabbed container with unread indicator |
 | `src/app/components/game/GameOverOverlay.tsx` | Game over screen with rematch flow |
 | `src/app/components/game/ReactionPicker.tsx` | Emoji reaction selector (12 reactions) |
@@ -137,7 +139,7 @@ Not every turn visits every phase. Income resolves immediately. Coup skips to In
 
 ### Chat System
 
-Room-scoped chat works in both lobby and in-game. Messages are stored server-side per room (up to `CHAT_MAX_HISTORY`), rate-limited to 1 per second per player, and sent to rejoining players via `chat:history`. In-game, the `GameCenterTabs` component provides Log and Chat tabs with an unread indicator.
+Room-scoped chat works in both lobby and in-game. Messages are stored server-side per room (up to `CHAT_MAX_HISTORY`), rate-limited to 1 per second per player, and sent to rejoining players via `chat:history`. In-game on desktop, `TableTalk` keeps chat on screen beside the hand; the log drawer (`GameCenterTabs`) has Log and Chat tabs everywhere, and chat lines also appear briefly at the speaker's seat (`SeatSpeech`).
 
 ### Computer Players (Bots)
 
@@ -214,7 +216,7 @@ The `GameEngine.applySideEffect()` method interprets each effect and mutates the
 - **Types live in `src/shared/`** -- do not define game types in engine or server files
 - **Engine has no I/O** -- no `setTimeout`, no `socket.emit`, no `console.log` in `ActionResolver`. Timers and logging are expressed as side effects
 - **All game constants** are in `src/shared/constants.ts` -- do not hardcode magic numbers
-- **Room codes** are 6 characters using `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` (no ambiguous characters like O/0/I/1)
+- **Room codes** are 4 letters from `ABCDEFGHJKLMNPQRSTUVWXYZ` (no ambiguous characters like O/I)
 - **Player IDs** are UUIDs generated server-side
 - **State broadcasts** go to every connected human player in the room, each receiving their own filtered view (bots are skipped)
 - **Bots use the same engine API** -- `BotBrain` is pure logic (no I/O), `BotController` handles timing. Never add socket or timer logic to `BotBrain`
@@ -227,5 +229,5 @@ The `GameEngine.applySideEffect()` method interprets each effect and mutates the
 - Test imports use the `@/` path alias (e.g., `import { Game } from '@/engine/Game'`)
 - Engine tests should test the `ActionResolver` and `Game` classes directly, without sockets
 - Create players and a game programmatically, then call resolver methods and assert on the returned `ResolverResult`
-- Use `vitest` -- the config is in `vitest.config.ts`
+- Use `vitest` -- the config is in `vitest.config.mts` (it excludes `.claude/**` agent worktrees)
 - Test edge cases: steal from player with 1 coin, exchange with 1 influence, forced coup at 10 coins, challenge on a truthful claim vs. a bluff

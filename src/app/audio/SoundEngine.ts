@@ -3,7 +3,7 @@
  *
  *   sfx voices ─┐
  *               ├→ preMaster → compressor → softClip → master → destination
- *   music ──────┘
+ *   music → EQ ─┘   (musicGain → highpass → low shelf → presence dip → musicDuck)
  *
  * Nothing in this module constructs an AudioContext at import time. That is
  * structural, not stylistic: this file is imported by React components long
@@ -62,52 +62,169 @@ export interface SoundStats {
 /* ── music ────────────────────────────────────────────────────────────────── */
 
 /**
- * The adaptive score. Three seamless loops from one key/tempo family, every one
- * normalised to the same integrated loudness (MUSIC_LUFS) so MUSIC_GAIN means
- * the same thing whichever bed is playing — see docs/AUDIO.md.
+ * The adaptive score: a POOL of through-composed pieces per state, not a loop.
+ * See docs/AUDIO.md for the pieces, how each was chosen, and the state machine
+ * (src/app/hooks/useMusicDirector.ts decides which state; this file plays it).
  *
- *   lobby    home + lobby, after the first gesture unlocks audio
- *   table    gameplay
- *   endgame  the final duel — two players left — crossfaded in from `table`
+ *   lobby         home + lobby, after the first gesture unlocks audio
+ *   court         ≥3 alive and calm — sly court intrigue
+ *   tension       ≥3 alive and someone on their last card, or a Coup affordable
+ *   duel          two alive
+ *   sudden_death  two alive, both on their last card
+ *   fallen        the local player is out and the game goes on
  */
-export type MusicTrack = 'lobby' | 'table' | 'endgame';
+export type MusicState = 'lobby' | 'court' | 'tension' | 'duel' | 'sudden_death' | 'fallen';
 
-export interface MusicBed {
+export const MUSIC_STATES: readonly MusicState[] = ['lobby', 'court', 'tension', 'duel', 'sudden_death', 'fallen'];
+
+/**
+ * One mastered piece. Every time is in seconds from the start of the file and
+ * is printed by `scripts/generate-music.ts master` — a property of the file,
+ * not a tuning. `entryS`, `leadInS` and `handoffS` sit on the piece's bar grid.
+ */
+export interface MusicPiece {
   readonly url: string;
-  /**
-   * The loop region, seconds. Each file is [wrap-around padding][loop][wrap-
-   * around padding] so the MP3 codec's edge effects land outside the region
-   * the buffer loops over — gapless MP3 is exact-length but not seamless. The
-   * figures are printed by `scripts/generate-music.ts master` (PAD = 4096
-   * samples at 44.1kHz); they are a property of the file, not a tuning.
-   */
-  readonly loopStart: number;
-  readonly loopEnd: number;
-  /** Measured, not requested: every bed's onset comb peaks at exactly 84.00. */
+  readonly durationS: number;
+  /** Where a handoff WITHIN the pool starts this piece: a short run-up of its own. */
+  readonly leadInS: number;
+  /** Where a STATE CHANGE enters this piece: the bar where its body has arrived. */
+  readonly entryS: number;
+  /** Where the next piece of the pool starts and this one fades out: just after its final cadence. */
+  readonly handoffS: number;
+  /** Measured pulse, folded onto the prompt's tempo. Informational. */
   readonly bpm: number;
 }
 
-const LOOP_PAD_S = 4096 / 44100;
+const MUSIC = '/audio/music/';
 
-export const MUSIC_BEDS: Readonly<Record<MusicTrack, MusicBed>> = {
-  lobby: { url: '/audio/music/lobby-antechamber.mp3', loopStart: LOOP_PAD_S, loopEnd: LOOP_PAD_S + 1764182 / 44100, bpm: 84 },
-  table: { url: '/audio/music/table-velvet-court.mp3', loopStart: LOOP_PAD_S, loopEnd: LOOP_PAD_S + 2520342 / 44100, bpm: 84 },
-  endgame: { url: '/audio/music/endgame-last-favour.mp3', loopStart: LOOP_PAD_S, loopEnd: LOOP_PAD_S + 2393982 / 44100, bpm: 84 },
+export const MUSIC_POOLS: Readonly<Record<MusicState, readonly MusicPiece[]>> = {
+  lobby: [
+    { url: `${MUSIC}lobby-antechamber-waltz.mp3`, durationS: 117.783, leadInS: 0, entryS: 0, handoffS: 105.831, bpm: 80 },
+    { url: `${MUSIC}lobby-petitioners-bench.mp3`, durationS: 109.078, leadInS: 0, entryS: 0, handoffS: 103.956, bpm: 72.1 },
+  ],
+  court: [
+    { url: `${MUSIC}court-whispering-gallery.mp3`, durationS: 142.897, leadInS: 0, entryS: 4.003, handoffS: 116.421, bpm: 91.8 },
+    { url: `${MUSIC}court-ministry-minuet.mp3`, durationS: 148.497, leadInS: 0, entryS: 1.321, handoffS: 143.426, bpm: 95 },
+    { url: `${MUSIC}court-ledger-and-quill.mp3`, durationS: 138.642, leadInS: 3.6, entryS: 13.2, handoffS: 116.4, bpm: 100 },
+    { url: `${MUSIC}court-velvet-procession.mp3`, durationS: 133.692, leadInS: 7.163, entryS: 16.637, handoffS: 127.163, bpm: 76 },
+  ],
+  tension: [
+    { url: `${MUSIC}tension-counting-house.mp3`, durationS: 122.648, leadInS: 18.462, entryS: 27.692, handoffS: 110.769, bpm: 104 },
+    { url: `${MUSIC}tension-quiet-knife.mp3`, durationS: 108.498, leadInS: 0, entryS: 0, handoffS: 99.793, bpm: 96 },
+  ],
+  duel: [
+    { url: `${MUSIC}duel-two-chairs-remain.mp3`, durationS: 116.683, leadInS: 0, entryS: 6.216, handoffS: 103.993, bpm: 108 },
+    { url: `${MUSIC}duel-audience-of-one.mp3`, durationS: 108.578, leadInS: 0, entryS: 0, handoffS: 102.414, bpm: 112 },
+    { url: `${MUSIC}duel-crossed-signets.mp3`, durationS: 112.193, leadInS: 10.353, entryS: 18.43, handoffS: 102.661, bpm: 104 },
+  ],
+  sudden_death: [
+    { url: `${MUSIC}sudden-death-one-card-each.mp3`, durationS: 108.378, leadInS: 1.688, entryS: 10.26, handoffS: 102.403, bpm: 112 },
+    { url: `${MUSIC}sudden-death-final-wager.mp3`, durationS: 98.699, leadInS: 0, entryS: 8.196, handoffS: 81.529, bpm: 108 },
+  ],
+  fallen: [
+    { url: `${MUSIC}fallen-from-the-gallery.mp3`, durationS: 109.328, leadInS: 0, entryS: 0, handoffS: 101.24, bpm: 72 },
+    { url: `${MUSIC}fallen-after-the-verdict.mp3`, durationS: 102.588, leadInS: 0, entryS: 9.241, handoffS: 96.873, bpm: 76 },
+  ],
 };
 
-/** Integrated loudness every bed is mastered to. */
-export const MUSIC_LUFS = -20;
+/**
+ * Integrated loudness each state's pieces are mastered to. Duel and sudden
+ * death sit 1.5 LU hotter; the masking gate (tests/app/audio/mix.test.ts)
+ * checks that even they leave every cue audible in its own octave.
+ */
+export const MUSIC_LUFS: Readonly<Record<MusicState, number>> = {
+  lobby: -20, court: -20, tension: -20, fallen: -20, duel: -18.5, sudden_death: -18.5,
+};
 
 /**
- * 0.243 at −20 LUFS is the level 0.18 was at −17.4 LUFS — the loudness the
- * single shipped bed (`velvet-court.mp3`) was mastered to. Normalising every
- * bed 2.6dB down and raising this by 2.6dB keeps the bed exactly where it was;
- * what changed is that all three beds now sit at that level, not one.
+ * The music bus level, before the EQ below. SOLVED, not chosen (2026-10-02,
+ * docs/AUDIO-MIX.md "Cue over music"): the highest level at which every cue
+ * still clears every in-match piece's LOUD moments (p90) in the cue's own
+ * loudest octave — tier 0–3 by 4dB, tier 4 by 2.5dB — with 0.3dB to spare.
+ *
+ * It went 0.243 → 0.052 (−13.4dB). The old table bed was 72% energy under
+ * 150Hz and nearly silent above 500Hz, so it buried nothing in the cue
+ * octaves while sitting on top of the whole mix as rumble. The new pieces put
+ * their weight where instruments do — 250Hz–2kHz — which is where the chrome
+ * cues live too: `denied` (500Hz knock) and `chatMessage` / `yourTurn` (1kHz)
+ * are what bind. The gate pins this number to its render (MEASURED_MUSIC_GAIN).
  */
-const MUSIC_GAIN = 0.243;
+const MUSIC_GAIN = 0.052;
 
-/** Equal-power crossfade between beds. Long enough to read as a decision. */
-const MUSIC_XFADE_S = 2.0;
+/**
+ * The player's music volume, 0–100, on top of MUSIC_GAIN. 50 is exactly the
+ * measured level the gate solves for; each step is 0.24 dB, so the slider
+ * spans −12 dB to +12 dB. The gate never sees this — it measures the default.
+ */
+export const MUSIC_VOLUME_DEFAULT = 50;
+export function musicVolumeGain(volume: number): number {
+  const v = Math.min(100, Math.max(0, volume));
+  return Math.pow(10, ((v - MUSIC_VOLUME_DEFAULT) * 0.24) / 20);
+}
+
+/**
+ * The music-bus EQ, on the music path only (musicGain → here → musicDuck):
+ *
+ *   highpass   100Hz, Q 0.707   — nothing under the card thuds; phones play
+ *                                 none of it and headphones made it the mix
+ *   low shelf  220Hz, −4dB      — the chest of the low strings, down a step
+ *   presence   3kHz, −3dB, Q 1  — a dip where the coin, card and chrome cues
+ *                                 put their weight
+ *
+ * Measured, not assumed: the harness renders every piece through this chain
+ * and records its share of energy below 150Hz before and after (AUDIO-MIX.md).
+ */
+export const MUSIC_EQ = {
+  highpassHz: 110,
+  highpassQ: 0.707,
+  lowShelfHz: 220,
+  lowShelfDb: -5,
+  presenceHz: 3000,
+  presenceDb: -3,
+  presenceQ: 1,
+} as const;
+
+/** Equal-power crossfade when the STATE changes. Long enough to read as a decision. */
+const MUSIC_XFADE_STATE_S = 3;
+/** At a handoff within a pool: the outgoing piece's fade (at most) … */
+const MUSIC_XFADE_POOL_S = 8;
+/** … and the incoming piece's fade-in from its lead-in. */
+const MUSIC_FADE_IN_POOL_S = 4;
+/** Fetch + decode the next piece of the pool this long before its handoff. */
+export const MUSIC_PREFETCH_S = 20;
+/**
+ * Music is decoded at 32kHz, not the context's 44.1/48kHz: a decoded 150s
+ * stereo piece is 38MB of float32 instead of 58MB, and up to three can be
+ * resident at once (outgoing, sounding, prefetched). The MP3s are encoded with
+ * LAME's ~16–17kHz lowpass, so 32kHz (16kHz Nyquist) loses nothing audible.
+ * The harness decodes the same way, so the measurements describe this.
+ */
+export const MUSIC_DECODE_RATE = 32000;
+
+/**
+ * The shuffle bag. `bag` is what is left of the current cycle; when it is
+ * empty a new cycle is dealt in random order, and if that order would start
+ * with the piece just played it is swapped with another. So a piece never
+ * plays twice in a row and every piece in the pool plays once before any
+ * plays twice. Pure — `rng` is passed in — so it is tested directly.
+ */
+export function drawFromBag(
+  bag: readonly number[], size: number, last: number | undefined, rng: () => number,
+): { pick: number; bag: number[] } {
+  let queue = [...bag];
+  if (queue.length === 0) {
+    queue = Array.from({ length: size }, (_, i) => i);
+    for (let i = size - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [queue[i], queue[j]] = [queue[j], queue[i]];
+    }
+    if (size > 1 && queue[0] === last) {
+      const j = 1 + Math.floor(rng() * (size - 1));
+      [queue[0], queue[j]] = [queue[j], queue[0]];
+    }
+  }
+  return { pick: queue[0], bag: queue.slice(1) };
+}
 
 /* ── hero clips ───────────────────────────────────────────────────────────── */
 
@@ -430,10 +547,12 @@ const JITTERED: ReadonlySet<SoundId> = new Set<SoundId>([
  * and only 1.3dB under a lost influence.
  *
  * ── STILL UNMEASURED ────────────────────────────────────────────────────────
- *  • (Measured since 2026-10-01: cue vs bed. Broadband the table bed sits
- *    ABOVE tier 4 — it is nearly all bass — but in each cue's own loudest
- *    octave every cue clears both in-match beds, the thinnest being `denied`
- *    at 3.1dB over the table bed. Gated in mix.test.ts; MEASURED_MASKING.)
+ *  • (Measured since 2026-10-01: cue vs music; re-measured 2026-10-02 for
+ *    the adaptive score. In its own loudest octave every cue clears every
+ *    in-match piece's LOUD moments (p90) — the thinnest is `denied`, 2.83dB
+ *    over court-whispering-gallery at 500Hz, which is what MUSIC_GAIN is
+ *    solved against — and every piece's p90 sits ≥5dB under the quietest
+ *    tier-3 cue. Gated in mix.test.ts; MEASURED_MASKING, MEASURED_BEDS.)
  *  • Perceptual weighting. The ladder is unweighted RMS. A 6kHz card tear and
  *    a 120Hz timpani at the same "loud" are not equally loud to a listener —
  *    K-weighting would put the tear ~4dB up. The tiers are 1.8–2dB apart, so
@@ -698,7 +817,7 @@ function noiseBuffer(ctx: BaseAudioContext, kind: NoiseKind, seconds: number): A
  *
  *   sfx voices ─┐
  *               ├→ preMaster → compressor → softClip → master → destination
- *   music ──────┘
+ *   music → EQ ─┘   (musicGain → highpass → low shelf → presence dip → musicDuck)
  *
  * ── ONE GRAPH IMPLEMENTATION ────────────────────────────────────────────────
  * This function is the only place the master chain is built. `getGraph()` calls
@@ -748,9 +867,28 @@ function buildGraph(ctx: BaseAudioContext, sfxMuted: boolean): Graph {
   musicDuck.gain.value = 1;
   musicDuck.connect(preMaster);
 
+  // The music-bus EQ (MUSIC_EQ): the bed sits UNDER the game — no sub, less
+  // chest, and a dip where the cues live. Music only; the effects are untouched.
+  const presence = ctx.createBiquadFilter();
+  presence.type = 'peaking';
+  presence.frequency.value = MUSIC_EQ.presenceHz;
+  presence.Q.value = MUSIC_EQ.presenceQ;
+  presence.gain.value = MUSIC_EQ.presenceDb;
+  presence.connect(musicDuck);
+  const lowShelf = ctx.createBiquadFilter();
+  lowShelf.type = 'lowshelf';
+  lowShelf.frequency.value = MUSIC_EQ.lowShelfHz;
+  lowShelf.gain.value = MUSIC_EQ.lowShelfDb;
+  lowShelf.connect(presence);
+  const highpass = ctx.createBiquadFilter();
+  highpass.type = 'highpass';
+  highpass.frequency.value = MUSIC_EQ.highpassHz;
+  highpass.Q.value = MUSIC_EQ.highpassQ;
+  highpass.connect(lowShelf);
+
   const musicGain = ctx.createGain();
   musicGain.gain.value = 0;
-  musicGain.connect(musicDuck);
+  musicGain.connect(highpass);
 
   return {
     ctx,
@@ -1389,20 +1527,22 @@ export function renderSoundOffline(
 }
 
 /**
- * Render a music bed through the REAL chain at MUSIC_GAIN — the same
- * `buildGraph()`, into `musicGain` exactly as `startBed()` connects it — so the
- * bed can be measured on the same axis as the cues. Browser-only, harness-only.
- * Discard the first RENDER_PRE_ROLL_S of the result (compressor makeup ramp).
+ * Render a music piece through the REAL chain at MUSIC_GAIN — the same
+ * `buildGraph()` (so the same music-bus EQ), into `musicGain` exactly as
+ * `startPiece()` connects it — so the music can be measured on the same axis as
+ * the cues. Browser-only, harness-only. Discard the first RENDER_PRE_ROLL_S of
+ * the result (compressor makeup ramp). `gainOverride` is MEASUREMENT ONLY: it
+ * is how the harness probes a candidate MUSIC_GAIN without editing this file.
  */
 export function renderMusicOffline(
   buffer: AudioBuffer,
-  opts: { seconds?: number; sampleRate?: number; offsetS?: number } = {},
+  opts: { seconds?: number; sampleRate?: number; offsetS?: number; gainOverride?: number } = {},
 ): Promise<AudioBuffer> {
   const sampleRate = opts.sampleRate ?? 48000;
   const seconds = opts.seconds ?? 20;
   const ctx = new OfflineAudioContext(2, Math.ceil((RENDER_PRE_ROLL_S + seconds) * sampleRate), sampleRate);
   const g = buildGraph(ctx, false);
-  g.musicGain.gain.value = MUSIC_GAIN;
+  g.musicGain.gain.value = opts.gainOverride ?? MUSIC_GAIN;
   const source = ctx.createBufferSource();
   source.buffer = buffer;
   source.connect(g.musicGain);
@@ -1423,6 +1563,9 @@ export function soundIds(): readonly SoundId[] {
 /** The mix trim table, read-only. The gate imports this. */
 export const MIX_TRIM_DB: Readonly<Record<SoundId, number>> = MIX_DB;
 
+/** The music bus level, read-only. The gate pins it to the render it was measured at. */
+export const MUSIC_BUS_GAIN: number = MUSIC_GAIN;
+
 /** The tier table, read-only. The gate imports this. */
 export const MIX_TIER_OF: Readonly<Record<SoundId, MixTier>> = MIX_TIER;
 
@@ -1439,34 +1582,93 @@ export const HERO_CLIP_GAIN: Readonly<Partial<Record<SoundId, readonly number[]>
 export const VOICE_TAIL_S: Readonly<Record<SoundId, number>> =
   Object.fromEntries(Object.entries(VOICE).map(([id, v]) => [id, v.tail])) as Record<SoundId, number>;
 
+/* ── the score's voices ───────────────────────────────────────────────────── */
+
+/** One piece sounding (or scheduled to) through its own gain into musicGain. */
+interface MusicVoice {
+  readonly piece: MusicPiece;
+  readonly state: MusicState;
+  readonly source: AudioBufferSourceNode;
+  readonly gain: GainNode;
+  /** Context time at which the file's 0s would have played. */
+  readonly origin: number;
+  /** Context time the source starts. */
+  readonly startAt: number;
+}
+
+/**
+ * Equal-power halves: the incoming piece follows sin, the outgoing cos, so the
+ * summed power is constant through a crossfade — a linear fade between two
+ * uncorrelated pieces dips 3dB in the middle, which reads as the music
+ * hesitating.
+ */
+function equalPowerCurve(dir: 'in' | 'out', from: number): Float32Array {
+  const n = 64;
+  const c = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1)) * (Math.PI / 2);
+    c[i] = (dir === 'in' ? Math.sin(x) : Math.cos(x)) * from;
+  }
+  return c;
+}
+
+/**
+ * Fade a gain param to 0 along the outgoing equal-power half, starting from
+ * wherever it IS at `at` — a change can land half-way through another fade,
+ * and jumping back to where that fade started is an audible step. Holds
+ * rather than cancels; Firefox has no `cancelAndHoldAtTime`, and a new curve
+ * that overlaps a still-scheduled one throws, so the fallback is a plain ramp.
+ */
+function fadeOut(p: AudioParam, at: number, dur: number): void {
+  const from = p.value;
+  try {
+    if (typeof p.cancelAndHoldAtTime === 'function') p.cancelAndHoldAtTime(at);
+    else {
+      p.cancelScheduledValues(at);
+      p.setValueAtTime(from, at);
+    }
+    p.setValueCurveAtTime(equalPowerCurve('out', from), at + 0.001, dur);
+  } catch {
+    p.cancelScheduledValues(0);
+    p.setValueAtTime(from, at);
+    p.linearRampToValueAtTime(0, at + dur);
+  }
+}
+
 /* ── the engine ───────────────────────────────────────────────────────────── */
 
 class SoundEngine {
   private graph: Graph | null = null;
   /** The same object as `graph.ctx`, narrowed. Only `resume()` needs it. */
   private liveCtx: AudioContext | null = null;
-  // ── music state ──
-  /** The bed the current scene wants. `startMusic()` plays this one. */
-  private musicTrack: MusicTrack = 'table';
-  /** The bed actually sounding, or null. */
-  private playingTrack: MusicTrack | null = null;
-  private musicSource: AudioBufferSourceNode | null = null;
-  /** Per-source gain, so two beds can crossfade under the one musicGain. */
-  private musicSourceGain: GainNode | null = null;
-  /** Beds fading out (crossfade or stop). Stopped at once if music restarts. */
-  private retiringMusic = new Set<AudioBufferSourceNode>();
-  private musicBuffers = new Map<MusicTrack, AudioBuffer>();
-  private musicBufferPromises = new Map<MusicTrack, Promise<AudioBuffer>>();
-  private musicRequestVersion = 0;
-  private musicXfadeVersion = 0;
-  /** Context time the playing bed was at loop position 0 — for beatPhase(). */
-  private bedStartedAt = 0;
+  // ── music state ── see "the score" below.
+  /** The state the current scene wants. `startMusic()` plays this one. */
+  private musicState: MusicState = 'court';
+  /** The piece that owns the timeline: its handoff schedules the next. */
+  private current: MusicVoice | null = null;
+  /** The next piece of the pool, scheduled on the audio clock at the handoff. */
+  private queued: MusicVoice | null = null;
+  /** Pieces fading out (handoff, state change or stop). */
+  private retiring = new Set<MusicVoice>();
+  /** Shuffle bag and last pick, per state — they survive leaving the state. */
+  private bags = new Map<MusicState, number[]>();
+  private lastPick = new Map<MusicState, number>();
+  private musicBuffers = new Map<string, AudioBuffer>();
+  private musicBufferPromises = new Map<string, Promise<AudioBuffer>>();
+  /** Lazily built 32kHz decoder — see MUSIC_DECODE_RATE. */
+  private musicDecoder: BaseAudioContext | null = null;
+  /** Bumped by every state change, start and stop; async continuations compare it. */
+  private musicVersion = 0;
+  /** A load for a start or a state change is in flight (its version). */
+  private musicPending: number | null = null;
+  private musicTimers = new Set<ReturnType<typeof setTimeout>>();
   private clipBuffers = new Map<string, AudioBuffer>();
   private clipBufferPromises = new Map<string, Promise<AudioBuffer>>();
   /** Last round-robin variant per cue — never picked twice running. */
   private lastVariant = new Map<SoundId, number>();
   private _muted: boolean;
   private _musicEnabled: boolean;
+  private _musicVolume: number;
 
   // Voice budget, reaped by scheduled end time — see reap().
   private voiceEnd: number[] = [];
@@ -1487,6 +1689,25 @@ class SoundEngine {
       && localStorage.getItem('coup_sound_muted') === 'true';
     this._musicEnabled = typeof window === 'undefined'
       || localStorage.getItem('coup_music_enabled') !== 'false';
+    const storedVolume = typeof window === 'undefined' ? null : localStorage.getItem('coup_music_volume');
+    this._musicVolume = storedVolume === null || Number.isNaN(Number(storedVolume))
+      ? MUSIC_VOLUME_DEFAULT
+      : Number(storedVolume);
+  }
+
+  get musicVolume(): number {
+    return this._musicVolume;
+  }
+
+  /** The player's music volume (0–100). Applies at once to a playing piece. */
+  setMusicVolume(volume: number): void {
+    this._musicVolume = Math.min(100, Math.max(0, volume));
+    if (typeof window !== 'undefined') localStorage.setItem('coup_music_volume', String(this._musicVolume));
+    if (this.current && this.graph) this.rampGain(this.graph.musicGain, this.musicLevel(), 120);
+  }
+
+  private musicLevel(): number {
+    return MUSIC_GAIN * musicVolumeGain(this._musicVolume);
   }
 
   get muted(): boolean {
@@ -1562,173 +1783,275 @@ class SoundEngine {
     }
   }
 
-  /**
-   * Fetch + decode one bed. A decoded 90s stereo bed is ~35MB of float32, so at
-   * most the wanted bed and the one sounding are kept; anything else is evicted
-   * (the encoded bytes stay in the HTTP / service-worker cache).
+  /* ── the score ─────────────────────────────────────────────────────────────
+   *
+   * One piece at a time per state, through-composed, from that state's pool:
+   *
+   *   start      the first piece of the wanted state (lobby from its top, an
+   *              in-game state from its `entryS`), musicGain fading in
+   *   handoff    MUSIC_PREFETCH_S before the playing piece's `handoffS`, the
+   *              next piece of the SAME pool (shuffle bag) is fetched and
+   *              decoded; it is then scheduled ON THE AUDIO CLOCK to start at
+   *              the handoff (a bar line of the outgoing piece) from its own
+   *              `leadInS`, fading in over MUSIC_FADE_IN_POOL_S while the
+   *              outgoing piece fades out over its remaining tail (≤8s).
+   *   state      a different state crossfades now — equal-power, MUSIC_XFADE_STATE_S
+   *              — into a piece of the new pool at its `entryS`, so a change
+   *              into tension sounds like tension, not like a soft intro.
+   *   stop       musicGain fades to 0 and every piece is stopped after it.
+   *
+   * Only the sounding piece is fetched; the next is prefetched ~20s ahead.
+   * Nothing is precached by the service worker (it runtime-caches /audio/).
+   * Decoded buffers not sounding or queued are evicted.
+   *
+   * Main-thread timers only PREPARE (prefetch) and PROMOTE (bookkeeping after a
+   * handoff); every audible event is scheduled on the audio clock. A throttled
+   * background tab therefore delays bookkeeping, never a fade. If a prefetch
+   * fails, the piece plays out to its natural end and `onended` starts another.
    */
-  private loadMusic(ctx: BaseAudioContext, track: MusicTrack): Promise<AudioBuffer> {
-    const cached = this.musicBuffers.get(track);
+
+  private musicDecodeCtx(fallback: BaseAudioContext): BaseAudioContext {
+    if (this.musicDecoder) return this.musicDecoder;
+    try {
+      this.musicDecoder = new OfflineAudioContext(2, 1, MUSIC_DECODE_RATE);
+    } catch {
+      this.musicDecoder = fallback;
+    }
+    return this.musicDecoder;
+  }
+
+  /** Fetch + decode one piece (32kHz — MUSIC_DECODE_RATE), and evict the unused. */
+  private loadPiece(ctx: BaseAudioContext, url: string): Promise<AudioBuffer> {
+    const cached = this.musicBuffers.get(url);
     if (cached) return Promise.resolve(cached);
-    const pending = this.musicBufferPromises.get(track);
+    const pending = this.musicBufferPromises.get(url);
     if (pending) return pending;
-    const promise = fetch(MUSIC_BEDS[track].url)
+    const promise = fetch(url)
       .then((response) => {
         if (!response.ok) throw new Error(`Music request failed: ${response.status}`);
         return response.arrayBuffer();
       })
-      .then(audio => ctx.decodeAudioData(audio))
+      .then(audio => this.musicDecodeCtx(ctx).decodeAudioData(audio))
       .then((buffer) => {
-        this.musicBufferPromises.delete(track);
-        this.musicBuffers.set(track, buffer);
-        for (const t of this.musicBuffers.keys()) {
-          if (t !== track && t !== this.musicTrack && t !== this.playingTrack) this.musicBuffers.delete(t);
-        }
+        this.musicBufferPromises.delete(url);
+        this.musicBuffers.set(url, buffer);
+        this.evictMusic(url);
         return buffer;
       })
       .catch((error: unknown) => {
-        this.musicBufferPromises.delete(track);
+        this.musicBufferPromises.delete(url);
         throw error;
       });
-    this.musicBufferPromises.set(track, promise);
+    this.musicBufferPromises.set(url, promise);
     return promise;
   }
 
+  /** Keep only what is sounding, queued, or just loaded. */
+  private evictMusic(keep: string): void {
+    const live = new Set<string>([keep]);
+    for (const v of [this.current, this.queued, ...this.retiring]) if (v) live.add(v.piece.url);
+    for (const url of this.musicBuffers.keys()) if (!live.has(url)) this.musicBuffers.delete(url);
+  }
+
+  /** The next piece of `state`'s pool, from its shuffle bag. */
+  private pickPiece(state: MusicState): MusicPiece {
+    const pool = MUSIC_POOLS[state];
+    const { pick, bag } = drawFromBag(this.bags.get(state) ?? [], pool.length, this.lastPick.get(state), Math.random);
+    this.bags.set(state, bag);
+    this.lastPick.set(state, pick);
+    return pool[pick];
+  }
+
+  private later(fn: () => void, ms: number): void {
+    const t = setTimeout(() => {
+      this.musicTimers.delete(t);
+      fn();
+    }, Math.max(0, ms));
+    this.musicTimers.add(t);
+  }
+
+  private clearMusicTimers(): void {
+    for (const t of this.musicTimers) clearTimeout(t);
+    this.musicTimers.clear();
+  }
+
   /**
-   * One looping bed through its own crossfade gain into musicGain, looping over
-   * the bed's loop region (never its wrap-around padding). `phase` is seconds
-   * into the loop region to start at — see crossfadeTo().
+   * One piece, through its own gain into musicGain, starting at context time
+   * `at` from `offset` seconds into the file, fading in over `fadeInS` (sin —
+   * the incoming half of an equal-power pair; 0 = full level at once).
    */
-  private startBed(
-    g: Graph, track: MusicTrack, buffer: AudioBuffer, at: number, gain: number, phase = 0,
-  ): AudioBufferSourceNode {
-    const bed = MUSIC_BEDS[track];
+  private startPiece(
+    g: Graph, piece: MusicPiece, state: MusicState, buffer: AudioBuffer, at: number, offset: number, fadeInS: number,
+  ): MusicVoice {
     const source = g.ctx.createBufferSource();
     source.buffer = buffer;
-    source.loop = true;
-    // A buffer shorter than the declared region (a different file at the same
-    // URL) loops whole rather than over a region it does not have.
-    if (buffer.duration >= bed.loopEnd - 0.001) {
-      source.loopStart = bed.loopStart;
-      source.loopEnd = bed.loopEnd;
+    const gain = g.ctx.createGain();
+    if (fadeInS > 0) {
+      gain.gain.setValueAtTime(0, at);
+      gain.gain.setValueCurveAtTime(equalPowerCurve('in', 1), at + 0.001, fadeInS);
+    } else {
+      gain.gain.setValueAtTime(1, at);
     }
-    this.bedStartedAt = at - phase;
-    const sg = g.ctx.createGain();
-    sg.gain.setValueAtTime(gain, at);
-    source.connect(sg).connect(g.musicGain);
+    source.connect(gain).connect(g.musicGain);
+    const start = Math.min(Math.max(0, offset), Math.max(0, buffer.duration - 1));
+    const voice: MusicVoice = { piece, state, source, gain, origin: at - start, startAt: at };
     source.onended = () => {
-      sg.disconnect();
-      this.retiringMusic.delete(source);
-      if (this.musicSource === source) {
-        this.musicSource = null;
-        this.musicSourceGain = null;
-        this.playingTrack = null;
+      gain.disconnect();
+      this.retiring.delete(voice);
+      if (this.queued === voice) this.queued = null;
+      if (this.current === voice) {
+        const g = this.graph;
+        if (this.queued && g) {
+          // The promote timer was starved (background tab): catch up.
+          this.promote(g, voice, this.queued);
+          return;
+        }
+        // Played out with nothing queued behind it (a failed prefetch, or a
+        // timer starved before the prefetch): carry on with the next piece.
+        this.current = null;
+        if (this._musicEnabled && this.musicPending === null) this.startMusic();
       }
     };
-    source.start(at, (source.loopEnd > 0 ? bed.loopStart : 0) + phase);
-    this.musicSource = source;
-    this.musicSourceGain = sg;
-    return source;
+    source.start(at, start);
+    return voice;
   }
 
   /**
-   * Seconds into the current beat of the bed that is playing. Every bed is
-   * 84 BPM and every loop region starts on an onset, so starting the incoming
-   * bed at the outgoing one's beat phase keeps the two grids together through
-   * the crossfade — two beds a fraction of a beat apart for two seconds is the
-   * flam a listener names instantly.
+   * Fade a piece out from wherever its gain IS (a change can land mid-way
+   * through another fade) and stop it after. A piece scheduled for the
+   * future that has not started is simply cancelled.
    */
-  private beatPhase(now: number, track: MusicTrack): number {
-    const bed = MUSIC_BEDS[track];
-    const period = bed.loopEnd - bed.loopStart;
-    const pos = ((now - this.bedStartedAt) % period + period) % period;
-    return pos % (60 / bed.bpm);
+  private retire(g: Graph, v: MusicVoice, at: number, fadeS: number): void {
+    this.retiring.add(v);
+    if (v.startAt > at) {
+      try { v.source.stop(); } catch { /* not started */ }
+      return;
+    }
+    fadeOut(v.gain.gain, at, fadeS);
+    try { v.source.stop(at + fadeS + 0.05); } catch { /* already stopped */ }
   }
 
-  /** Stop every bed that is on its way out, now. */
-  private dropRetiringMusic(): void {
-    for (const source of this.retiringMusic) {
-      try { source.stop(); } catch { /* already stopped */ }
-    }
-    this.retiringMusic.clear();
+  /** After a handoff: the queued piece owns the timeline. Guarded by identity. */
+  private promote(g: Graph, from: MusicVoice, to: MusicVoice): void {
+    if (this.current !== from || this.queued !== to) return;
+    this.current = to;
+    this.queued = null;
+    this.scheduleHandoff(g, to);
+  }
+
+  /** Prefetch the next piece of this voice's pool ahead of its handoff. */
+  private scheduleHandoff(g: Graph, v: MusicVoice): void {
+    const version = this.musicVersion;
+    const handoffAt = v.origin + v.piece.handoffS;
+    const prefetchIn = (handoffAt - MUSIC_PREFETCH_S - g.ctx.currentTime) * 1000;
+    this.later(() => {
+      if (version !== this.musicVersion || this.current !== v || this.queued) return;
+      const next = this.pickPiece(v.state);
+      void this.loadPiece(g.ctx, next.url).then((buffer) => {
+        if (version !== this.musicVersion || this.current !== v || this.queued) return;
+        const now = g.ctx.currentTime;
+        const at = Math.max(handoffAt, now + 0.05);
+        const tail = clamp(v.origin + v.piece.durationS - at, 0.5, MUSIC_XFADE_POOL_S);
+        this.queued = this.startPiece(g, next, v.state, buffer, at, next.leadInS, MUSIC_FADE_IN_POOL_S);
+        this.retire(g, v, at, tail);
+        // Bookkeeping only — the audio is already scheduled.
+        const q = this.queued;
+        this.later(() => this.promote(g, v, q), (at - now) * 1000 + 50);
+      }).catch((error: unknown) => {
+        // Let this piece play out; `onended` starts the next.
+        console.warn('Unable to prefetch the next music piece', error);
+      });
+    }, prefetchIn);
   }
 
   /**
-   * Choose the bed for the current scene. If music is playing a different bed,
-   * crossfade to this one (equal-power, MUSIC_XFADE_S); if music is not playing,
-   * only record the choice — `startMusic()` (or the first-gesture `unlock()`)
-   * will play it. Never starts audio on its own, so it is safe to call from an
+   * Choose the state for the current scene. If music is playing another
+   * state, crossfade into this state's pool; if nothing is playing, only
+   * record the choice — `startMusic()` (or the first-gesture `unlock()`) will
+   * play it. Never starts audio on its own, so it is safe to call from an
    * effect before the page has had a gesture.
    */
-  setMusicTrack(track: MusicTrack): void {
-    this.musicTrack = track;
+  setMusicState(state: MusicState): void {
+    const changed = state !== this.musicState;
+    this.musicState = state;
     const g = this.graph;
-    if (!g || !this.musicSource || this.playingTrack === track) return;
-    if (!this._musicEnabled || g.ctx.state !== 'running') return;
-    const version = ++this.musicXfadeVersion;
-    void this.loadMusic(g.ctx, track).then((buffer) => {
-      if (
-        version !== this.musicXfadeVersion
-        || this.musicTrack !== track
-        || !this.musicSource
-        || this.playingTrack === track
-        || g.ctx.state !== 'running'
-      ) return;
-      this.crossfadeTo(g, track, buffer);
+    if (!g || !this._musicEnabled || g.ctx.state !== 'running') return;
+    const playing = this.current ?? this.queued;
+    if (!playing) {
+      // Nothing sounding: a start in flight for the old state restarts.
+      if (changed && this.musicPending !== null) {
+        this.musicVersion += 1;
+        this.musicPending = null;
+        this.startMusic();
+      }
+      return;
+    }
+    if (playing.state === state) {
+      if (this.musicPending !== null) {
+        // Back to what is playing while a switch away was loading: cancel the
+        // switch and re-arm the handoff the switch had disarmed.
+        this.musicVersion += 1;
+        this.musicPending = null;
+        this.clearMusicTimers();
+        if (this.current && !this.queued) this.scheduleHandoff(g, this.current);
+        else if (this.current && this.queued) {
+          const from = this.current;
+          const to = this.queued;
+          this.later(() => this.promote(g, from, to), (to.startAt - g.ctx.currentTime) * 1000 + 50);
+        }
+      }
+      return;
+    }
+    const version = ++this.musicVersion;
+    this.musicPending = version;
+    this.clearMusicTimers();
+    const piece = this.pickPiece(state);
+    void this.loadPiece(g.ctx, piece.url).then((buffer) => {
+      if (version !== this.musicVersion) return;
+      this.musicPending = null;
+      if (g.ctx.state !== 'running') return;
+      const now = g.ctx.currentTime + 0.02;
+      for (const v of [this.current, this.queued, ...this.retiring]) if (v) this.retire(g, v, now, MUSIC_XFADE_STATE_S);
+      this.queued = null;
+      this.current = this.startPiece(g, piece, state, buffer, now, piece.entryS, MUSIC_XFADE_STATE_S);
+      this.scheduleHandoff(g, this.current);
     }).catch((error: unknown) => {
+      if (version === this.musicVersion) this.musicPending = null;
       console.warn('Unable to switch background music', error);
     });
   }
 
-  /** The bed `setMusicTrack()` last chose. */
-  get currentMusicTrack(): MusicTrack {
-    return this.musicTrack;
+  /** The state `setMusicState()` last chose. */
+  get currentMusicState(): MusicState {
+    return this.musicState;
   }
 
-  /** The bed actually sounding (null when stopped or still loading). */
-  get playingMusicTrack(): MusicTrack | null {
-    return this.playingTrack;
+  /** The state actually sounding (null when stopped or still loading). */
+  get playingMusicState(): MusicState | null {
+    return (this.current ?? this.queued)?.state ?? null;
+  }
+
+  /** The piece actually sounding — for the harness and the docs, not for logic. */
+  get playingMusicPiece(): string | null {
+    return (this.current ?? this.queued)?.piece.url ?? null;
   }
 
   /**
-   * Equal-power: the outgoing bed follows cos, the incoming one sin, so the
-   * summed power is constant through the fade — a linear fade between two
-   * uncorrelated beds dips 3dB in the middle, which reads as the music
-   * hesitating. Both curves are scheduled on the audio clock and the old
-   * source's stop is too, so nothing here depends on a main-thread timer.
+   * DEV/HARNESS ONLY: jump the sounding piece to `leadS` seconds before its
+   * handoff, so the prefetch → scheduled handoff → promote path can be driven
+   * in seconds instead of minutes (tests/app/audio/harness.entry.ts `live`).
    */
-  private crossfadeTo(g: Graph, track: MusicTrack, buffer: AudioBuffer): void {
+  previewHandoff(leadS = MUSIC_PREFETCH_S + 2): void {
+    const g = this.graph;
+    const v = this.current;
+    if (!g || !v || this.queued) return;
+    const buffer = v.source.buffer;
+    if (!buffer) return;
+    this.clearMusicTimers();
     const now = g.ctx.currentTime + 0.02;
-    const n = 64;
-    const fadeIn = new Float32Array(n);
-    const fadeOut = new Float32Array(n);
-    const from = this.musicSourceGain?.gain.value ?? 1;
-    for (let i = 0; i < n; i++) {
-      const x = i / (n - 1);
-      fadeIn[i] = Math.sin(x * Math.PI / 2);
-      fadeOut[i] = Math.cos(x * Math.PI / 2) * from;
-    }
-    const oldSource = this.musicSource;
-    const oldGain = this.musicSourceGain;
-    if (oldSource && oldGain) {
-      // Hold, don't cancel: a switch that lands mid-way through the previous
-      // crossfade must fade out from where the bed IS, not jump back to where
-      // its last automation started. The curve starts 1ms after the hold so
-      // the two events never share a time.
-      const p = oldGain.gain;
-      if (typeof p.cancelAndHoldAtTime === 'function') p.cancelAndHoldAtTime(now);
-      else {
-        p.cancelScheduledValues(now);
-        p.setValueAtTime(from, now);
-      }
-      p.setValueCurveAtTime(fadeOut, now + 0.001, MUSIC_XFADE_S);
-      this.retiringMusic.add(oldSource);
-      try { oldSource.stop(now + MUSIC_XFADE_S + 0.05); } catch { /* already stopped */ }
-    }
-    const phase = this.playingTrack ? this.beatPhase(now, this.playingTrack) : 0;
-    this.startBed(g, track, buffer, now, 0, phase);
-    this.musicSourceGain?.gain.setValueCurveAtTime(fadeIn, now + 0.001, MUSIC_XFADE_S);
-    this.playingTrack = track;
+    this.retire(g, v, now, 0.05);
+    this.current = this.startPiece(g, v.piece, v.state, buffer, now, v.piece.handoffS - leadS, 0.05);
+    this.scheduleHandoff(g, this.current);
   }
 
   private loadClip(ctx: BaseAudioContext, url: string): Promise<AudioBuffer> {
@@ -1794,64 +2117,69 @@ class SoundEngine {
   }
 
   /**
-   * Start the bed `setMusicTrack()` chose, fading in. No-op until the context is
-   * running (a gesture has unlocked it), when music is disabled, or when a bed
-   * is already playing — switching beds is `setMusicTrack()`'s job.
+   * Start the state `setMusicState()` chose, fading in. No-op until the
+   * context is running (a gesture has unlocked it), when music is disabled, or
+   * when a piece is already playing or loading — switching states is
+   * `setMusicState()`'s job, and the next piece of a pool is the handoff's.
+   *
+   * The lobby starts at the top of a piece (its soft intro is the welcome); an
+   * in-game state starts at the piece's `entryS`, so a page reloaded into a
+   * duel sounds like a duel.
    */
   startMusic(): void {
-    if (!this._musicEnabled || this.musicSource) return;
+    if (!this._musicEnabled || this.current || this.queued || this.musicPending !== null) return;
     const g = this.getGraph();
     if (!g || g.ctx.state !== 'running') return;
 
-    // A restart inside a stop's fade: the old bed must not reappear under the
-    // new one's fade-in.
-    this.dropRetiringMusic();
+    // A restart inside a stop's fade: the old piece must not reappear under
+    // the new one's fade-in.
+    for (const v of this.retiring) {
+      try { v.source.stop(); } catch { /* already stopped */ }
+    }
+    this.retiring.clear();
 
-    const track = this.musicTrack;
-    const requestVersion = ++this.musicRequestVersion;
-    void this.loadMusic(g.ctx, track).then((buffer) => {
-      if (
-        requestVersion !== this.musicRequestVersion
-        || !this._musicEnabled
-        || this.musicSource
-        || g.ctx.state !== 'running'
-      ) return;
-      // The scene moved on while this bed was loading: load the right one.
-      if (track !== this.musicTrack) {
+    const state = this.musicState;
+    const piece = this.pickPiece(state);
+    const version = ++this.musicVersion;
+    this.musicPending = version;
+    void this.loadPiece(g.ctx, piece.url).then((buffer) => {
+      if (version !== this.musicVersion) return;
+      this.musicPending = null;
+      if (!this._musicEnabled || this.current || g.ctx.state !== 'running') return;
+      // The scene moved on while this piece was loading: load the right one.
+      if (state !== this.musicState) {
         this.startMusic();
         return;
       }
       const now = g.ctx.currentTime;
       g.musicGain.gain.cancelScheduledValues(now);
       g.musicGain.gain.setValueAtTime(0, now);
-      this.startBed(g, track, buffer, now, 1);
-      this.playingTrack = track;
-      this.rampGain(g.musicGain, MUSIC_GAIN, 900);
+      this.current = this.startPiece(g, piece, state, buffer, now, state === 'lobby' ? 0 : piece.entryS, 0);
+      this.scheduleHandoff(g, this.current);
+      this.rampGain(g.musicGain, this.musicLevel(), 900);
     }).catch((error: unknown) => {
+      if (version === this.musicVersion) this.musicPending = null;
       console.warn('Unable to start background music', error);
     });
   }
 
   stopMusic(fadeMs = 500): void {
-    this.musicRequestVersion += 1;
-    this.musicXfadeVersion += 1;
+    this.musicVersion += 1;
+    this.musicPending = null;
+    this.clearMusicTimers();
     const g = this.graph;
-    if (g) {
-      const now = g.ctx.currentTime;
-      g.musicDuck.gain.cancelScheduledValues(now);
-      g.musicDuck.gain.setValueAtTime(1, now);
-    }
-
-    const source = this.musicSource;
-    if (!source || !g) return;
-    this.musicSource = null;
-    this.musicSourceGain = null;
-    this.playingTrack = null;
-    this.retiringMusic.add(source);
+    if (!g) return;
+    const now = g.ctx.currentTime;
+    g.musicDuck.gain.cancelScheduledValues(now);
+    g.musicDuck.gain.setValueAtTime(1, now);
+    for (const v of [this.current, this.queued]) if (v) this.retiring.add(v);
+    this.current = null;
+    this.queued = null;
+    if (!this.retiring.size) return;
     this.rampGain(g.musicGain, 0, fadeMs);
-    const end = g.ctx.currentTime + fadeMs / 1000 + 0.05;
-    for (const s of this.retiringMusic) {
-      try { s.stop(end); } catch { /* already stopped */ }
+    const end = now + fadeMs / 1000 + 0.05;
+    for (const v of this.retiring) {
+      try { v.source.stop(end); } catch { /* already stopped */ }
     }
   }
 
@@ -1867,7 +2195,7 @@ class SoundEngine {
    */
   duckMusic(weight = 4): void {
     const g = this.graph;
-    if (!g || !this._musicEnabled || !this.musicSource) return;
+    if (!g || !this._musicEnabled || !(this.current ?? this.queued)) return;
     const depth = weight >= 6 ? 0.50 : weight >= 4 ? 0.60 : 0.70;
     const releaseS = weight >= 6 ? 0.6 : 0.28;
     const now = g.ctx.currentTime;

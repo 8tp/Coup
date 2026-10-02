@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/assets/brand/coup-online-banner-v2.webp" alt="Coup Online" width="420">
+  <img src="public/assets/brand/coup-wordmark-v3.webp" alt="Coup Online" width="420">
 </p>
 
 <p align="center">
@@ -12,7 +12,8 @@
 </p>
 
 <p align="center">
-  A real-time multiplayer web adaptation of the classic bluffing card game.
+  A real-time multiplayer web adaptation of the classic bluffing card game.<br>
+  <a href="https://coup.8tp.dev"><b>Play at coup.8tp.dev</b></a>
 </p>
 
 <p align="center">
@@ -21,6 +22,15 @@
   <img src="https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs" alt="Next.js 16">
   <img src="https://img.shields.io/badge/Socket.io-realtime-010101?logo=socketdotio" alt="Socket.io">
   <img src="https://img.shields.io/github/license/8tp/Coup" alt="MIT License">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/table-desktop.jpg" alt="The court table on desktop: opponents seated around an oval table, a claim plaque in the middle, your hand at the near edge, table talk on the left and the action dock on the right" width="720">
+</p>
+<p align="center">
+  <img src="docs/screenshots/home-phone.jpg" alt="Home screen on a phone" width="220">
+  &nbsp;
+  <img src="docs/screenshots/table-phone.jpg" alt="The table on a phone with the action sheet open" width="220">
 </p>
 
 ---
@@ -32,14 +42,15 @@ Play Coup with 2–6 players from any device — no app install, no accounts. Cr
 ### Multiplayer
 - **Real-time WebSocket gameplay** — instant action broadcasts via Socket.io
 - **Server-authoritative** — all game logic runs server-side; clients never see hidden cards
-- **Room codes** — 4-letter codes for easy sharing, no accounts required
+- **Play vs Bots** — one tap from the home screen into a game against three bots
+- **Room codes** — 4-letter codes for easy sharing, no accounts required; your name is remembered
 - **Public/private rooms** — browse public lobbies, join open games, or watch live games as a spectator
 - **QR sharing** — lobby share button opens a scannable room link
-- **Practice vs Bot** — first-time players can start a disposable Classic or Reformation game against a conservative bot, with contextual coaching for claims, challenges, blocks, factions, influence loss, and hand-building
+- **Practice vs Bots** — pick 1–3 opponents, a bot style (Gentle, Sharp, Ruthless) and Classic or Reformation; an optional coach points at the part of the table each tip is about
 - **Computer players** — add 1–5 AI opponents with 7 personality types (Aggressive, Conservative, Vengeful, Deceptive, Analytical, Optimal, Random)
-- **Reconnection** — signed session tokens let players rejoin mid-game without losing their seat
+- **Reconnection** — signed session tokens let players rejoin mid-game without losing their seat; a refresh in the lobby holds your seat for 45 seconds
 - **Host moderation** — hosts can remove lobby players or spectators before the game starts
-- **Disconnect recovery** — disconnected in-game players are replaced by an optimal bot after 60 seconds
+- **Disconnect recovery** — disconnected in-game players are replaced by an optimal bot after 60 seconds; a player who leaves is replaced at once, and an idle player after two timed-out turns
 - **Auto-cleanup** — rooms expire after 24 hours; abandoned in-progress games with no connected humans are removed after 120 seconds
 
 ### Game Rules
@@ -51,20 +62,19 @@ Play Coup with 2–6 players from any device — no app install, no accounts. Cr
 - **Timed responses** — configurable 10–60 second action windows and 15–90 second turn windows keep the pace up
 
 ### Interface
-- **Mobile-first** — portrait-optimized touch UI with 48px+ tap targets
-- **Retro-futurist table theme** — original generated character portraits, atmospheric tabletop backgrounds, readable role/action labels, and character-colored borders
-- **Haptic feedback** — vibration on taps for mobile devices (with iOS Safari fallback), togglable in settings
-- **Settings modal** — accessible from home, lobby, and in-game via gear icon. Controls for sound, haptic feedback (touch devices only), reduced animation, and text size (Normal / Large / Extra Large)
+- **The court table** — opponents sit around an oval table in turn order; the action being claimed lands in the middle as a printed plaque, blocks stamp across it, and coins fly between the treasury and the seats
+- **Heraldic character emblems** — fleur-de-lis (Duke), stiletto (Assassin), anchor (Captain), sealed scroll (Ambassador), fan (Contessa) and radiant eye (Inquisitor), on every card and prompt
+- **Mobile-first** — every tap target is at least 44px (audited at 360×640, 390×844 and desktop); on phones every decision lives in a bottom sheet in the thumb zone
+- **Table talk** — chat stays on screen beside your hand on desktop, with one-tap quick lines; on phones it lives in the log drawer, and chat lines appear at the speaker's seat
+- **Sound and music** — recorded sound effects for every game event, mixed in loudness tiers so a lost influence always outranks routine sounds, and an adaptive score of 15 pieces that shifts with the game (court, tension, the 1v1 duel, sudden death, and a quieter bed once you are out); sound, music and music-volume controls
+- **Motion and impact** — one animation clock, card flights, hitstop, screen shake on the felt only, and a reduced-animation setting that collapses motion to fades without losing information
+- **Haptic feedback** — vibration on taps and incoming events for mobile devices (with iOS Safari fallback), togglable in settings
+- **Settings** — sound, music, haptics (touch devices), reduced animation and text size (Normal / Large / Extra Large), from home, lobby and in-game
 - **Player stats** — local lifetime stats, awards, and match history are available from the home screen
-- **Live activity stats** — players online and games in progress shown on the home page
-- **Sound effects** — synthesized audio cues for game events (your turn, coup, challenges, etc.) with mute toggle
-- **Emoji reactions** — 12 reactions (GG, LOL, Nice bluff!, RIP, etc.) visible to all players. Bots fire context-aware reactions driven by per-bot personality traits (emotiveness and meanness)
-- **Phase status banner** — always shows what's happening and what you need to do
-- **Rules and Reformation guides** — built-in rules include an interactive Reformation scenario for faction targeting, Convert, Embezzle, and Inquisitor Examine
-- **Urgency-coded prompts** — red for threats (assassination), gold for decisions, gray for waiting
-- **Action log** — scrollable history of every action, challenge, and block
-- **Contextual game over screen** — winners and losers get personalized flavor text, staged winning-hand/table-truth reveal, recap cards, up to 4 awards, and copy/download recap export
-- **Truth reveal** — post-game summaries show who bluffed, who stayed honest, which bluffs got away, and key table reads
+- **Emoji reactions** — 12 reactions visible to all players. Bots fire context-aware reactions driven by per-bot personality traits (emotiveness and meanness)
+- **Rules and guides** — a six-chapter interactive tutorial played out on a miniature court table (the goal, your turn, claims, challenges, blocks, coins), built-in rules, coached practice games, and an interactive Reformation walkthrough
+- **Action log** — the latest events beside your hand, the full history in the log drawer
+- **Contextual game over screen** — personalized flavor text, staged winning-hand/table-truth reveal, recap cards, up to 4 awards, and copy/download recap export
 - **Player mute controls** — locally hide a player's chat messages and reaction bubbles without changing the table for everyone else
 - **PWA polish** — install prompt, app icons, standalone display metadata, and production asset caching for weak Wi-Fi
 
@@ -85,13 +95,12 @@ The server starts at [http://localhost:3000](http://localhost:3000). Open it in 
 
 ### How to Play
 
-1. Click **Create Room** and enter your name
-2. Share the 4-letter room code with friends
-3. Friends click **Join Room**, enter the code, or scan the QR link
-4. Optionally, make the room public so others can find it in **Browse Public Games**
-5. Optionally, the host can click **Add Computer Player** to fill seats with AI opponents
-6. The host clicks **Start Game** once 2–6 players have joined
-7. Bluff, challenge, and eliminate your way to victory
+1. Enter your name — or tap **Play vs Bots** to start a game against three bots right away
+2. Tap **Create room** (choose public or private) and share the 4-letter code, invite link or QR code
+3. Friends tap **Join room** and enter the code, follow the link, or pick your table from **Open tables**
+4. The host can tap **+ Add bot** or **Fill seats** to add AI opponents
+5. The host taps **Start game** once 2–6 players have joined
+6. Bluff, challenge, and eliminate your way to victory
 
 ### Computer Players
 
@@ -203,17 +212,24 @@ Coup/
 ├── docs/                           # Project documentation
 │   ├── BOT-STRATEGY.md             # AI strategy research and tuning methodology
 │   ├── ASSETS.md                   # Visual asset generation notes and prompts
+│   ├── asset-briefs/               # Image-generation briefs for the current assets
+│   ├── AUDIO.md                    # Sound bank, soundtrack and how they were generated
+│   ├── AUDIO-MIX.md                # Measured mix levels and the loudness gate
+│   ├── GAME-FEEL-PLAN.md           # Motion, impact and audio plan
+│   ├── screenshots/                # README screenshots
 │   ├── CONTRIBUTING.md             # Contribution guidelines
 │   ├── PRD.md                      # Product requirements document
 │   ├── ROADMAP.md                  # Prioritized post-main product polish and follow-ups
 │   └── REFORMATION_PLAN.md         # Reformation expansion implementation plan
-├── public/                         # PWA icons, Open Graph image, and generated game art
-│   ├── assets/                     # Versioned cards, tables, wordmark, and app-icon master
-│   ├── icons/                      # PWA install icons
-│   ├── embed-image-v3.png          # Twitter/large-card social preview
-│   ├── favicon-v2.ico              # Browser favicon
-│   ├── sw.js                       # Production service worker for static game assets
-│   └── og-image-v3.png             # Open Graph social preview
+├── ART-DIRECTION.md                # Binding visual design rules ("The Ministry")
+├── public/                         # PWA icons, social previews, generated art and audio
+│   ├── assets/                     # Versioned cards, card back, wordmark, menu backgrounds, app-icon master
+│   ├── audio/                      # Recorded sound effects and the soundtrack
+│   ├── icons/                      # PWA install icons (v3)
+│   ├── favicon-v3.ico              # Browser favicon
+│   ├── og-image-v4.jpg             # Open Graph social preview
+│   ├── embed-image-v4.jpg          # Twitter/large-card social preview
+│   └── sw.js                       # Production service worker for static game assets
 ├── tests/                          # Test suite
 │   ├── engine/                     # Engine unit tests
 │   └── server/                     # Server unit tests
@@ -249,8 +265,12 @@ Coup/
 │       │   └── settingsStore.ts    # Zustand store: text size, haptic, motion prefs
 │       ├── utils/haptic.ts         # Haptic feedback (vibration + iOS fallback)
 │       ├── utils/statsRecorder.ts  # Local post-game stat recording
-│       ├── audio/SoundEngine.ts    # Synthesized sound effects (Web Audio API)
-│       └── components/             # GameTable, ActionBar, prompts, settings, cards
+│       ├── audio/SoundEngine.ts    # Audio graph, measured mix, recorded cues with synth fallbacks, music
+│       ├── anim/ · fx/             # Motion engine (flights, hitstop) and impact layer (particles, shake)
+│       └── components/
+│           ├── game/GameTable.tsx  # The court table layout
+│           ├── game/table/         # Seat arcs, claim plaque, coin flights, table talk, log ticker
+│           └── icons/emblems.tsx   # The six character emblems
 ```
 
 ## Development
@@ -261,7 +281,7 @@ Coup/
 | `npm run build` | Build for production |
 | `npm start` | Run production build |
 | `npm run typecheck` | Typecheck the app, custom server, and tests |
-| `npm test` | Run test suite (588 tests across 22 files) |
+| `npm test` | Run the test suite (1,100+ tests) |
 | `npm run test:e2e` | Run socket browser-flow E2E tests |
 | `npm run test:watch` | Run tests in watch mode |
 
@@ -291,6 +311,8 @@ This project requires persistent WebSocket connections. **Vercel will not work**
 - **[Fly.io](https://fly.io/)** — container-based, globally distributed
 
 Set the build command to `npm run build` and the start command to `npm start`. The `PORT` environment variable is read automatically.
+
+**Optional:** set `DATABASE_URL` (Postgres) to store every finished game, anonymized, and enable `GET /api/stats` with aggregate counts. Without it the server runs exactly the same and the endpoint returns 404. Usage events are also written to the log as one `[metric] {json}` line each (room created/closed, game started/finished/abandoned, bot replacements) — no names, IPs or room codes.
 
 ## Contributing
 

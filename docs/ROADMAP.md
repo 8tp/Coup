@@ -39,6 +39,18 @@ Included in the current release:
 - PWA install prompt plus production asset caching for core icons, table backgrounds, card art, and audio.
 - Socket browser-flow E2E coverage for create/join/start/action/rematch, spectators, reconnect, Reformation, rematch authorization, and lobby moderation.
 
+## Shipped October 2026
+
+- **Funnel:** one-tap Play vs Bots, Fill seats, remembered names, a 45 s lobby reconnect grace, finished rooms joinable, instant bot replacement for leavers and AFK replacement for idlers.
+- **Measurement:** structured `[metric]` log lines, optional Postgres game log with `GET /api/stats`, Cloudflare Web Analytics unblocked in the CSP.
+- **The court table:** an oval table with seats on the rim in turn order, a claim plaque in the middle of the felt, coin flights, fallen-card pile, and a log drawer; on phones every decision lives in a bottom sheet in the thumb zone (the one-hand action sheet), with your hand and actions always on screen.
+- **Table talk:** chat on screen beside the hand on desktop, quick-chat phrases, chat spoken at the seat.
+- **Brand:** heraldic character emblems, new card back, wordmark, favicon/app icons, menu chamber art and social previews (Codex imagegen; briefs in `docs/asset-briefs/`).
+- **Audio:** recorded ElevenLabs sound bank in measured loudness tiers and a context-aware soundtrack.
+- **Menus:** rebuilt home and lobby; enamel-slab buttons; every dialog fits the viewport.
+- **Design QA:** automated audit of every screen state at 360×640, 390×844 and 1440×900 — 44 px targets, nothing covered, nothing off-screen, no text under 11 px.
+- **Security:** Next.js 16.3.8 (critical advisory), session token required on every rejoin.
+
 ## Near-Term User Niceties
 
 These are small enough to ship incrementally and have direct player value.
@@ -63,15 +75,12 @@ These are small enough to ship incrementally and have direct player value.
 
 ### Mobile Ergonomics
 
-- Add a one-hand action sheet for targeting actions on narrow screens.
 - Let players tap a target seat first, then pick an available targeted action.
-- Keep the current player's own cards, coins, and available actions sticky on mobile.
 - Audit long player names and chat messages on small screens to prevent layout pressure.
 
 ### Social And Safety
 
 - Add host controls to remove disconnected lobby players in bulk before start.
-- Add a small set of neutral quick-chat phrases for players who do not want free-form chat.
 - Add a "table tone" setting for bot reactions: quiet, normal, spicy.
 
 ### Accessibility
@@ -88,7 +97,6 @@ These are useful, but they have broader design or infrastructure implications.
 - Optional persistent user profile with game history and cosmetic preferences.
 - Public room directory filters for mode, player count, and spectators allowed.
 - Custom rule presets: timers, starting coins, bots allowed, open spectators, and Reformation options.
-- Friendlier bot-fill flow when a human disconnects mid-game.
 - 7-10 player Reformation support with the larger deck composition.
 
 ## Technical Follow-Ups

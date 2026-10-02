@@ -10,9 +10,13 @@ interface ChatPanelProps {
   messages: ChatMessage[];
   myId: string | null;
   onSend: (message: string) => void;
+  /** `roomy` reads at body size for a panel that stays on screen. */
+  variant?: 'compact' | 'roomy';
+  /** One-tap lines shown above the field. */
+  quickPhrases?: readonly string[];
 }
 
-export function ChatPanel({ messages, myId, onSend }: ChatPanelProps) {
+export function ChatPanel({ messages, myId, onSend, variant = 'compact', quickPhrases }: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState('');
   const mutedPlayerIds = useGameStore(s => s.mutedPlayerIds);
@@ -36,12 +40,12 @@ export function ChatPanel({ messages, myId, onSend }: ChatPanelProps) {
     <div className="flex flex-col h-full">
       <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-1 px-3 py-2 min-h-0">
         {visibleMessages.length === 0 && (
-          <p className="text-xs text-coup-ink-mute italic">No messages yet...</p>
+          <p className={`${variant === 'roomy' ? 'text-sm' : 'text-xs'} text-coup-ink-mute italic`}>No messages yet...</p>
         )}
         {visibleMessages.map((msg) => {
           const isOwn = msg.playerId === myId;
           return (
-            <div key={msg.id} className="text-xs">
+            <div key={msg.id} className={variant === 'roomy' ? 'text-sm leading-snug' : 'text-xs'}>
               <span className={`font-medium ${isOwn ? 'text-coup-accent' : 'text-gray-300'}`}>
                 {msg.playerName}:
               </span>{' '}
@@ -51,6 +55,15 @@ export function ChatPanel({ messages, myId, onSend }: ChatPanelProps) {
         })}
         <div />
       </div>
+      {quickPhrases && quickPhrases.length > 0 && (
+        <div className="chat-quick" aria-label="Quick messages">
+          {quickPhrases.map(phrase => (
+            <button key={phrase} type="button" onClick={() => { haptic(); onSend(phrase); }}>
+              {phrase}
+            </button>
+          ))}
+        </div>
+      )}
       <form onSubmit={handleSubmit} className="flex gap-2 px-3 py-2 border-t border-coup-line/70">
         <input
           type="text"

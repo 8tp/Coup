@@ -1,766 +1,590 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Character } from '@/shared/types';
-import { CoinIcon } from '../icons';
+import { useEffect, useReducer, useRef, useState, type Dispatch } from 'react';
+import { ActionType, Character } from '@/shared/types';
+import { COUP_COST, FORCED_COUP_THRESHOLD } from '@/shared/constants';
+import { CharacterMedallion, CoinGlyph, CoupGlyph } from '../icons';
+import { Plaque } from '../game/table/ClaimPlaque';
+import { OnboardingShell } from '../onboarding/OnboardingShell';
+import { ChapterLayout, DemoSeat, Felt, HIDDEN, HandPlate, lost, shown } from '../onboarding/parts';
+import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { haptic, hapticHeavy } from '../../utils/haptic';
-import { CHARACTER_PALETTE, characterCardVars } from '../../utils/characterPalette';
-import { CardArtwork, CardBackArtwork, CharacterCardBadge } from '../game/CardArtwork';
+import {
+  BLOCK_THREATS,
+  INITIAL_TUTORIAL_STATE,
+  LAST_CHAPTER,
+  TURN_ACTIONS,
+  TUTORIAL_CHAPTERS,
+  blockersFor,
+  canCoup,
+  chapterDone,
+  mustCoup,
+  turnAction,
+  tutorialReducer,
+  type TutorialEvent,
+  type TutorialState,
+} from '../../utils/tutorialMachine';
+
+/**
+ * "How Coup works" — six short chapters, one idea each, every one played out
+ * on a miniature of the real court table with the real cards, seats and claim
+ * plaque. The rules state lives in utils/tutorialMachine.ts; this file draws
+ * it and turns taps into events.
+ */
 
 interface TutorialProps {
   open: boolean;
   onClose: () => void;
+  /** "Play a guided game" on the finish screen. Hidden when absent. */
+  onPlayGuided?: () => void;
 }
 
-const TOTAL_STEPS = 8;
+const TEACHING = TUTORIAL_CHAPTERS.slice(0, LAST_CHAPTER);
+const kicker = (n: number) => `${n + 1} of ${TEACHING.length} · ${TEACHING[n].label}`;
 
-function CharIcon({ char, size }: { char: Character; size: number }) {
-  return (
-    <span
-      className="relative inline-block overflow-hidden rounded-md border border-white/10 align-middle"
-      style={{ width: size, height: size }}
-    >
-      <CardArtwork character={char} variant="focus" />
-      <span className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-black/15" />
-    </span>
-  );
-}
+type ChapterProps = { state: TutorialState; send: Dispatch<TutorialEvent> };
 
-function TutorialCardArt({ char }: { char: Character }) {
-  return (
-    <>
-      <CardArtwork character={char} variant="focus" />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
-      <CharacterCardBadge character={char} />
-    </>
-  );
-}
-
-function TutorialCardBack() {
-  return (
-    <>
-      <CardBackArtwork variant="focus" />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10" />
-    </>
-  );
-}
-
-/* ART-DIRECTION.md §1.1 counted this array as the fifth duplicated character
-   palette — `bgClass` / `borderClass` / `textClass` were inlined per entry in
-   raw Tailwind defaults. They are gone; colour now comes from
-   `CHARACTER_PALETTE`, and the card frames come from `.card-face`, so the
-   tutorial teaches the band the real table uses. What is left here is what
-   this array is actually for: the rules copy. */
-const characterData = [
-  {
-    char: Character.Duke,
-    action: 'Tax: +3 coins',
-    blocks: 'Blocks Foreign Aid',
-    desc: 'Wealth and influence',
-  },
-  {
-    char: Character.Assassin,
-    action: 'Assassinate: Pay 3, target loses a card',
-    blocks: 'Cannot block',
-    desc: 'Silent and deadly',
-  },
-  {
-    char: Character.Captain,
-    action: 'Steal: Take 2 coins from a target',
-    blocks: 'Blocks Stealing',
-    desc: 'Cunning and resourceful',
-  },
-  {
-    char: Character.Ambassador,
-    action: 'Exchange: Swap cards with the deck',
-    blocks: 'Blocks Stealing',
-    desc: 'Diplomatic connections',
-  },
-  {
-    char: Character.Contessa,
-    action: 'No action ability',
-    blocks: 'Blocks Assassination',
-    desc: 'The ultimate protector',
-  },
-];
-
-export function Tutorial({ open, onClose }: TutorialProps) {
-  const [step, setStep] = useState(0);
-  const [animKey, setAnimKey] = useState(0);
-  const [selectedChar, setSelectedChar] = useState(0);
-  const [challengeChoice, setChallengeChoice] = useState<null | 'challenge' | 'pass'>(null);
-  const [blockChoice, setBlockChoice] = useState<null | 'block'>(null);
-  const [influenceRevealed, setInfluenceRevealed] = useState(false);
+export function Tutorial({ open, onClose, onPlayGuided }: TutorialProps) {
+  const [state, send] = useReducer(tutorialReducer, INITIAL_TUTORIAL_STATE);
 
   useEffect(() => {
-    if (open) {
-      setStep(0);
-      setAnimKey(0);
-      setSelectedChar(0);
-      setChallengeChoice(null);
-      setBlockChoice(null);
-      setInfluenceRevealed(false);
-    }
+    if (open) send({ type: 'reset' });
   }, [open]);
 
-  useEffect(() => {
-    if (step === 1) {
-      setInfluenceRevealed(false);
-      const timer = setTimeout(() => setInfluenceRevealed(true), 800);
-      return () => clearTimeout(timer);
-    }
-  }, [step, animKey]);
+  const chapter = TUTORIAL_CHAPTERS[state.chapter];
+  const isFinish = chapter.id === 'finish';
 
-  const goTo = (newStep: number) => {
-    setStep(newStep);
-    setAnimKey(k => k + 1);
-    setChallengeChoice(null);
-    setBlockChoice(null);
-    haptic();
+  return (
+    <OnboardingShell
+      open={open}
+      onClose={onClose}
+      title="How Coup works"
+      chapters={TEACHING}
+      index={state.chapter}
+      onGoto={i => send({ type: 'goto', chapter: i })}
+      onNext={() => send({ type: 'next' })}
+      onBack={() => send({ type: 'back' })}
+      hasNext={!isFinish}
+      nextReady={chapterDone(state)}
+      nextLabel={state.chapter === LAST_CHAPTER - 1 ? 'Finish' : 'Next'}
+      footer={isFinish ? (
+        <>
+          <button type="button" className="btn-secondary onb-back" onClick={() => { haptic(); onClose(); }}>
+            Done
+          </button>
+          {onPlayGuided && (
+            <button type="button" className="btn-primary onb-next onb-cta" onClick={() => { haptic(80); onPlayGuided(); }}>
+              Play a guided game
+            </button>
+          )}
+        </>
+      ) : undefined}
+    >
+      {chapter.id === 'goal' && <GoalChapter state={state} send={send} />}
+      {chapter.id === 'turn' && <TurnChapter state={state} send={send} />}
+      {chapter.id === 'claims' && <ClaimsChapter state={state} send={send} />}
+      {chapter.id === 'challenge' && <ChallengeChapter state={state} send={send} />}
+      {chapter.id === 'blocks' && <BlocksChapter state={state} send={send} />}
+      {chapter.id === 'coins' && <CoinsChapter state={state} send={send} />}
+      {chapter.id === 'finish' && <FinishChapter />}
+    </OnboardingShell>
+  );
+}
+
+/* ── 1. The goal ─────────────────────────────────────────────────────── */
+
+const GOAL_COPY = {
+  dealt: { note: 'Your two cards are dealt face-down.', cta: 'Look at your cards' },
+  peeked: { note: 'Only you can see them. Everyone else sees two card backs.', cta: 'Lose a card' },
+  'lost-one': { note: 'A lost card turns face-up for everyone. One left — you are still in.', cta: 'Lose the other' },
+  out: { note: 'No cards left: you are out. The last player holding a card wins.', cta: 'Deal again' },
+} as const;
+
+function GoalChapter({ state, send }: ChapterProps) {
+  const step = state.goal.step;
+  const hand = step === 'dealt'
+    ? [HIDDEN, HIDDEN]
+    : step === 'peeked'
+      ? [shown(Character.Duke), shown(Character.Captain)]
+      : step === 'lost-one'
+        ? [shown(Character.Duke), lost(Character.Captain)]
+        : [lost(Character.Duke), lost(Character.Captain)];
+  const copy = GOAL_COPY[step];
+
+  return (
+    <ChapterLayout
+      kicker={kicker(0)}
+      title="Keep a card. Outlast the court."
+      lede={<>You hold <b>two secret cards</b> — your influence — and 2 coins. Lose both cards and you are out. <b>The last player holding a card wins.</b></>}
+      noteTone={step === 'out' ? 'danger' : step === 'lost-one' ? 'done' : 'info'}
+      note={copy.note}
+      demo={(
+        <Felt>
+          <HandPlate influences={hand} coins={2} out={step === 'out'} />
+          <div className="onb-actions">
+            <button
+              type="button"
+              className={step === 'out' ? 'btn-secondary' : 'btn-primary'}
+              onClick={() => { (step === 'peeked' || step === 'lost-one') ? hapticHeavy() : haptic(); send({ type: 'goal/advance' }); }}
+            >
+              {copy.cta}
+            </button>
+          </div>
+        </Felt>
+      )}
+    />
+  );
+}
+
+/* ── 2. Your turn ────────────────────────────────────────────────────── */
+
+function TurnChapter({ state, send }: ChapterProps) {
+  const { coins, last, refused } = state.turn;
+  const general = TURN_ACTIONS.filter(a => a.claim === null);
+  const character = TURN_ACTIONS.filter(a => a.claim !== null);
+  const lastDef = last ? turnAction(last) : null;
+
+  const note = !lastDef
+    ? 'Tap any action to try it.'
+    : refused
+      ? `${lastDef.label} costs ${-lastDef.delta}. You have ${coins} ${coins === 1 ? 'coin' : 'coins'}.`
+      : lastDef.result;
+
+  const sub: Record<string, string> = {
+    income: '+1 coin',
+    'foreign-aid': '+2 coins',
+    coup: 'Pay 7',
+    tax: 'Duke',
+    steal: 'Captain',
+    assassinate: 'Assassin',
+    exchange: 'Ambassador',
   };
 
-  if (!open) return null;
-
-  const next = () => goTo(Math.min(step + 1, TOTAL_STEPS - 1));
-  const prev = () => goTo(Math.max(step - 1, 0));
-
   return (
-    <div className="fixed inset-0 z-[60] bg-coup-bg flex flex-col">
-      {/* Progress */}
-      <div className="flex items-center gap-3 px-4 pt-4 pb-2">
-        <div className="flex-1 flex gap-1">
-          {Array.from({ length: TOTAL_STEPS }, (_, i) => (
-            <div
-              key={i}
-              className={`h-1 flex-1 rounded-full transition-all duration-500 ${
-                i <= step ? 'bg-coup-accent' : 'bg-gray-800'
-              }`}
-            />
-          ))}
-        </div>
-        <button
-          onClick={() => { haptic(); onClose(); }}
-          className="text-coup-ink-mute hover:text-white text-sm font-medium shrink-0"
-        >
-          Skip
-        </button>
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 overflow-y-auto">
-        <div key={animKey} className="w-full max-w-sm animate-fade-in">
-          {step === 0 && <WelcomeStep />}
-          {step === 1 && <InfluenceStep revealed={influenceRevealed} />}
-          {step === 2 && (
-            <CharactersStep
-              selected={selectedChar}
-              onSelect={(i) => { haptic(); setSelectedChar(i); }}
-            />
-          )}
-          {step === 3 && <ActionsStep />}
-          {step === 4 && <BluffingStep />}
-          {step === 5 && (
-            <ChallengeStep
-              choice={challengeChoice}
-              onChoose={(c) => { hapticHeavy(); setChallengeChoice(c); }}
-            />
-          )}
-          {step === 6 && (
-            <BlockingStep
-              choice={blockChoice}
-              onChoose={() => { hapticHeavy(); setBlockChoice('block'); }}
-            />
-          )}
-          {step === 7 && <ReadyStep />}
-        </div>
-      </div>
-
-      {/* Navigation */}
-      <div className="px-6 pb-6 pt-2 flex justify-center gap-3 max-w-sm mx-auto w-full">
-        {step > 0 && (
-          <button className="btn-secondary flex-1" onClick={prev}>
-            Back
-          </button>
-        )}
-        {step < TOTAL_STEPS - 1 ? (
-          <button className={`btn-primary ${step === 0 ? 'w-full' : 'flex-1'}`} onClick={next}>
-            {step === 0 ? "Let's Go" : 'Next'}
-          </button>
-        ) : (
-          <button
-            className="btn-primary flex-1"
-            onClick={() => { haptic(80); onClose(); }}
-          >
-            Start Playing
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Step 0: Welcome ───
-
-function WelcomeStep() {
-  return (
-    <div className="text-center">
-      <div className="flex justify-center items-end gap-1 mb-8 h-28">
-        {characterData.map((c, i) => {
-          const rotation = (i - 2) * 10;
-          const lift = Math.abs(i - 2) * 6;
-          return (
-            <div
-              key={c.char}
-              style={{
-                opacity: 0,
-                transform: `rotate(${rotation}deg) translateY(${lift}px)`,
-                animation: `fadeIn 0.5s ease-out ${i * 0.1}s forwards`,
-              }}
-            >
-              <div className="card-face w-14 h-20" style={characterCardVars(c.char)}>
-                <TutorialCardArt char={c.char} />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <h2 className="text-3xl font-bold text-white mb-3">Welcome to Coup</h2>
-      <p className="text-gray-400 mb-2">The art of deception for 2-6 players</p>
-      <p className="text-coup-ink-mute text-sm">
-        Bluff, challenge, and eliminate your opponents.
-        <br />The last player standing wins.
-      </p>
-    </div>
-  );
-}
-
-// ─── Step 1: Your Influence ───
-
-function InfluenceStep({ revealed }: { revealed: boolean }) {
-  return (
-    <div className="text-center">
-      <div className="flex justify-center gap-5 mb-8">
-        {/* Card 1 - stays face-down */}
-        <div className="relative">
-          <div className="relative w-20 h-28 overflow-hidden rounded-xl bg-coup-card border-2 border-coup-accent/50 shadow-lg shadow-coup-accent/10">
-            <TutorialCardBack />
-          </div>
-          <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-xs text-coup-accent font-bold whitespace-nowrap">
-            Secret
-          </div>
-        </div>
-
-        {/* Card 2 - flips to show it being "lost" */}
-        <div className="relative" style={{ perspective: '600px' }}>
-          <div
-            className="w-20 h-28 rounded-xl transition-all"
-            style={{
-              transform: revealed ? 'rotateY(180deg)' : 'rotateY(0)',
-              transformStyle: 'preserve-3d',
-              transitionDuration: '0.7s',
-            }}
-          >
-            {/* Front */}
-            <div
-              className="absolute inset-0 overflow-hidden rounded-xl bg-coup-card border-2 border-coup-accent/50 flex items-center justify-center"
-              style={{ backfaceVisibility: 'hidden' }}
-            >
-              <TutorialCardBack />
-            </div>
-            {/* Back - revealed/lost */}
-            <div
-              className="absolute inset-0 overflow-hidden rounded-xl bg-gray-800/80 border-2 border-red-500/60 flex flex-col items-center justify-center"
-              style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
-            >
-              <div className="absolute inset-0 opacity-40">
-                <TutorialCardArt char={Character.Duke} />
-              </div>
-              <div className="relative text-red-400 text-[11px] font-bold mt-1">REVEALED</div>
-            </div>
-          </div>
-          <div
-            className={`absolute -bottom-5 left-1/2 -translate-x-1/2 text-xs font-bold whitespace-nowrap transition-colors duration-700 ${
-              revealed ? 'text-red-400' : 'text-coup-accent'
-            }`}
-          >
-            {revealed ? 'Lost!' : 'Secret'}
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-8">
-        <h2 className="text-2xl font-bold text-white mb-3">Your Influence</h2>
-        <p className="text-gray-400 text-sm mb-2">
-          You start with <span className="text-white font-medium">2 secret cards</span> and{' '}
-          <span className="text-coup-accent font-medium">2 coins</span>.
-        </p>
-        <p className="text-coup-ink-mute text-sm">
-          When a card is revealed, you lose that influence.
-          <br />
-          <span className="text-red-400">Lose both and you&apos;re eliminated.</span>
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// ─── Step 2: Characters ───
-
-function CharactersStep({ selected, onSelect }: { selected: number; onSelect: (i: number) => void }) {
-  const c = characterData[selected];
-  const theme = CHARACTER_PALETTE[c.char];
-
-  return (
-    <div className="text-center">
-      <h2 className="text-xl font-bold text-white mb-4">5 Characters</h2>
-
-      {/* Selector row */}
-      <div className="flex justify-center gap-2 mb-5">
-        {characterData.map((ch, i) => {
-          const isActive = i === selected;
-          return (
-            <button
-              key={ch.char}
-              onClick={() => onSelect(i)}
-              className={`card-face is-interactive w-12 h-16 ${isActive ? 'is-selected' : 'opacity-50'}`}
-              style={characterCardVars(ch.char)}
-            >
-              <TutorialCardArt char={ch.char} />
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Detail card */}
-      <div
-        key={selected}
-        className={`rounded border ${theme.edge} ${theme.tint} p-5 animate-fade-in`}
-      >
-        <div className="flex items-center justify-center gap-3 mb-3">
-          <span className="card-face h-14 w-10" style={characterCardVars(c.char)}>
-            <TutorialCardArt char={c.char} />
-          </span>
-          <div className="text-left">
-            <div className={`text-xl font-bold ${theme.text}`}>{c.char}</div>
-            <div className="text-coup-ink-mute text-xs">{c.desc}</div>
-          </div>
-        </div>
-        <div className="space-y-2 text-sm text-left">
-          <div className="flex items-start gap-2">
-            <span className="text-coup-accent font-bold text-xs mt-0.5 shrink-0">ACTION</span>
-            <span className="text-gray-300">{c.action}</span>
-          </div>
-          <div className="flex items-start gap-2">
-            <span className="text-blue-400 font-bold text-xs mt-0.5 shrink-0">BLOCK</span>
-            <span className="text-gray-300">{c.blocks}</span>
-          </div>
-        </div>
-      </div>
-
-      <p className="text-coup-ink-mute text-xs mt-3">Tap each character to learn more</p>
-    </div>
-  );
-}
-
-// ─── Step 3: Actions ───
-
-function ActionsStep() {
-  const actions = [
-    {
-      name: 'Income',
-      cost: null,
-      effect: '+1 coin',
-      tag: 'Always safe',
-      tagColor: 'text-green-400',
-      coins: 1,
-    },
-    {
-      name: 'Foreign Aid',
-      cost: null,
-      effect: '+2 coins',
-      tag: 'Duke can block',
-      tagColor: 'text-yellow-400',
-      coins: 2,
-    },
-    {
-      name: 'Coup',
-      cost: 7,
-      effect: 'Target loses a card',
-      tag: 'Forced at 10+',
-      tagColor: 'text-red-400',
-      coins: 0,
-    },
-  ];
-
-  return (
-    <div>
-      <h2 className="text-xl font-bold text-white mb-1 text-center">Basic Actions</h2>
-      <p className="text-coup-ink-mute text-xs mb-4 text-center">No character claim needed</p>
-
-      <div className="space-y-3 mb-5">
-        {actions.map((a, i) => (
-          <div
-            key={a.name}
-            className="flex items-center gap-3 bg-coup-card/60 panel-sunk p-3"
-            style={{
-              opacity: 0,
-              animation: `fadeIn 0.3s ease-out ${i * 0.15}s forwards`,
-            }}
-          >
-            <div className="w-10 h-10 rounded-lg bg-coup-bg flex items-center justify-center shrink-0">
-              {a.coins > 0 ? (
-                <div className="flex flex-wrap justify-center gap-0.5">
-                  {Array.from({ length: a.coins }, (_, j) => (
-                    <CoinIcon key={j} size={a.coins > 1 ? 14 : 18} />
-                  ))}
-                </div>
-              ) : (
-                <span className="text-lg">&#9876;</span>
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-white font-bold text-sm">{a.name}</span>
-                {a.cost && (
-                  <span className="text-xs text-coup-accent">({a.cost} coins)</span>
-                )}
-              </div>
-              <div className="text-gray-400 text-xs">{a.effect}</div>
-            </div>
-            <span className={`text-[11px] font-medium ${a.tagColor} shrink-0`}>{a.tag}</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="border-t border-coup-line/70 pt-3">
-        <p className="text-coup-ink-mute text-xs text-center">
-          Character actions (<span className="text-purple-300">Tax</span>,{' '}
-          <span className="text-blue-300">Steal</span>,{' '}
-          <span className="text-gray-300">Assassinate</span>,{' '}
-          <span className="text-green-300">Exchange</span>) require claiming a role.
-          <br />
-          <span className="text-gray-400">Anyone can challenge the claim!</span>
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// ─── Step 4: Bluffing ───
-
-function BluffingStep() {
-  const [showBluff, setShowBluff] = useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setShowBluff(true), 600);
-    return () => clearTimeout(timer);
-  }, []);
-
-  return (
-    <div className="text-center">
-      <h2 className="text-2xl font-bold text-white mb-2">The Secret</h2>
-      <p className="text-coup-accent font-bold text-lg mb-6">You can claim ANY character!</p>
-
-      {/* Your hand */}
-      <div className="mb-4">
-        <p className="text-coup-ink-mute text-xs mb-2">Your actual cards:</p>
-        <div className="flex justify-center gap-3">
-          <div className="w-14 h-20 rounded-lg border-2 border-blue-500/60 bg-blue-900/30 flex flex-col items-center justify-center">
-            <CharIcon char={Character.Captain} size={22} />
-            <span className="text-blue-300 text-[11px] font-bold mt-0.5">Captain</span>
-          </div>
-          <div className="w-14 h-20 rounded-lg border-2 border-red-500/60 bg-red-900/30 flex flex-col items-center justify-center">
-            <CharIcon char={Character.Contessa} size={22} />
-            <span className="text-red-300 text-[11px] font-bold mt-0.5">Contessa</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Bluff */}
-      <div
-        className={`transition-all duration-500 ${
-          showBluff ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-        }`}
-      >
-        <div className="flex justify-center mb-1">
-          <svg width="20" height="20" viewBox="0 0 20 20" className="text-coup-ink-mute">
-            <path d="M10 4v8M10 16v-1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-        </div>
-
-        <div className="inline-block bg-purple-900/40 panel-sunk px-4 py-3 mb-3">
-          <div className="flex items-center gap-2 justify-center">
-            <CharIcon char={Character.Duke} size={24} />
-            <span className="text-purple-300 font-bold">
-              &quot;I have Duke &mdash; Tax!&quot;
+    <ChapterLayout
+      kicker={kicker(1)}
+      title="On your turn, do one thing"
+      lede={<>Three actions are open to <b>anyone</b>. The other four belong to a <b>character</b> — to use one, you claim that character.</>}
+      noteTone={refused ? 'danger' : lastDef ? 'done' : 'info'}
+      note={note}
+      demo={(
+        <div className="onb-dock prompt-action">
+          <div className="onb-dock-head">
+            <span className="onb-group-label">Anyone can</span>
+            <span className="court-hand-coins figure onb-purse" aria-label={`${coins} coins`}>
+              <CoinGlyph size={16} /> {coins}
             </span>
           </div>
-          <div className="flex items-center justify-center gap-1 mt-2">
-            <span className="text-coup-accent font-bold text-sm">+3</span>
-            <CoinIcon size={14} />
-            <CoinIcon size={14} />
-            <CoinIcon size={14} />
-          </div>
-        </div>
-
-        <p className="text-gray-400 text-sm">
-          You don&apos;t have Duke, but <span className="text-white font-medium">no one knows!</span>
-        </p>
-        <p className="text-coup-ink-mute text-xs mt-2">
-          If no one challenges, the bluff works.
-          <br />But if someone calls your bluff...
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// ─── Step 5: Challenge (Interactive) ───
-
-function ChallengeStep({
-  choice,
-  onChoose,
-}: {
-  choice: null | 'challenge' | 'pass';
-  onChoose: (c: 'challenge' | 'pass') => void;
-}) {
-  const [showResult, setShowResult] = useState(false);
-
-  useEffect(() => {
-    if (choice) {
-      const timer = setTimeout(() => setShowResult(true), choice === 'challenge' ? 600 : 300);
-      return () => clearTimeout(timer);
-    }
-    setShowResult(false);
-  }, [choice]);
-
-  return (
-    <div className="text-center">
-      <h2 className="text-xl font-bold text-white mb-4">Challenging</h2>
-
-      <div className="bg-coup-card/60 panel-sunk p-4 mb-4">
-        <p className="text-gray-400 text-sm mb-3">
-          <span className="text-white font-bold">Alex</span> claims{' '}
-          <span className="text-purple-300 font-bold">Duke</span> for Tax...
-        </p>
-
-        {/* Alex's card */}
-        <div className="flex justify-center mb-3" style={{ perspective: '600px' }}>
-          <div
-            className="w-16 h-[5.5rem] relative rounded-lg transition-all"
-            style={{
-              transform: choice === 'challenge' ? 'rotateY(180deg)' : 'rotateY(0)',
-              transformStyle: 'preserve-3d',
-              transitionDuration: '0.6s',
-            }}
-          >
-            {/* Front */}
-            <div
-              className="absolute inset-0 overflow-hidden rounded-lg bg-coup-card border-2 border-coup-line flex items-center justify-center"
-              style={{ backfaceVisibility: 'hidden' }}
-            >
-              <TutorialCardBack />
-            </div>
-            {/* Back - Captain revealed (not Duke!) */}
-            <div
-              className="absolute inset-0 overflow-hidden rounded-lg bg-blue-900/40 border-2 border-red-500 flex flex-col items-center justify-center"
-              style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
-            >
-              <TutorialCardArt char={Character.Captain} />
-              <span className="absolute bottom-1 left-1 right-1 text-center text-blue-100 text-[11px] font-bold drop-shadow">Captain</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Buttons or result */}
-        {!choice && (
-          <div>
-            <p className="text-coup-ink-mute text-xs mb-3">Do you think Alex is bluffing?</p>
-            <div className="flex gap-2">
+          <div className="onb-tiles onb-tiles-3">
+            {general.map(a => (
               <button
-                className="flex-1 bg-red-600 text-white font-bold py-2.5 px-3 rounded-xl text-sm active:scale-95 transition-transform animate-pulse-gold"
-                onClick={() => onChoose('challenge')}
+                key={a.id}
+                type="button"
+                className={`onb-tile ${last === a.id ? 'is-picked' : ''}`}
+                aria-pressed={last === a.id}
+                onClick={() => { haptic(); send({ type: 'turn/take', action: a.id }); }}
               >
-                Challenge!
+                <span className="onb-tile-mark" aria-hidden="true">
+                  {a.id === 'coup' ? <CoupGlyph size={22} /> : <CoinGlyph size={22} />}
+                </span>
+                <span className="onb-tile-text">
+                  <span className="onb-tile-name type-display">{a.label}</span>
+                  <span className="onb-tile-sub">{sub[a.id]}</span>
+                </span>
               </button>
+            ))}
+          </div>
+          <span className="onb-group-label">Claim a character</span>
+          <div className="onb-tiles onb-tiles-2">
+            {character.map(a => (
               <button
-                className="flex-1 bg-coup-card text-gray-300 font-bold py-2.5 px-3 rounded-xl text-sm border border-coup-line active:scale-95 transition-transform"
-                onClick={() => onChoose('pass')}
+                key={a.id}
+                type="button"
+                className={`onb-tile ${last === a.id ? 'is-picked' : ''}`}
+                aria-pressed={last === a.id}
+                onClick={() => { haptic(); send({ type: 'turn/take', action: a.id }); }}
               >
-                Let it go
+                <span className="onb-tile-mark" aria-hidden="true">
+                  <CharacterMedallion character={a.claim!} size={30} />
+                </span>
+                <span className="onb-tile-text">
+                  <span className="onb-tile-name type-display">{a.label}</span>
+                  <span className="onb-tile-sub">{sub[a.id]}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    />
+  );
+}
+
+/* ── 3. Claims & bluffing ────────────────────────────────────────────── */
+
+function ClaimsChapter({ state, send }: ChapterProps) {
+  const claimed = state.claims.claimed;
+  return (
+    <ChapterLayout
+      kicker={kicker(2)}
+      title="Claim any character — even one you don't hold"
+      lede={<>Nobody sees your cards, so you can say anything. You hold a Captain and a Contessa. <b>Say you are the Duke</b> and take Tax.</>}
+      noteTone={claimed ? 'done' : 'info'}
+      note={claimed
+        ? 'A bluff — and it worked. Nobody challenged, so the 3 coins are yours.'
+        : 'No Duke in your hand. Claim it anyway.'}
+      demo={(
+        <Felt>
+          <div className="onb-plaque-slot" aria-live="off">
+            {claimed
+              ? <Plaque actor="You" headline="Tax" character={Character.Duke} actionType={ActionType.Tax} detail="as Duke" />
+              : <span className="onb-plaque-ghost">The table</span>}
+          </div>
+          <HandPlate influences={[shown(Character.Captain), shown(Character.Contessa)]} coins={claimed ? 5 : 2} />
+          <div className="onb-actions">
+            {claimed ? (
+              <button type="button" className="btn-secondary" onClick={() => { haptic(); send({ type: 'claims/reset' }); }}>
+                Take it back
+              </button>
+            ) : (
+              <button type="button" className="btn-primary" onClick={() => { hapticHeavy(); send({ type: 'claims/claim' }); }}>
+                <CharacterMedallion character={Character.Duke} size={26} />
+                Claim Duke · Tax +3
+              </button>
+            )}
+          </div>
+        </Felt>
+      )}
+    />
+  );
+}
+
+/* ── 4. Challenge ────────────────────────────────────────────────────── */
+
+/** How long the flip plays before the verdict prints. Zero under reduced motion. */
+const VERDICT_DELAY_MS = 650;
+
+function useVerdict(key: string, active: boolean): boolean {
+  const reduced = useReducedMotion();
+  const [ready, setReady] = useState(false);
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (!active) { setReady(false); return; }
+    // Coming back to an already-resolved demo shows the verdict at once.
+    if (reduced || firstRender.current) { setReady(true); return; }
+    setReady(false);
+    const t = setTimeout(() => setReady(true), VERDICT_DELAY_MS);
+    return () => clearTimeout(t);
+  }, [active, key, reduced]);
+  useEffect(() => { firstRender.current = false; }, []);
+  return ready;
+}
+
+function ChallengeChapter({ state, send }: ChapterProps) {
+  const { round, stage } = state.challenge;
+  const revealed = stage === 'revealed';
+  const verdict = useVerdict(`${round}-${stage}`, revealed);
+  const truthful = round === 1;
+
+  // Round 0: Alex holds Captain + Assassin and is bluffing the Duke.
+  // Round 1: Alex really holds the Duke.
+  const alexCards = !revealed
+    ? [HIDDEN, HIDDEN]
+    : truthful
+      ? [shown(Character.Duke), HIDDEN]
+      : [lost(Character.Captain), HIDDEN];
+  const yourCards = revealed && truthful && verdict
+    ? [lost(Character.Contessa), shown(Character.Assassin)]
+    : [shown(Character.Contessa), shown(Character.Assassin)];
+
+  let note: string;
+  let tone: 'info' | 'danger' | 'done' = 'info';
+  if (stage === 'passed') {
+    note = 'Alex takes 3 coins. Was it a bluff? You will never know.';
+  } else if (!revealed) {
+    note = truthful ? 'Alex claims the Duke again. Challenge it.' : 'Alex claims the Duke to take Tax. Bluff or not?';
+  } else if (!verdict) {
+    note = 'Alex shows a card…';
+  } else if (truthful) {
+    note = 'Alex really had the Duke — so you lose a card. Alex shuffles the Duke away and draws a new one.';
+    tone = 'danger';
+  } else {
+    note = 'Caught! Alex had no Duke, so Alex loses a card.';
+    tone = 'done';
+  }
+
+  return (
+    <ChapterLayout
+      kicker={kicker(3)}
+      title="Think it's a lie? Challenge!"
+      lede={<>Anyone can challenge a claim. The claimed card is checked, and <b>whoever was wrong loses a card</b>.</>}
+      noteTone={tone}
+      note={note}
+      demo={(
+        <Felt>
+          <div className="onb-row">
+            <DemoSeat name="Alex" influences={alexCards} coins={stage === 'passed' ? 5 : 2} isTurn={!revealed} />
+            <div className="onb-plaque-slot">
+              <Plaque
+                key={round}
+                actor="Alex"
+                headline="Tax"
+                character={Character.Duke}
+                actionType={ActionType.Tax}
+                detail="as Duke"
+              />
+            </div>
+          </div>
+          <div className="onb-actions">
+            {stage === 'claim' && (
+              <>
+                <button type="button" className="btn-danger" onClick={() => { hapticHeavy(); send({ type: 'challenge/challenge' }); }}>
+                  Challenge!
+                </button>
+                {!truthful && (
+                  <button type="button" className="btn-secondary" onClick={() => { haptic(); send({ type: 'challenge/pass' }); }}>
+                    Let it go
+                  </button>
+                )}
+              </>
+            )}
+            {stage === 'passed' && (
+              <button type="button" className="btn-secondary" onClick={() => { haptic(); send({ type: 'challenge/rewind' }); }}>
+                Rewind
+              </button>
+            )}
+            {revealed && verdict && (
+              <button
+                type="button"
+                className={truthful ? 'btn-secondary' : 'btn-primary'}
+                onClick={() => { haptic(); send({ type: 'challenge/next-round' }); }}
+              >
+                {truthful ? 'Play both again' : 'Next: a true claim'}
+              </button>
+            )}
+          </div>
+          <HandPlate influences={yourCards} compact />
+        </Felt>
+      )}
+    />
+  );
+}
+
+/* ── 5. Blocks ───────────────────────────────────────────────────────── */
+
+const BLOCK_CHOICES = [Character.Duke, Character.Assassin, Character.Captain, Character.Ambassador, Character.Contessa];
+
+const BLOCK_RESULT = [
+  'Blocked. A Duke stops Foreign Aid — anyone may claim it.',
+  'Blocked. The Captain and the Ambassador both stop a Steal.',
+  'Blocked. Only the Contessa stops an Assassination.',
+];
+
+const THREAT_ASK = [
+  'Alex takes Foreign Aid. Who blocks it?',
+  'Alex steals from you. Who blocks it?',
+  'Alex assassinates you. Who blocks it?',
+];
+
+function BlocksChapter({ state, send }: ChapterProps) {
+  const { threat, blocked, miss } = state.blocks;
+  const t = BLOCK_THREATS[threat];
+  const correct = blockersFor(threat);
+  const actionType = t.action === 'Foreign Aid' ? ActionType.ForeignAid : t.action === 'Steal' ? ActionType.Steal : ActionType.Assassinate;
+  const blockedWith = blocked ? correct[0] : null;
+  const [shakeKey, setShakeKey] = useState(0);
+  const last = threat === BLOCK_THREATS.length - 1;
+
+  const note = blocked
+    ? `${BLOCK_RESULT[threat]}${last ? ' A block is a claim too — Alex could challenge it.' : ''}`
+    : miss
+      ? `${miss} can't block ${t.action}. Try another.`
+      : THREAT_ASK[threat];
+
+  return (
+    <ChapterLayout
+      kicker={kicker(4)}
+      title="Block it with the right character"
+      lede={<>Some actions can be stopped by claiming a character that counters them. <b>Tap the one that blocks</b> each threat.</>}
+      noteTone={blocked ? 'done' : miss ? 'danger' : 'info'}
+      note={note}
+      demo={(
+        <Felt>
+          <div className="onb-threat-count">
+            Threat <span className="figure">{threat + 1}</span> of <span className="figure">{BLOCK_THREATS.length}</span>
+          </div>
+          <div className="claim-stack onb-plaque-slot" key={threat}>
+            <Plaque
+              actor="Alex"
+              headline={t.action}
+              character={t.claim}
+              actionType={actionType}
+              blocked={blocked}
+              detail={t.claim ? <>as {t.claim}{t.targeted ? ' · on You' : ''}</> : undefined}
+            />
+            {blockedWith && (
+              <Plaque isBlock actor="You" headline="Blocks" character={blockedWith} detail={<>as {blockedWith}</>} />
+            )}
+          </div>
+          {!blocked ? (
+            <div className="onb-blockers" role="group" aria-label="Who blocks it?">
+              {BLOCK_CHOICES.map(c => {
+                const wrong = miss === c;
+                return (
+                  <span
+                    key={c}
+                    className={`refusal-host ${wrong ? 'is-refusing' : ''}`}
+                    data-shake={shakeKey % 2 ? 'b' : 'a'}
+                  >
+                    <button
+                      type="button"
+                      className="onb-blocker"
+                      onClick={() => {
+                        const right = correct.includes(c);
+                        if (right) hapticHeavy(); else { haptic(30); setShakeKey(k => k + 1); }
+                        send({ type: 'blocks/pick', character: c });
+                      }}
+                    >
+                      <CharacterMedallion character={c} size={34} />
+                      <span className="onb-blocker-name">{c}</span>
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="onb-actions">
+              <button type="button" className={last ? 'btn-secondary' : 'btn-primary'} onClick={() => { haptic(); send({ type: 'blocks/next' }); }}>
+                {last ? 'Start over' : 'Next threat'}
               </button>
             </div>
-          </div>
-        )}
-
-        {choice === 'challenge' && (
-          <div className={`transition-all duration-500 ${showResult ? 'opacity-100' : 'opacity-0'}`}>
-            <p className="text-red-400 font-bold mb-1">Caught bluffing!</p>
-            <p className="text-gray-400 text-xs">
-              Alex doesn&apos;t have Duke &mdash; Alex loses an influence!
-            </p>
-          </div>
-        )}
-
-        {choice === 'pass' && (
-          <div className={`transition-all duration-500 ${showResult ? 'opacity-100' : 'opacity-0'}`}>
-            <p className="text-coup-accent font-bold mb-1">Alex takes 3 coins</p>
-            <p className="text-gray-400 text-xs">
-              Were they bluffing? You&apos;ll never know...
-            </p>
-          </div>
-        )}
-      </div>
-
-      <div className="text-xs text-coup-ink-mute">
-        {choice === 'challenge' ? (
-          <p>
-            But beware &mdash; if Alex <span className="text-white">really had Duke</span>,{' '}
-            <span className="text-red-400">you</span> would lose an influence instead!
-          </p>
-        ) : choice === 'pass' ? (
-          <p>
-            Sometimes it&apos;s safer to let it go.
-            <br />A wrong challenge costs <span className="text-red-400">you</span> an influence!
-          </p>
-        ) : (
-          <p>Any player can challenge when someone claims a character.</p>
-        )}
-      </div>
-    </div>
+          )}
+        </Felt>
+      )}
+    />
   );
 }
 
-// ─── Step 6: Blocking (Interactive) ───
+/* ── 6. Coins ────────────────────────────────────────────────────────── */
 
-function BlockingStep({
-  choice,
-  onChoose,
-}: {
-  choice: null | 'block';
-  onChoose: () => void;
-}) {
-  const [showResult, setShowResult] = useState(false);
+function CoinsChapter({ state, send }: ChapterProps) {
+  const { coins, couped, refusal } = state.coins;
+  const forced = mustCoup(coins);
+  const ready = canCoup(coins);
+  const slots = Math.max(FORCED_COUP_THRESHOLD, coins);
 
-  useEffect(() => {
-    if (choice) {
-      const timer = setTimeout(() => setShowResult(true), 400);
-      return () => clearTimeout(timer);
-    }
-    setShowResult(false);
-  }, [choice]);
+  const note = refusal
+    ?? (couped
+      ? 'Coup! Alex loses a card — nobody could block or challenge it.'
+      : forced
+        ? `${coins} coins: you must Coup now. Nothing else is allowed.`
+        : ready
+          ? '7 coins: Coup is ready. Keep collecting to see the 10-coin rule.'
+          : `You have ${coins} coins. Collect more, then Coup.`);
 
   return (
-    <div className="text-center">
-      <h2 className="text-xl font-bold text-white mb-4">Blocking</h2>
-
-      <div className="bg-coup-card/60 panel-sunk p-4 mb-4">
-        {/* Attack visualization */}
-        <div className="flex items-center justify-between mb-4 px-2">
-          <div className="text-left">
-            <p className="text-white font-bold text-sm">Alex</p>
-            <p className="text-coup-ink-mute text-xs">Assassinates</p>
+    <ChapterLayout
+      kicker={kicker(5)}
+      title="7 coins buy a Coup. At 10 you must."
+      lede={<>A Coup costs 7 and <b>can't be blocked or challenged</b> — a card is lost, guaranteed. With 10 or more coins, Coup is your only move.</>}
+      noteTone={refusal || forced ? 'danger' : couped ? 'done' : 'info'}
+      note={note}
+      demo={(
+        <Felt>
+          <DemoSeat
+            name="Alex"
+            influences={couped ? [lost(Character.Ambassador), HIDDEN] : [HIDDEN, HIDDEN]}
+            coins={3}
+            isTarget={ready && !couped}
+          />
+          <div className="onb-meter" role="img" aria-label={`${coins} coins of 10`}>
+            {Array.from({ length: slots }, (_, i) => (
+              <span
+                key={i}
+                className={`onb-meter-slot ${i < coins ? 'is-full' : ''} ${i === COUP_COST - 1 ? 'is-coup' : ''} ${i === FORCED_COUP_THRESHOLD - 1 ? 'is-must' : ''}`}
+              />
+            ))}
+            <span className="onb-meter-mark" style={{ ['--at' as string]: COUP_COST / slots }}>7 · Coup</span>
+            <span className="onb-meter-mark is-must" style={{ ['--at' as string]: FORCED_COUP_THRESHOLD / slots }}>10 · Must</span>
           </div>
-          <div
-            className={`text-2xl transition-all duration-500 ${
-              choice ? 'opacity-20 scale-75' : 'opacity-100'
-            }`}
-          >
-            <span className={choice ? '' : 'inline-block animate-pulse'}>&#9876;&#65039;</span>
+          <div className="onb-actions onb-actions-3">
+            {couped ? (
+              <button type="button" className="btn-secondary" onClick={() => { haptic(); send({ type: 'coins/reset' }); }}>
+                Again
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  data-ineligible={forced ? 'true' : undefined}
+                  aria-disabled={forced || undefined}
+                  onClick={() => { haptic(); send({ type: 'coins/take', amount: 1 }); }}
+                >
+                  Income +1
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  data-ineligible={forced ? 'true' : undefined}
+                  aria-disabled={forced || undefined}
+                  onClick={() => { haptic(); send({ type: 'coins/take', amount: 3 }); }}
+                >
+                  Tax +3
+                </button>
+                <button
+                  type="button"
+                  className={ready ? 'btn-danger' : 'btn-secondary'}
+                  data-ineligible={ready ? undefined : 'true'}
+                  aria-disabled={!ready || undefined}
+                  onClick={() => { ready ? hapticHeavy() : haptic(30); send({ type: 'coins/coup' }); }}
+                >
+                  <CoupGlyph size={18} /> Coup
+                </button>
+              </>
+            )}
           </div>
-          <div className="text-right">
-            <p className="text-coup-accent font-bold text-sm">You</p>
-            <p className="text-coup-ink-mute text-xs">Targeted!</p>
-          </div>
-        </div>
-
-        {/* Shield appears when blocked */}
-        {choice && showResult && (
-          <div className="flex justify-center mb-3 animate-fade-in">
-            <div className="flex items-center gap-2 bg-red-900/30 panel-sunk px-3 py-2">
-              <CharIcon char={Character.Contessa} size={20} />
-              <span className="text-red-300 font-bold text-sm">Blocked with Contessa!</span>
-            </div>
-          </div>
-        )}
-
-        {!choice ? (
-          <button
-            className="w-full bg-red-900/50 border-2 border-red-500 text-red-200 font-bold py-3 rounded-xl text-sm active:scale-95 transition-all hover:bg-red-900/70 animate-pulse-gold"
-            onClick={onChoose}
-          >
-            Block with Contessa!
-          </button>
-        ) : showResult ? (
-          <p className="text-green-400 text-sm font-medium animate-fade-in">
-            Assassination prevented!
-          </p>
-        ) : null}
-      </div>
-
-      {/* Block reference */}
-      <div className="text-xs text-coup-ink-mute space-y-2">
-        <p>
-          Some actions can be <span className="text-white">blocked</span> by claiming a counter-character:
-        </p>
-        <div className="bg-coup-card/40 rounded-lg p-2.5 text-left space-y-1.5">
-          <div><span className="text-purple-300 font-medium">Duke</span> blocks Foreign Aid</div>
-          <div><span className="text-red-300 font-medium">Contessa</span> blocks Assassination</div>
-          <div>
-            <span className="text-blue-300 font-medium">Captain</span>{' / '}
-            <span className="text-green-300 font-medium">Ambassador</span> block Stealing
-          </div>
-        </div>
-        {choice && (
-          <p className="text-gray-400 animate-fade-in">
-            Blocks are also claims &mdash; they can be challenged!
-            <br />You can even <span className="text-coup-accent">bluff a block</span>.
-          </p>
-        )}
-      </div>
-    </div>
+          <span className="onb-purse-line">
+            You: <span className="figure">{coins}</span> {coins === 1 ? 'coin' : 'coins'}
+          </span>
+        </Felt>
+      )}
+    />
   );
 }
 
-// ─── Step 7: Ready ───
+/* ── Finish: the reference card ──────────────────────────────────────── */
 
-function ReadyStep() {
+const REFERENCE: Array<{ character: Character; does: string; blocks: string; note?: string }> = [
+  { character: Character.Duke, does: 'Tax: take 3 coins', blocks: 'Blocks Foreign Aid' },
+  { character: Character.Assassin, does: 'Assassinate: pay 3, a card is lost', blocks: 'Blocks nothing' },
+  { character: Character.Captain, does: 'Steal: take 2 coins', blocks: 'Blocks Steal' },
+  { character: Character.Ambassador, does: 'Exchange: swap with the deck', blocks: 'Blocks Steal' },
+  { character: Character.Contessa, does: 'No action', blocks: 'Blocks Assassination' },
+  { character: Character.Inquisitor, does: 'Exchange or Examine', blocks: 'Blocks Steal', note: 'Reformation' },
+];
+
+function FinishChapter() {
   return (
-    <div className="text-center">
-      <h2 className="text-2xl font-bold text-white mb-2">You&apos;re Ready!</h2>
-      <p className="text-gray-400 text-sm mb-5">Quick reference:</p>
-
-      <div className="space-y-2 mb-5">
-        {characterData.map((c, i) => (
-          <div
-            key={c.char}
-            className={`flex items-center gap-3 rounded border p-2.5
-              ${CHARACTER_PALETTE[c.char].tint} ${CHARACTER_PALETTE[c.char].edge}`}
-            style={{
-              opacity: 0,
-              animation: `fadeIn 0.3s ease-out ${i * 0.08}s forwards`,
-            }}
-          >
-            <CharIcon char={c.char} size={24} />
-            <div className="text-left flex-1 min-w-0">
-              <span className={`font-bold text-sm ${CHARACTER_PALETTE[c.char].text}`}>{c.char}</span>
-              <div className="text-gray-400 text-xs truncate">{c.action}</div>
-            </div>
-            <div className="text-[11px] text-coup-ink-mute shrink-0 text-right max-w-[80px]">
-              {c.blocks}
-            </div>
-          </div>
+    <>
+      <div className="onb-text">
+        <p className="onb-kicker">Ready</p>
+        <h3 className="onb-title type-display">That is the whole game</h3>
+        <p className="onb-lede">Anyone can do anything — the cards only matter when someone calls you on it. Here is every character, for reference.</p>
+      </div>
+      <ul className="onb-reference onb-demo" aria-label="The six characters">
+        {REFERENCE.map(r => (
+          <li key={r.character} className="onb-ref">
+            <CharacterMedallion character={r.character} size={40} />
+            <span className="onb-ref-text">
+              <span className="onb-ref-name type-display">{r.character}</span>
+              <span className="onb-ref-does">{r.does}</span>
+              <span className="onb-ref-blocks">{r.blocks}{r.note ? <> · <i>{r.note}</i></> : null}</span>
+            </span>
+          </li>
         ))}
-      </div>
-
-      <div className="bg-coup-accent/15 panel-sunk p-3">
-        <p className="text-coup-accent font-bold text-sm mb-1">Remember</p>
-        <p className="text-gray-400 text-xs">
-          Bluffing is not just allowed &mdash; it&apos;s essential!
-          <br />A private bot round is available from main menu settings.
-        </p>
-      </div>
-    </div>
+      </ul>
+      <p className="onb-note is-info">General actions for everyone: Income +1 · Foreign Aid +2 · Coup for 7.</p>
+    </>
   );
 }

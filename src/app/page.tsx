@@ -9,11 +9,13 @@ import { HowToPlay } from './components/home/HowToPlay';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { StatsModal } from './components/stats/StatsModal';
 import { Tutorial } from './components/tutorial/Tutorial';
+import { PracticeSetupSheet } from './components/onboarding/PracticeSetupSheet';
 import { DEFAULT_ROOM_SETTINGS, MAX_PLAYERS, QUICK_PLAY_BOT_COUNT } from '@/shared/constants';
 import { GameMode } from '@/shared/types';
 import { haptic } from './utils/haptic';
 import { loadSavedPlayerName, savePlayerName } from './utils/playerName';
 import { buildBots } from './utils/botFill';
+import { DEFAULT_PRACTICE_OPTIONS, practiceBots, practiceOptionsForMode, type PracticeOptions } from './utils/practiceSetup';
 import { useLobbyMusic } from './hooks/useMusicDirector';
 
 export default function Home() {
@@ -27,7 +29,7 @@ export default function Home() {
 function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { createRoom, joinRoom, spectateRoom, addBot, addBots, startGame, leaveRoom, updateRoomSettings, subscribeToBrowser, unsubscribeFromBrowser } = useSocket();
+  const { createRoom, joinRoom, spectateRoom, addBots, startGame, leaveRoom, updateRoomSettings, subscribeToBrowser, unsubscribeFromBrowser } = useSocket();
   const { error, setError, setRoom, clearRoom, publicRooms, playersOnline, gamesInProgress } = useGameStore();
   const joinCode = searchParams.get('join');
   useLobbyMusic();
@@ -40,6 +42,7 @@ function HomeContent() {
   const [showStats, setShowStats] = useState(false);
   const [isPublic, setIsPublic] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [showPracticeSetup, setShowPracticeSetup] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
 
   // Prefill the name the player used last time
@@ -132,10 +135,18 @@ function HomeContent() {
     }
   };
 
-  const handlePracticeBot = async (gameMode: GameMode) => {
+  /** A private practice game: a mode alone (Settings) or the full setup sheet's options. */
+  const handlePracticeBot = async (input: GameMode | PracticeOptions) => {
     haptic(80);
+    const options = typeof input === 'string' ? practiceOptionsForMode(input) : input;
+    const { gameMode } = options;
     const practiceName = name.trim() || 'Player';
-    sessionStorage.removeItem('coup_practice_coach_hidden');
+    // A fresh coach for every practice game: tips, dismissals and first-time
+    // history all start over, unless the player switched the coach off.
+    for (const key of ['coup_practice_coach_hidden', 'coup_practice_coach_dismissed', 'coup_practice_coach_seen']) {
+      sessionStorage.removeItem(key);
+    }
+    if (!options.coach) sessionStorage.setItem('coup_practice_coach_hidden', 'true');
     setLoading(true);
     let practiceRoomCreated = false;
     try {
@@ -147,14 +158,7 @@ function HomeContent() {
         gameMode,
         useInquisitor: gameMode === GameMode.Reformation,
       });
-      if (gameMode === GameMode.Reformation) {
-        await addBots([
-          { name: 'Tutor Bot', personality: 'conservative' },
-          { name: 'Morgan Bot', personality: 'analytical' },
-        ]);
-      } else {
-        await addBot('Tutor Bot', 'conservative');
-      }
+      await addBots(practiceBots(options, [practiceName]));
       sessionStorage.setItem('coup_practice_room', 'true');
       startGame();
       router.push(`/game/${result.roomCode}`);
@@ -377,7 +381,7 @@ function HomeContent() {
             <section className="menu-learn" aria-label="Learn to play">
               <button className="btn-ghost" onClick={() => { haptic(); setShowHowToPlay(true); }}>How to play</button>
               <button className="btn-ghost" onClick={() => { haptic(); setShowTutorial(true); }}>Tutorial</button>
-              <button className="btn-ghost" onClick={() => { haptic(); handlePracticeBot(GameMode.Classic); }} disabled={loading}>Practice</button>
+              <button className="btn-ghost" onClick={() => { haptic(); setShowPracticeSetup(true); }} disabled={loading}>Practice</button>
             </section>
           </>
         ) : (
@@ -436,7 +440,17 @@ function HomeContent() {
         onPracticeBot={handlePracticeBot}
         practiceLoading={loading}
       />
-      <Tutorial open={showTutorial} onClose={() => setShowTutorial(false)} />
+      <Tutorial
+        open={showTutorial}
+        onClose={() => setShowTutorial(false)}
+        onPlayGuided={() => { setShowTutorial(false); handlePracticeBot(DEFAULT_PRACTICE_OPTIONS); }}
+      />
+      <PracticeSetupSheet
+        open={showPracticeSetup}
+        onClose={() => setShowPracticeSetup(false)}
+        onStart={(options) => { setShowPracticeSetup(false); handlePracticeBot(options); }}
+        loading={loading}
+      />
       <StatsModal open={showStats} onClose={() => setShowStats(false)} />
     </div>
   );

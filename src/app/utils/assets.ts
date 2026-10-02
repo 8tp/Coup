@@ -3,8 +3,6 @@ import { Character } from '@/shared/types';
 export const BRAND_BANNER_ART = '/assets/brand/coup-wordmark-v3.webp';
 export const MENU_BACKGROUND_WIDE_ART = '/assets/backgrounds/menu-chamber-wide-v1.webp';
 export const MENU_BACKGROUND_TALL_ART = '/assets/backgrounds/menu-chamber-tall-v1.webp';
-export const TABLE_BACKGROUND_ART = '/assets/backgrounds/game-table-v2.webp';
-export const TABLE_BACKGROUND_MOBILE_ART = '/assets/backgrounds/game-table-mobile-v2.webp';
 
 export const CARD_BACK_ART = '/assets/cards/back-v3.webp';
 export const CARD_BACK_FOCUS_ART = '/assets/cards/focus/back-v3.webp';
