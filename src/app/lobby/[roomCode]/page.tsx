@@ -12,6 +12,7 @@ import { QRShareModal } from '../../components/lobby/QRShareModal';
 import { SettingsModal } from '../../components/settings/SettingsModal';
 import { HowToPlay } from '../../components/home/HowToPlay';
 import { haptic } from '../../utils/haptic';
+import { useLobbyMusic } from '../../hooks/useMusicDirector';
 
 export default function LobbyPage() {
   const router = useRouter();
@@ -30,6 +31,7 @@ export default function LobbyPage() {
     error,
   } = useGameStore();
 
+  useLobbyMusic();
   const leavingRef = useRef(false);
   const copyStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showAddBotModal, setShowAddBotModal] = useState(false);

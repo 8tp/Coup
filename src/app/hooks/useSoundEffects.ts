@@ -57,6 +57,16 @@ function snapshotState(
   };
 }
 
+/**
+ * The first state of a new game: turn 1, nobody has acted, and the only log
+ * entries are the game-start ones.
+ */
+export function isOpeningDeal(gs: ClientGameState): boolean {
+  return gs.turnNumber === 1
+    && gs.turnPhase === TurnPhase.AwaitingAction
+    && gs.actionLog.every(e => e.eventType === 'game_start' || e.eventType === 'turn_start');
+}
+
 export function useSoundEffects(): void {
   const prevRef = useRef<PrevState | null>(null);
   const initializedRef = useRef(false);
@@ -100,10 +110,15 @@ export function useSoundEffects(): void {
     const chatCount = audibleChatMessages.length;
     const curr = snapshotState(gameState, chatCount, reactionCount, challengeReveal);
 
-    // Skip all sounds on first render / initial load
+    // Skip all sounds on first render / initial load — except the opening
+    // deal. The table mounts on the first state of a new game, so a first
+    // render that IS the opening state is the deal happening, not a reconnect
+    // replaying history. (A reload during the first turn's prompt hears it
+    // again; a reload any later does not.)
     if (!initializedRef.current) {
       initializedRef.current = true;
       prevRef.current = curr;
+      if (gameState && !isMuted && isOpeningDeal(gameState)) sound.play('cardDeal');
       return;
     }
 
