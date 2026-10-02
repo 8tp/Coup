@@ -134,30 +134,20 @@ describe('§1.2 drawing rules — the whole glyph set', () => {
   });
 });
 
-describe('§1.2 THE CROWN RULING (2026-08-08)', () => {
+describe('§1.2 THE CROWN RULING (2026-08-08, amended 2026-10-01)', () => {
   /**
-   * "The crown means the winner." The Duke keeps the fractured crown and the
-   * two are separated by SILHOUETTE, not by subject: the winner's is closed,
-   * symmetric and sits on a solid base; the Duke's is open-topped, asymmetric,
-   * three planes, no base.
-   *
-   * As drawn, the difference that survives 16px is mass versus line —
-   * `CrownGlyph` is one filled slab with an interior, `DukeGlyph` is an open
-   * stroked profile with none. That is checkable, so it is checked: these two
-   * assertions are what stop a later "tidy-up" from filling the Duke or
-   * outlining the crown and quietly collapsing the pair.
-   *
-   * They are NOT a substitute for the check the ruling actually mandates —
-   * "whoever draws the Duke silhouette must check it against CrownGlyph at
-   * 16px side by side, on the proof sheet, before it lands."
+   * "The crown means the winner." The 2026-08-08 ruling kept a fractured crown
+   * for the Duke and separated it from the winner's by mass versus line. The
+   * 2026-10-01 emblem set removes the collision at the subject level instead:
+   * the Duke is a fleur-de-lis, so no crown remains anywhere but the winner's.
    */
   it('keeps the winner a filled mass', () => {
     expect(markup('CrownGlyph.tsx')).toMatch(/fill="currentColor"/);
   });
 
-  it('keeps the Duke an open stroked profile with no fill', () => {
+  it('draws the Duke from the shared emblem, not a crown of its own', () => {
     const duke = markup('DukeGlyph.tsx');
-    expect(duke, 'a filled Duke collapses the ruling separation').not.toMatch(/fill="currentColor"/);
-    expect(duke, 'a closed Duke path is a crown, not a fracture of one').not.toMatch(/\sZ"/);
+    expect(duke).toMatch(/CHARACTER_EMBLEMS\[Character\.Duke\]/);
+    expect(duke).not.toMatch(/<path/);
   });
 });

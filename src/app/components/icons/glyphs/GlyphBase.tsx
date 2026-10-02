@@ -98,3 +98,34 @@ export function HatchPattern({
 export function useHatchId(prefix: string): string {
   return `${prefix}-${useId().replace(/:/g, '')}`;
 }
+
+/**
+ * Chassis for the six character emblems (`../emblems.tsx`). The emblems are
+ * filled screen-print silhouettes rather than line marks, so this sets fill
+ * instead of the stroke defaults above; everything else — 64 grid, currentColor,
+ * decorative unless titled — is the same contract as `Glyph`.
+ */
+export function EmblemGlyph({
+  size = 24,
+  className,
+  title,
+  children,
+}: GlyphProps & { children: ReactNode }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 64 64"
+      fill="currentColor"
+      stroke="none"
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+      role={title ? 'img' : undefined}
+      aria-hidden={title ? undefined : true}
+      focusable="false"
+    >
+      {title ? <title>{title}</title> : null}
+      {children}
+    </svg>
+  );
+}

@@ -100,19 +100,26 @@ rail. This is what makes collision #1 survivable: Contessa's rose and danger's c
 sit 17° apart without ambiguity, because one is only ever a printed fill inside a card and
 the other is only ever a striped material outside one.
 
-**Six glyphs**, one line language, legible 1-bit at 14×14 on a 24px grid — the smallest card
-today is `w-11 h-16` = 44×64px (`globals.css:322-324`) and the glyph must survive there:
+**Six emblems (ratified 2026-10-01, replacing the 2026-08-08 abstract silhouettes).** The
+first set — a stepped line, a wedge, a bracket, two arrows, a pentagon — was legible but did
+not *name* anything: a player had to learn that a hooked bar meant Captain. The owner
+rejected it. Each character is now a **heraldic charge with a real subject**, cut as a filled
+screen-print silhouette with even-odd cut-outs on the 64 grid, in `currentColor`. One drawing
+per character lives in `src/app/components/icons/emblems.tsx`; the `*Glyph` components draw it
+small, and `CharacterMedallion` strikes it into a dark medallion with a hue rim for panels.
 
-| Character | Silhouette | Note |
+| Character | Emblem | Why this subject |
 |---|---|---|
-| Duke | Fractured crown reduced to three severe planes | Reuses the app-icon motif (`docs/ASSETS.md`, App Icon prompt). Angular, asymmetric, open at the top — see the RULING below for how it stays clear of the winner's crown |
-| Assassin | Blunt wedge, point-down, one notch | Must not be a knife-and-drop-shadow cliché |
-| Captain | Hooked bar (a grapple), horizontal | Reads as *taking*, matching STEAL |
-| Ambassador | Two offset arrows forming an open loop | Reads as *exchange* |
-| Contessa | Heraldic shield, flat top, single vertical split | The only closed convex form in the set — findable by shape alone |
-| Inquisitor | Eclipse eye | `InquisitorIcon.tsx` is already this; it is the one glyph that survives the rewrite |
+| Duke | Fleur-de-lis | Nobility and the court's money without a crown — the crown stays the winner's (RULING below) |
+| Assassin | Stiletto, point down, canted 38° | Upright it read as a cross at 16px; the cant makes it a blade |
+| Captain | Anchor | The most legible rank-and-ship mark there is; ring, stock and flukes survive 16px |
+| Ambassador | Scroll with hanging wax seal | Diplomatic credentials — the envoy's licence to exchange |
+| Contessa | Folding fan with a pivot rivet | The courtly object that turns a blade aside |
+| Inquisitor | Radiant eye | The gaze that examines a card |
 
-**RULING — the crown (2026-08-08).** An earlier draft of this section reserved the crown for
+Proofed side by side at 16/24/48/96px on `--surface` and on `--ink` before landing.
+
+**RULING — the crown (2026-08-08; the Duke half is superseded 2026-10-01 — the Duke is now a fleur-de-lis, so the collision below no longer exists).** An earlier draft of this section reserved the crown for
 the Duke and sent victory to an eclipse disc. That is overruled. **The crown means the
 winner.** 👑-for-victory is one of the strongest conventions in the medium, and spending a
 player's first-ever read of the game-over screen on teaching them a bespoke disc buys

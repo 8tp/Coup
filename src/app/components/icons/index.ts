@@ -24,6 +24,8 @@ export { InquisitorIcon } from './InquisitorIcon';
 export { CardBack } from './CardBack';
 export { CoinIcon } from './CoinIcon';
 export { CoupLogo } from './CoupLogo';
+export { CharacterMedallion } from './CharacterMedallion';
+export { CHARACTER_EMBLEMS } from './emblems';
 
 // Functional glyph set (see ./glyphs/index.ts for the drawing rules)
 export * from './glyphs';

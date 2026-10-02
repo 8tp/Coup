@@ -25,7 +25,7 @@
  * and light. It is a development aid — it is not routed and should not be.
  */
 
-export { Glyph, HatchPattern, useHatchId, GLYPH_STROKE_HEAVY, GLYPH_STROKE_LIGHT } from './GlyphBase';
+export { Glyph, EmblemGlyph, HatchPattern, useHatchId, GLYPH_STROKE_HEAVY, GLYPH_STROKE_LIGHT } from './GlyphBase';
 export type { GlyphProps } from './GlyphBase';
 
 /* Characters (ART-DIRECTION.md §1.2) — one 1-bit silhouette each, and the
