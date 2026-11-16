@@ -1,6 +1,70 @@
 import type { NamespaceTranslation } from '../../schema';
 
-/** ar `rules`: untranslated keys fall back to English. */
-const rules: NamespaceTranslation<'rules'> = {};
+/** ar `rules`. */
+const rules: NamespaceTranslation<'rules'> = {
+  title: 'طريقة اللعب',
+
+  'tab.overview': 'نظرة عامة',
+  'tab.characters': 'الشخصيات',
+  'tab.rules': 'الحركات والقواعد',
+
+  'overview.whatIsHeading': 'ما هي لعبة Coup؟',
+  'overview.whatIs': 'لعبة Coup لعبة خداع من {minPlayers} إلى {maxPlayers} لاعبين. يبدأ كل لاعب بورقتين مقلوبتين تسمّيان النفوذ، و{startingCoins, plural, zero {# عملة} one {عملة واحدة} two {عملتين} few {# عملات} many {# عملة} other {# عملة}}. يفوز آخر لاعب تبقى معه ورقة مقلوبة.',
+  'overview.goalHeading': 'الهدف',
+  'overview.goal': 'الهدف أن يخسر كل اللاعبين الآخرين نفوذهم. كلما خسرت نفوذًا، انقلبت إحدى ورقتيك مكشوفة. وإذا خسرت الاثنتين خرجت من اللعبة.',
+  'overview.flowHeading': 'سير اللعب',
+  'overview.flow1': 'لك في دورك حركة واحدة. وبعض الحركات تدّعي شخصية.',
+  'overview.flow2': 'يمكن لأي لاعب آخر <term>تحدي</term> الادعاء. إن كان ادعاؤك خدعة، خسرت نفوذًا. وإن كان صادقًا، خسر المتحدي نفوذًا.',
+  'overview.flow3': 'بعض الحركات يمكن <term>صدها</term> بادعاء الشخصية المضادة لها. ويمكن لصاحب الحركة تحدي الصد.',
+  'overview.flow4': 'إن لم يتحدَّ أحد ولم يصد أحد، نُفذت الحركة.',
+  'overview.bluffHeading': 'الخداع',
+  'overview.bluff': 'يمكنك ادعاء أي شخصية، أيًّا كانت أوراقك. ولا يكلفك الادعاء شيئًا إلا إذا تحداك أحد وكان ادعاؤك كاذبًا.',
+  'overview.creditsHeading': 'عن اللعبة الأصلية',
+  'overview.credits': 'لعبة Coup لعبة ورق من تصميم <term>{designer}</term>، نشرتها أول مرة عام 2012 <term>{publisher1}</term> و<term>{publisher2}</term>. وهذه نسخة صنعها معجبون. إن أعجبتك، يمكنك دعم صنّاعها <link>بشراء اللعبة الأصلية</link>.',
+
+  'character.Duke': '{tax}: أخذ {taxCoins, plural, zero {# عملة} one {عملة واحدة} two {عملتين} few {# عملات} many {# عملة} other {# عملة}}. يصد {foreignAid}.',
+  'character.Assassin': '{assassinate}: دفع {assassinateCost, plural, zero {# عملة} one {عملة واحدة} two {عملتين} few {# عملات} many {# عملة} other {# عملة}}، ويخسر الهدف ورقة.',
+  'character.Captain': '{steal}: أخذ {stealCoins, plural, zero {# عملة} one {عملة واحدة} two {عملتين} few {# عملات} many {# عملة} other {# عملة}} من الهدف. يصد {steal}.',
+  'character.Ambassador': '{exchange}: سحب {exchangeDraw} وإعادة {exchangeDraw}. يصد {steal}.',
+  'character.Contessa': 'تصد الاغتيال.',
+  'character.Inquisitor': '{exchange}: سحب {inquisitorDraw} وإعادة {inquisitorDraw}. {examine}: رؤية ورقة لخصم. يصد {steal}.',
+
+  'actionsHeading': 'الحركات',
+  'table.action': 'الحركة',
+  'table.cost': 'الكلفة',
+  'table.effect': 'الأثر',
+  'table.claims': 'الادعاء',
+  'table.blockedBy': 'يصدها',
+  'effect.gain': '{amount, plural, zero {+# عملة} one {+عملة واحدة} two {+عملتان} few {+# عملات} many {+# عملة} other {+# عملة}}',
+  'effect.loseInfluence': 'يخسر الهدف نفوذًا',
+  'effect.steal': 'أخذ {stealCoins, plural, zero {# عملة} one {عملة واحدة} two {عملتين} few {# عملات} many {# عملة} other {# عملة}} من الهدف',
+  'effect.exchange': 'سحب {exchangeDraw} واختيار ما يبقى',
+  'table.pair': '{first}، {second}',
+  'challengeHeading': 'التحدي',
+  'challenge': 'يمكن لأي لاعب تحدي أي ادعاء، سواء كان لحركة أو لصد. إن كانت الورقة مع المدّعي، كشفها وخلطها في الرزمة وسحب ورقة جديدة، وخسر المتحدي نفوذًا. وإن لم تكن معه، خسر المدّعي نفوذًا.',
+  'blockHeading': 'الصد',
+  'block': 'بعض الحركات يمكن صدها بادعاء الشخصية المضادة لها. والصد ادعاء، فيمكن تحديه، ويمكنك الخداع فيه.',
+  'forcedHeading': '{coup} الإجباري',
+  'forced': 'إذا بدأت دورك ومعك {forcedCoup, plural, zero {# عملة أو أكثر} one {عملة واحدة أو أكثر} two {عملتان أو أكثر} few {# عملات أو أكثر} many {# عملة أو أكثر} other {# عملة أو أكثر}}، فعليك تنفيذ {coup}.',
+
+  'reformation.whatIsHeading': 'ما هي توسعة {reformation}؟',
+  'reformation.whatIs': 'تضيف توسعة {reformation} الفصائل، وثلاث حركات ({convert} و{embezzle} و{examine})، و<inq>{inquisitor}</inq>. يمكن تفعيلها في إعدادات الغرفة قبل بدء اللعبة.',
+  'reformation.quickStartHeading': 'بداية سريعة',
+  'reformation.quick1': 'علامات الفصائل تهم قبل الاستهداف: <loy>{loyalistMark}</loy> و<ref>{reformistMark}</ref>.',
+  'reformation.quick2': '{convert} يصلح الاستهداف، أو ينقذ حليفًا، أو يضع عملات في الاحتياطي.',
+  'reformation.quick3': 'لا {embezzle} إلا حين يستحق الاحتياطي خطر التحدي.',
+  'reformation.quick4': 'مع {inquisitor}، يسحب {exchange} {inquisitorDraw, plural, zero {# ورقة} one {ورقة واحدة} two {ورقتين} few {# أوراق} many {# ورقة} other {# ورقة}} بدلًا من {exchangeDraw}، ويريك {examine} ورقة لاعب.',
+  markLoyalist: '▲ ولاء',
+  markReformist: '◆ إصلاح',
+  'reformation.openWalkthrough': 'فتح الشرح التفاعلي',
+  'reformation.factionsHeading': 'الفصائل',
+  'reformation.factions': 'كل لاعب إما من <loy>▲ {loyalist}</loy> أو من <ref>◆ {reformist}</ref>. لا يمكنك استخدام {coup} أو {assassinate} أو {steal} أو {examine} ضد لاعب من فصيلك. وحين يصبح كل اللاعبين الباقين في فصيل واحد، يمكن لأي لاعب استهداف أي لاعب. وما دام الفصيلان في اللعبة، فلا يصد {foreignAid} عنك إلا الفصيل الآخر.',
+  'reformation.newActionsHeading': 'حركات جديدة',
+  'reformation.convert': '<name>{convert}:</name> دفع {convertSelfCost, plural, zero {# عملة} one {عملة واحدة} two {عملتين} few {# عملات} many {# عملة} other {# عملة}} لتغيير فصيلك، أو {convertOtherCost, plural, zero {# عملة} one {عملة واحدة} two {عملتين} few {# عملات} many {# عملة} other {# عملة}} لتغيير فصيل لاعب آخر. تذهب العملات إلى {reserve}. لا يمكن تحديه ولا صده.',
+  'reformation.embezzle': '<name>{embezzle}:</name> أخذ كل عملات {reserve} بادعاء أن {duke} ليس معك. والتحدي هنا معكوس: يفوز المتحدي إن كان {duke} معك فعلًا.',
+  'reformation.examine': '<inq>{examine}:</inq> ادعاء {inquisitor}. يختار هدفك إحدى أوراقه المقلوبة ويعرضها عليك. ثم الخيار لك: إعادتها، أو إجباره على تبديلها بورقة عشوائية من الرزمة.',
+  'reformation.inquisitor': 'يحل محل {ambassador} عند تفعيله. ويستطيع {inquisitor} تنفيذ {exchange} (بسحب {inquisitorDraw, plural, zero {# ورقة} one {ورقة واحدة} two {ورقتين} few {# أوراق} many {# ورقة} other {# ورقة}} بدلًا من {exchangeDraw})، واستخدام {examine} على ورقة لاعب آخر، وصد {steal} مثل {captain}.',
+  'reformation.reserve': 'مجموعة عملات منفصلة عن الخزينة. تدخلها مدفوعات {convert}، ويُخرجها {embezzle} كلها.',
+};
 
 export default rules;

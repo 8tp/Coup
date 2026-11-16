@@ -1,6 +1,141 @@
 import type { NamespaceTranslation } from '../../schema';
 
-/** ar `gameover`: untranslated keys fall back to English. */
-const gameover: NamespaceTranslation<'gameover'> = {};
+/** ar `gameover`. */
+const gameover: NamespaceTranslation<'gameover'> = {
+  // ── Title ──
+  titleYouWin: 'فزت',
+  titleWins: 'فاز {name}',
+  titleNobodyWins: 'لا فائز',
+
+  winDefault: 'خرج الجميع غيرك.',
+  winNoClaims: 'فزت دون أن تدّعي أي شخصية في دورك.',
+  winCaughtBluffing: '{count, plural, zero {انكشفت خدعتك # مرة وفزت رغم ذلك.} one {انكشفت خدعتك مرة واحدة وفزت رغم ذلك.} two {انكشفت خدعتك مرتين وفزت رغم ذلك.} few {انكشفت خدعتك # مرات وفزت رغم ذلك.} many {انكشفت خدعتك # مرة وفزت رغم ذلك.} other {انكشفت خدعتك # مرة وفزت رغم ذلك.}}',
+  winChallengesWon: '{count, plural, zero {فزت في # تحدٍّ.} one {فزت في تحدٍّ واحد.} two {فزت في تحدّيين.} few {فزت في # تحديات.} many {فزت في # تحديًا.} other {فزت في # تحدٍّ.}}',
+  winProvenHonest: '{count, plural, zero {تعرّضت للتحدي # مرة} one {تعرّضت للتحدي مرة واحدة} two {تعرّضت للتحدي مرتين} few {تعرّضت للتحدي # مرات} many {تعرّضت للتحدي # مرة} other {تعرّضت للتحدي # مرة}} وكانت الورقة معك في كل مرة.',
+  winAssassinations: '{count, plural, zero {فزت بـ# اغتيال.} one {فزت باغتيال واحد.} two {فزت باغتيالين.} few {فزت بـ# اغتيالات.} many {فزت بـ# اغتيالًا.} other {فزت بـ# اغتيال.}}',
+  winCoups: '{count, plural, zero {فزت بـ# انقلاب.} one {فزت بانقلاب واحد.} two {فزت بانقلابين.} few {فزت بـ# انقلابات.} many {فزت بـ# انقلابًا.} other {فزت بـ# انقلاب.}}',
+  winBlocks: '{count, plural, zero {صددت # حركة.} one {صددت حركة واحدة.} two {صددت حركتين.} few {صددت # حركات.} many {صددت # حركة.} other {صددت # حركة.}}',
+  winClaimsNeverCaught: '{count, plural, zero {ادّعيت # مرة} one {ادّعيت مرة واحدة} two {ادّعيت مرتين} few {ادّعيت # مرات} many {ادّعيت # مرة} other {ادّعيت # مرة}} ولم ينكشف أي ادعاء.',
+
+  loseSpectator: 'شكرًا على المشاهدة.',
+  loseFirstOut: 'كنت أول من خرج.',
+  loseCaughtBluffing: '{count, plural, zero {انكشفت خدعتك # مرة.} one {انكشفت خدعتك مرة واحدة.} two {انكشفت خدعتك مرتين.} few {انكشفت خدعتك # مرات.} many {انكشفت خدعتك # مرة.} other {انكشفت خدعتك # مرة.}}',
+  loseChallengesLost: '{count, plural, zero {خسرت # تحدٍّ.} one {خسرت تحدّيًا واحدًا.} two {خسرت تحدّيين.} few {خسرت # تحديات.} many {خسرت # تحديًا.} other {خسرت # تحدٍّ.}}',
+  loseNoClaims: 'لم يكن لك أي ادعاء في أدوارك.',
+  loseChallengesWon: '{count, plural, zero {فزت في # تحدٍّ.} one {فزت في تحدٍّ واحد.} two {فزت في تحدّيين.} few {فزت في # تحديات.} many {فزت في # تحديًا.} other {فزت في # تحدٍّ.}}',
+  loseBlocks: '{count, plural, zero {صددت # حركة.} one {صددت حركة واحدة.} two {صددت حركتين.} few {صددت # حركات.} many {صددت # حركة.} other {صددت # حركة.}}',
+  loseLandedCoups: '{coups, plural, zero {نفذت # انقلاب.} one {نفذت انقلابًا واحدًا.} two {نفذت انقلابين.} few {نفذت # انقلابات.} many {نفذت # انقلابًا.} other {نفذت # انقلاب.}}',
+  loseLandedAssassinations: '{assassinations, plural, zero {نفذت # اغتيال.} one {نفذت اغتيالًا واحدًا.} two {نفذت اغتيالين.} few {نفذت # اغتيالات.} many {نفذت # اغتيالًا.} other {نفذت # اغتيال.}}',
+  loseLandedBoth: 'نفذت {coups, plural, zero {# انقلاب} one {انقلابًا واحدًا} two {انقلابين} few {# انقلابات} many {# انقلابًا} other {# انقلاب}} و{assassinations, plural, zero {# اغتيال} one {اغتيالًا واحدًا} two {اغتيالين} few {# اغتيالات} many {# اغتيالًا} other {# اغتيال}}.',
+  loseOutPlace: '{place, plural, =2 {كنت ثاني من خرج.} =3 {كنت ثالث من خرج.} =4 {كنت رابع من خرج.} =5 {كنت خامس من خرج.} other {كنت رقم # في ترتيب الخروج.}}',
+  loseOut: 'خرجت من اللعبة.',
+
+  // ── Final hands ──
+  handsHeading: 'الأوراق في النهاية',
+  lostCard: 'ورقة خاسرة',
+  youName: 'أنت',
+  handWinner: '<sr>الفائز: </sr>{name}',
+  handCoinsLeft: '{count, plural, zero {لم تبقَ عملات} one {بقيت عملة واحدة} two {بقيت عملتان} few {بقيت # عملات} many {بقيت # عملة} other {بقيت # عملة}}',
+  handOutOnTurn: 'الخروج في الدور {turn}',
+  handWins: '{count, plural, zero {# انتصار} one {انتصار واحد} two {انتصاران} few {# انتصارات} many {# انتصارًا} other {# انتصار}}',
+
+  // ── How it went ──
+  recapHeading: 'كيف سارت اللعبة',
+  you: 'أنت',
+  someone: 'أحدهم',
+
+  finishCoup: '{actor, select, you {أنهيتها} other {أنهاها {actor}}} في الدور {turn} بانقلاب {loser, select, you {عليك} other {على {loser}}}.',
+  finishAssassination: '{actor, select, you {أنهيتها} other {أنهاها {actor}}} في الدور {turn} {loser, select, you {باغتيالك} other {باغتيال {loser}}}.',
+  finishCaughtBluffing: '{actor, select, you {أنهيتها} other {أنهاها {actor}}} في الدور {turn} {loser, select, you {بكشف خدعتك} other {بكشف خدعة {loser}}}.',
+  finishCaughtBlockBluff: '{actor, select, you {أنهيتها} other {أنهاها {actor}}} في الدور {turn} {loser, select, you {بكشف صدك المخادع} other {بكشف صد مخادع من {loser}}}.',
+  finishChallengeFailed: '{actor, select, you {أنهيتها في الدور {turn}: تحدّاك {loser} وكان {character} معك.} other {أنهاها {actor} في الدور {turn}: {loser, select, you {تحدّيته وكان {character} معه.} other {تحدّاه {loser} وكان {character} معه.}}}}',
+  finishBlockChallengeFailed: '{actor, select, you {أنهيتها في الدور {turn}: تحدّى {loser} صدك وكان {character} معك.} other {أنهاها {actor} في الدور {turn}: {loser, select, you {تحدّيت صده وكان {character} معه.} other {تحدّى {loser} صده وكان {character} معه.}}}}',
+  finishChallengeLost: '{actor, select, you {أنهيتها} other {أنهاها {actor}}} في الدور {turn} {loser, select, you {حين خسرت تحدّيًا} other {حين خسر {loser} تحدّيًا}}.',
+  finishLastCard: '{player, select, you {خسرت ورقتك الأخيرة} other {خسر {player} ورقته الأخيرة}} في الدور {turn}.',
+  finishLasted: '{turns, plural, zero {استمرت اللعبة # دور.} one {استمرت اللعبة دورًا واحدًا.} two {استمرت اللعبة دورين.} few {استمرت اللعبة # أدوار.} many {استمرت اللعبة # دورًا.} other {استمرت اللعبة # دور.}}',
+
+  bluffsHonestOne: 'كان الادعاء الوحيد صادقًا.',
+  bluffsHonestAll: '{claims, plural, one {كان الادعاء صادقًا.} two {كان الادعاءان صادقين.} other {كانت كل الادعاءات صادقة، وعددها #.}}',
+  bluffsOneCaught: '{claims, plural, one {كان الادعاء الوحيد خدعة، وقد انكشفت.} two {كان أحد الادعاءين خدعة، وقد انكشفت.} few {كان واحد من # ادعاءات خدعة، وقد انكشفت.} many {كان واحد من # ادعاءً خدعة، وقد انكشفت.} other {كان واحد من # ادعاء خدعة، وقد انكشفت.}}',
+  bluffsOneGotAway: '{claims, plural, one {كان الادعاء الوحيد خدعة، ومرّت دون أن تنكشف.} two {كان أحد الادعاءين خدعة، ومرّت دون أن تنكشف.} few {كان واحد من # ادعاءات خدعة، ومرّت دون أن تنكشف.} many {كان واحد من # ادعاءً خدعة، ومرّت دون أن تنكشف.} other {كان واحد من # ادعاء خدعة، ومرّت دون أن تنكشف.}}',
+  bluffsMany: '{claims, plural, two {كان الادعاءان كلاهما خدعة.} few {{bluffs} من # ادعاءات كانت خدعًا.} many {{bluffs} من # ادعاءً كانت خدعًا.} other {{bluffs} من # ادعاء كانت خدعًا.}} {outcome, select, none {لم تنكشف أي منها.} all {انكشفت كلها.} other {{caught, plural, zero {لم تنكشف أي منها.} one {انكشفت واحدة.} two {انكشفت اثنتان.} few {انكشفت # منها.} many {انكشفت # منها.} other {انكشفت # منها.}}}}',
+  bluffsManyLeader: '{claims, plural, two {كان الادعاءان كلاهما خدعة.} few {{bluffs} من # ادعاءات كانت خدعًا.} many {{bluffs} من # ادعاءً كانت خدعًا.} other {{bluffs} من # ادعاء كانت خدعًا.}} {outcome, select, none {لم تنكشف أي منها.} all {انكشفت كلها.} other {{caught, plural, zero {لم تنكشف أي منها.} one {انكشفت واحدة.} two {انكشفت اثنتان.} few {انكشفت # منها.} many {انكشفت # منها.} other {انكشفت # منها.}}}} {leader, select, you {خادعت أكثر من غيرك} other {خادع {leader} أكثر من غيره}}، {leaderBluffs, plural, one {مرة واحدة} two {مرتين} few {# مرات} many {# مرة} other {# مرة}}.',
+
+  challengesOnlyWon: '{winner, select, you {قمت بالتحدي الوحيد وفزت به.} other {قام {winner} بالتحدي الوحيد وفاز به.}}',
+  challengesOnlyFailed: 'فشل التحدي الوحيد.',
+  challengesAllFailed: '{made, plural, one {فشل التحدي.} two {فشل التحديان كلاهما.} other {فشلت كل التحديات، وعددها #.}}',
+  challengesWon: 'فاز المتحدّون في {won} من {made, plural, zero {# تحدٍّ} one {تحدٍّ واحد} two {تحدّيين} few {# تحديات} many {# تحديًا} other {# تحدٍّ}}.',
+  challengesWonLeaderAll: 'فاز المتحدّون في {won} من {made, plural, zero {# تحدٍّ} one {تحدٍّ واحد} two {تحدّيين} few {# تحديات} many {# تحديًا} other {# تحدٍّ}}. {best, select, you {فزت بها كلها.} other {فاز {best} بها كلها.}}',
+  challengesWonLeaderSome: 'فاز المتحدّون في {won} من {made, plural, zero {# تحدٍّ} one {تحدٍّ واحد} two {تحدّيين} few {# تحديات} many {# تحديًا} other {# تحدٍّ}}. {best, select, you {فزت} other {فاز {best}}} في {bestWon} منها.',
+
+  // ── Awards ──
+  awardsHeading: 'الألقاب',
+
+  'awardTitle.pantsOnFire': 'حبل الكذب قصير',
+  'awardLine.pantsOnFire': '{player, select, you {<who>أنت</who>} other {<who>{player}</who>}}، {count, plural, zero {# خدعة مكشوفة} one {خدعة مكشوفة واحدة} two {خدعتان مكشوفتان} few {# خدع مكشوفة} many {# خدعة مكشوفة} other {# خدعة مكشوفة}}',
+  'awardTitle.honestAbe': 'كلمة شرف',
+  'awardLine.honestAbe': '{player, select, you {<who>أنت</who>} other {<who>{player}</who>}}، {count, plural, zero {صدق مُثبت # مرة} one {صدق مُثبت مرة واحدة} two {صدق مُثبت مرتين} few {صدق مُثبت # مرات} many {صدق مُثبت # مرة} other {صدق مُثبت # مرة}}، بلا انكشاف',
+  'awardTitle.inquisitor': 'المحقق',
+  'awardLine.inquisitor': '{player, select, you {<who>أنت</who>} other {<who>{player}</who>}}، {count, plural, zero {# تحدٍّ} one {تحدٍّ واحد} two {تحدّيان} few {# تحديات} many {# تحديًا} other {# تحدٍّ}}',
+  'awardTitle.eagleEye': 'عين الصقر',
+  'awardLine.eagleEye': '{player, select, you {<who>أنت</who>} other {<who>{player}</who>}}، تحديات صائبة {won}/{made}',
+  'awardTitle.wall': 'السد المنيع',
+  'awardLine.wall': '{player, select, you {<who>أنت</who>} other {<who>{player}</who>}}، {count, plural, zero {# عملية صد} one {عملية صد واحدة} two {عمليتا صد} few {# عمليات صد} many {# عملية صد} other {# عملية صد}}',
+  'awardTitle.smoothOperator': 'الثعلب',
+  'awardLine.smoothOperator': '{player, select, you {<who>أنت</who>} other {<who>{player}</who>}}، {count, plural, zero {# ادعاء} one {ادعاء واحد} two {ادعاءان} few {# ادعاءات} many {# ادعاءً} other {# ادعاء}}، بلا انكشاف',
+  'awardTitle.coupMachine': 'آلة الانقلابات',
+  'awardLine.coupMachine': '{player, select, you {<who>أنت</who>} other {<who>{player}</who>}}، {count, plural, zero {# انقلاب} one {انقلاب واحد} two {انقلابان} few {# انقلابات} many {# انقلابًا} other {# انقلاب}}',
+  'awardTitle.silentAssassin': 'القاتل الصامت',
+  'awardLine.silentAssassin': '{player, select, you {<who>أنت</who>} other {<who>{player}</who>}}، {count, plural, zero {# اغتيال} one {اغتيال واحد} two {اغتيالان} few {# اغتيالات} many {# اغتيالًا} other {# اغتيال}}',
+  'awardTitle.boldStrategy': 'خطة جهنمية',
+  'awardLine.boldStrategy': '{player, select, you {<who>أنت</who>} other {<who>{player}</who>}}، {count, plural, zero {# تحدٍّ خاسر} one {تحدٍّ خاسر واحد} two {تحدّيان خاسران} few {# تحديات خاسرة} many {# تحديًا خاسرًا} other {# تحدٍّ خاسر}}',
+  'awardTitle.quickExit': 'خروج مبكر',
+  'awardLine.quickExit': '{player, select, you {<who>أنت</who>} other {<who>{player}</who>}}، أول من خرج من اللعبة',
+
+  // ── More details ──
+  moreLabel: 'المزيد عن هذه اللعبة',
+  showBluffs: 'عرض الخدع',
+  hideBluffs: 'إخفاء الخدع',
+  showLog: 'السجل كاملًا',
+  hideLog: 'إخفاء السجل',
+  copyRecap: 'نسخ الملخص',
+  downloadLog: 'تنزيل السجل',
+  recapCopied: 'نُسخ الملخص',
+  copyFailed: 'تعذّر النسخ هنا. يمكنك تنزيل السجل بدلًا من ذلك.',
+
+  bluffRowAllHonest: '{claims, plural, zero {# ادعاء} one {ادعاء واحد، صادق} two {ادعاءان، كلاهما صادق} few {# ادعاءات، كلها صادقة} many {# ادعاءً، كلها صادقة} other {# ادعاء، كلها صادقة}}',
+  bluffRowClaims: '{claims, plural, zero {# ادعاء} one {ادعاء واحد} two {ادعاءان} few {# ادعاءات} many {# ادعاءً} other {# ادعاء}}',
+  bluffRowBluffs: '{count, plural, zero {# خدعة} one {خدعة واحدة} two {خدعتان} few {# خدع} many {# خدعة} other {# خدعة}}',
+  bluffRowCaught: 'انكشف منها {count}',
+  bluffRowGotAway: 'أفلت منها {count}',
+
+  // ── Recap export ──
+  exportTitle: 'ملخص Coup Online، الغرفة {room}',
+  exportWinner: 'الفائز: {name}',
+  exportWinnerUnknown: 'الفائز: غير معروف',
+  exportTurns: 'الأدوار: {count}',
+  exportMode: 'النمط: {mode}',
+  exportModeInquisitor: 'النمط: {mode} مع {inquisitor}',
+  exportTableHeading: 'الطاولة في النهاية:',
+  exportPlayer: '- {name}: {status}، {coins, plural, zero {# عملة} one {عملة واحدة} two {عملتان} few {# عملات} many {# عملة} other {# عملة}}، {cards}',
+  exportPlayerFaction: '- {name}: {status}، {coins, plural, zero {# عملة} one {عملة واحدة} two {عملتان} few {# عملات} many {# عملة} other {# عملة}}، {faction}، {cards}',
+  exportStatusWinner: 'فائز',
+  exportStatusAlive: 'في اللعبة',
+  exportStatusOut: 'خارج اللعبة',
+  exportCardRevealed: '{character} (مكشوفة)',
+  exportCardHidden: '{character} (مخفية)',
+  exportCardUnknown: 'ورقة مخفية',
+  exportListSeparator: '، ',
+  exportLogHeading: 'السجل كاملًا:',
+  exportLogLine: '[الدور {turn}] {line}',
+
+  // ── Footer ──
+  playAgain: 'جولة جديدة',
+  leave: 'مغادرة',
+  backHome: 'العودة للرئيسية',
+  spectating: 'وضع المشاهدة',
+  waitingForHost: 'بانتظار أن يبدأ المضيف جولة جديدة',
+  feedback: 'الإبلاغ عن خطأ أو فكرة',
+};
 
 export default gameover;
