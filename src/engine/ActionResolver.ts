@@ -922,6 +922,15 @@ export class ActionResolver {
     const sideEffects = [...existingEffects];
     const actor = game.getPlayer(pendingAction.actorId)!;
 
+    // The effects gathered so far are not applied yet. A target who just lost
+    // their last card to a challenge on this action or on their block is out:
+    // there is nothing left to steal, assassinate or examine.
+    const target = pendingAction.targetId ? game.getPlayer(pendingAction.targetId) : undefined;
+    if (target && this.isOutAfter(target, sideEffects)) {
+      sideEffects.push({ type: 'advance_turn' });
+      return this.resolved(sideEffects);
+    }
+
     switch (pendingAction.type) {
       case ActionType.Tax:
         sideEffects.push({ type: 'give_coins', playerId: actor.id, amount: TAX_COINS });
@@ -1102,6 +1111,16 @@ export class ActionResolver {
         sideEffects.push({ type: 'advance_turn' });
         return this.resolved(sideEffects);
     }
+  }
+
+  /** Whether `player` has no card left once the pending reveals in `effects` are applied. */
+  private isOutAfter(player: Player, effects: SideEffect[]): boolean {
+    const pendingReveals = new Set(
+      effects
+        .filter((e): e is Extract<SideEffect, { type: 'reveal_influence' }> => e.type === 'reveal_influence' && e.playerId === player.id)
+        .map(e => e.influenceIndex),
+    );
+    return player.influences.every((inf, i) => inf.revealed || pendingReveals.has(i));
   }
 
   /** Check if game is using Inquisitor instead of Ambassador */

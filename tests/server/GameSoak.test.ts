@@ -125,6 +125,7 @@ function runGame(cfg: Config): Outcome {
   let broadcastsAfterOver = 0;
   let over = false;
   const initialCards = new Map<Character, number>();
+  const faceUp = new Map<string, Character>();
 
   const check = (s: GameState) => {
     if (over) { broadcastsAfterOver++; return; }
@@ -144,6 +145,18 @@ function runGame(cfg: Config): Outcome {
     if (counts.size !== initialCards.size) problems.push('card kinds changed');
     // Hand sizes never change
     if (g.players.some(p => p.influences.length !== 2)) problems.push('hand size changed');
+    // A face-up card never changes, and each player is knocked out at most once
+    for (const p of g.players) {
+      p.influences.forEach((inf, i) => {
+        const key = `${p.id}:${i}`;
+        if (!inf.revealed) { if (faceUp.has(key)) problems.push(`${key} turned face down`); return; }
+        if (faceUp.has(key) && faceUp.get(key) !== inf.character) problems.push(`face-up card ${key} changed ${faceUp.get(key)} -> ${inf.character} at turn ${s.turnNumber}`);
+        faceUp.set(key, inf.character);
+      });
+      const outs = g.actionLog.filter(e => e.eventType === 'elimination' && e.actorId === p.id).length;
+      if (outs > 1) problems.push(`${p.id} logged out ${outs} times`);
+      if (outs === 1 && p.isAlive) problems.push(`${p.id} logged out but alive`);
+    }
 
     if (s.turnPhase === TurnPhase.GameOver) {
       const alive = g.getAlivePlayers();
@@ -409,10 +422,10 @@ describe('Game soak: engine + bot controller + scripted humans', () => {
       if (!r.ok) failures.push({ cfg, problems: [...new Set(r.problems)].slice(0, 8) });
     }
     if (process.env.SOAK_OUT) {
-      writeFileSync(process.env.SOAK_OUT, JSON.stringify({ games: GAMES, turns, early, timeouts, replaced, humanErrors, botErrors: Object.fromEntries(botErrors), failures: failures.slice(0, 20) }, null, 1));
+      writeFileSync(process.env.SOAK_OUT, JSON.stringify({ games: GAMES, turns, early, timeouts, replaced, humanErrors, botErrors: Object.fromEntries(botErrors), failureCount: failures.length, failures: failures.slice(0, 60) }, null, 1));
     }
     expect(failures).toEqual([]);
     // A bot never answers a window twice or after it closed
     expect(Object.fromEntries(botErrors)).toEqual({});
-  });
+  }, Math.max(15_000, GAMES * 25));
 });
