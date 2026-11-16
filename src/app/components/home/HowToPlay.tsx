@@ -1,16 +1,38 @@
 'use client';
 
-import { useRef, useState, type RefObject } from 'react';
-import { Character } from '@/shared/types';
-import { CHARACTER_DESCRIPTIONS } from '@/shared/constants';
+import { useRef, useState, type ReactNode, type RefObject } from 'react';
+import { ActionType, Character, GameMode } from '@/shared/types';
+import { ASSASSINATE_COST, COUP_COST } from '@/shared/constants';
+import { useT, characterName, actionName, gameModeName, type Translator } from '../../i18n';
 import { Modal } from '../ui/Modal';
 import { haptic } from '../../utils/haptic';
 import { CHARACTER_PALETTE, characterCardVars } from '../../utils/characterPalette';
+import { FOREIGN_AID_COINS, INCOME_COINS, TAX_COINS, learnParams } from '../../utils/learnText';
 import { CardArtwork, CharacterCardBadge } from '../game/CardArtwork';
 import { ReformationTutorial } from '../tutorial/ReformationTutorial';
 
-const tabs = ['Overview', 'Characters', 'Actions and rules', 'Reformation'] as const;
+/**
+ * How to Play: the rules reference. Every sentence is a `rules.*` message;
+ * game nouns and rule numbers come in as params (utils/learnText.ts), so the
+ * reference names things exactly as the table, the log and the tutorial do.
+ */
+
+const tabs = ['overview', 'characters', 'rules', 'reformation'] as const;
 type Tab = typeof tabs[number];
+
+function tabLabel(t: Translator, tab: Tab): string {
+  switch (tab) {
+    case 'overview': return t('rules.tab.overview');
+    case 'characters': return t('rules.tab.characters');
+    case 'rules': return t('rules.tab.rules');
+    case 'reformation': return gameModeName(t, GameMode.Reformation);
+  }
+}
+
+/** `<term>` and `<name>` in rules messages: a rules word set in white. */
+const term = (chunks: ReactNode) => <span className="text-white font-medium">{chunks}</span>;
+/** `<inq>`: the Inquisitor's teal. */
+const inq = (chunks: ReactNode) => <span className="text-teal-300 font-medium">{chunks}</span>;
 
 interface HowToPlayProps {
   open: boolean;
@@ -18,7 +40,8 @@ interface HowToPlayProps {
 }
 
 export function HowToPlay({ open, onClose }: HowToPlayProps) {
-  const [activeTab, setActiveTab] = useState<Tab>('Overview');
+  const t = useT();
+  const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [showReformationTutorial, setShowReformationTutorial] = useState(false);
   const walkthroughTriggerRef = useRef<HTMLButtonElement>(null);
 
@@ -31,11 +54,11 @@ export function HowToPlay({ open, onClose }: HowToPlayProps) {
     <>
       <Modal open={open && !showReformationTutorial} onClose={onClose} maxWidth="max-w-2xl" scrollable>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold">How to play</h2>
+          <h2 className="text-xl font-bold">{t('rules.title')}</h2>
           <button
             className="court-icon-btn text-2xl leading-none"
             onClick={() => { haptic(); onClose(); }}
-            aria-label="Close"
+            aria-label={t('common.close')}
           >
             &times;
           </button>
@@ -50,16 +73,16 @@ export function HowToPlay({ open, onClose }: HowToPlayProps) {
               data-active={activeTab === tab ? 'true' : 'false'}
               onClick={() => { haptic(); setActiveTab(tab); }}
             >
-              {tab}
+              {tabLabel(t, tab)}
             </button>
           ))}
         </div>
 
         {/* Tab content */}
-        {activeTab === 'Overview' && <OverviewTab />}
-        {activeTab === 'Characters' && <CharactersTab />}
-        {activeTab === 'Actions and rules' && <RulesTab />}
-        {activeTab === 'Reformation' && (
+        {activeTab === 'overview' && <OverviewTab />}
+        {activeTab === 'characters' && <CharactersTab />}
+        {activeTab === 'rules' && <RulesTab />}
+        {activeTab === 'reformation' && (
           <ReformationTab
             walkthroughTriggerRef={walkthroughTriggerRef}
             onOpenWalkthrough={() => setShowReformationTutorial(true)}
@@ -75,54 +98,50 @@ export function HowToPlay({ open, onClose }: HowToPlayProps) {
 }
 
 function OverviewTab() {
+  const t = useT();
+  const p = learnParams(t);
   return (
     <div className="space-y-4 text-sm text-gray-300">
       <div>
-        <h3 className="text-coup-accent font-bold text-base mb-2">What is Coup?</h3>
-        <p>
-          Coup is a bluffing game for 2 to 6 players. Everyone starts with two face-down
-          cards, called influence, and 2 coins. The last player with a face-down card wins.
-        </p>
+        <h3 className="text-coup-accent font-bold text-base mb-2">{t('rules.overview.whatIsHeading')}</h3>
+        <p>{t('rules.overview.whatIs', p)}</p>
       </div>
       <div>
-        <h3 className="text-coup-accent font-bold text-base mb-2">Goal</h3>
-        <p>
-          Make everyone else lose their influence. When you lose an influence, you turn
-          one of your cards face-up. Lose both and you&apos;re out.
-        </p>
+        <h3 className="text-coup-accent font-bold text-base mb-2">{t('rules.overview.goalHeading')}</h3>
+        <p>{t('rules.overview.goal', p)}</p>
       </div>
       <div>
-        <h3 className="text-coup-accent font-bold text-base mb-2">Basic flow</h3>
+        <h3 className="text-coup-accent font-bold text-base mb-2">{t('rules.overview.flowHeading')}</h3>
         <ol className="list-decimal list-inside space-y-1.5">
-          <li>On your turn, take one action. Some actions claim a character.</li>
-          <li>Any other player can <span className="text-white font-medium">challenge</span> a claim. If you were bluffing, you lose an influence. If you weren&apos;t, the challenger loses one.</li>
-          <li>Some actions can be <span className="text-white font-medium">blocked</span> by claiming the character that counters them. The player who acted can challenge the block.</li>
-          <li>If nobody challenges or blocks, the action happens.</li>
+          <li>{t('rules.overview.flow1', p)}</li>
+          <li>{t.rich('rules.overview.flow2', { ...p, term })}</li>
+          <li>{t.rich('rules.overview.flow3', { ...p, term })}</li>
+          <li>{t('rules.overview.flow4', p)}</li>
         </ol>
       </div>
       <div>
-        <h3 className="text-coup-accent font-bold text-base mb-2">Bluffing</h3>
-        <p className="text-gray-400">
-          You can claim any character, whatever you hold. A claim only costs you if
-          someone challenges it and you were lying.
-        </p>
+        <h3 className="text-coup-accent font-bold text-base mb-2">{t('rules.overview.bluffHeading')}</h3>
+        <p className="text-gray-400">{t('rules.overview.bluff', p)}</p>
       </div>
       <div className="border-t border-coup-line/70 pt-4 mt-2">
-        <h3 className="text-coup-accent font-bold text-base mb-2">About the original game</h3>
+        <h3 className="text-coup-accent font-bold text-base mb-2">{t('rules.overview.creditsHeading')}</h3>
         <p>
-          Coup is a card game designed by <span className="text-white font-medium">Rikki Tahta</span>,
-          originally published in 2012 by <span className="text-white font-medium">La Mame Games</span> and{' '}
-          <span className="text-white font-medium">Indie Boards &amp; Cards</span>.
-          This is a fan-made adaptation. If you enjoy it, please support the creators
-          by{' '}
-          <a
-            href="https://www.amazon.com/Indie-Boards-and-Cards-COU1IBC/dp/B00GDI4HX4"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-coup-accent underline hover:text-white"
-          >
-            purchasing the physical game
-          </a>.
+          {t.rich('rules.overview.credits', {
+            designer: 'Rikki Tahta',
+            publisher1: 'La Mame Games',
+            publisher2: 'Indie Boards & Cards',
+            term,
+            link: (chunks: ReactNode) => (
+              <a
+                href="https://www.amazon.com/Indie-Boards-and-Cards-COU1IBC/dp/B00GDI4HX4"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-coup-accent underline hover:text-white"
+              >
+                {chunks}
+              </a>
+            ),
+          })}
         </p>
       </div>
     </div>
@@ -130,6 +149,8 @@ function OverviewTab() {
 }
 
 function CharactersTab() {
+  const t = useT();
+  const p = learnParams(t);
   const characters = Object.values(Character);
 
   return (
@@ -149,8 +170,8 @@ function CharactersTab() {
               <CharacterCardBadge character={char} />
             </div>
             <div>
-              <div className={`font-bold ${theme.text}`}>{char}</div>
-              <div className="text-sm text-coup-ink-mute">{CHARACTER_DESCRIPTIONS[char]}</div>
+              <div className={`font-bold ${theme.text}`}>{characterName(t, char)}</div>
+              <div className="text-sm text-coup-ink-mute">{t(`rules.character.${char}`, p)}</div>
             </div>
           </div>
         );
@@ -159,72 +180,85 @@ function CharactersTab() {
   );
 }
 
+/** An empty cell in the actions table. */
+const DASH = <>&mdash;</>;
+
 function RulesTab() {
+  const t = useT();
+  const p = learnParams(t);
+  const action = (a: ActionType) => actionName(t, a);
+  const character = (c: Character) => characterName(t, c);
+  const gain = (amount: number) => t('rules.effect.gain', { amount });
   return (
     <div className="space-y-5 text-sm">
       {/* Actions table */}
       <div>
-        <h3 className="text-coup-accent font-bold text-base mb-3">Actions</h3>
+        <h3 className="text-coup-accent font-bold text-base mb-3">{t('rules.actionsHeading')}</h3>
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-gray-300">
+          <table className="w-full text-start text-gray-300">
             <thead>
               <tr className="border-b border-coup-line/70 text-xs text-coup-ink-mute uppercase">
-                <th className="py-2 pr-3">Action</th>
-                <th className="py-2 pr-3">Cost</th>
-                <th className="py-2 pr-3">Effect</th>
-                <th className="py-2 pr-3">Claims</th>
-                <th className="py-2">Blocked By</th>
+                <th className="py-2 pe-3">{t('rules.table.action')}</th>
+                <th className="py-2 pe-3">{t('rules.table.cost')}</th>
+                <th className="py-2 pe-3">{t('rules.table.effect')}</th>
+                <th className="py-2 pe-3">{t('rules.table.claims')}</th>
+                <th className="py-2">{t('rules.table.blockedBy')}</th>
               </tr>
             </thead>
             <tbody className="text-xs">
               <tr className="border-b border-coup-line/40">
-                <td className="py-2 pr-3 font-medium text-white">Income</td>
-                <td className="py-2 pr-3">0</td>
-                <td className="py-2 pr-3">+1 coin</td>
-                <td className="py-2 pr-3 text-coup-ink-mute">&mdash;</td>
-                <td className="py-2 text-coup-ink-mute">&mdash;</td>
+                <td className="py-2 pe-3 font-medium text-white">{action(ActionType.Income)}</td>
+                <td className="py-2 pe-3">{t.number(0)}</td>
+                <td className="py-2 pe-3">{gain(INCOME_COINS)}</td>
+                <td className="py-2 pe-3 text-coup-ink-mute">{DASH}</td>
+                <td className="py-2 text-coup-ink-mute">{DASH}</td>
               </tr>
               <tr className="border-b border-coup-line/40">
-                <td className="py-2 pr-3 font-medium text-white">Foreign Aid</td>
-                <td className="py-2 pr-3">0</td>
-                <td className="py-2 pr-3">+2 coins</td>
-                <td className="py-2 pr-3 text-coup-ink-mute">&mdash;</td>
-                <td className="py-2 text-purple-300">Duke</td>
+                <td className="py-2 pe-3 font-medium text-white">{action(ActionType.ForeignAid)}</td>
+                <td className="py-2 pe-3">{t.number(0)}</td>
+                <td className="py-2 pe-3">{gain(FOREIGN_AID_COINS)}</td>
+                <td className="py-2 pe-3 text-coup-ink-mute">{DASH}</td>
+                <td className="py-2 text-purple-300">{character(Character.Duke)}</td>
               </tr>
               <tr className="border-b border-coup-line/40">
-                <td className="py-2 pr-3 font-medium text-white">Coup</td>
-                <td className="py-2 pr-3">7</td>
-                <td className="py-2 pr-3">Target loses influence</td>
-                <td className="py-2 pr-3 text-coup-ink-mute">&mdash;</td>
-                <td className="py-2 text-coup-ink-mute">&mdash;</td>
+                <td className="py-2 pe-3 font-medium text-white">{action(ActionType.Coup)}</td>
+                <td className="py-2 pe-3">{t.number(COUP_COST)}</td>
+                <td className="py-2 pe-3">{t('rules.effect.loseInfluence', p)}</td>
+                <td className="py-2 pe-3 text-coup-ink-mute">{DASH}</td>
+                <td className="py-2 text-coup-ink-mute">{DASH}</td>
               </tr>
               <tr className="border-b border-coup-line/40">
-                <td className="py-2 pr-3 font-medium text-purple-300">Tax</td>
-                <td className="py-2 pr-3">0</td>
-                <td className="py-2 pr-3">+3 coins</td>
-                <td className="py-2 pr-3 text-purple-300">Duke</td>
-                <td className="py-2 text-coup-ink-mute">&mdash;</td>
+                <td className="py-2 pe-3 font-medium text-purple-300">{action(ActionType.Tax)}</td>
+                <td className="py-2 pe-3">{t.number(0)}</td>
+                <td className="py-2 pe-3">{gain(TAX_COINS)}</td>
+                <td className="py-2 pe-3 text-purple-300">{character(Character.Duke)}</td>
+                <td className="py-2 text-coup-ink-mute">{DASH}</td>
               </tr>
               <tr className="border-b border-coup-line/40">
-                <td className="py-2 pr-3 font-medium text-gray-300">Assassinate</td>
-                <td className="py-2 pr-3">3</td>
-                <td className="py-2 pr-3">Target loses influence</td>
-                <td className="py-2 pr-3 text-gray-300">Assassin</td>
-                <td className="py-2 text-red-300">Contessa</td>
+                <td className="py-2 pe-3 font-medium text-gray-300">{action(ActionType.Assassinate)}</td>
+                <td className="py-2 pe-3">{t.number(ASSASSINATE_COST)}</td>
+                <td className="py-2 pe-3">{t('rules.effect.loseInfluence', p)}</td>
+                <td className="py-2 pe-3 text-gray-300">{character(Character.Assassin)}</td>
+                <td className="py-2 text-red-300">{character(Character.Contessa)}</td>
               </tr>
               <tr className="border-b border-coup-line/40">
-                <td className="py-2 pr-3 font-medium text-blue-300">Steal</td>
-                <td className="py-2 pr-3">0</td>
-                <td className="py-2 pr-3">Take 2 coins from target</td>
-                <td className="py-2 pr-3 text-blue-300">Captain</td>
-                <td className="py-2"><span className="text-blue-300">Captain</span>, <span className="text-green-300">Ambassador</span></td>
+                <td className="py-2 pe-3 font-medium text-blue-300">{action(ActionType.Steal)}</td>
+                <td className="py-2 pe-3">{t.number(0)}</td>
+                <td className="py-2 pe-3">{t('rules.effect.steal', p)}</td>
+                <td className="py-2 pe-3 text-blue-300">{character(Character.Captain)}</td>
+                <td className="py-2">
+                  {t.rich('rules.table.pair', {
+                    first: <span className="text-blue-300">{character(Character.Captain)}</span>,
+                    second: <span className="text-green-300">{character(Character.Ambassador)}</span>,
+                  })}
+                </td>
               </tr>
               <tr>
-                <td className="py-2 pr-3 font-medium text-green-300">Exchange</td>
-                <td className="py-2 pr-3">0</td>
-                <td className="py-2 pr-3">Draw 2, keep what you want</td>
-                <td className="py-2 pr-3 text-green-300">Ambassador</td>
-                <td className="py-2 text-coup-ink-mute">&mdash;</td>
+                <td className="py-2 pe-3 font-medium text-green-300">{action(ActionType.Exchange)}</td>
+                <td className="py-2 pe-3">{t.number(0)}</td>
+                <td className="py-2 pe-3">{t('rules.effect.exchange', p)}</td>
+                <td className="py-2 pe-3 text-green-300">{character(Character.Ambassador)}</td>
+                <td className="py-2 text-coup-ink-mute">{DASH}</td>
               </tr>
             </tbody>
           </table>
@@ -233,29 +267,20 @@ function RulesTab() {
 
       {/* Challenging */}
       <div>
-        <h3 className="text-coup-accent font-bold text-base mb-2">Challenging</h3>
-        <p className="text-gray-400">
-          Any player can challenge a claim, whether it&apos;s for an action or a block. If the
-          claimer has the card, they show it, shuffle it into the deck and draw a new one, and
-          the challenger loses an influence. If they don&apos;t, the claimer loses an influence.
-        </p>
+        <h3 className="text-coup-accent font-bold text-base mb-2">{t('rules.challengeHeading')}</h3>
+        <p className="text-gray-400">{t('rules.challenge', p)}</p>
       </div>
 
       {/* Blocking */}
       <div>
-        <h3 className="text-coup-accent font-bold text-base mb-2">Blocking</h3>
-        <p className="text-gray-400">
-          Some actions can be blocked by claiming the character that counters them. A block
-          is a claim, so it can be challenged, and you can bluff it.
-        </p>
+        <h3 className="text-coup-accent font-bold text-base mb-2">{t('rules.blockHeading')}</h3>
+        <p className="text-gray-400">{t('rules.block', p)}</p>
       </div>
 
       {/* Forced Coup */}
       <div>
-        <h3 className="text-coup-accent font-bold text-base mb-2">Forced Coup</h3>
-        <p className="text-gray-400">
-          If you start your turn with 10 or more coins, you must Coup.
-        </p>
+        <h3 className="text-coup-accent font-bold text-base mb-2">{t('rules.forcedHeading', p)}</h3>
+        <p className="text-gray-400">{t('rules.forced', p)}</p>
       </div>
     </div>
   );
@@ -268,24 +293,30 @@ function ReformationTab({
   onOpenWalkthrough: () => void;
   walkthroughTriggerRef: RefObject<HTMLButtonElement | null>;
 }) {
+  const t = useT();
+  const p = learnParams(t);
+  const tags = { ...p, term, name: term, inq };
   return (
     <div className="space-y-5 text-sm">
       <div>
-        <h3 className="text-coup-accent font-bold text-base mb-2">What is Reformation?</h3>
-        <p className="text-gray-400">
-          Reformation is an expansion that adds factions, three actions (Convert, Embezzle
-          and Examine) and the <span className="text-teal-300 font-medium">Inquisitor</span>.
-          Turn it on in the lobby settings before the game starts.
-        </p>
+        <h3 className="text-coup-accent font-bold text-base mb-2">{t('rules.reformation.whatIsHeading', p)}</h3>
+        <p className="text-gray-400">{t.rich('rules.reformation.whatIs', tags)}</p>
       </div>
 
       <div className="panel-sunk bg-coup-accent/15 p-3">
-        <h3 className="text-coup-accent font-bold text-base mb-2">Quick start</h3>
+        <h3 className="text-coup-accent font-bold text-base mb-2">{t('rules.reformation.quickStartHeading')}</h3>
         <ol className="list-decimal list-inside space-y-1.5 text-gray-300">
-          <li>Check faction markers before targeting: <span className="text-blue-300 font-bold">▲ LOY</span> and <span className="text-red-300 font-bold">◆ REF</span>.</li>
-          <li>Use Convert to fix targeting, rescue an ally, or put coins into the reserve.</li>
-          <li>Only Embezzle when the reserve is worth the challenge risk.</li>
-          <li>With the Inquisitor, Exchange draws 1 card instead of 2, and Examine shows you a player&apos;s card.</li>
+          <li>
+            {t.rich('rules.reformation.quick1', {
+              loyalistMark: t('rules.markLoyalist'),
+              reformistMark: t('rules.markReformist'),
+              loy: (chunks: ReactNode) => <span className="text-blue-300 font-bold">{chunks}</span>,
+              ref: (chunks: ReactNode) => <span className="text-red-300 font-bold">{chunks}</span>,
+            })}
+          </li>
+          <li>{t('rules.reformation.quick2', p)}</li>
+          <li>{t('rules.reformation.quick3', p)}</li>
+          <li>{t('rules.reformation.quick4', p)}</li>
         </ol>
         <button
           ref={walkthroughTriggerRef}
@@ -293,56 +324,38 @@ function ReformationTab({
           className="mt-3 w-full rounded-lg border border-coup-accent/50 bg-coup-bg/50 px-3 py-2 text-sm font-bold text-coup-accent transition hover:bg-coup-accent/10"
           onClick={() => { haptic(80); onOpenWalkthrough(); }}
         >
-          Open the walkthrough
+          {t('rules.reformation.openWalkthrough')}
         </button>
       </div>
 
       <div>
-        <h3 className="text-coup-accent font-bold text-base mb-2">Factions</h3>
+        <h3 className="text-coup-accent font-bold text-base mb-2">{t('rules.reformation.factionsHeading')}</h3>
         <p className="text-gray-400 mb-2">
-          Each player is a <span className="text-blue-300 font-medium">▲ Loyalist</span> or a{' '}
-          <span className="text-red-300 font-medium">◆ Reformist</span>. You can&apos;t Coup,
-          Assassinate, Steal from or Examine a player in your own faction. Once every player left
-          is in one faction, anyone can target anyone. While both factions remain, only the other
-          faction can block your Foreign Aid.
+          {t.rich('rules.reformation.factions', {
+            ...p,
+            loy: (chunks: ReactNode) => <span className="text-blue-300 font-medium">{chunks}</span>,
+            ref: (chunks: ReactNode) => <span className="text-red-300 font-medium">{chunks}</span>,
+          })}
         </p>
       </div>
 
       <div>
-        <h3 className="text-coup-accent font-bold text-base mb-2">New actions</h3>
+        <h3 className="text-coup-accent font-bold text-base mb-2">{t('rules.reformation.newActionsHeading')}</h3>
         <div className="space-y-3 text-gray-400">
-          <div>
-            <span className="text-white font-medium">Convert:</span> pay 1 coin to switch your own
-            faction, or 2 coins to switch another player&apos;s. The coins go to the Treasury Reserve.
-            Nobody can challenge or block it.
-          </div>
-          <div>
-            <span className="text-white font-medium">Embezzle:</span> take every coin in the
-            Treasury Reserve by claiming you don&apos;t have a Duke. A challenge works the other way
-            round: the challenger wins if you do have one.
-          </div>
-          <div>
-            <span className="text-teal-300 font-medium">Examine:</span> claim the Inquisitor. Your
-            target picks one of their face-down cards to show you. Then you return it, or make them
-            swap it for a random card from the deck.
-          </div>
+          <div>{t.rich('rules.reformation.convert', tags)}</div>
+          <div>{t.rich('rules.reformation.embezzle', tags)}</div>
+          <div>{t.rich('rules.reformation.examine', tags)}</div>
         </div>
       </div>
 
       <div>
-        <h3 className="text-coup-accent font-bold text-base mb-2">Inquisitor</h3>
-        <p className="text-gray-400">
-          Replaces the Ambassador when it&apos;s turned on. The Inquisitor can Exchange (drawing
-          1 card instead of 2), Examine another player&apos;s card, and block Steal like the Captain.
-        </p>
+        <h3 className="text-coup-accent font-bold text-base mb-2">{characterName(t, Character.Inquisitor)}</h3>
+        <p className="text-gray-400">{t('rules.reformation.inquisitor', p)}</p>
       </div>
 
       <div>
-        <h3 className="text-coup-accent font-bold text-base mb-2">Treasury Reserve</h3>
-        <p className="text-gray-400">
-          A pool of coins kept apart from the treasury. Convert payments go in, and Embezzle
-          takes them all out.
-        </p>
+        <h3 className="text-coup-accent font-bold text-base mb-2">{p.reserve}</h3>
+        <p className="text-gray-400">{t('rules.reformation.reserve', p)}</p>
       </div>
     </div>
   );

@@ -4588,13 +4588,16 @@
     .onb-chapter > .onb-text { align-self: end; }
   }
 
+  /* Forward is toward the end of the line: leftward under dir="rtl". */
   @keyframes onb-in-fwd {
-    from { opacity: 0; transform: translateX(18px); }
+    from { opacity: 0; transform: translateX(calc(18px * var(--onb-line, 1))); }
   }
 
   @keyframes onb-in-back {
-    from { opacity: 0; transform: translateX(-18px); }
+    from { opacity: 0; transform: translateX(calc(-18px * var(--onb-line, 1))); }
   }
+
+  [dir='rtl'] .onb-root { --onb-line: -1; }
 
   @keyframes onb-fade {
     from { opacity: 0; }
@@ -4638,7 +4641,8 @@
     min-height: 2.75rem;
     display: flex;
     align-items: center;
-    padding: 0.5rem 0.75rem 0.5rem 0.9rem;
+    padding-block: 0.5rem;
+    padding-inline: 0.9rem 0.75rem;
     border-radius: 2px;
     background-color: var(--ground-deep);
     background-image: linear-gradient(var(--ink-mute), var(--ink-mute));
@@ -4649,6 +4653,9 @@
     font-size: var(--step-0);
     line-height: 1.35;
   }
+
+  /* The rail sits at the start of the line. */
+  [dir='rtl'] .onb-note { background-position: right; }
 
   .onb-note.is-done { background-image: linear-gradient(var(--brass), var(--brass)); }
   .onb-note.is-danger { background-image: var(--hazard-rail); background-size: 4px 100%; }
@@ -4678,8 +4685,8 @@
     .onb-foot > .onb-back,
     .onb-foot > .onb-next { flex: 0 0 auto; min-width: 9.5rem; }
     .onb-foot > .onb-back:only-child,
-    .onb-foot > .onb-next:only-child { margin-left: auto; }
-    .onb-foot > .onb-cta { min-width: 15rem; margin-left: auto; }
+    .onb-foot > .onb-next:only-child { margin-inline-start: auto; }
+    .onb-foot > .onb-cta { min-width: 15rem; margin-inline-start: auto; }
   }
 
   @media (min-width: 768px) and (min-height: 600px) and (hover: hover) {
@@ -4882,7 +4889,7 @@
     min-height: 52px;
     padding: 0.4rem 0.5rem;
     border-radius: 3px;
-    text-align: left;
+    text-align: start;
     background-color: var(--raised);
     color: var(--ink);
     box-shadow:
@@ -4917,19 +4924,18 @@
     line-height: 1.15;
   }
 
+  /* Names wrap rather than truncate: "Foreign Aid" is one line in English
+     and two in most translations, and a cut-off action name teaches nothing. */
   .onb-tile-name {
     font-size: var(--step-0);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow-wrap: break-word;
+    hyphens: auto;
   }
 
   .onb-tile-sub {
     font-size: 0.75rem;
     color: var(--ink-mute);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow-wrap: break-word;
   }
 
   /* Three across is too tight for a glyph beside a name on a phone. */
@@ -5018,12 +5024,14 @@
       0 1px 0 rgba(0, 0, 0, 0.55);
   }
 
+  /* The meter fills from the start of the line, so under dir="rtl" it fills
+     from the right and its marks hang off the other side of their slot. */
   .onb-meter-mark {
     position: absolute;
     top: 0;
-    left: calc(var(--at) * 100%);
-    transform: translateX(-100%);
-    padding-right: 0.15rem;
+    inset-inline-start: calc(var(--at) * 100%);
+    transform: translateX(calc(-100% * var(--onb-line, 1)));
+    padding-inline-end: 0.15rem;
     white-space: nowrap;
     font-size: 0.75rem;
     font-weight: 700;
@@ -5274,7 +5282,9 @@
   }
 
   /* The brass pointer: a printed triangle on the edge that faces the anchor,
-     its tip a few pixels short of the thing it is about. */
+     its tip a few pixels short of the thing it is about. Physical left/right
+     on purpose, in every direction: coachPlacement.ts measures the table,
+     which never mirrors, in physical pixels. */
   .coach-pointer {
     position: absolute;
     width: 18px;
@@ -5363,7 +5373,7 @@
     flex: none;
     display: flex;
     gap: 0.25rem;
-    margin-right: -0.35rem;
+    margin-inline-end: -0.35rem;
   }
 
   .coach-btn {

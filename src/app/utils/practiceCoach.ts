@@ -1,11 +1,23 @@
-import { ACTION_DEFINITIONS, ACTION_DISPLAY_NAMES, COUP_COST, FORCED_COUP_THRESHOLD } from '@/shared/constants';
+import { ACTION_DEFINITIONS, COUP_COST, FORCED_COUP_THRESHOLD } from '@/shared/constants';
 import { ActionType, Character, ClientGameState, GameMode, TurnPhase } from '@/shared/types';
-import { formatCharacters, visibleBlockCharacters } from './blockOptions';
+import { formatListToParts } from '@/shared/i18n/messageFormat';
+import { LOCALES } from '@/shared/i18n/locales';
+import { actionName, characterName } from '../i18n/glossary';
+import { makePlainTranslator, type PlainTranslator } from '../i18n/runtime';
+import type { MessageKey } from '../i18n/schema';
+import { visibleBlockCharacters } from './blockOptions';
+import { RULE_NUMBERS, gameNouns } from './learnText';
 
 /**
  * The practice coach's brain: which tip fits this moment of the game, and
  * which part of the court table it is about. Pure — the callout component
  * (components/game/PracticeCoach.tsx) only measures and draws.
+ *
+ * A tip is words only by reference: each of its lines is a `tutorial.coach.*`
+ * message key with typed params (a player, a character, an action, a list of
+ * characters, a number), so every line is one whole sentence a translator can
+ * reorder. `renderCoachText` turns a line into a string; the component turns
+ * it into nodes, wrapping player names in `<bdi>`.
  */
 
 /**
@@ -25,11 +37,24 @@ export type CoachAnchor = 'dock' | 'prompt' | 'plaque' | 'hand';
  */
 export type PracticeCoachTone = 'info' | 'danger';
 
-export interface PracticeCoachTip {
+/** A param of a coach line, typed by what it names. */
+export type CoachParam =
+  | number
+  | string
+  | { player: string }
+  | { character: Character }
+  | { action: ActionType }
+  /** Characters joined with the language's "or". */
+  | { anyOf: Character[] };
+
+/** One line of a tip: a message key and its params. */
+export interface CoachText {
+  key: MessageKey;
+  params?: Readonly<Record<string, CoachParam>>;
+}
+
+interface CoachTipBase {
   id: string;
-  label: string;
-  title: string;
-  body: string;
   tone: PracticeCoachTone;
   anchor: CoachAnchor;
   /**
@@ -37,6 +62,21 @@ export interface PracticeCoachTip {
    * again. See {@link CoachHistory}.
    */
   once?: boolean;
+}
+
+/** A tip as message references (what the callout renders). */
+export interface PracticeCoachMessage extends CoachTipBase {
+  /** A short tag naming the tip. Not shown on screen at present. */
+  label: CoachText;
+  title: CoachText;
+  body: CoachText;
+}
+
+/** A tip rendered to plain strings in one language. */
+export interface PracticeCoachTip extends CoachTipBase {
+  label: string;
+  title: string;
+  body: string;
 }
 
 /**
@@ -54,24 +94,32 @@ export function onceTipAvailable(id: string, history: CoachHistory, turnNumber: 
   return shownOn === undefined || shownOn === turnNumber;
 }
 
-/** What a targeted action will do to you, in one sentence. */
-function targetedConsequence(type: ActionType): string {
-  switch (type) {
-    case ActionType.Steal: return 'Steal takes 2 of your coins.';
-    case ActionType.Assassinate: return 'Assassinate makes you lose a card.';
-    case ActionType.Examine: return 'Examine lets them look at one of your cards.';
-    default: return `${ACTION_DISPLAY_NAMES[type]} is aimed at you.`;
-  }
+/** The first-targeted body for each action that can be aimed at you; anything else uses `other`. */
+const TARGETED_BODY: Partial<Record<ActionType, MessageKey>> = {
+  [ActionType.Steal]: 'tutorial.coach.firstTargeted.Steal',
+  [ActionType.Assassinate]: 'tutorial.coach.firstTargeted.Assassinate',
+  [ActionType.Examine]: 'tutorial.coach.firstTargeted.Examine',
+};
+
+const text = (key: MessageKey, params?: Record<string, CoachParam>): CoachText => ({ key, params });
+
+/** `claimed` select value plus the character, for lines that fall back when no character is claimed. */
+function claimParams(character: Character | null | undefined): Record<string, CoachParam> {
+  return character ? { claimed: 'yes', character: { character } } : { claimed: 'no', character: '' };
 }
 
-export function getPracticeCoachTip(
+export function getPracticeCoachMessage(
   gameState: ClientGameState,
   history: CoachHistory = EMPTY_HISTORY,
-): PracticeCoachTip | null {
+): PracticeCoachMessage | null {
   const { myId, turnPhase, pendingAction, pendingBlock, turnNumber } = gameState;
   const me = gameState.players.find(player => player.id === myId);
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
   const canShowOnce = (id: string) => onceTipAvailable(id, history, turnNumber);
+  // An empty name renders as `tutorial.coach.someone` ("The bot").
+  const playerParam = (id: string | undefined): CoachParam => ({
+    player: gameState.players.find(player => player.id === id)?.name ?? '',
+  });
 
   if (!me?.isAlive || turnPhase === TurnPhase.GameOver) return null;
 
@@ -81,9 +129,9 @@ export function getPracticeCoachTip(
   ) {
     return {
       id: 'choose-influence',
-      label: 'Lose a card',
-      title: 'Give up the card you need least',
-      body: 'It turns face-up for everyone. Keep the one that backs the claims and blocks you plan to make.',
+      label: text('tutorial.coach.chooseInfluence.label'),
+      title: text('tutorial.coach.chooseInfluence.title'),
+      body: text('tutorial.coach.chooseInfluence.body'),
       tone: 'danger',
       anchor: 'prompt',
     };
@@ -92,9 +140,9 @@ export function getPracticeCoachTip(
   if (turnPhase === TurnPhase.AwaitingExchange && gameState.exchangeState) {
     return {
       id: 'exchange-hand',
-      label: 'Exchange',
-      title: 'Keep the characters you\'ve claimed',
-      body: 'Holding them makes those claims safe to repeat. If you haven\'t claimed anything yet, keep the cards with the most uses. The rest go back into the deck.',
+      label: text('glossary.action.Exchange'),
+      title: text('tutorial.coach.exchange.title'),
+      body: text('tutorial.coach.exchange.body'),
       tone: 'info',
       anchor: 'prompt',
     };
@@ -106,9 +154,9 @@ export function getPracticeCoachTip(
   ) {
     return {
       id: 'examine-selection',
-      label: 'Examined',
-      title: 'You choose which card they see',
-      body: 'Show the card you\'d mind least losing to a swap. Only the examiner learns what it is.',
+      label: text('tutorial.coach.examineSelection.label'),
+      title: text('tutorial.coach.examineSelection.title'),
+      body: text('tutorial.coach.examineSelection.body'),
       tone: 'info',
       anchor: 'prompt',
     };
@@ -117,9 +165,9 @@ export function getPracticeCoachTip(
   if (turnPhase === TurnPhase.AwaitingExamineDecision && gameState.examineState) {
     return {
       id: 'examine-decision',
-      label: 'Examine',
-      title: 'You\'ve seen one of their cards',
-      body: 'Return it and you know what they hold. Force a swap and the card goes into the deck, but you lose track of their hand.',
+      label: text('glossary.action.Examine'),
+      title: text('tutorial.coach.examineDecision.title'),
+      body: text('tutorial.coach.examineDecision.body'),
       tone: 'info',
       anchor: 'prompt',
     };
@@ -131,21 +179,25 @@ export function getPracticeCoachTip(
     && pendingAction.actorId !== myId
     && !gameState.challengeState?.passedPlayerIds.includes(myId)
   ) {
-    const actorName = gameState.players.find(player => player.id === pendingAction.actorId)?.name ?? 'The bot';
+    const actor = playerParam(pendingAction.actorId);
+    const action: CoachParam = { action: pendingAction.type };
+    const claim = claimParams(pendingAction.claimedCharacter);
 
     const blockable = pendingAction.targetId === myId
       && ACTION_DEFINITIONS[pendingAction.type].blockedBy.length > 0;
-    const blockers = formatCharacters(visibleBlockCharacters(gameState));
+    const blockers: CoachParam = { anyOf: visibleBlockCharacters(gameState) };
 
     if (pendingAction.targetId === myId && canShowOnce('first-targeted')) {
-      const blockLine = blockable
-        ? ` Or block it now with ${blockers}.`
-        : '';
       return {
         id: 'first-targeted',
-        label: 'You are the target',
-        title: `${actorName} is targeting you`,
-        body: `${targetedConsequence(pendingAction.type)} Challenge if you doubt their ${pendingAction.claimedCharacter ?? 'claim'}.${blockLine}`,
+        label: text('tutorial.coach.firstTargeted.label'),
+        title: text('tutorial.coach.firstTargeted.title', { actor }),
+        body: text(TARGETED_BODY[pendingAction.type] ?? 'tutorial.coach.firstTargeted.other', {
+          action,
+          ...claim,
+          blockable: blockable ? 'yes' : 'no',
+          blockers,
+        }),
         tone: 'danger',
         anchor: 'plaque',
         once: true,
@@ -155,23 +207,24 @@ export function getPracticeCoachTip(
     if (blockable) {
       return {
         id: 'block-or-challenge',
-        label: 'Block?',
-        title: `You can block this ${ACTION_DISPLAY_NAMES[pendingAction.type]}`,
-        body: `Claim ${blockers} to stop it, even without the card. Or challenge their ${pendingAction.claimedCharacter ?? 'claim'}. A lost challenge costs you a card.`,
+        label: text('tutorial.coach.blockOrChallenge.label'),
+        title: text('tutorial.coach.blockOrChallenge.title', { action }),
+        body: text('tutorial.coach.blockOrChallenge.body', { blockers, ...claim }),
         tone: pendingAction.type === ActionType.Assassinate ? 'danger' : 'info',
         anchor: 'plaque',
       };
     }
 
+    const embezzle = pendingAction.type === ActionType.Embezzle;
     return {
       id: 'challenge-claim',
-      label: 'Challenge?',
-      title: pendingAction.type === ActionType.Embezzle
-        ? `${actorName} claims to have no Duke`
-        : `${actorName} claims ${pendingAction.claimedCharacter ?? 'a character'}`,
-      body: pendingAction.type === ActionType.Embezzle
-        ? `Challenge only if you think they have a Duke. If they don't, you lose a card.`
-        : `Challenge if you think they don't have ${pendingAction.claimedCharacter ?? 'that card'}. If they do, you lose a card, so letting it go is often safer.`,
+      label: text('tutorial.coach.challengeClaim.label'),
+      title: embezzle
+        ? text('tutorial.coach.challengeEmbezzle.title', { actor })
+        : text('tutorial.coach.challengeClaim.title', { actor, ...claim }),
+      body: embezzle
+        ? text('tutorial.coach.challengeEmbezzle.body')
+        : text('tutorial.coach.challengeClaim.body', claim),
       tone: 'info',
       anchor: 'plaque',
     };
@@ -183,12 +236,14 @@ export function getPracticeCoachTip(
     && pendingBlock.blockerId !== myId
     && !gameState.challengeState?.passedPlayerIds.includes(myId)
   ) {
-    const blocker = gameState.players.find(player => player.id === pendingBlock.blockerId);
     return {
       id: 'challenge-block',
-      label: 'Blocked',
-      title: 'A block is a claim too',
-      body: `${blocker?.name ?? 'The bot'} claims ${pendingBlock.claimedCharacter} to block. Challenge only if you'll risk a card on it being a lie.`,
+      label: text('tutorial.coach.challengeBlock.label'),
+      title: text('tutorial.coach.challengeBlock.title'),
+      body: text('tutorial.coach.challengeBlock.body', {
+        blocker: playerParam(pendingBlock.blockerId),
+        character: { character: pendingBlock.claimedCharacter },
+      }),
       tone: 'info',
       anchor: 'plaque',
     };
@@ -201,16 +256,16 @@ export function getPracticeCoachTip(
     && !gameState.blockPassedPlayerIds.includes(myId)
     && (!pendingAction.targetId || pendingAction.targetId === myId)
   ) {
-    const blockCharacters = visibleBlockCharacters(gameState);
-    const actionName = ACTION_DISPLAY_NAMES[pendingAction.type];
+    const blockers: CoachParam = { anyOf: visibleBlockCharacters(gameState) };
+    const action: CoachParam = { action: pendingAction.type };
     const tone: PracticeCoachTone = pendingAction.type === ActionType.Assassinate ? 'danger' : 'info';
 
     if (canShowOnce('first-block')) {
       return {
         id: 'first-block',
-        label: 'Your first block',
-        title: `You can block this ${actionName}`,
-        body: `Claim ${formatCharacters(blockCharacters)} to stop it, even if you don't have one. They can challenge your block, and a caught bluff costs you a card.`,
+        label: text('tutorial.coach.firstBlock.label'),
+        title: text('tutorial.coach.firstBlock.title', { action }),
+        body: text('tutorial.coach.firstBlock.body', { blockers }),
         tone,
         anchor: 'prompt',
         once: true,
@@ -219,9 +274,9 @@ export function getPracticeCoachTip(
 
     return {
       id: 'make-block',
-      label: 'Block?',
-      title: `You can block ${actionName}`,
-      body: `Blocking means claiming ${formatCharacters(blockCharacters)}. You can bluff it, but they can challenge.`,
+      label: text('tutorial.coach.makeBlock.label'),
+      title: text('tutorial.coach.makeBlock.title', { action }),
+      body: text('tutorial.coach.makeBlock.body', { blockers }),
       tone,
       anchor: 'prompt',
     };
@@ -231,9 +286,9 @@ export function getPracticeCoachTip(
     if (me.coins >= FORCED_COUP_THRESHOLD) {
       return {
         id: 'must-coup',
-        label: `${me.coins} coins`,
-        title: 'At 10 coins you must Coup',
-        body: 'Coup is your only move. Pick the opponent who worries you most. Nobody can block or challenge it.',
+        label: text('tutorial.coach.coins', { count: me.coins }),
+        title: text('tutorial.coach.mustCoup.title'),
+        body: text('tutorial.coach.mustCoup.body'),
         tone: 'danger',
         anchor: 'dock',
       };
@@ -242,9 +297,9 @@ export function getPracticeCoachTip(
     if (me.coins >= COUP_COST) {
       return {
         id: 'coup-ready',
-        label: `${me.coins} coins`,
-        title: 'You can Coup',
-        body: 'Pay 7 and any opponent loses a card. Nobody can block or challenge it. You can keep saving, but at 10 you have to.',
+        label: text('tutorial.coach.coins', { count: me.coins }),
+        title: text('tutorial.coach.coupReady.title'),
+        body: text('tutorial.coach.coupReady.body'),
         tone: 'info',
         anchor: 'dock',
       };
@@ -260,9 +315,9 @@ export function getPracticeCoachTip(
       if (aliveFactions.size === 1) {
         return {
           id: 'reformation-free-for-all',
-          label: 'One faction',
-          title: 'One faction left, so target anyone',
-          body: 'Coup, Assassinate, Steal and Examine can target anyone until a Convert splits the table again.',
+          label: text('tutorial.coach.freeForAll.label'),
+          title: text('tutorial.coach.freeForAll.title'),
+          body: text('tutorial.coach.freeForAll.body'),
           tone: 'info',
           anchor: 'dock',
         };
@@ -271,9 +326,9 @@ export function getPracticeCoachTip(
       if (gameState.turnNumber <= 2) {
         return {
           id: 'reformation-factions',
-          label: 'Factions',
-          title: 'Target the other faction',
-          body: 'Your faction limits who you can Coup, Assassinate, Steal from or Examine. Challenges ignore factions. While both factions remain, only the other faction can block your Foreign Aid.',
+          label: text('tutorial.coach.factions.label'),
+          title: text('tutorial.coach.factions.title'),
+          body: text('tutorial.coach.factions.body'),
           tone: 'info',
           anchor: 'dock',
         };
@@ -285,11 +340,11 @@ export function getPracticeCoachTip(
         ));
         return {
           id: 'reformation-embezzle',
-          label: `${gameState.treasuryReserve} in reserve`,
-          title: 'Embezzle takes the reserve',
+          label: text('tutorial.coach.embezzle.label', { count: gameState.treasuryReserve }),
+          title: text('tutorial.coach.embezzle.title'),
           body: holdsDuke
-            ? 'Embezzle claims you have no Duke, but you have one. Your hidden Duke would make a challenge succeed. Bluff only if the reserve is worth a card.'
-            : 'Embezzle claims you have no Duke. You really don\'t, so anyone who challenges loses a card.',
+            ? text('tutorial.coach.embezzle.holdsDuke')
+            : text('tutorial.coach.embezzle.noDuke'),
           tone: 'info',
           anchor: 'dock',
         };
@@ -297,9 +352,9 @@ export function getPracticeCoachTip(
 
       return {
         id: 'reformation-convert',
-        label: 'Convert',
-        title: 'Convert switches a faction',
-        body: 'Pay 1 coin to switch yourself or 2 to switch another player. Nobody can challenge or block it, and the coins go to the reserve for Embezzle.',
+        label: text('glossary.action.Convert'),
+        title: text('tutorial.coach.convert.title'),
+        body: text('tutorial.coach.convert.body'),
         tone: 'info',
         anchor: 'dock',
       };
@@ -308,9 +363,9 @@ export function getPracticeCoachTip(
     if (gameState.turnNumber <= 2) {
       return {
         id: 'opening-action',
-        label: 'Your move',
-        title: 'Take Income or make a claim',
-        body: 'Income is guaranteed. Character actions pay more, and you can claim any character, but any claim can be challenged.',
+        label: text('tutorial.coach.yourMove.label'),
+        title: text('tutorial.coach.opening.title'),
+        body: text('tutorial.coach.opening.body'),
         tone: 'info',
         anchor: 'dock',
       };
@@ -319,9 +374,9 @@ export function getPracticeCoachTip(
     if (gameState.turnNumber <= 5) {
       return {
         id: 'repeat-claims',
-        label: 'Your move',
-        title: 'Repeat the character you claimed',
-        body: 'Claiming the same character again is believable. Switching to a new one invites a challenge.',
+        label: text('tutorial.coach.yourMove.label'),
+        title: text('tutorial.coach.repeat.title'),
+        body: text('tutorial.coach.repeat.body'),
         tone: 'info',
         anchor: 'dock',
       };
@@ -329,4 +384,59 @@ export function getPracticeCoachTip(
   }
 
   return null;
+}
+
+/**
+ * Resolve a line's typed params into format values: characters and actions to
+ * their glossary names, a list of characters to "A or B" in the language,
+ * a player to `renderPlayer(name)` (a string, or a `<bdi>` node in React).
+ * The glossary nouns and rule numbers (`{coup}`, `{forcedCoup}`...) are always
+ * available too.
+ */
+export function coachParams(
+  t: PlainTranslator,
+  params: CoachText['params'],
+  renderPlayer: (name: string) => unknown,
+  renderList: (items: string[]) => unknown,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...RULE_NUMBERS, ...gameNouns(t) };
+  for (const [name, value] of Object.entries(params ?? {})) {
+    if (typeof value === 'number' || typeof value === 'string') out[name] = value;
+    else if ('player' in value) out[name] = renderPlayer(value.player || t('tutorial.coach.someone'));
+    else if ('character' in value) out[name] = characterName(t, value.character);
+    else if ('action' in value) out[name] = actionName(t, value.action);
+    else if (value.anyOf.length === 0) out[name] = t('tutorial.coach.blockerFallback');
+    else out[name] = renderList(value.anyOf.map(c => characterName(t, c)));
+  }
+  return out;
+}
+
+/** "Captain or Ambassador" in the translator's language, as a string. */
+function orList(t: PlainTranslator, items: string[]): string {
+  return formatListToParts(items, LOCALES[t.locale].intl, 'disjunction').map(String).join('');
+}
+
+/** One coach line as a plain string. */
+export function renderCoachText(t: PlainTranslator, line: CoachText): string {
+  return t(line.key, coachParams(t, line.params, name => name, items => orList(t, items)));
+}
+
+/**
+ * The tip for this moment, rendered to plain strings (English unless a
+ * translator is passed). The callout uses {@link getPracticeCoachMessage}
+ * and renders rich text itself.
+ */
+export function getPracticeCoachTip(
+  gameState: ClientGameState,
+  history: CoachHistory = EMPTY_HISTORY,
+  t: PlainTranslator = makePlainTranslator('en'),
+): PracticeCoachTip | null {
+  const message = getPracticeCoachMessage(gameState, history);
+  if (!message) return null;
+  return {
+    ...message,
+    label: renderCoachText(t, message.label),
+    title: renderCoachText(t, message.title),
+    body: renderCoachText(t, message.body),
+  };
 }

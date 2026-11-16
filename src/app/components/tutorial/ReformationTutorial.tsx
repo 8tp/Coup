@@ -1,13 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActionType, Character, Faction } from '@/shared/types';
+import { CONVERSION_SELF_COST, STARTING_COINS } from '@/shared/constants';
+import { useT, actionName } from '../../i18n';
 import { CoinGlyph } from '../icons';
 import { Plaque } from '../game/table/ClaimPlaque';
 import { PlayerSeat } from '../game/PlayerSeat';
 import { OnboardingShell } from '../onboarding/OnboardingShell';
 import { ChapterLayout, DemoSeat, Felt, HIDDEN, HandPlate, shown } from '../onboarding/parts';
 import { haptic, hapticHeavy } from '../../utils/haptic';
+import { learnParams } from '../../utils/learnText';
 
 interface ReformationTutorialProps {
   open: boolean;
@@ -18,23 +21,35 @@ interface ReformationTutorialProps {
  * The Reformation walkthrough: factions, Convert, Embezzle, Examine. Played on
  * the same stage and the same miniature table as "How Coup works", with the
  * real seats (and their ▲ LOY / ◆ REF marks) rather than coloured panels.
+ * Every word is a `tutorial.reform.*` message.
  */
 
-const CHAPTERS = [
-  { id: 'factions', label: 'Factions' },
-  { id: 'convert', label: 'Convert' },
-  { id: 'embezzle', label: 'Embezzle' },
-  { id: 'examine', label: 'Examine' },
-] as const;
+const CHAPTERS = ['factions', 'convert', 'embezzle', 'examine'] as const;
 const FINISH = CHAPTERS.length;
 
+/** The demonstration's players: names, never translated. */
+const MORGAN = 'Morgan';
+const TUTOR = 'Tutor Bot';
+/** The reserve the Embezzle demonstration takes. */
+const RESERVE_DEMO = 4;
+
+/** `{player}` in a sentence: a name, isolated for right-to-left text. */
+const player = (name: string) => <bdi>{name}</bdi>;
+
 export function ReformationTutorial({ open, onClose }: ReformationTutorialProps) {
+  const t = useT();
   const [step, setStep] = useState(0);
   const [aimed, setAimed] = useState<'morgan' | 'tutor' | null>(null);
   const [converted, setConverted] = useState(false);
   const [embezzled, setEmbezzled] = useState(false);
   const [examined, setExamined] = useState(false);
   const [examineDecision, setExamineDecision] = useState<'return' | 'swap' | null>(null);
+  const chapters = useMemo(() => [
+    { id: 'factions', label: t('tutorial.reform.chapter.factions') },
+    { id: 'convert', label: actionName(t, ActionType.Convert) },
+    { id: 'embezzle', label: actionName(t, ActionType.Embezzle) },
+    { id: 'examine', label: actionName(t, ActionType.Examine) },
+  ] satisfies Array<{ id: typeof CHAPTERS[number]; label: string }>, [t]);
 
   useEffect(() => {
     if (!open) return;
@@ -56,19 +71,19 @@ export function ReformationTutorial({ open, onClose }: ReformationTutorialProps)
     <OnboardingShell
       open={open}
       onClose={onClose}
-      title="Reformation walkthrough"
+      title={t('tutorial.reform.title', learnParams(t))}
       className="reformation-tutorial"
-      chapters={CHAPTERS}
+      chapters={chapters}
       index={step}
       onGoto={setStep}
       onNext={() => setStep(s => Math.min(FINISH, s + 1))}
       onBack={() => setStep(s => Math.max(0, s - 1))}
       hasNext={step < FINISH}
       nextReady={done}
-      nextLabel={step === FINISH - 1 ? 'Finish' : 'Next'}
+      nextLabel={step === FINISH - 1 ? t('tutorial.shell.finish') : t('tutorial.shell.next')}
       footer={step === FINISH ? (
         <button type="button" className="btn-primary onb-next onb-cta" onClick={() => { haptic(80); onClose(); }}>
-          Done
+          {t('common.done')}
         </button>
       ) : undefined}
     >
@@ -90,16 +105,18 @@ export function ReformationTutorial({ open, onClose }: ReformationTutorialProps)
 }
 
 function FactionsStep({ aimed, onAim }: { aimed: 'morgan' | 'tutor' | null; onAim: (who: 'morgan' | 'tutor') => void }) {
+  const t = useT();
+  const p = learnParams(t);
   const note = aimed === 'tutor'
-    ? 'Tutor Bot is a Reformist, so you can target them.'
+    ? t.rich('tutorial.reform.factions.right', { ...p, player: player(TUTOR) })
     : aimed === 'morgan'
-      ? 'Morgan is a Loyalist like you, so you can\'t target Morgan.'
-      : 'You\'re a Loyalist ▲. Tap a player you can target.';
+      ? t.rich('tutorial.reform.factions.wrong', { ...p, player: player(MORGAN) })
+      : t('tutorial.reform.factions.prompt', p);
 
   return (
     <ChapterLayout
-      title="You can only target the other faction"
-      lede="Everyone is a Loyalist ▲ or a Reformist ◆. Coup, Assassinate, Steal and Examine can only target the other faction. Once every player left is in one faction, anyone can target anyone."
+      title={t('tutorial.reform.factions.title')}
+      lede={t('tutorial.reform.factions.lede', p)}
       noteTone={aimed === 'tutor' ? 'done' : aimed === 'morgan' ? 'danger' : 'info'}
       note={note}
       demo={(
@@ -107,17 +124,17 @@ function FactionsStep({ aimed, onAim }: { aimed: 'morgan' | 'tutor' | null; onAi
           <div className="onb-row onb-row-seats">
             <div className="onb-seat">
               <PlayerSeat
-                player={{ id: 'ref-morgan', name: 'Morgan', coins: 2, influences: [HIDDEN, HIDDEN], isAlive: true, seatIndex: 1, faction: Faction.Loyalist }}
+                player={{ id: 'ref-morgan', name: MORGAN, coins: STARTING_COINS, influences: [HIDDEN, HIDDEN], isAlive: true, seatIndex: 1, faction: Faction.Loyalist }}
                 isCurrentTurn={false}
                 isMe={false}
                 cardPreview={false}
-                illegalReason={aimed === 'morgan' ? 'Same faction' : undefined}
+                illegalReason={aimed === 'morgan' ? t('tutorial.reform.factions.sameFaction') : undefined}
                 onSelect={() => { haptic(30); onAim('morgan'); }}
               />
             </div>
             <div className="onb-seat">
               <PlayerSeat
-                player={{ id: 'ref-tutor', name: 'Tutor Bot', coins: 2, influences: [HIDDEN, HIDDEN], isAlive: true, seatIndex: 2, faction: Faction.Reformist }}
+                player={{ id: 'ref-tutor', name: TUTOR, coins: STARTING_COINS, influences: [HIDDEN, HIDDEN], isAlive: true, seatIndex: 2, faction: Faction.Reformist }}
                 isCurrentTurn={false}
                 isMe={false}
                 cardPreview={false}
@@ -127,7 +144,7 @@ function FactionsStep({ aimed, onAim }: { aimed: 'morgan' | 'tutor' | null; onAi
               />
             </div>
           </div>
-          <HandPlate influences={[shown(Character.Captain), shown(Character.Inquisitor)]} label="You · ▲ Loyalist" compact />
+          <HandPlate influences={[shown(Character.Captain), shown(Character.Inquisitor)]} label={t('tutorial.youLoyalist', p)} compact />
         </Felt>
       )}
     />
@@ -135,31 +152,33 @@ function FactionsStep({ aimed, onAim }: { aimed: 'morgan' | 'tutor' | null; onAi
 }
 
 function ConvertStep({ converted, onConvert, onReset }: { converted: boolean; onConvert: () => void; onReset: () => void }) {
+  const t = useT();
+  const p = learnParams(t);
   return (
     <ChapterLayout
-      title="Convert switches a faction"
-      lede="Pay 1 coin to switch your own faction or 2 to switch another player's. Nobody can challenge or block it. The coins go to the reserve."
+      title={t('tutorial.reform.convert.title', p)}
+      lede={t('tutorial.reform.convert.lede', p)}
       noteTone={converted ? 'done' : 'info'}
       note={converted
-        ? 'You\'re a Reformist now. With everyone in one faction, anyone can target anyone.'
-        : 'Two players left: you, a Loyalist, and Tutor Bot, a Reformist.'}
+        ? t('tutorial.reform.convert.done', p)
+        : t.rich('tutorial.reform.convert.prompt', { ...p, player: player(TUTOR) })}
       demo={(
         <Felt>
           <div className="onb-row">
-            <DemoSeat name="Tutor Bot" influences={[HIDDEN, HIDDEN]} coins={2} faction={Faction.Reformist} />
-            <Reserve coins={converted ? 1 : 0} />
+            <DemoSeat name={TUTOR} influences={[HIDDEN, HIDDEN]} coins={STARTING_COINS} faction={Faction.Reformist} />
+            <Reserve coins={converted ? CONVERSION_SELF_COST : 0} />
           </div>
           <HandPlate
             influences={[shown(Character.Captain), shown(Character.Duke)]}
-            coins={converted ? 1 : 2}
-            label={converted ? 'You · ◆ Reformist' : 'You · ▲ Loyalist'}
+            coins={converted ? STARTING_COINS - CONVERSION_SELF_COST : STARTING_COINS}
+            label={converted ? t('tutorial.youReformist', p) : t('tutorial.youLoyalist', p)}
             compact
           />
           <div className="onb-actions">
             {converted ? (
-              <button type="button" className="btn-secondary" onClick={() => { haptic(); onReset(); }}>Start over</button>
+              <button type="button" className="btn-secondary" onClick={() => { haptic(); onReset(); }}>{t('tutorial.startOver')}</button>
             ) : (
-              <button type="button" className="btn-primary" onClick={onConvert}>Convert yourself · 1 coin</button>
+              <button type="button" className="btn-primary" onClick={onConvert}>{t('tutorial.reform.convert.button', p)}</button>
             )}
           </div>
         </Felt>
@@ -169,32 +188,36 @@ function ConvertStep({ converted, onConvert, onReset }: { converted: boolean; on
 }
 
 function EmbezzleStep({ resolved, onEmbezzle }: { resolved: boolean; onEmbezzle: () => void }) {
+  const t = useT();
+  const p = learnParams(t);
   return (
     <ChapterLayout
-      title="Embezzle takes the whole reserve"
-      lede="To Embezzle, you claim you don't have a Duke. A challenge works the other way round: the challenger wins only if you do have one."
+      title={t('tutorial.reform.embezzle.title', p)}
+      lede={t('tutorial.reform.embezzle.lede', p)}
       noteTone={resolved ? 'done' : 'info'}
       note={resolved
-        ? 'Tutor Bot challenged and you had no Duke, so Tutor Bot loses a card. You draw two new cards and take the 4 coins.'
-        : 'Your hand is a Captain and an Inquisitor. No Duke.'}
+        ? t.rich('tutorial.reform.embezzle.done', { ...p, player: player(TUTOR), coins: RESERVE_DEMO })
+        : t('tutorial.reform.embezzle.prompt', p)}
       demo={(
         <Felt>
           <div className="onb-row">
-            <Reserve coins={resolved ? 0 : 4} />
+            <Reserve coins={resolved ? 0 : RESERVE_DEMO} />
             <div className="onb-plaque-slot">
               {resolved
-                ? <Plaque actor="You" headline="Embezzle" actionType={ActionType.Embezzle} detail="claiming no Duke" />
-                : <span className="onb-plaque-ghost">The table</span>}
+                ? <Plaque actor={t('tutorial.you')} headline={p.embezzle} actionType={ActionType.Embezzle} detail={t('tutorial.plaque.noDuke', p)} />
+                : <span className="onb-plaque-ghost">{t('tutorial.tableGhost')}</span>}
             </div>
           </div>
           <HandPlate
             influences={resolved ? [shown(Character.Contessa), shown(Character.Assassin)] : [shown(Character.Captain), shown(Character.Inquisitor)]}
-            coins={resolved ? 6 : 2}
+            coins={resolved ? STARTING_COINS + RESERVE_DEMO : STARTING_COINS}
             compact
           />
           {!resolved && (
             <div className="onb-actions">
-              <button type="button" className="btn-primary" onClick={onEmbezzle}>Embezzle 4 coins</button>
+              <button type="button" className="btn-primary" onClick={onEmbezzle}>
+                {t('tutorial.reform.embezzle.button', { ...p, coins: RESERVE_DEMO })}
+              </button>
             </div>
           )}
         </Felt>
@@ -216,40 +239,43 @@ function ExamineStep({
   onDecide: (decision: 'return' | 'swap') => void;
   onReset: () => void;
 }) {
+  const t = useT();
+  const p = learnParams(t);
+  const params = { ...p, player: player(TUTOR) };
   const note = !examined
-    ? 'You have the Inquisitor. Examine Tutor Bot.'
+    ? t.rich('tutorial.reform.examine.prompt', params)
     : decision === null
-      ? 'Tutor Bot shows you a Duke. Return it or force a swap.'
+      ? t.rich('tutorial.reform.examine.shown', params)
       : decision === 'return'
-        ? 'Tutor Bot keeps the Duke, and only you know about it.'
-        : 'The Duke goes into the deck and Tutor Bot draws a new card. They lost the Duke, but now you don\'t know what they have.';
+        ? t.rich('tutorial.reform.examine.returned', params)
+        : t.rich('tutorial.reform.examine.swapped', params);
 
   return (
     <ChapterLayout
-      title="Examine looks at one card"
-      lede="Examine claims the Inquisitor. Your target picks one of their cards to show you. Then you return it, or make them swap it for a card from the deck."
+      title={t('tutorial.reform.examine.title', p)}
+      lede={t('tutorial.reform.examine.lede', p)}
       noteTone={decision ? 'done' : 'info'}
       note={note}
       demo={(
         <Felt>
           <DemoSeat
-            name="Tutor Bot"
+            name={TUTOR}
             influences={examined && decision !== 'swap' ? [shown(Character.Duke), HIDDEN] : [HIDDEN, HIDDEN]}
-            coins={2}
+            coins={STARTING_COINS}
             isTarget={examined && decision === null}
           />
           <div className="onb-actions">
             {!examined && (
-              <button type="button" className="btn-primary" onClick={onExamine}>Examine Tutor Bot</button>
+              <button type="button" className="btn-primary" onClick={onExamine}><span>{t.rich('tutorial.reform.examine.button', params)}</span></button>
             )}
             {examined && decision === null && (
               <>
-                <button type="button" className="btn-secondary" onClick={() => onDecide('return')}>Return it</button>
-                <button type="button" className="btn-primary" onClick={() => onDecide('swap')}>Force swap</button>
+                <button type="button" className="btn-secondary" onClick={() => onDecide('return')}>{t('tutorial.reform.examine.return')}</button>
+                <button type="button" className="btn-primary" onClick={() => onDecide('swap')}>{t('tutorial.reform.examine.swap')}</button>
               </>
             )}
             {decision && (
-              <button type="button" className="btn-secondary" onClick={() => { haptic(); onReset(); }}>Start over</button>
+              <button type="button" className="btn-secondary" onClick={() => { haptic(); onReset(); }}>{t('tutorial.startOver')}</button>
             )}
           </div>
           <HandPlate influences={[shown(Character.Inquisitor), shown(Character.Contessa)]} compact />
@@ -260,31 +286,34 @@ function ExamineStep({
 }
 
 function Reserve({ coins }: { coins: number }) {
+  const t = useT();
   return (
-    <div className="onb-reserve" aria-label={`Treasury Reserve: ${coins} coins`}>
-      <span className="onb-reserve-label">Reserve</span>
+    <div className="onb-reserve" aria-label={t('tutorial.reform.reserveLabel', { reserve: t('glossary.term.reserve'), coins })}>
+      <span className="onb-reserve-label">{t('tutorial.reform.reserve')}</span>
       <span className="onb-reserve-coins figure"><CoinGlyph size={18} /> {coins}</span>
     </div>
   );
 }
 
 function ReadyStep() {
+  const t = useT();
+  const p = learnParams(t);
   const recap = [
-    ['Factions', 'Target the other faction until everyone left is in one.'],
-    ['Convert', 'Pay 1 to switch your faction or 2 to switch someone else\'s. The coins go to the reserve.'],
-    ['Embezzle', 'Claim you have no Duke and take the whole reserve.'],
-    ['Examine', 'See one of a player\'s cards, then return it or force a swap.'],
+    { id: 'factions', title: t('tutorial.reform.chapter.factions'), body: t('tutorial.reform.recap.factions', p) },
+    { id: 'convert', title: p.convert, body: t('tutorial.reform.recap.convert', p) },
+    { id: 'embezzle', title: p.embezzle, body: t('tutorial.reform.recap.embezzle', p) },
+    { id: 'examine', title: p.examine, body: t('tutorial.reform.recap.examine', p) },
   ];
 
   return (
     <>
       <div className="onb-text">
-        <h3 className="onb-title type-display">What Reformation changes</h3>
-        <p className="onb-lede">Claims, challenges and blocks work the same as in the base game.</p>
+        <h3 className="onb-title type-display">{t('tutorial.reform.recap.title', p)}</h3>
+        <p className="onb-lede">{t('tutorial.reform.recap.lede')}</p>
       </div>
       <ul className="onb-recap onb-demo">
-        {recap.map(([title, body]) => (
-          <li key={title} className="onb-ref">
+        {recap.map(({ id, title, body }) => (
+          <li key={id} className="onb-ref">
             <span className="onb-ref-text">
               <span className="onb-ref-name type-display">{title}</span>
               <span className="onb-ref-does">{body}</span>
@@ -292,7 +321,7 @@ function ReadyStep() {
           </li>
         ))}
       </ul>
-      <p className="onb-note is-info">To play it with tips, open Practice on the main menu and pick Reformation.</p>
+      <p className="onb-note is-info">{t('tutorial.reform.recap.practice', p)}</p>
     </>
   );
 }
