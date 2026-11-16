@@ -1,6 +1,196 @@
 import type { NamespaceTranslation } from '../../schema';
 
-/** zh-Hans `game`: untranslated keys fall back to English. */
-const game: NamespaceTranslation<'game'> = {};
+/** zh-Hans `game`: the table, the dock, the action bar, cards, reactions and chat. */
+const game: NamespaceTranslation<'game'> = {
+  // ── Header ──
+  roomCodeTitle: '房间码',
+  turn: '第 {turn} 回合',
+  watching: '{count, plural, other {# 人观战}}',
+  logAndChat: '游戏记录和聊天',
+  logAndChatUnread: '游戏记录和聊天，{count, plural, other {# 条未读}}',
+  unreadMany: '9+',
+  muteSound: '关闭音效',
+  unmuteSound: '打开音效',
+  settings: '设置',
+  howToPlay: '玩法说明',
+
+  // ── Banners and loading ──
+  spectating: '观战中',
+  stopSpectating: '离开',
+  reconnecting: '正在重新连接服务器…',
+  connecting: '连接中…',
+  dealing: '发牌中…',
+  newGameFailed: '无法开始游戏',
+
+  // ── Browser tab title ──
+  'title.plain': 'Coup {room}',
+  'title.status': '{status} | Coup {room}',
+  'title.watching': '观战中',
+  'title.eliminated': '已出局',
+  'title.yourTurn': '轮到你了',
+  'title.blockOrChallenge': '阻挡或质疑',
+  'title.challengeOrPass': '质疑或放过',
+  'title.blockOrAllow': '阻挡或放行',
+  'title.challengeBlock': '质疑阻挡',
+  'title.loseCard': '失去一张牌',
+  'title.keepCards': '选择留下的牌',
+  'title.showCard': '出示一张牌',
+  'title.examineCard': '审查这张牌',
+
+  // ── The log drawer ──
+  drawerTitle: '记录和聊天',
+  closeLog: '关闭记录',
+  mutePlayers: '屏蔽玩家',
+  muted: '已屏蔽',
+  chatOn: '显示聊天和表情',
+
+  // ── Objects on the felt ──
+  deck: '牌堆 {count}',
+  treasury: '国库 {count}',
+  reserve: '储备金 {count}',
+  fallen: '弃牌 {count}',
+  flightStrike: '暗杀',
+  'fx.caughtBluffing': '被识破',
+  'fx.lostCard': '失去一张牌',
+  'fx.blocked': '被挡下',
+  'fx.eliminated': '出局',
+
+  // ── Your hand ──
+  yourMove: '轮到你',
+  yourHand: '你的手牌',
+  eliminated: '已出局',
+
+  // ── Seats ──
+  'seat.choose': '选择 {name}',
+  'seat.refused': '{name}：{reason}',
+  'seat.bot': '人机',
+  'seat.faction.Loyalist': '保',
+  'seat.faction.Reformist': '改',
+  'seat.mute': '屏蔽 {name} 的聊天和表情',
+  'seat.muteShort': '屏蔽 {name}',
+  'seat.unmute': '取消屏蔽 {name}',
+
+  // ── The phase line over the felt ──
+  'phase.yourTurn': '轮到你了：选择一个行动',
+  'phase.theirTurn': '轮到 {name}',
+  'phase.claimBlockOrChallenge': '{actor} 声称有{character}：阻挡或质疑',
+  'phase.claimChallengeOrPass': '{actor} 声称有{character}：质疑或放过',
+  'phase.claimNoChallengeOrPass': '{actor} 声称没有{character}：质疑或放过',
+  'phase.aCharacter': '某个角色',
+  'phase.waitingChallenge': '{count, plural, =0 {等待玩家质疑或放过} other {等待 {names} 质疑或放过}}',
+  'phase.targetingYou': '{actor} 以你为目标：阻挡或放行',
+  'phase.usesBlockOrAllow': '{actor} 发动{action}：阻挡或放行',
+  'phase.waitingBlock': '{count, plural, =0 {等待玩家阻挡或放行} other {等待 {names} 阻挡或放行}}',
+  'phase.blockChallengeOrPass': '{blocker} 用{character}阻挡：质疑或放过',
+  'phase.chooseLoss': '选择一张牌失去',
+  'phase.choosingLoss': '{name} 正在选择失去哪张牌',
+  'phase.chooseToShow': '选择一张牌给 {examiner} 看',
+  'phase.chooseToShowInquisitor': '选择一张牌给{character}看',
+  'phase.choosingToShow': '{target} 正在选一张牌给 {examiner} 审查',
+  'phase.examineDecision': '归还这张牌，或强制换牌',
+  'phase.examining': '{name} 正在审查一张牌',
+  'phase.chooseKeep': '选择要留下的牌',
+  'phase.choosingKeep': '{name} 正在选择留下哪些牌',
+  'phase.someoneChoosingKeep': '有玩家正在选择留下哪些牌',
+  'phase.gameOver': '游戏结束',
+
+  // ── The claim plaque ──
+  'plaque.you': '你',
+  'plaque.as': '自称{character}',
+  'plaque.claimsNo': '自称没有{character}',
+  'plaque.on': '{target, select, you {对你} other {对 {target}}}',
+  'plaque.asOn': '{target, select, you {自称{character} · 对你} other {自称{character} · 对 {target}}}',
+  'plaque.claimsNoOn': '{target, select, you {自称没有{character} · 对你} other {自称没有{character} · 对 {target}}}',
+  'plaque.blocks': '阻挡',
+
+  // ── The action bar ──
+  'actionDesc.Income': '+{count, plural, other {# 枚金币}}（不可阻挡）',
+  'actionDesc.ForeignAid': '+{count, plural, other {# 枚金币}}（可被阻挡）',
+  'actionDesc.Tax': '+{count, plural, other {# 枚金币}}（声称{character}）',
+  'actionDesc.Steal': '拿 {count, plural, other {# 枚金币}}（声称{character}）',
+  'actionDesc.Assassinate': '付 {cost} 枚，对方失去一张牌（声称{character}）',
+  'actionDesc.Exchange': '抽 {count} 放回 {count}（声称{character}）',
+  'actionDesc.Coup': '付 {cost} 枚，对方失去一张牌（不可阻挡）',
+  'actionDesc.Examine': '查看一张牌（声称{character}）',
+  'actionDesc.Convert': '换阵营（{self} 或 {other} 枚金币）',
+  'actionDesc.Embezzle': '从储备金拿 {count, plural, other {# 枚金币}}（声称没有{character}）',
+  'actionDesc.EmbezzleEmpty': '储备金是空的',
+  chooseTarget: '{action, select, Coup {选择政变目标} Assassinate {选择暗杀目标} Steal {选择勒索谁} Examine {选择审查谁} other {选择目标}}',
+  chooseConvert: '选择让谁改宗',
+  convertSelf: '自己（{count, plural, other {# 枚金币}}）',
+  convertOther: '{name}（{count, plural, other {# 枚金币}}）',
+  targetRow: '{name}（{count, plural, other {# 枚金币}}）',
+  mustCoup: '{count, plural, other {你有 # 枚金币，必须发动政变}}',
+  mustCoupHint: '选择谁失去一张牌',
+  coupTarget: '对 {name} 政变',
+  nobodyToTarget: '没有其他玩家可以作为目标。',
+
+  // ── Refusals ──
+  'refusal.pending': '你已经选了行动。',
+  'refusal.sameFaction': '同一阵营。先改宗，或等所有人都在同一阵营。',
+  'refusal.noCoinsToSteal': '{name} 没有金币可勒索。',
+  'refusal.nobodyHasCoins': '没有人有金币可勒索。',
+  'refusal.nobodyLeft': '{action, select, Coup {没有其他玩家可以政变。} Assassinate {没有其他玩家可以暗杀。} Steal {没有其他玩家可以勒索。} Examine {没有其他玩家可以审查。} other {没有其他玩家可以作为目标。}}',
+  'refusal.reserveEmpty': '储备金是空的，没有可贪污的。',
+  'refusal.needCoinsCoup': '政变需要 {cost, plural, other {# 枚金币}}，你有 {have} 枚。',
+  'refusal.needCoinsAssassinate': '暗杀需要 {cost, plural, other {# 枚金币}}，你有 {have} 枚。',
+  'refusal.needCoinsConvertSelf': '给自己改宗需要 {cost, plural, other {# 枚金币}}，你有 {have} 枚。',
+  'refusal.needCoinsConvertOther': '让 {name} 改宗需要 {cost, plural, other {# 枚金币}}，你有 {have} 枚。',
+
+  // ── Knocked out ──
+  'watch.label': '你正在观战',
+  'watch.title': '观战',
+  'watch.body': '你已出局。可以看完这局，也可以随时离开。',
+  'watch.newGame': '新开一局',
+  'watch.leave': '离开牌桌',
+
+  // ── Cards ──
+  'card.hidden': '暗牌',
+  'card.influence': '影响力：{character}',
+  'card.influenceSelected': '影响力：{character}，已选中',
+  'card.revealed': '已翻开的影响力：{character}',
+  'cardAction.Duke': '征税',
+  'cardAction.Assassin': '暗杀',
+  'cardAction.Captain': '勒索',
+  'cardAction.Ambassador': '交换',
+  'cardAction.Contessa': '阻挡',
+  'cardAction.Inquisitor': '审查',
+  'cardAbility.Duke': '征税：拿 3 枚金币。可阻挡外援。',
+  'cardAbility.Assassin': '暗杀：支付 3 枚金币，目标失去一张牌。',
+  'cardAbility.Captain': '勒索：从目标那里拿 2 枚金币。可阻挡勒索。',
+  'cardAbility.Ambassador': '交换：抽 2 张，放回 2 张。可阻挡勒索。',
+  'cardAbility.Contessa': '可阻挡暗杀。',
+  'cardAbility.Inquisitor': '交换：抽 1 张，放回 1 张。审查：查看对手的一张牌。可阻挡勒索。',
+
+  // ── Reactions ──
+  reactionPicker: '发送表情',
+  reactionLine: '{emoji} {label}',
+  'reaction.gg': 'GG',
+  'reaction.nice_bluff': '骗得漂亮',
+  'reaction.sus': '有猫腻',
+  'reaction.salty': '酸了',
+  'reaction.wow': '哇',
+  'reaction.lol': '笑死',
+  'reaction.rip': '走好',
+  'reaction.no_way': '不会吧',
+  'reaction.big_brain': '太秀了',
+  'reaction.sweat': '慌了',
+  'reaction.eyes': '盯着你',
+  'reaction.cope': '嘴硬',
+
+  // ── Chat ──
+  tableTalk: '牌桌聊天',
+  tableTalkLabel: '牌桌聊天',
+  chatEmpty: '还没有消息。',
+  chatPlaceholder: '对牌桌说点什么',
+  chatInputLabel: '聊天消息',
+  chatSend: '发送',
+  chatSpeaker: '{name}：',
+  quickPhrasesLabel: '快捷消息',
+  'phrase.nice_bluff': '骗得漂亮',
+  'phrase.have_it': '我真有',
+  'phrase.liar': '骗子！',
+  'phrase.well_played': '打得好',
+};
 
 export default game;

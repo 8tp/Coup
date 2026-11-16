@@ -5758,3 +5758,26 @@
     padding: 0.4rem 0.5rem;
   }
 }
+
+/* ------------------------------------------------------------------
+   Simplified Chinese (zh-Hans) only. Kept minimal; see
+   docs/i18n-glossary/zh-Hans.md.
+
+   An auto-layout table sizes each column to its min-content width, and
+   for Chinese that is one character, since a line may break between any
+   two ideographs. The rules table's action names ("收入") and headers then
+   stack one character per line on a phone. keep-all lets lines break only
+   at spaces and punctuation, which Chinese cells have where they need them.
+   ------------------------------------------------------------------ */
+:lang(zh-Hans) table :is(th, td) {
+  word-break: keep-all;
+}
+
+/* The action buttons are narrow (two or three to a row) and their small
+   line ends in a claim in brackets, "（声称队长）". Breaking anywhere splits
+   that name across lines; keep-all breaks at the spaces and punctuation
+   instead, and overflow-wrap still breaks a run that cannot fit. */
+:lang(zh-Hans) .court-dock-actions button {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
