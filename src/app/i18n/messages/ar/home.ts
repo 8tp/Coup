@@ -49,7 +49,8 @@ const home: NamespaceTranslation<'home'> = {
   guidedGame: 'لعبة مع مدرّب',
   guidedGameSub: 'أنت ضد بوت لطيف واحد، ومدرّب يشير إلى خطوتك التالية.',
   tutorial: 'الدروس',
-  tutorialSub: '6 دروس قصيرة، في كل منها تجربة للحركة على طاولة صغيرة.',
+  // {count} is the number of lessons (6 today); wording assumes several lessons.
+  tutorialSub: '{count} دروس قصيرة، في كل منها تجربة للحركة على طاولة صغيرة.',
   rules: 'قراءة القواعد',
   rulesSub: 'الشخصيات والحركات والتحدي والصد، وتوسعة الإصلاح أيضًا.',
   practiceFoot: 'بوتات أكثر، أو قواعد أخرى، أو بلا مدرّب',

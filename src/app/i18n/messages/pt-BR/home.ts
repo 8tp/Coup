@@ -49,7 +49,8 @@ const home: NamespaceTranslation<'home'> = {
   guidedGame: 'Jogar uma partida guiada',
   guidedGameSub: 'Você contra 1 bot tranquilo. Um treinador mostra o que fazer em seguida.',
   tutorial: 'Fazer o tutorial',
-  tutorialSub: '6 lições curtas. Você testa cada jogada numa mesa pequena.',
+  // {count} is the number of lessons (6 today); wording assumes several lessons.
+  tutorialSub: '{count} lições curtas. Você testa cada jogada numa mesa pequena.',
   rules: 'Ler as regras',
   rulesSub: 'Personagens, ações, contestações e bloqueios. E a Reforma.',
   practiceFoot: 'Mais bots, outras regras ou sem treinador',

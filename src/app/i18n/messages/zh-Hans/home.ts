@@ -49,7 +49,8 @@ const home: NamespaceTranslation<'home'> = {
   guidedGame: '来一局引导对局',
   guidedGameSub: '你和 1 个温和的人机对战，教练会提示下一步该做什么。',
   tutorial: '新手教程',
-  tutorialSub: '6 节短课，每一步都在小牌桌上亲手试。',
+  // {count} is the number of lessons (6 today); wording assumes several lessons.
+  tutorialSub: '{count} 节短课，每一步都在小牌桌上亲手试。',
   rules: '查看规则',
   rulesSub: '角色、行动、质疑和阻挡，也包括宗教改革扩展。',
   practiceFoot: '更多人机、其他规则，或者不要教练',

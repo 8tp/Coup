@@ -12,13 +12,13 @@
  */
 export const LOCALES = {
   en: { nativeName: 'English', englishName: 'English', dir: 'ltr', intl: 'en', og: 'en_US', status: 'ready', dev: false },
-  hi: { nativeName: 'हिन्दी', englishName: 'Hindi', dir: 'ltr', intl: 'hi', og: 'hi_IN', status: 'in-progress', dev: false },
-  'pt-BR': { nativeName: 'Português (Brasil)', englishName: 'Portuguese (Brazil)', dir: 'ltr', intl: 'pt-BR', og: 'pt_BR', status: 'in-progress', dev: false },
-  es: { nativeName: 'Español', englishName: 'Spanish', dir: 'ltr', intl: 'es', og: 'es_LA', status: 'in-progress', dev: false },
+  hi: { nativeName: 'हिन्दी', englishName: 'Hindi', dir: 'ltr', intl: 'hi', og: 'hi_IN', status: 'ready', dev: false },
+  'pt-BR': { nativeName: 'Português (Brasil)', englishName: 'Portuguese (Brazil)', dir: 'ltr', intl: 'pt-BR', og: 'pt_BR', status: 'ready', dev: false },
+  es: { nativeName: 'Español', englishName: 'Spanish', dir: 'ltr', intl: 'es', og: 'es_LA', status: 'ready', dev: false },
   // Latin digits, matching the coin figures on the table (ART-DIRECTION §4 Figures).
-  ar: { nativeName: 'العربية', englishName: 'Arabic', dir: 'rtl', intl: 'ar-u-nu-latn', og: 'ar_AR', status: 'in-progress', dev: false },
-  'zh-Hans': { nativeName: '简体中文', englishName: 'Chinese (Simplified)', dir: 'ltr', intl: 'zh-Hans', og: 'zh_CN', status: 'in-progress', dev: false },
-  vi: { nativeName: 'Tiếng Việt', englishName: 'Vietnamese', dir: 'ltr', intl: 'vi', og: 'vi_VN', status: 'in-progress', dev: false },
+  ar: { nativeName: 'العربية', englishName: 'Arabic', dir: 'rtl', intl: 'ar-u-nu-latn', og: 'ar_AR', status: 'ready', dev: false },
+  'zh-Hans': { nativeName: '简体中文', englishName: 'Chinese (Simplified)', dir: 'ltr', intl: 'zh-Hans', og: 'zh_CN', status: 'ready', dev: false },
+  vi: { nativeName: 'Tiếng Việt', englishName: 'Vietnamese', dir: 'ltr', intl: 'vi', og: 'vi_VN', status: 'ready', dev: false },
   // Development-only pseudo-locales (docs/I18N.md, "Pseudo-locales"). Never shipped in a production build.
   'en-XA': { nativeName: 'Ƥšéúðö (accented)', englishName: 'Pseudo, accented', dir: 'ltr', intl: 'en', og: 'en_US', status: 'ready', dev: true },
   'ar-XB': { nativeName: 'Pseudo RTL', englishName: 'Pseudo, right to left', dir: 'rtl', intl: 'en', og: 'en_US', status: 'ready', dev: true },

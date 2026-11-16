@@ -49,7 +49,8 @@ const home: NamespaceTranslation<'home'> = {
   guidedGame: 'Chơi ván có hướng dẫn',
   guidedGameSub: 'Bạn đấu với 1 bot hiền. Huấn luyện viên chỉ bạn nên làm gì tiếp.',
   tutorial: 'Học qua bài hướng dẫn',
-  tutorialSub: '6 bài ngắn. Bạn thử từng nước đi trên một bàn nhỏ.',
+  // {count} is the number of lessons (6 today); wording assumes several lessons.
+  tutorialSub: '{count} bài ngắn. Bạn thử từng nước đi trên một bàn nhỏ.',
   rules: 'Đọc luật chơi',
   rulesSub: 'Nhân vật, hành động, thách thức và chặn. Có cả bản Cải cách.',
   practiceFoot: 'Thêm bot, đổi luật hoặc tắt hướng dẫn',

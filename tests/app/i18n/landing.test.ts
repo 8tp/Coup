@@ -91,7 +91,7 @@ describe('unknown locales and duplicates', () => {
     const { params } = await loadLanding({ env: 'development' });
     expect(params.landingLocaleOrNotFound('en-xa')).toBe('en-XA');
     expect(digest(() => params.landingLocaleOrNotFound('fr'))).toMatch(/^NEXT_HTTP_ERROR_FALLBACK;404/);
-    expect(digest(() => params.landingLocaleOrNotFound('pt-br'))).toMatch(/^NEXT_HTTP_ERROR_FALLBACK;404/); // in progress: no page yet
+    expect(params.landingLocaleOrNotFound('pt-br')).toBe('pt-BR'); // a ready translation has its page
     expect(digest(() => params.landingLocaleOrNotFound('lobby'))).toMatch(/^NEXT_HTTP_ERROR_FALLBACK;404/);
     expect(digest(() => params.landingLocaleOrNotFound('en-XA'))).toMatch(/^NEXT_REDIRECT;replace;\/en-xa;308;/);
     expect(digest(() => params.landingLocaleOrNotFound('EN-XA'))).toMatch(/^NEXT_REDIRECT;replace;\/en-xa;308;/);
@@ -125,7 +125,13 @@ describe('metadata per locale', () => {
     const en = landing.landingMetadata('en', undefined);
     expect(en.title).toBe('Coup Online: play the card game free with friends or bots');
     expect(en.alternates?.canonical).toBe(ORIGIN);
-    expect(en.alternates?.languages).toEqual({ en: ORIGIN, 'en-XA': `${ORIGIN}/en-xa`, 'ar-XB': `${ORIGIN}/ar-xb`, 'x-default': ORIGIN });
+    // English, every ready translation, the two development pseudo-locales, and x-default.
+    const readyAlternates = Object.fromEntries(
+      (Object.keys(LOCALES) as Locale[])
+        .filter(l => l !== 'en' && LOCALES[l].status === 'ready' && !LOCALES[l].dev)
+        .map(l => [l, `${ORIGIN}${landingPath(l)}`]),
+    );
+    expect(en.alternates?.languages).toEqual({ en: ORIGIN, ...readyAlternates, 'en-XA': `${ORIGIN}/en-xa`, 'ar-XB': `${ORIGIN}/ar-xb`, 'x-default': ORIGIN });
     expect(en.openGraph).toMatchObject({ locale: 'en_US', url: ORIGIN, siteName: 'Coup Online' });
 
     const xa = landing.landingMetadata('en-XA', undefined);
@@ -171,7 +177,9 @@ describe('hreflang reciprocity and the sitemap', () => {
         return { url: landing.landingUrl(l), canonical: String(meta.alternates?.canonical), alternates: meta.alternates?.languages as Record<string, string> };
       });
       const sitemap = Object.fromEntries(landing.landingSitemap().map(e => [e.url, e.alternates?.languages as Record<string, string>]));
-      expect(pages).toHaveLength(6);
+      // English, every non-development language (all ready here), and the two pseudo-locales.
+      const shipped = (Object.keys(LOCALES) as Locale[]).filter(l => !LOCALES[l].dev).length;
+      expect(pages).toHaveLength(shipped + 2);
       expect(hreflangProblems(pages, sitemap)).toEqual([]);
     } finally {
       restore();

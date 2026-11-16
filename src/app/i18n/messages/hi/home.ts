@@ -49,7 +49,8 @@ const home: NamespaceTranslation<'home'> = {
   guidedGame: 'गाइडेड गेम खेलें',
   guidedGameSub: 'आप बनाम 1 आसान बॉट। कोच बताता है कि आगे क्या करना है।',
   tutorial: 'ट्यूटोरियल शुरू करें',
-  tutorialSub: '6 छोटे पाठ। हर चाल एक छोटी टेबल पर आज़माकर देखें।',
+  // {count} is the number of lessons (6 today); wording assumes several lessons.
+  tutorialSub: '{count} छोटे पाठ। हर चाल एक छोटी टेबल पर आज़माकर देखें।',
   rules: 'नियम पढ़ें',
   rulesSub: 'किरदार, चालें, चैलेंज और ब्लॉक। रिफ़ॉर्मेशन भी।',
   practiceFoot: 'ज़्यादा बॉट्स, दूसरे नियम या बिना कोच',
