@@ -611,7 +611,9 @@ export class BotBrain {
     }
 
     // Steal (Captain)
-    const stealTargets = alivePlayers.filter(p => p.id !== botId && p.coins > 0);
+    const stealTargets = alivePlayers.filter(p =>
+      p.id !== botId && p.coins > 0 && !game.isFactionRestricted(botId, p.id),
+    );
     if (stealTargets.length > 0) {
       const hasCaptain = ownedCharacters.includes(Character.Captain);
       const captainRevealed = revealed.get(Character.Captain) || 0;
