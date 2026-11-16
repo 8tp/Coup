@@ -1,7 +1,7 @@
 import { Pool, PoolConfig } from 'pg';
 import { FeedbackContext, FeedbackKind, FeedbackRecord } from '../../shared/feedbackTypes';
 import type { FeedbackSink } from '../feedback';
-import { PgPoolLike } from './PostgresGameLogStorage';
+import { describeDbError, PgPoolLike } from './PostgresGameLogStorage';
 
 /** Feedback is a handful of rows a day: two connections are plenty. */
 const PG_POOL_MAX = 2;
@@ -134,7 +134,7 @@ export class PostgresFeedbackStorage implements FeedbackSink {
       ]);
     } catch (err) {
       // Only the id: the note itself is already in the [feedback] log line.
-      console.error(`[storage] Failed to save feedback ${record.id}:`, err instanceof Error ? err.message : err);
+      console.error(`[storage] Failed to save feedback ${record.id}:`, describeDbError(err));
     }
   }
 
