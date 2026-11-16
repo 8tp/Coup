@@ -1,19 +1,27 @@
 'use client';
 
-import { Suspense, useState, useEffect, useRef } from 'react';
+import { Suspense, useCallback, useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSocket } from './hooks/useSocket';
 import { useGameStore } from './stores/gameStore';
 import { CoupLogo } from './components/icons';
 import { HowToPlay } from './components/home/HowToPlay';
+import { LearnSheet } from './components/home/LearnSheet';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { StatsModal } from './components/stats/StatsModal';
 import { Tutorial } from './components/tutorial/Tutorial';
 import { PracticeSetupSheet } from './components/onboarding/PracticeSetupSheet';
-import { DEFAULT_ROOM_SETTINGS, MAX_PLAYERS, QUICK_PLAY_BOT_COUNT } from '@/shared/constants';
+import {
+  DEFAULT_ROOM_SETTINGS,
+  HOME_OPEN_TABLES_SHOWN,
+  HOME_PRESENCE_MIN_ONLINE,
+  MAX_PLAYERS,
+  QUICK_PLAY_BOT_COUNT,
+} from '@/shared/constants';
 import { GameMode } from '@/shared/types';
 import { haptic } from './utils/haptic';
 import { loadSavedPlayerName, savePlayerName } from './utils/playerName';
+import { loadOrCreateSuggestedName } from './utils/suggestedName';
 import { buildBots } from './utils/botFill';
 import { DEFAULT_PRACTICE_OPTIONS, practiceBots, practiceOptionsForMode, type PracticeOptions } from './utils/practiceSetup';
 import { useLobbyMusic } from './hooks/useMusicDirector';
@@ -33,8 +41,10 @@ function HomeContent() {
   const { error, setError, setRoom, clearRoom, publicRooms, playersOnline, gamesInProgress } = useGameStore();
   const joinCode = searchParams.get('join');
   useLobbyMusic();
-  const [mode, setMode] = useState<'idle' | 'create' | 'join' | 'browse' | 'quick'>(joinCode ? 'join' : 'idle');
+  const [mode, setMode] = useState<'idle' | 'create' | 'join' | 'browse'>(joinCode ? 'join' : 'idle');
   const [name, setName] = useState('');
+  /** The name we filled in for a first-time visitor; '' for a returning one. */
+  const [suggestedName, setSuggestedName] = useState('');
   const [roomCode, setRoomCode] = useState(joinCode ?? '');
   const [loading, setLoading] = useState(false);
   const [showHowToPlay, setShowHowToPlay] = useState(false);
@@ -43,12 +53,23 @@ function HomeContent() {
   const [isPublic, setIsPublic] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [showPracticeSetup, setShowPracticeSetup] = useState(false);
+  const [showLearn, setShowLearn] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
+  // Stable, so the sheet's focus trap isn't torn down on every re-render.
+  const closeLearn = useCallback(() => setShowLearn(false), []);
 
-  // Prefill the name the player used last time
-  useEffect(() => {
+  // Prefill the name: the one used last time, or a suggestion on a first
+  // visit, so Play vs Bots is a single tap. A layout effect, so the field is
+  // never painted empty and then filled.
+  useLayoutEffect(() => {
     const saved = loadSavedPlayerName();
-    if (saved) setName(current => current || saved);
+    if (saved) {
+      setName(current => current || saved);
+      return;
+    }
+    const suggestion = loadOrCreateSuggestedName();
+    setSuggestedName(suggestion);
+    setName(current => current || suggestion);
   }, []);
 
   useEffect(() => {
@@ -168,6 +189,7 @@ function HomeContent() {
       leaveStaleRoom();
       const result = await createRoom(practiceName, false, 'practice');
       practiceRoomCreated = true;
+      savePlayerName(name);
       setRoom(result.roomCode, result.playerId);
       await updateRoomSettings({
         ...DEFAULT_ROOM_SETTINGS,
@@ -192,12 +214,7 @@ function HomeContent() {
   /** One click to a running game: private room, random-personality bots, started immediately. */
   const handleQuickPlay = async () => {
     haptic(80);
-    if (!name.trim()) {
-      // No saved name yet — ask once, then play.
-      if (mode !== 'quick') { setMode('quick'); return; }
-      setError('Enter your name');
-      return;
-    }
+    if (!name.trim()) { setError('Enter your name'); return; }
     setLoading(true);
     let roomCreated = false;
     try {
@@ -223,6 +240,13 @@ function HomeContent() {
 
   const joinableRooms = publicRooms.filter(r => !r.hasGame && r.playerCount < r.maxPlayers);
   const watchableRooms = publicRooms.filter(r => r.hasGame);
+  // The home list shows tables to join, or failing that games to watch, and
+  // nothing at all when there are neither. "Browse all" appears only when the
+  // browse view has more to show than the list does.
+  const homeRoomKind: 'join' | 'watch' = joinableRooms.length > 0 ? 'join' : 'watch';
+  const homeRooms = (homeRoomKind === 'join' ? joinableRooms : watchableRooms).slice(0, HOME_OPEN_TABLES_SHOWN);
+  const hasMoreToBrowse = joinableRooms.length + watchableRooms.length > homeRooms.length;
+  const showPresence = playersOnline >= HOME_PRESENCE_MIN_ONLINE;
   const needName = () => {
     if (name.trim()) return false;
     setError('Enter your name first');
@@ -260,6 +284,21 @@ function HomeContent() {
     <div className="menu-root">
       <h1 className="sr-only">Coup Online: a free multiplayer bluffing card game</h1>
 
+      {/* Out of the flow, so it can arrive over the socket without moving anything. */}
+      {showPresence && (
+        <p className="menu-presence animate-fade-in">
+          <span className="menu-presence-online">
+            <span className="menu-presence-dot" aria-hidden="true" />
+            <span><span className="figure">{playersOnline}</span> online</span>
+          </span>
+          {gamesInProgress > 0 && (
+            <span className="menu-presence-games">
+              <span className="figure">{gamesInProgress}</span> {gamesInProgress === 1 ? 'game' : 'games'} in play
+            </span>
+          )}
+        </p>
+      )}
+
       <div className="menu-topbar">
         <button
           onClick={() => { haptic(); setShowStats(true); }}
@@ -287,10 +326,6 @@ function HomeContent() {
         <header className="menu-hero">
           <CoupLogo className="brand-wordmark menu-wordmark" />
           <p className="menu-tagline">The bluffing card game, online with friends or bots.</p>
-          <p className="menu-presence">
-            <span className="menu-presence-dot" aria-hidden="true" />
-            <span className="figure">{playersOnline}</span> online · <span className="figure">{gamesInProgress}</span> {gamesInProgress === 1 ? 'game' : 'games'} in play
-          </p>
         </header>
 
         {error && <div className="menu-error" role="alert">{error}</div>}
@@ -305,6 +340,8 @@ function HomeContent() {
                 className="input-field"
                 value={name}
                 onChange={e => setName(e.target.value)}
+                // Still our suggestion: select it, so typing replaces it.
+                onFocus={e => { if (suggestedName && e.currentTarget.value === suggestedName) e.currentTarget.select(); }}
                 onKeyDown={e => { if (e.key === 'Enter') handleQuickPlay(); }}
                 maxLength={20}
                 autoComplete="nickname"
@@ -345,7 +382,7 @@ function HomeContent() {
                     <span className="text-left">
                       <span className="block font-semibold text-coup-ink">Public room</span>
                       <span className="block text-sm text-coup-ink-mute">
-                        {isPublic ? 'Listed in Open tables. Anyone can join.' : 'Only people with the code can join.'}
+                        {isPublic ? 'Listed on this screen. Anyone can join.' : 'Only people with the code can join.'}
                       </span>
                     </span>
                     <span className={`switch-track ${isPublic ? 'is-on' : ''}`} aria-hidden="true"><span /></span>
@@ -380,25 +417,34 @@ function HomeContent() {
               )}
             </section>
 
-            <section className="menu-section" aria-label="Open tables">
-              <div className="menu-section-head">
-                <h2 className="menu-section-title">Open tables</h2>
-                <button className="menu-link" onClick={() => { haptic(); setMode('browse'); }}>
-                  Browse all
-                </button>
-              </div>
-              {joinableRooms.length === 0 ? (
-                <p className="menu-empty">No public tables right now. Create one and it shows up here.</p>
-              ) : (
-                <ul className="menu-rooms">{joinableRooms.slice(0, 3).map(r => roomRow(r, 'join'))}</ul>
-              )}
-            </section>
+            <button
+              type="button"
+              className="btn-ghost menu-learn"
+              aria-haspopup="dialog"
+              onClick={() => { haptic(); setShowLearn(true); }}
+            >
+              <span className="menu-learn-text">
+                <span className="menu-learn-title">Learn to play</span>
+                <span className="menu-learn-sub">A guided game, a tutorial or the rules</span>
+              </span>
+              <svg viewBox="0 0 20 20" fill="currentColor" className="menu-learn-chevron" aria-hidden="true">
+                <path d="M7.3 4.3 13 10l-5.7 5.7-1.4-1.4L10.2 10 5.9 5.7z" />
+              </svg>
+            </button>
 
-            <section className="menu-learn" aria-label="Learn to play">
-              <button className="btn-ghost" onClick={() => { haptic(); setShowHowToPlay(true); }}>How to play</button>
-              <button className="btn-ghost" onClick={() => { haptic(); setShowTutorial(true); }}>Tutorial</button>
-              <button className="btn-ghost" onClick={() => { haptic(); setShowPracticeSetup(true); }} disabled={loading}>Practice</button>
-            </section>
+            {homeRooms.length > 0 && (
+              <section className="menu-section animate-fade-in" aria-label={homeRoomKind === 'join' ? 'Open tables' : 'Watch live'}>
+                <div className="menu-section-head">
+                  <h2 className="menu-section-title">{homeRoomKind === 'join' ? 'Open tables' : 'Watch live'}</h2>
+                  {hasMoreToBrowse && (
+                    <button className="menu-link" onClick={() => { haptic(); setMode('browse'); }}>
+                      Browse all
+                    </button>
+                  )}
+                </div>
+                <ul className="menu-rooms">{homeRooms.map(r => roomRow(r, homeRoomKind))}</ul>
+              </section>
+            )}
           </>
         ) : (
           <section className="menu-panel" aria-label="Open tables">
@@ -448,6 +494,15 @@ function HomeContent() {
         </footer>
       </main>
 
+      <LearnSheet
+        open={showLearn}
+        onClose={closeLearn}
+        onGuidedGame={() => { setShowLearn(false); handlePracticeBot(DEFAULT_PRACTICE_OPTIONS); }}
+        onTutorial={() => { setShowLearn(false); setShowTutorial(true); }}
+        onRules={() => { setShowLearn(false); setShowHowToPlay(true); }}
+        onPracticeSetup={() => { setShowLearn(false); setShowPracticeSetup(true); }}
+        loading={loading}
+      />
       <HowToPlay open={showHowToPlay} onClose={() => setShowHowToPlay(false)} />
       <SettingsModal
         open={showSettings}
