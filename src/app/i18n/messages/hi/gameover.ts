@@ -1,6 +1,139 @@
 import type { NamespaceTranslation } from '../../schema';
 
-/** hi `gameover`: untranslated keys fall back to English. */
-const gameover: NamespaceTranslation<'gameover'> = {};
+/**
+ * hi `gameover`. "You win" is "आपकी जीत" (your win), and other lines about
+ * the reader use a noun or the ergative, so nothing needs the reader's
+ * gender. Award names are Indian equivalents of the English jokes; see
+ * docs/i18n-glossary/hi.md.
+ */
+const gameover: NamespaceTranslation<'gameover'> = {
+  titleYouWin: 'आपकी जीत',
+  titleWins: '{name} की जीत',
+  titleNobodyWins: 'कोई नहीं जीता',
+
+  winDefault: 'बाक़ी सब बाहर हैं।',
+  winNoClaims: 'अपनी बारी पर किसी किरदार का दावा किए बिना आपकी जीत हुई।',
+  winCaughtBluffing: '{count, plural, one {आपका ब्लफ़ एक बार पकड़ा गया, फिर भी जीत आपकी हुई।} other {आपका ब्लफ़ # बार पकड़ा गया, फिर भी जीत आपकी हुई।}}',
+  winChallengesWon: '{count, plural, one {आपने # चैलेंज जीता।} other {आपने # चैलेंज जीते।}}',
+  winProvenHonest: 'आप पर {count, plural, one {# बार} other {# बार}} चैलेंज हुआ और हर बार कार्ड आपके पास था।',
+  winAssassinations: '{count, plural, one {# हत्या} other {# हत्याओं}} के साथ आपकी जीत।',
+  winCoups: '{count, plural, one {# तख़्तापलट} other {# तख़्तापलट}} के साथ आपकी जीत।',
+  winBlocks: '{count, plural, one {आपने # चाल ब्लॉक की।} other {आपने # चालें ब्लॉक कीं।}}',
+  winClaimsNeverCaught: '{count, plural, one {आपने # दावा किया और वह कभी नहीं पकड़ा गया।} other {आपने # दावे किए और एक भी नहीं पकड़ा गया।}}',
+
+  loseSpectator: 'देखने के लिए शुक्रिया।',
+  loseFirstOut: 'बाहर होने में आपका नंबर पहला रहा।',
+  loseCaughtBluffing: '{count, plural, one {आपका ब्लफ़ एक बार पकड़ा गया।} other {आपका ब्लफ़ # बार पकड़ा गया।}}',
+  loseChallengesLost: '{count, plural, one {# चैलेंज आपके ख़िलाफ़ गया।} other {# चैलेंज आपके ख़िलाफ़ गए।}}',
+  loseNoClaims: 'अपनी बारी पर आपने कभी किसी किरदार का दावा नहीं किया।',
+  loseChallengesWon: '{count, plural, one {आपने # चैलेंज जीता।} other {आपने # चैलेंज जीते।}}',
+  loseBlocks: '{count, plural, one {आपने # चाल ब्लॉक की।} other {आपने # चालें ब्लॉक कीं।}}',
+  loseLandedCoups: '{coups, plural, one {आपने # तख़्तापलट किया।} other {आपने # तख़्तापलट किए।}}',
+  loseLandedAssassinations: '{assassinations, plural, one {आपने # हत्या की।} other {आपने # हत्याएँ कीं।}}',
+  loseLandedBoth: 'आपके खाते में {coups, plural, one {# तख़्तापलट} other {# तख़्तापलट}} और {assassinations, plural, one {# हत्या} other {# हत्याएँ}}।',
+  loseOutPlace: '{place, plural, =2 {बाहर होने में आपका नंबर दूसरा रहा।} =3 {बाहर होने में आपका नंबर तीसरा रहा।} =4 {बाहर होने में आपका नंबर चौथा रहा।} =5 {बाहर होने में आपका नंबर पाँचवाँ रहा।} other {बाहर होने में आपका नंबर #वाँ रहा।}}',
+  loseOut: 'आप बाहर हैं।',
+
+  handsHeading: 'सबके आख़िरी कार्ड',
+  lostCard: 'खोया कार्ड',
+  youName: 'आप',
+  handWinner: '<sr>विजेता: </sr>{name}',
+  handCoinsLeft: '{count, plural, =0 {# सिक्के बचे} one {# सिक्का बचा} other {# सिक्के बचे}}',
+  handOutOnTurn: 'बारी {turn} पर बाहर',
+  handWins: '{count, plural, one {# जीत} other {# जीत}}',
+
+  recapHeading: 'गेम कैसा रहा',
+  you: 'आप',
+  someone: 'कोई',
+
+  finishCoup: '{actor, select, you {आपने} other {{actor} ने}} बारी {turn} पर {loser, select, you {आपका} other {{loser} का}} तख़्तापलट करके गेम ख़त्म किया।',
+  finishAssassination: '{actor, select, you {आपने} other {{actor} ने}} बारी {turn} पर {loser, select, you {आपकी} other {{loser} की}} हत्या करके गेम ख़त्म किया।',
+  finishCaughtBluffing: '{actor, select, you {आपने} other {{actor} ने}} बारी {turn} पर {loser, select, you {आपका} other {{loser} का}} ब्लफ़ पकड़कर गेम ख़त्म किया।',
+  finishCaughtBlockBluff: '{actor, select, you {आपने} other {{actor} ने}} बारी {turn} पर {loser, select, you {आपके} other {{loser} के}} ब्लॉक का ब्लफ़ पकड़कर गेम ख़त्म किया।',
+  finishChallengeFailed: '{actor, select, you {आपने बारी {turn} पर गेम ख़त्म किया: {loser} ने चैलेंज किया और आपके पास सच में {character} का कार्ड था।} other {{actor} ने बारी {turn} पर गेम ख़त्म किया: {loser, select, you {आपने} other {{loser} ने}} चैलेंज किया और {actor} के पास सच में {character} का कार्ड था।}}',
+  finishBlockChallengeFailed: '{actor, select, you {आपने बारी {turn} पर गेम ख़त्म किया: {loser} ने ब्लॉक को चैलेंज किया और आपके पास सच में {character} का कार्ड था।} other {{actor} ने बारी {turn} पर गेम ख़त्म किया: {loser, select, you {आपने} other {{loser} ने}} ब्लॉक को चैलेंज किया और {actor} के पास सच में {character} का कार्ड था।}}',
+  finishChallengeLost: '{actor, select, you {आपने} other {{actor} ने}} बारी {turn} पर गेम ख़त्म किया, जब चैलेंज {loser, select, you {आपके} other {{loser} के}} ख़िलाफ़ गया।',
+  finishLastCard: '{player, select, you {आपका} other {{player} का}} आख़िरी कार्ड बारी {turn} पर गया।',
+  finishLasted: 'गेम {turns, plural, one {# बारी} other {# बारियों}} तक चला।',
+
+  bluffsHonestOne: 'इकलौता दावा सच्चा था।',
+  bluffsHonestAll: '{claims, plural, one {# दावा सच्चा था।} other {सभी # दावे सच्चे थे।}}',
+  bluffsOneCaught: '{claims, plural, one {# दावे} other {# दावों}} में से 1 ब्लफ़ था। वह पकड़ा गया।',
+  bluffsOneGotAway: '{claims, plural, one {# दावे} other {# दावों}} में से 1 ब्लफ़ था। वह बच निकला।',
+  bluffsMany: '{claims, plural, one {# दावे} other {# दावों}} में से {bluffs} ब्लफ़ थे। {outcome, select, none {एक भी नहीं पकड़ा गया।} all {सब पकड़े गए।} other {{caught, plural, one {# पकड़ा गया।} other {# पकड़े गए।}}}}',
+  bluffsManyLeader: '{claims, plural, one {# दावे} other {# दावों}} में से {bluffs} ब्लफ़ थे। {outcome, select, none {एक भी नहीं पकड़ा गया।} all {सब पकड़े गए।} other {{caught, plural, one {# पकड़ा गया।} other {# पकड़े गए।}}}} सबसे ज़्यादा ब्लफ़ {leader, select, you {आपने} other {{leader} ने}} किए, {leaderBluffs, plural, one {एक बार} =2 {दो बार} other {# बार}}।',
+
+  challengesOnlyWon: 'इकलौता चैलेंज {winner, select, you {आपने} other {{winner} ने}} किया और जीता।',
+  challengesOnlyFailed: 'इकलौता चैलेंज नाकाम रहा।',
+  challengesAllFailed: '{made, plural, one {# चैलेंज नाकाम रहा।} other {सभी # चैलेंज नाकाम रहे।}}',
+  challengesWon: '{made, plural, one {# चैलेंज} other {# चैलेंजों}} में से {won, plural, one {# कामयाब रहा।} other {# कामयाब रहे।}}',
+  challengesWonLeaderAll: '{made, plural, one {# चैलेंज} other {# चैलेंजों}} में से {won, plural, one {# कामयाब रहा।} other {# कामयाब रहे।}} सब {best, select, you {आपने} other {{best} ने}} जीते।',
+  challengesWonLeaderSome: '{made, plural, one {# चैलेंज} other {# चैलेंजों}} में से {won, plural, one {# कामयाब रहा।} other {# कामयाब रहे।}} {best, select, you {आपने} other {{best} ने}} {bestWon, plural, one {# जीता।} other {# जीते।}}',
+
+  awardsHeading: 'अवॉर्ड',
+
+  'awardTitle.pantsOnFire': 'झूठ बोले कौआ काटे',
+  'awardLine.pantsOnFire': '{player, select, you {<who>आप</who>} other {<who>{player}</who>}}, {count, plural, other {# बार}} ब्लफ़ पकड़ा गया',
+  'awardTitle.honestAbe': 'राजा हरिश्चंद्र',
+  'awardLine.honestAbe': '{player, select, you {<who>आप</who>} other {<who>{player}</who>}}, {count, plural, other {# बार}} सच साबित, एक भी ब्लफ़ नहीं पकड़ा गया',
+  'awardTitle.inquisitor': 'असली जासूस',
+  'awardLine.inquisitor': '{player, select, you {<who>आप</who>} other {<who>{player}</who>}}, {count, plural, one {# चैलेंज किया} other {# चैलेंज किए}}',
+  'awardTitle.eagleEye': 'बाज़ की नज़र',
+  'awardLine.eagleEye': '{player, select, you {<who>आप</who>} other {<who>{player}</who>}}, {won}/{made} चैलेंज सही',
+  'awardTitle.wall': 'दीवार',
+  'awardLine.wall': '{player, select, you {<who>आप</who>} other {<who>{player}</who>}}, {count, plural, one {# ब्लॉक} other {# ब्लॉक}}',
+  'awardTitle.smoothOperator': 'नटवरलाल',
+  'awardLine.smoothOperator': '{player, select, you {<who>आप</who>} other {<who>{player}</who>}}, {count, plural, one {# दावा} other {# दावे}}, एक भी नहीं पकड़ा गया',
+  'awardTitle.coupMachine': 'तख़्तापलट मशीन',
+  'awardLine.coupMachine': '{player, select, you {<who>आप</who>} other {<who>{player}</who>}}, {count, plural, one {# तख़्तापलट} other {# तख़्तापलट}}',
+  'awardTitle.silentAssassin': 'ख़ामोश क़ातिल',
+  'awardLine.silentAssassin': '{player, select, you {<who>आप</who>} other {<who>{player}</who>}}, {count, plural, one {# हत्या} other {# हत्याएँ}}',
+  'awardTitle.boldStrategy': 'वाह, क्या चाल थी',
+  'awardLine.boldStrategy': '{player, select, you {<who>आप</who>} other {<who>{player}</who>}}, {count, plural, one {# चैलेंज उल्टा पड़ा} other {# चैलेंज उल्टे पड़े}}',
+  'awardTitle.quickExit': 'झटपट विदाई',
+  'awardLine.quickExit': '{player, select, you {<who>आप</who>} other {<who>{player}</who>}}, सबसे पहले बाहर',
+
+  moreLabel: 'इस गेम के बारे में और',
+  showBluffs: 'ब्लफ़ दिखाएँ',
+  hideBluffs: 'ब्लफ़ छिपाएँ',
+  showLog: 'पूरा लॉग दिखाएँ',
+  hideLog: 'लॉग छिपाएँ',
+  copyRecap: 'सारांश कॉपी करें',
+  downloadLog: 'लॉग डाउनलोड करें',
+  recapCopied: 'सारांश कॉपी हो गया',
+  copyFailed: 'यहाँ कॉपी नहीं हो सकता। लॉग डाउनलोड कर लें।',
+
+  bluffRowAllHonest: '{claims, plural, one {# दावा, सच्चा} other {# दावे, सब सच्चे}}',
+  bluffRowClaims: '{claims, plural, one {# दावा} other {# दावे}}',
+  bluffRowBluffs: '{count, plural, one {# ब्लफ़} other {# ब्लफ़}}',
+  bluffRowCaught: '{count, plural, one {# पकड़ा गया} other {# पकड़े गए}}',
+  bluffRowGotAway: '{count, plural, one {# बच निकला} other {# बच निकले}}',
+
+  exportTitle: 'Coup Online सारांश, रूम {room}',
+  exportWinner: 'विजेता: {name}',
+  exportWinnerUnknown: 'विजेता: पता नहीं',
+  exportTurns: 'बारियाँ: {count}',
+  exportMode: 'मोड: {mode}',
+  exportModeInquisitor: 'मोड: {mode}, {inquisitor} के साथ',
+  exportTableHeading: 'आख़िरी टेबल:',
+  exportPlayer: '- {name}: {status}, {coins, plural, =0 {# सिक्के} one {# सिक्का} other {# सिक्के}}, {cards}',
+  exportPlayerFaction: '- {name}: {status}, {coins, plural, =0 {# सिक्के} one {# सिक्का} other {# सिक्के}}, {faction}, {cards}',
+  exportStatusWinner: 'विजेता',
+  exportStatusAlive: 'गेम में',
+  exportStatusOut: 'बाहर',
+  exportCardRevealed: '{character}: खुला कार्ड',
+  exportCardHidden: '{character}: छिपा कार्ड',
+  exportCardUnknown: 'छिपा कार्ड',
+  exportListSeparator: ', ',
+  exportLogHeading: 'पूरा लॉग:',
+  exportLogLine: '[बारी {turn}] {line}',
+
+  playAgain: 'फिर से खेलें',
+  leave: 'निकलें',
+  backHome: 'होम पर जाएँ',
+  spectating: 'आप दर्शक हैं',
+  waitingForHost: 'होस्ट के रीमैच शुरू करने का इंतज़ार',
+  feedback: 'बग या आइडिया बताएँ',
+};
 
 export default gameover;

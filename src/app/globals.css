@@ -5781,3 +5781,13 @@
   word-break: keep-all;
   overflow-wrap: anywhere;
 }
+
+/* ------------------------------------------------------------------
+   Hindi (hi) translation fixes. Only :lang(hi) rules; keep this block last.
+   ------------------------------------------------------------------ */
+/* The countdown beside the timer bar is sized for "47s"; Hindi says
+   "47 सेकंड", so let it take its own width on one line. */
+:root:lang(hi) [role='timer'] > .figure {
+  width: auto;
+  white-space: nowrap;
+}
