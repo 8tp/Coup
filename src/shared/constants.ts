@@ -28,6 +28,14 @@ export const STARTING_HAND_SIZE = 2;
 export const COUP_COST = 7;
 export const ASSASSINATE_COST = 3;
 export const FORCED_COUP_THRESHOLD = 10;
+/** Coins Income takes from the treasury. */
+export const INCOME_COINS = 1;
+/** Coins Foreign Aid takes from the treasury. */
+export const FOREIGN_AID_COINS = 2;
+/** Coins Tax (Duke) takes from the treasury. */
+export const TAX_COINS = 3;
+/** Coins Steal (Captain) takes from the target, at most: a target with fewer gives what they have. */
+export const STEAL_COINS = 2;
 export const CHALLENGE_TIMER_MS = 15_000;
 export const BLOCK_TIMER_MS = 15_000;
 export const TURN_TIMER_MS = 30_000;

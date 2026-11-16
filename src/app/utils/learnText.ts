@@ -9,6 +9,10 @@ import {
   MAX_PLAYERS,
   MIN_PLAYERS,
   STARTING_COINS,
+  INCOME_COINS,
+  FOREIGN_AID_COINS,
+  TAX_COINS,
+  STEAL_COINS,
 } from '@/shared/constants';
 import { ActionType, Character, Faction, GameMode } from '@/shared/types';
 import { actionName, characterName, factionName, gameModeName } from '../i18n/glossary';
@@ -25,16 +29,8 @@ import type { PlainTranslator } from '../i18n/runtime';
  * `src/shared/constants.ts` changes every sentence that states it.
  */
 
-/**
- * Coin amounts the engine applies with no named constant in
- * `src/shared/constants.ts` (ActionResolver writes `amount: 1`, `amount: 3`,
- * `Math.min(2, …)` inline). Named once here so the copy cannot drift apart;
- * move them to constants.ts if the engine ever names them.
- */
-export const INCOME_COINS = 1;
-export const FOREIGN_AID_COINS = 2;
-export const TAX_COINS = 3;
-export const STEAL_COINS = 2;
+/** The coin amounts of Income, Foreign Aid, Tax and Steal, as the engine applies them. */
+export { INCOME_COINS, FOREIGN_AID_COINS, TAX_COINS, STEAL_COINS };
 
 /** Every rule number a teaching message may state, by param name. */
 export const RULE_NUMBERS = {

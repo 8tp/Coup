@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { Character, ClientGameState, GameMode, TurnPhase, ActionType } from '@/shared/types';
-import { ACTION_DEFINITIONS } from '@/shared/constants';
+import { ACTION_DEFINITIONS, FOREIGN_AID_COINS, STEAL_COINS } from '@/shared/constants';
 import { CHARACTER_SVG_ICONS } from '../icons';
 import { remainingBlockNames } from './PhaseStatus';
 import { Timer } from '../ui/Timer';
@@ -13,10 +13,6 @@ import { usePendingAnswer } from '../../hooks/usePendingAnswer';
 import { actionName, characterName, useT } from '../../i18n';
 import { nameList, playerName } from './tableText';
 
-/** What a Steal takes, at most. Mirrors `Math.min(2, target.coins)` in ActionResolver. */
-const STEAL_AMOUNT = 2;
-/** What Foreign Aid takes. Mirrors the resolver's `give_coins` amount. */
-const FOREIGN_AID_AMOUNT = 2;
 
 /** Bold, for a player's name inside a prompt sentence. */
 const b = (chunks: ReactNode) => <span className="font-bold">{chunks}</span>;
@@ -129,13 +125,13 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
     headline = t.rich('prompts.assassinating', { actor: actorName });
     subtext = t('prompts.assassinatingHint', { character: contessa });
   } else if (isStealing) {
-    const taken = Math.min(STEAL_AMOUNT, me.coins);
+    const taken = Math.min(STEAL_COINS, me.coins);
     headline = t.rich('prompts.stealing', { actor: actorName, count: taken });
     const blockers = characterList(t, [Character.Captain, gameState.useInquisitor ? Character.Inquisitor : Character.Ambassador]);
     subtext = t('prompts.stealingHint', { blockers, count: taken });
   } else if (isForeignAid) {
-    headline = t.rich('prompts.foreignAid', { actor: actorName, action, count: FOREIGN_AID_AMOUNT });
-    subtext = t('prompts.foreignAidHint', { character: characterName(t, Character.Duke), count: FOREIGN_AID_AMOUNT });
+    headline = t.rich('prompts.foreignAid', { actor: actorName, action, count: FOREIGN_AID_COINS });
+    subtext = t('prompts.foreignAidHint', { character: characterName(t, Character.Duke), count: FOREIGN_AID_COINS });
   } else {
     headline = t.rich('prompts.uses', { actor: actorName, action });
     subtext = t('prompts.canBlock');
