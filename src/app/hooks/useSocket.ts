@@ -4,6 +4,8 @@ import { useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import type { ClientToServerEvents, ServerToClientEvents } from '@/shared/protocol';
 import type { BotPersonality, ChallengeRevealEvent, ChatMessage, ClientGameState, ClientRoomPlayer, ClientSpectator, PublicRoomInfo, RoomOrigin, RoomSettings } from '@/shared/types';
+import type { FeedbackResponse, FeedbackSubmission } from '@/shared/feedbackTypes';
+import { FEEDBACK_ACK_TIMEOUT_MS } from '@/shared/constants';
 import { useGameStore } from '../stores/gameStore';
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -33,6 +35,21 @@ export function getSocket(): TypedSocket {
     });
   }
   return globalSocket;
+}
+
+/**
+ * Send a feedback note. A plain function (not part of the hook's listener
+ * setup) so any component can call it without mounting useSocket again.
+ * Resolves with the server's acknowledgement; never rejects.
+ */
+export function sendFeedback(submission: FeedbackSubmission): Promise<FeedbackResponse> {
+  const socket = getSocket();
+  if (!socket.connected) {
+    return Promise.resolve({ success: false, error: 'server_error' });
+  }
+  return withTimeout(new Promise<FeedbackResponse>((resolve) => {
+    socket.emit('feedback:send', submission, resolve);
+  }), FEEDBACK_ACK_TIMEOUT_MS).catch((): FeedbackResponse => ({ success: false, error: 'server_error' }));
 }
 
 export function useSocket() {
@@ -431,5 +448,6 @@ export function useSocket() {
     stopSpectating,
     subscribeToBrowser,
     unsubscribeFromBrowser,
+    sendFeedback,
   };
 }
