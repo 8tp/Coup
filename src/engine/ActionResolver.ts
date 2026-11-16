@@ -724,6 +724,15 @@ export class ActionResolver {
         sideEffects.push({ type: 'reveal_influence', playerId: blocker.id, influenceIndex: idx });
         sideEffects.push({ type: 'eliminate_check', playerId: blocker.id });
 
+        // A target who blocked their own assassination has just lost their
+        // last card: nothing is left to assassinate. (resolveAction reads the
+        // state before these effects apply, so it would reveal that card again.)
+        if (pendingAction.type === ActionType.Assassinate && pendingAction.targetId === blocker.id) {
+          sideEffects.push({ type: 'win_check' });
+          sideEffects.push({ type: 'advance_turn' });
+          return this.resolved(sideEffects);
+        }
+
         // Action proceeds
         return this.resolveAction(game, pendingAction, sideEffects);
       }
