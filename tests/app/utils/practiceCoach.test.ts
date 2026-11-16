@@ -87,7 +87,24 @@ describe('getPracticeCoachTip — first-time tips', () => {
 
   it('never repeats a first-time tip on a later turn', () => {
     const history = new Map([['first-targeted', 3]]);
-    expect(getPracticeCoachTip(stealOnMe({ turnNumber: 7 }), history)?.id).toBe('challenge-claim');
+    expect(getPracticeCoachTip(stealOnMe({ turnNumber: 7 }), history)?.id).toBe('block-or-challenge');
+  });
+
+  it('tells the target of a blockable claim that the block is available now', () => {
+    const first = getPracticeCoachTip(stealOnMe());
+    expect(first?.body).toContain('block it now with Captain or Ambassador');
+    expect(first?.body).not.toContain('wait');
+
+    const later = getPracticeCoachTip(stealOnMe({ turnNumber: 7 }), new Map([['first-targeted', 3]]));
+    expect(later?.title).toBe('You can block this Steal');
+    expect(later?.body).toContain('Captain or Ambassador');
+  });
+
+  it('keeps the plain challenge tip for a claim that cannot be blocked', () => {
+    const tax = stealOnMe({
+      pendingAction: { type: ActionType.Tax, actorId: 'bot', claimedCharacter: Character.Duke },
+    });
+    expect(getPracticeCoachTip(tax)?.id).toBe('challenge-claim');
   });
 
   it('falls back to the plain block tip after the first block', () => {
