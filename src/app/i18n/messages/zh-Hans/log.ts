@@ -1,6 +1,98 @@
 import type { NamespaceTranslation } from '../../schema';
 
-/** zh-Hans `log`: untranslated keys fall back to English. */
-const log: NamespaceTranslation<'log'> = {};
+/**
+ * zh-Hans `log`. Chinese needs no verb agreement, but a player param that is
+ * the reader renders as "你", and Latin names take a space on each side while
+ * "你" takes none. So every player param goes through a `you` select only to
+ * place those spaces: `{actor, select, you {你} other {{actor} }}`.
+ */
+const log: NamespaceTranslation<'log'> = {
+  // ── Event lines ──
+  gameStarted: '游戏开始。由{actor, select, you {你} other { {actor} }}先手。',
+  turnStart: '轮到{actor, select, you {你} other { {actor} }}了。',
+  eliminated: '{actor, select, you {你} other {{actor} }}出局了。',
+  win: '{actor, select, you {你} other {{actor} }}赢得了游戏。',
+  botReplacedIdle: '{actor, select, you {你} other {{actor} }}长时间未操作，座位已由人机接管。',
+  botReplacedLeft: '{actor, select, you {你} other {{actor} }}离开了，座位已由人机接管。',
+  botReplacedDisconnected: '人机接管了{actor, select, you {你} other { {actor} }}的座位。',
+  income: '{actor, select, you {你} other {{actor} }}拿取收入（+{amount, plural, other {# 枚金币}}）。',
+  coup: '{actor, select, you {你} other {{actor} }}对{target, select, you {你} other { {target} }}发动政变。',
+  claimAction: '{actor, select, you {你} other {{actor} }}声称有{character}，发动{action}。',
+  claimActionTargeting: '{actor, select, you {你} other {{actor} }}声称有{character}，对{target, select, you {你} other { {target} }}发动{action}。',
+  declareAction: '{actor, select, you {你} other {{actor} }}发动{action}。',
+  challenge: '{challenger, select, you {你} other {{challenger} }}质疑{challenged, select, you {你} other { {challenged} }}的{character}。',
+  challengeFailed: '{challenged, select, you {你} other {{challenged} }}确实有{character}。{challenger, select, you {你} other {{challenger} }}必须失去一张牌。',
+  challengeSucceeded: '{challenged, select, you {你} other {{challenged} }}没有{character}，必须失去一张牌。',
+  block: '{blocker, select, you {你} other {{blocker} }}用{character}阻挡。',
+  blockChallenge: '{challenger, select, you {你} other {{challenger} }}质疑{blocker, select, you {你} other { {blocker} }}用{character}阻挡。',
+  blockChallengeFailed: '{blocker, select, you {你} other {{blocker} }}确实有{character}，阻挡成立。{challenger, select, you {你} other {{challenger} }}必须失去一张牌。',
+  blockChallengeSucceeded: '{blocker, select, you {你} other {{blocker} }}没有{character}，必须失去一张牌。阻挡失败，行动照常进行。',
+  blockStands: '无人质疑这次阻挡，行动被挡下。',
+  influenceLost: '{actor, select, you {你} other {{actor} }}失去了{character}。',
+  assassinationLoss: '{target, select, you {你} other {{target} }}因暗杀失去一张牌。',
+  assassinationPending: '{target, select, you {你} other {{target} }}必须因暗杀失去一张牌。',
+  taxCollected: '{actor, select, you {你} other {{actor} }}征税（+{amount, plural, other {# 枚金币}}）。',
+  foreignAidTaken: '{actor, select, you {你} other {{actor} }}拿取外援（+{amount, plural, other {# 枚金币}}）。',
+  stealResolved: '{actor, select, you {你} other {{actor} }}从{target, select, you {你} other { {target} }}那里勒索了 {amount, plural, other {# 枚金币}}。',
+  exchangeDraw: '{actor, select, you {你} other {{actor} }}抽牌进行交换。',
+  exchangeDeckEmpty: '{actor, select, you {你} other {{actor} }}没有抽到牌，牌堆已空。',
+  exchangeComplete: '{actor, select, you {你} other {{actor} }}完成了交换。',
+  convertSelf: '{actor, select, you {你} other {{actor} }}改宗为{faction}（{amount, plural, other {# 枚金币}}存入储备金）。',
+  convertOther: '{actor, select, you {你} other {{actor} }}让{target, select, you {你} other { {target} }}改宗为{faction}（{amount, plural, other {# 枚金币}}存入储备金）。',
+  embezzleClaim: '{actor, select, you {你} other {{actor} }}声称没有{character}，要贪污储备金（{amount, plural, other {# 枚金币}}）。',
+  embezzleChallenge: '{challenger, select, you {你} other {{challenger} }}质疑{challenged, select, you {你} other { {challenged} }}其实有{character}。',
+  embezzleChallengeSucceeded: '{challenged, select, you {你} other {{challenged} }}确实有{character}，必须失去一张牌。贪污失败。',
+  embezzleChallengeFailed: '{challenged, select, you {你} other {{challenged} }}亮出所有暗牌，确实没有{character}，这些牌随后被换掉。{challenger, select, you {你} other {{challenger} }}必须失去一张牌，贪污照常进行。',
+  embezzled: '{actor, select, you {你} other {{actor} }}贪污了储备金。',
+  examineAsk: '{actor, select, you {你} other {{actor} }}要求{target, select, you {你} other { {target} }}出示一张牌接受审查。',
+  examineShown: '{target, select, you {你} other {{target} }}向{actor, select, you {你} other { {actor} }}出示了一张牌。',
+  examineForceSwap: '{actor, select, you {你} other {{actor} }}强制{target, select, you {你} other { {target} }}换掉一张牌。',
+  examineSwapDeckEmpty: '牌堆已空，{actor, select, you {你} other { {actor} }}无法强制换牌。那张牌已归还。',
+  examineReturn: '{actor, select, you {你} other {{actor} }}把牌还给了{target, select, you {你} other { {target}}}。',
+
+  you: '你',
+  unknownPlayer: '某位玩家',
+
+  // ── Log chrome ──
+  empty: '游戏即将开始',
+  latest: '最新',
+  openFull: '打开完整游戏记录',
+  tabLog: '记录',
+  tabChat: '聊天',
+  unreadMany: '9+',
+  bluff: '诈唬',
+  honest: '诚实',
+  explain: '说明',
+
+  // ── Practice explanations ──
+  'explain.game_start': '服务器洗好牌，给每位玩家发了 2 张暗牌。每人只能看到自己的牌。',
+  'explain.turn_start': '只有当前回合的玩家能选择行动。其他人等待质疑、阻挡或下一回合。',
+  'explain.income': '收入不能被质疑，也不能被阻挡。',
+  'explain.declare_action': '这个行动不声称任何角色。只有声称角色的行动才能被质疑。',
+  'explain.claim_action': '{actor, select, you {你} other {{actor} }}声称有{character}来{action}。结算前其他玩家可以质疑。',
+  'explain.claim_action_plain': '{actor, select, you {你} other {{actor} }}声称有{character}。结算前其他玩家可以质疑。',
+  'explain.challenge': '质疑就是检查被声称的角色是否在那位玩家的暗牌里。',
+  'explain.challenge_fail': '被质疑的玩家确实有声称的牌。质疑者失去一张牌，亮出的牌洗回牌堆并补一张新牌。',
+  'explain.challenge_success': '被质疑的玩家没有声称的牌，所以由该玩家失去一张牌。',
+  'explain.block': '阻挡也是一种声称。阻挡者可能在诈唬，阻挡可以被质疑。',
+  'explain.block_unchallenged': '倒计时结束前无人质疑这次阻挡，所以阻挡成立，行动被挡下。',
+  'explain.block_challenge_fail': '阻挡者确实有声称的牌。质疑者失去一张牌，行动依然被挡下。',
+  'explain.block_challenge_success': '阻挡者在诈唬。阻挡者失去一张牌，原来的行动照常进行。',
+  'explain.coup': '政变花费 7 枚金币，不能被阻挡或质疑。目标一定会失去一张牌。',
+  'explain.assassination': '暗杀要等质疑阶段和伯爵夫人的阻挡阶段过后才结算。如果没人拦下，目标失去一张牌。',
+  'explain.influence_loss': '翻开的牌在本局剩下的时间里都不再起作用。没有暗牌的玩家出局。',
+  'explain.exchange': '交换会从牌堆抽牌。玩家选出要留下的牌，其余的放回牌堆。',
+  'explain.action_resolve': '在质疑和阻挡阶段没有人拦下{actor, select, you {你} other { {actor} }}的{character}声称，所以行动结算。',
+  'explain.action_resolve_plain': '在质疑和阻挡阶段没有人拦下这个行动，所以它结算了。',
+  'explain.elimination': '这位玩家没有暗牌了，已经出局。出局后仍可以继续观战。',
+  'explain.win': '只剩一位玩家还有暗牌，游戏结束。',
+  'explain.bot_replace': '有玩家离开、掉线或长时间未操作，由人机接管，游戏可以继续。',
+  'explain.convert': '改宗会换阵营。给自己改宗花 1 枚金币，给别人改宗花 2 枚金币。这些金币存入储备金。',
+  'explain.faction_change': '阵营会限制政变、暗杀、勒索、审查和阻挡外援，除非所有存活玩家都在同一阵营。',
+  'explain.embezzle': '贪污拿走全部储备金。玩家声称自己没有公爵，所以只有当该玩家真有公爵时，质疑者才赢。否则玩家亮出所有暗牌，并从牌堆换新牌。',
+  'explain.examine': '审查要声称宗教裁判官。目标选一张暗牌出示，然后审查者决定是否强制换牌。',
+  'explain.examine_decision': '宗教裁判官把牌原样还回，或者强制把它和牌堆里的牌交换。',
+  'explain.targeted': '指定目标的行动会受金币、阵营以及目标是否存活的限制。',
+};
 
 export default log;
