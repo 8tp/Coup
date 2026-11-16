@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef } from 'react';
 import { haptic } from '../../utils/haptic';
 import { useT } from '../../i18n';
+import { LAST_CHAPTER } from '../../utils/tutorialMachine';
 
 /**
  * "Learn to play": the home screen's one door for newcomers. It replaces the
@@ -27,6 +28,9 @@ interface LearnSheetProps {
 }
 
 const FOCUSABLE = 'button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/** The tutorial's lessons: every chapter but the closing one. */
+const TUTORIAL_LESSONS = LAST_CHAPTER;
 
 export function LearnSheet({ open, onClose, onGuidedGame, onTutorial, onRules, onPracticeSetup, loading = false }: LearnSheetProps) {
   const t = useT();
@@ -82,7 +86,7 @@ export function LearnSheet({ open, onClose, onGuidedGame, onTutorial, onRules, o
 
           <button type="button" className="btn-secondary learn-option" onClick={() => { haptic(); onTutorial(); }}>
             <span className="learn-option-title">{t('home.tutorial')}</span>
-            <span className="learn-option-sub">{t('home.tutorialSub')}</span>
+            <span className="learn-option-sub">{t('home.tutorialSub', { count: TUTORIAL_LESSONS })}</span>
           </button>
 
           <button type="button" className="btn-secondary learn-option" onClick={() => { haptic(); onRules(); }}>

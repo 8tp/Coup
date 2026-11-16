@@ -113,8 +113,11 @@ export function FeedbackForm({ screen: screenOverride, onClose, closeLabel }: Fe
   };
 
   const onKindKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
-    const step = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1
-      : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0;
+    // Right to left, the next option sits to the left.
+    const forward = t.dir === 'rtl' ? 'ArrowLeft' : 'ArrowRight';
+    const back = t.dir === 'rtl' ? 'ArrowRight' : 'ArrowLeft';
+    const step = event.key === forward || event.key === 'ArrowDown' ? 1
+      : event.key === back || event.key === 'ArrowUp' ? -1 : 0;
     if (!step) return;
     event.preventDefault();
     const next = (index + step + KIND_OPTIONS.length) % KIND_OPTIONS.length;

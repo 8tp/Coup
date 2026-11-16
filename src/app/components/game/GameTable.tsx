@@ -31,6 +31,7 @@ import { TableTalk } from './table/TableTalk';
 import { SeatSpeech } from './table/SeatSpeech';
 import { seatAngles, seatPoint } from './table/seatLayout';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useSoundEffects } from '../../hooks/useSoundEffects';
 import { useHapticFeedback } from '../../hooks/useHapticFeedback';
 import {
@@ -877,7 +878,7 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
 
   const t = useT();
 
-  useEffect(() => {
+  const documentTitle = useMemo(() => {
     let status: MessageKey | null = null;
 
     if (isSpectator) {
@@ -928,14 +929,13 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
       }
     }
 
-    document.title = status
+    return status
       ? t('game.title.status', { status: t(status), room: gameState.roomCode })
       : t('game.title.plain', { room: gameState.roomCode });
-    return () => {
-      // The product name, never translated.
-      document.title = 'Coup Online';
-    };
   }, [currentPlayerId, gameState, isSpectator, me, t]);
+  useDocumentTitle(documentTitle);
+  // Leaving the table: the product name, never translated, until the next page sets its own.
+  useEffect(() => () => { document.title = 'Coup Online'; }, []);
 
   /* Which seats the current selection can and cannot take. `action` is null
      whenever nothing is being aimed, which is most of the time. */
@@ -1064,7 +1064,8 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
             title={t('game.logAndChat')}
             aria-label={unreadChat > 0 ? t('game.logAndChatUnread', { count: unreadChat }) : t('game.logAndChat')}
           >
-            <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" aria-hidden="true">
+            {/* Lines of text, short line last: mirrors with the text in right to left. */}
+            <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 rtl:-scale-x-100" aria-hidden="true">
               <path d="M3 4h14v2H3zM3 9h14v2H3zM3 14h9v2H3z" />
             </svg>
             {unreadChat > 0 && <span className="court-badge figure">{unreadChat > 9 ? t('game.unreadMany') : t.number(unreadChat)}</span>}

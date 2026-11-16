@@ -67,8 +67,9 @@ export function StatsModal({ open, onClose }: StatsModalProps) {
         </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+      {/* Tabs. They wrap rather than scroll sideways, so every tab stays in
+          view at extra-large text and in longer languages. */}
+      <div className="flex flex-wrap gap-2 mb-4 pb-1">
         {tabs.map(tab => (
           <button
             key={tab}

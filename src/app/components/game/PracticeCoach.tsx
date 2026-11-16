@@ -103,6 +103,12 @@ export function PracticeCoach({ gameState, onOpenRules }: PracticeCoachProps) {
   const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
   const [history, setHistory] = useState<CoachHistory>(() => new Map());
   const [placement, setPlacement] = useState<CalloutPlacement | null>(null);
+  /* The tip whose docked banner had no clean spot (it would cover seats, the
+     plaque or the phase line: a phone with a tall dock, three players and
+     Reformation's ten actions, or longer translated text). That tip shows
+     compact, its title only, and the title opens the rest on request. */
+  const [compactTip, setCompactTip] = useState<string | null>(null);
+  const [expandedTip, setExpandedTip] = useState<string | null>(null);
   const calloutRef = useRef<HTMLElement>(null);
   const docked = useMediaQuery('(max-width: 1023px)');
   // The challenge reveal is the table's own moment; the coach steps aside.
@@ -153,6 +159,9 @@ export function PracticeCoach({ gameState, onOpenRules }: PracticeCoachProps) {
         soft: [...seats, ...rectsOf('[data-coach-anchor="plaque"], .court-phase')],
         extraTops: seatsBottom > 0 ? [seatsBottom + 8] : [],
       });
+      if (!next || next.overlap > 0) setCompactTip(visibleTip.id);
+      // Opened, it may not fit anywhere at all: fold it back rather than hide it.
+      if (!next) setExpandedTip(null);
     } else if (anchor) {
       const controls = (['dock', 'prompt', 'plaque', 'hand'] as const)
         .filter(name => name !== anchor.name)
@@ -219,6 +228,9 @@ export function PracticeCoach({ gameState, onOpenRules }: PracticeCoachProps) {
 
   if (!visibleTip) return null;
 
+  const compact = docked && compactTip === visibleTip.id;
+  const expanded = compact && expandedTip === visibleTip.id;
+
   const dismissTip = () => {
     haptic();
     const next = new Set(dismissed).add(visibleTip.id);
@@ -251,6 +263,7 @@ export function PracticeCoach({ gameState, onOpenRules }: PracticeCoachProps) {
       data-side={placement?.side ?? 'none'}
       data-tone={visibleTip.tone}
       data-placed={placement ? 'true' : 'false'}
+      data-compact={compact ? (expanded ? 'open' : 'true') : undefined}
       style={style}
       aria-label={t('tutorial.coach.region')}
       aria-hidden={placement ? undefined : true}
@@ -269,8 +282,23 @@ export function PracticeCoach({ gameState, onOpenRules }: PracticeCoachProps) {
         </span>
       </div>
       <div role="status" aria-live="polite">
-        <p className="coach-title type-display"><CoachLine t={t} line={visibleTip.title} /></p>
-        <p className="coach-body"><CoachLine t={t} line={visibleTip.body} /></p>
+        <p className="coach-title type-display">
+          {compact ? (
+            <button
+              type="button"
+              className="coach-expand"
+              aria-expanded={expanded}
+              onClick={() => { haptic(); setExpandedTip(expanded ? null : visibleTip.id); }}
+            >
+              <CoachLine t={t} line={visibleTip.title} />
+              <svg viewBox="0 0 20 20" fill="currentColor" className="coach-expand-chevron" aria-hidden="true">
+                <path d="M5.3 7.3 10 12l4.7-4.7 1.4 1.4L10 14.8 3.9 8.7z" />
+              </svg>
+            </button>
+          ) : <CoachLine t={t} line={visibleTip.title} />}
+        </p>
+        {/* Compact and folded, the body stays for screen readers. */}
+        <p className={compact && !expanded ? 'coach-body sr-only' : 'coach-body'}><CoachLine t={t} line={visibleTip.body} /></p>
       </div>
       {!docked && (
         <button type="button" className="coach-rules" onClick={() => { haptic(); onOpenRules(); }}>

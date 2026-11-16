@@ -4,6 +4,8 @@ import { useEffect, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { isLandingPath, landingLocaleFromPath } from '@/shared/i18n/locales';
 import { useSettingsStore } from '../stores/settingsStore';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { useT } from './react';
 import { activateLocale, LANDING_LOCALES, landingPathFor, resolvePreferredLocale, setLandingSession } from './runtime';
 
 /**
@@ -27,6 +29,14 @@ export function I18nBootstrap() {
   const pathname = usePathname();
   const router = useRouter();
   const started = useRef(false);
+  const t = useT();
+
+  // The tab title in the reader's language on `/`, the lobby and the other
+  // app routes, which all carry the English landing page's metadata. A
+  // translated landing page (`/pt-br`) has its own from the server, and the
+  // table (`/game/...`) sets its own.
+  const ownTitle = pathname.startsWith('/game/') || (pathname !== '/' && isLandingPath(pathname, LANDING_LOCALES));
+  useDocumentTitle(ownTitle ? null : t('seo.title'));
 
   useEffect(() => {
     const landing = landingLocaleFromPath(pathname, LANDING_LOCALES);

@@ -38,7 +38,7 @@ export function AwardsTab({ awardCounts }: AwardsTabProps) {
                 <AwardGlyph size={20} className={`flex-none mt-0.5 ${earned ? 'text-coup-accent' : 'text-gray-400'}`} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <p className="text-sm font-bold text-gray-200 truncate">{t(`gameover.awardTitle.${id}`)}</p>
+                    <p className="text-sm font-bold text-gray-200 min-w-0 break-words">{t(`gameover.awardTitle.${id}`)}</p>
                     {earned && (
                       <span className="text-xs bg-yellow-600 text-white px-1.5 py-0.5 rounded-full font-bold flex-none">
                         {t('stats.awardCount', { count })}

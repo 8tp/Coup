@@ -151,7 +151,7 @@ describe('pseudo-locales', () => {
   });
 
   it('wraps bidi text in an override', () => {
-    expect(pseudoBidi('Log')).toBe('‮Log‬');
+    expect(pseudoBidi('Log')).toBe('\u2067\u202eLog\u202c\u2069');
     expect(pseudoBidi(' ')).toBe(' ');
   });
 });

@@ -2,7 +2,8 @@
 
 import { useRef, useEffect, useState, type ReactNode } from 'react';
 import { ChatMessage } from '@/shared/types';
-import { CHAT_MAX_MESSAGE_LENGTH, type QuickPhraseId } from '@/shared/constants';
+import { CHAT_MAX_MESSAGE_CODE_UNITS, CHAT_MAX_MESSAGE_LENGTH, type QuickPhraseId } from '@/shared/constants';
+import { clampToGraphemes } from '@/shared/textLimits';
 import { haptic } from '../../utils/haptic';
 import { useGameStore } from '../../stores/gameStore';
 import { useT } from '../../i18n';
@@ -79,11 +80,14 @@ export function ChatPanel({ messages, myId, onSend, variant = 'compact', quickPh
       )}
       <form onSubmit={handleSubmit} className="flex gap-2 px-3 py-2 border-t border-coup-line/70">
         {accessory}
+        {/* The limit is in characters as a reader counts them (graphemes), as
+            the server checks it; `maxLength` counts code units, which cut Hindi
+            at about half, so it only bounds runaway combining marks here. */}
         <input
           type="text"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
-          maxLength={CHAT_MAX_MESSAGE_LENGTH}
+          onChange={(e) => setInput(clampToGraphemes(e.target.value, CHAT_MAX_MESSAGE_LENGTH))}
+          maxLength={CHAT_MAX_MESSAGE_CODE_UNITS}
           placeholder={t('game.chatPlaceholder')}
           aria-label={t('game.chatInputLabel')}
           className="input-field flex-1 min-w-0 !text-base"

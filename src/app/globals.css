@@ -1356,33 +1356,36 @@
     letter-spacing: -0.04em;
   }
 
-  .card-face-lg .card-label-plate {
+  /* The examine prompt's card (96x128, ExaminePrompt) is not a CardFace,
+     so it takes the large card's plate too; without it its labels fell back
+     to the 5.8px base. */
+  :is(.card-face-lg, .examine-card) .card-label-plate {
     padding: 19px 4px 5px;
     gap: 2px;
   }
 
-  .card-face-lg .card-character-label {
+  :is(.card-face-lg, .examine-card) .card-character-label {
     --label-size: 10.8px;
   }
 
-  .card-face-lg .card-action-label {
+  :is(.card-face-lg, .examine-card) .card-action-label {
     --label-size: 12px;
   }
 
-  .card-face-lg .card-character-label.card-label-medium {
+  :is(.card-face-lg, .examine-card) .card-character-label.card-label-medium {
     --label-size: 9.8px;
   }
 
-  .card-face-lg .card-character-label.card-label-long {
+  :is(.card-face-lg, .examine-card) .card-character-label.card-label-long {
     --label-size: 8.9px;
   }
 
-  .card-face-lg .card-character-label.card-label-extra-long {
+  :is(.card-face-lg, .examine-card) .card-character-label.card-label-extra-long {
     --label-size: 8.2px;
     letter-spacing: -0.04em;
   }
 
-  .card-face-lg .card-action-label.card-label-medium {
+  :is(.card-face-lg, .examine-card) .card-action-label.card-label-medium {
     --label-size: 10.4px;
     letter-spacing: -0.02em;
   }
@@ -1792,7 +1795,8 @@
      language as the flash that just fired on the control. */
   .refusal-alert {
     margin-top: 0.5rem;
-    padding: 0.375rem 0.5rem 0.375rem 0.625rem;
+    padding-block: 0.375rem;
+    padding-inline: 0.625rem 0.5rem;
     border-radius: 2px;
     background-color: var(--ground);
     background-image: var(--hazard-rail);
@@ -1803,6 +1807,14 @@
     font-size: var(--step--1);
     line-height: 1.35;
     text-align: center;
+  }
+
+  /* Right to left, the leading edge is the right one. Not on the court
+     table, which never mirrors (a seat refusing a target keeps its mark on
+     the left for every reader). */
+  [dir='rtl'] [data-ineligible='true']:not(.court-table *),
+  [dir='rtl'] .refusal-alert {
+    background-position: right top;
   }
 
   /* A CARD refuses by flashing, never by shaking. This is an overlay element
@@ -2115,7 +2127,7 @@
   .menu-topbar {
     position: absolute;
     top: max(0.75rem, env(safe-area-inset-top));
-    right: 0.75rem;
+    inset-inline-end: 0.75rem;
     z-index: 10;
     display: flex;
     gap: 0.5rem;
@@ -2157,7 +2169,7 @@
   .menu-presence {
     position: absolute;
     top: max(0.75rem, env(safe-area-inset-top));
-    left: 1rem;
+    inset-inline-start: 1rem;
     z-index: 10;
     max-width: calc(100% - 9rem);
     min-height: 44px;
@@ -2182,7 +2194,7 @@
 
   .menu-presence-games::before {
     content: '·';
-    margin-right: 0.4rem;
+    margin-inline-end: 0.4rem;
   }
 
   /* Phones: two short lines beside the buttons rather than one long one. */
@@ -2195,7 +2207,7 @@
     }
 
     .menu-presence-games {
-      padding-left: 0.85rem;
+      padding-inline-start: 0.85rem;
     }
 
     .menu-presence-games::before {
@@ -2303,7 +2315,7 @@
   .switch-track > span {
     position: absolute;
     top: 0.2rem;
-    left: 0.2rem;
+    inset-inline-start: 0.2rem;
     width: 1.35rem;
     height: 1.35rem;
     border-radius: 9999px;
@@ -2317,6 +2329,11 @@
 
   .switch-track.is-on > span {
     transform: translateX(1.25rem);
+  }
+
+  /* Right to left: off sits at the start (right), on slides towards the end. */
+  [dir='rtl'] .switch-track.is-on > span {
+    transform: translateX(-1.25rem);
   }
 
   .menu-code-row {
@@ -3077,8 +3094,11 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2.75rem;
-    height: 2.75rem;
+    /* 44px at the normal text size. The larger text sizes grow the root
+       font, which made five of these overrun a 320px phone's header (the
+       last one off screen); an icon does not need to grow past 48px. */
+    width: clamp(44px, 2.75rem, 48px);
+    height: clamp(44px, 2.75rem, 48px);
     border-radius: 3px;
     color: var(--ink-mute);
     background-color: rgba(23, 35, 31, 0.7);
@@ -3098,7 +3118,7 @@
   .court-badge {
     position: absolute;
     top: -0.35rem;
-    right: -0.35rem;
+    inset-inline-end: -0.35rem;
     min-width: 1.1rem;
     height: 1.1rem;
     padding: 0 0.2rem;
@@ -3291,6 +3311,18 @@
 
   .court-prompts:empty {
     display: none;
+  }
+
+  /* The answer buttons share a row (Challenge | Pass, the two "Block with"
+     buttons). Their inline padding is only breathing room around a centred
+     label, so it gives way to the label: a long word in another language
+     (or at the largest text size on a 320px phone) fits its slab instead of
+     running into the edges, and a single word longer than the slab breaks
+     rather than overflowing. English, which fits, looks the same. */
+  .court-prompts :is(.btn-primary, .btn-secondary, .btn-danger).flex-1 {
+    padding-inline: 0.5rem;
+    overflow-wrap: anywhere;
+    min-width: 0;
   }
 
   /* ── The phase line: typography on the felt, not a coloured banner ── */
@@ -4137,9 +4169,35 @@
 
     .court-dock-log { display: none; }
     /* The action sheet rises ABOVE the hand, over the near half of the
-       table, instead of pushing the table up. */
-    .court-dock-actions { order: -1; justify-self: stretch; width: 100%; }
-    .court-objects, .court-discard { display: none; }
+       table, instead of pushing the table up. It never rises over the
+       header: on a short phone at the largest text size, or with longer
+       translated text, the prompt scrolls inside the sheet instead of its
+       first lines running off the top of the screen. */
+    .court-dock {
+      max-height: calc(100% - 5rem);
+      grid-template-rows: minmax(0, 1fr) auto;
+    }
+    .court-dock-actions {
+      order: -1;
+      justify-self: stretch;
+      width: 100%;
+      min-height: 0;
+      align-self: stretch;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+    }
+    /* Each panel scrolls itself (an element's overflow never clips its own
+       shadow, so the sheet keeps the shadow it casts up over the table). */
+    .court-dock-actions > * {
+      min-height: 0;
+      overflow-y: auto;
+    }
+    /* The deck, treasury and fallen pile are desktop furniture (GameTable's
+       motion notes: the Fall verb is desktop-only). `.table-object` sets
+       `display: flex` further down, so the pile's selector carries both
+       classes to win here. */
+    .court-objects, .table-object.court-discard { display: none; }
 
     .court-hand-plate {
       flex-direction: row;
@@ -5590,6 +5648,64 @@
     font-size: var(--step--1);
     line-height: 1.4;
     color: var(--ink-mute);
+  }
+
+  /* Compact (PracticeCoach, a docked banner with no clean spot): the title
+     shares the row with the controls and the body folds away; the title
+     opens it. The label gives way first, it is the least needed word. */
+  .coach-callout[data-compact] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 0.5rem;
+  }
+
+  .coach-callout[data-compact] > .coach-head,
+  .coach-callout[data-compact] > [role='status'] {
+    display: contents;
+  }
+
+  .coach-callout[data-compact] .coach-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .coach-callout[data-compact] .coach-controls {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .coach-callout[data-compact] .coach-title {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  .coach-callout[data-compact] .coach-body {
+    grid-column: 1 / -1;
+  }
+
+  .coach-expand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 44px;
+    text-align: start;
+  }
+
+  .coach-expand-chevron {
+    flex: none;
+    width: 1rem;
+    height: 1rem;
+    color: var(--brass);
+    transition: transform 160ms ease-out;
+  }
+
+  .coach-expand[aria-expanded='true'] .coach-expand-chevron {
+    transform: rotate(180deg);
   }
 
   .coach-rules {

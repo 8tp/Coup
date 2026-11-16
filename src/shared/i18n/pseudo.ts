@@ -34,9 +34,17 @@ export function pseudoAccent(text: string): string {
   return out;
 }
 
-/** Right-to-left override around the text, closed again by PDF. */
+/**
+ * Right-to-left override around the text (RLO … PDF), inside a right-to-left
+ * isolate (RLI … PDI). The isolate matters when a message has a number or a
+ * name between two literal runs ("Start game · {count} players"): without
+ * it the overridden runs and the number nest at different embedding levels
+ * and the bidi algorithm lays them out in left-to-right order, a garble no
+ * real Arabic message would show. Isolated, each run is one neutral unit of
+ * the right-to-left line and the sentence reads in order from the right.
+ */
 export function pseudoBidi(text: string): string {
-  return text.trim() ? `‮${text}‬` : text;
+  return text.trim() ? `\u2067\u202e${text}\u202c\u2069` : text;
 }
 
 export type PseudoMode = 'accent' | 'bidi';

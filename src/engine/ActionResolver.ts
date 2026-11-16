@@ -22,6 +22,10 @@ import {
   INQUISITOR_EXCHANGE_DRAW_COUNT,
   CONVERSION_SELF_COST,
   CONVERSION_OTHER_COST,
+  INCOME_COINS,
+  FOREIGN_AID_COINS,
+  TAX_COINS,
+  STEAL_COINS,
 } from '../shared/constants';
 import type { ChallengeRevealEvent } from '../shared/types';
 import { logMsg, type LogMessage } from '../shared/i18n/logMessages';
@@ -162,8 +166,8 @@ export class ActionResolver {
     // Determine next phase
     // Income and Coup cannot be challenged or blocked
     if (actionType === ActionType.Income) {
-      sideEffects.push({ type: 'give_coins', playerId: actorId, amount: 1 });
-      sideEffects.push({ type: 'log', message: `${actor.name} takes Income (+1 coin).`, msg: logMsg('income', { actor: actorId, amount: 1 }), eventType: 'income', character: null, actorId, actorName: actor.name });
+      sideEffects.push({ type: 'give_coins', playerId: actorId, amount: INCOME_COINS });
+      sideEffects.push({ type: 'log', message: `${actor.name} takes Income (+${INCOME_COINS} coin).`, msg: logMsg('income', { actor: actorId, amount: INCOME_COINS }), eventType: 'income', character: null, actorId, actorName: actor.name });
       sideEffects.push({ type: 'advance_turn' });
       return this.resolved(sideEffects);
     }
@@ -920,20 +924,20 @@ export class ActionResolver {
 
     switch (pendingAction.type) {
       case ActionType.Tax:
-        sideEffects.push({ type: 'give_coins', playerId: actor.id, amount: 3 });
-        sideEffects.push({ type: 'log', message: `${actor.name} collects Tax (+3 coins).`, msg: logMsg('taxCollected', { actor: actor.id, amount: 3 }), eventType: 'action_resolve', character: Character.Duke, actorId: actor.id, actorName: actor.name });
+        sideEffects.push({ type: 'give_coins', playerId: actor.id, amount: TAX_COINS });
+        sideEffects.push({ type: 'log', message: `${actor.name} collects Tax (+${TAX_COINS} coins).`, msg: logMsg('taxCollected', { actor: actor.id, amount: TAX_COINS }), eventType: 'action_resolve', character: Character.Duke, actorId: actor.id, actorName: actor.name });
         sideEffects.push({ type: 'advance_turn' });
         return this.resolved(sideEffects);
 
       case ActionType.ForeignAid:
-        sideEffects.push({ type: 'give_coins', playerId: actor.id, amount: 2 });
-        sideEffects.push({ type: 'log', message: `${actor.name} takes Foreign Aid (+2 coins).`, msg: logMsg('foreignAidTaken', { actor: actor.id, amount: 2 }), eventType: 'action_resolve', character: null, actorId: actor.id, actorName: actor.name });
+        sideEffects.push({ type: 'give_coins', playerId: actor.id, amount: FOREIGN_AID_COINS });
+        sideEffects.push({ type: 'log', message: `${actor.name} takes Foreign Aid (+${FOREIGN_AID_COINS} coins).`, msg: logMsg('foreignAidTaken', { actor: actor.id, amount: FOREIGN_AID_COINS }), eventType: 'action_resolve', character: null, actorId: actor.id, actorName: actor.name });
         sideEffects.push({ type: 'advance_turn' });
         return this.resolved(sideEffects);
 
       case ActionType.Steal: {
         const target = game.getPlayer(pendingAction.targetId!)!;
-        const stealAmount = Math.min(2, target.coins);
+        const stealAmount = Math.min(STEAL_COINS, target.coins);
         sideEffects.push({
           type: 'transfer_coins',
           fromId: target.id,
