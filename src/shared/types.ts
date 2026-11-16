@@ -1,3 +1,5 @@
+import type { LogMessage } from './i18n/logMessages';
+
 // ─── Character Cards ───
 export enum Character {
   Duke = 'Duke',
@@ -196,6 +198,13 @@ export interface LogEntry {
   targetId?: string | null;
   /** Whether this claim was a bluff (actor did not hold the claimed character). Only set on claim_action/block entries. */
   wasBluff?: boolean;
+  /**
+   * The same line as a stable key plus typed params, so each client renders
+   * it in its own language (docs/I18N.md). `message` stays the English text
+   * for logs, metrics, bots and older clients. Optional only because entries
+   * stored before this field existed lack it.
+   */
+  msg?: LogMessage;
 }
 
 // ─── Client-visible state (what gets sent to each player) ───
@@ -432,4 +441,11 @@ export interface ChatMessage {
   playerName: string;
   message: string;
   timestamp: number;
+  /**
+   * Set when the line is a reaction (a player's or a bot's emote) rather than
+   * typed text. `message` is then the English "<emoji> <label>"; clients
+   * render `reactionId` through the catalog instead. Typed chat is never
+   * translated.
+   */
+  reactionId?: string;
 }

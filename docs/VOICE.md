@@ -34,3 +34,11 @@ cites its sources.
 - Buttons are verb phrases of one to three words.
 - A tutorial note is one line of feedback on what just happened.
 - Keep every fact the old copy had.
+
+## Translations
+
+Translations follow these same rules in their own language: the sentence
+you would say across the table, cut; the game's nouns from the glossary in
+`docs/I18N.md`, every time; real numbers; buttons as short verb phrases; no
+slogans, rhetorical questions, exclamation marks or capitals for emphasis.
+Keep every fact the English line has, and no more.

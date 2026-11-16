@@ -125,11 +125,14 @@
 
     /* --------------------------------------------------------------------
        ART-DIRECTION.md §4 — three type roles, no more.
-       `--font-display` is not declared here: next/font/local sets it on <html>
-       (see layout.tsx) so the hashed self-hosted family name is the value.
-       Consume all three through Tailwind's `font-display` / `font-sans` /
-       `font-mono`, which carry the literal fallback stacks.
+       `--font-display` stacks the Oswald subsets next/font/local declares on
+       <html> (layout.tsx: latin, latin-ext, vietnamese, each limited by
+       unicode-range, so only the subsets a page uses are fetched), then the
+       condensed fallbacks. Arabic and Chinese replace the stacks below
+       ("Per-language type"). Consume all three through Tailwind's
+       `font-display` / `font-sans` / `font-mono`.
        -------------------------------------------------------------------- */
+    --font-display: var(--font-display-latin), var(--font-display-latin-ext), var(--font-display-vietnamese), 'Haettenschweiler', 'Arial Narrow', Impact, system-ui, sans-serif;
     --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     --font-figure: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
 
@@ -230,6 +233,120 @@
   :focus-visible {
     outline: 2px solid #d6a12a;
     outline-offset: 2px;
+  }
+
+  /* ------------------------------------------------------------------
+     Language loading (docs/I18N.md). The pre-paint script in layout.tsx
+     adds this class only when the reader's language is not English; the
+     runtime removes it once that catalog has rendered (1.5s backstop), so
+     nobody sees English flash into another language.
+     ------------------------------------------------------------------ */
+  html.i18n-pending body {
+    visibility: hidden;
+  }
+
+  /* ------------------------------------------------------------------
+     Per-language type (docs/I18N.md, "Type").
+
+     Arabic: display in Noto Kufi Arabic (vendored, Arabic range only; a
+     geometric Kufi is the Arabic cousin of a condensed civic grotesque),
+     Latin inside it (player names) stays Oswald. Body is the system face:
+     SF Arabic / Geeza Pro on Apple, Segoe UI on Windows, Noto on Android.
+
+     Chinese: system faces only. A vendored Simplified Chinese face is 4-8MB
+     even sliced, against ~60KB for all of Oswald, and every platform ships
+     a good one (PingFang SC, Microsoft YaHei, Noto Sans CJK SC). Latin keeps
+     Oswald, CJK falls through to the system face in the same stack.
+
+     Hindi (Devanagari): system faces only. Every platform ships a good
+     sans (Kohinoor Devanagari on Apple, Nirmala UI on Windows, Noto Sans
+     Devanagari on Android, which is most of our Indian players). The
+     candidates for a vendored display face were Teko (condensed, 64KB for
+     the Devanagari subset) and Noto Sans Devanagari (207KB); condensed
+     Devanagari crowds its matras at our sizes, and 64-207KB on Indian
+     mobile data buys headings only. Latin keeps Oswald in the same stack.
+
+     None of these scripts has case. Arabic is cursive and Devanagari hangs
+     letters from a shared headline: letter-spacing breaks both (Chrome turns
+     shaping off for spaced text), and tracking or faux italics distort CJK.
+     So all three drop tracking, capitals and italics, and display type is
+     set in a normal-width face, not a condensed one.
+
+     Devanagari also stacks vowel marks above the headline and below the
+     baseline, so the tight line-heights the Latin display role uses (1.1 on
+     buttons, 1.15 on the phase banner, leading-5 in the log) clip them.
+     Under :lang(hi) every line box is 1.5.
+     ------------------------------------------------------------------ */
+  :root:lang(ar) {
+    --font-display: var(--font-display-arabic), var(--font-display-latin), var(--font-display-latin-ext), 'Geeza Pro', 'Segoe UI', 'Noto Kufi Arabic', 'Noto Sans Arabic', system-ui, sans-serif;
+    --font-body: system-ui, -apple-system, 'Geeza Pro', 'Segoe UI', 'Noto Sans Arabic', 'Noto Naskh Arabic', Tahoma, sans-serif;
+    --display-tracking: 0;
+  }
+
+  :root:lang(zh) {
+    --font-display: var(--font-display-latin), 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Noto Sans SC', 'Source Han Sans SC', system-ui, sans-serif;
+    --font-body: system-ui, -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Noto Sans SC', sans-serif;
+    --display-tracking: 0;
+  }
+
+  :root:lang(hi) {
+    --font-display: var(--font-display-latin), var(--font-display-latin-ext), 'Kohinoor Devanagari', 'Devanagari Sangam MN', 'Nirmala UI', 'Noto Sans Devanagari', 'Mangal', system-ui, sans-serif;
+    --font-body: system-ui, -apple-system, 'Kohinoor Devanagari', 'Nirmala UI', 'Noto Sans Devanagari', 'Segoe UI', Roboto, sans-serif;
+    --display-tracking: 0;
+  }
+
+  :root:lang(ar) body,
+  :root:lang(zh) body,
+  :root:lang(hi) body {
+    font-family: var(--font-body);
+  }
+
+  :root:lang(ar) :is(*, *::before, *::after),
+  :root:lang(zh) :is(*, *::before, *::after),
+  :root:lang(hi) :is(*, *::before, *::after) {
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+  }
+
+  :root:lang(ar) :is(i, em, .italic),
+  :root:lang(zh) :is(i, em, .italic),
+  :root:lang(hi) :is(i, em, .italic) {
+    font-style: normal;
+  }
+
+  /* Room for matras above the headline and below the baseline. */
+  :root:lang(hi) :is(*, *::before, *::after) {
+    line-height: 1.5 !important;
+  }
+
+  /* ------------------------------------------------------------------
+     Right to left (docs/I18N.md, "Right to left").
+
+     With dir="rtl" text blocks, prompts, the log, chat and forms mirror on
+     their own: they use logical properties (start/end, inline-start). The
+     court table does NOT mirror. It is a physical object: seat angles,
+     the deck and treasury positions and the coin and card flights are
+     geometry measured in px and %, and the same seat must sit in the same
+     place for every reader at the table. So the table box is pinned LTR,
+     and text inside a seat is isolated so an Arabic or Latin name still
+     reads in its own direction.
+     ------------------------------------------------------------------ */
+  [dir='rtl'] .court-table {
+    direction: ltr;
+  }
+
+  [dir='rtl'] .court-table .table-seat {
+    unicode-bidi: isolate;
+  }
+
+  [dir='rtl'] .court-table .table-seat :is(span, p) {
+    unicode-bidi: plaintext;
+  }
+
+  /* Figures (coins, timers, room codes, deck count) always read left to right. */
+  [dir='rtl'] .figure {
+    direction: ltr;
+    unicode-bidi: isolate;
   }
 }
 
@@ -2722,7 +2839,7 @@
     width: 100%;
     padding: 0.5rem 0.6rem;
     border-radius: 2px;
-    text-align: left;
+    text-align: start;
     color: var(--ink);
     font-size: var(--step--1);
     background-color: rgba(5, 9, 10, 0.55);
@@ -2741,9 +2858,209 @@
     min-width: 0;
   }
 
-  .log-ticker-line > svg {
-    flex: none;
+  .log-ticker-text,
+  .log-latest > .truncate {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .log-ticker .log-stamp,
+  .log-latest .log-stamp {
+    margin-top: 0;
+  }
+
+  /* ------------------------------------------------------------------
+     The action log (ActionLog, the drawer's Latest row, LogTicker; one
+     line renderer in components/game/LogLine.tsx).
+
+     Kinds are told apart by MATERIAL in a 16px gutter stamp (§1.2: state is
+     never a hue): the hazard hatch for a challenge or a card being lost,
+     an ink slab for a block, brass for coins and the win, nothing for
+     claims and turn markers, whose meaning is the character emblem inline.
+     Logical properties throughout, so the log mirrors under dir="rtl".
+     ------------------------------------------------------------------ */
+  .log-turn {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    padding-inline-start: 0.5rem;
+    border-inline-start: 3px solid var(--line);
+  }
+
+  .log-line {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.4rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: #9ca3af;
+  }
+
+  .log-line.is-latest {
+    color: var(--ink);
+  }
+
+  .log-line[data-kind='turn'] {
     color: var(--ink-mute);
+  }
+
+  .log-line[data-kind='out'] .log-text,
+  .log-line[data-kind='win'] .log-text {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .log-text {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .log-latest {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    min-width: 0;
+  }
+
+  .log-stamp {
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    margin-top: 2px;
+    border-radius: 2px;
+    color: var(--ink-mute);
+  }
+
+  /* Hazard: a challenge, or a card about to be lost. */
+  .log-stamp:is([data-kind='challenge'], [data-kind='loss'], [data-kind='out']) {
+    color: var(--ink);
+    background-color: var(--oxblood);
+    background-image: repeating-linear-gradient(45deg, rgba(242, 115, 102, 0.5) 0 2px, transparent 2px 5px);
+  }
+
+  /* Ink slab: a block. */
+  .log-stamp[data-kind='block'] {
+    color: var(--ground);
+    background-color: var(--ink);
+  }
+
+  .log-stamp[data-kind='coins'] {
+    color: var(--brass-lit);
+  }
+
+  .log-stamp[data-kind='win'] {
+    color: var(--brass);
+  }
+
+  /* A player's name: brighter than the line, isolated by <bdi>. */
+  .log-name {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  /* A character: its emblem in its own hue, then its name in the same hue. */
+  .log-char {
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .log-char-glyph {
+    display: inline-block;
+    vertical-align: -0.15em;
+    margin-inline-end: 0.2em;
+  }
+
+  /* Coin amounts are figures (§4). */
+  .log-figure {
+    font-family: var(--font-figure);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: var(--brass-lit);
+  }
+
+  .log-verdict,
+  .log-explain {
+    display: inline-block;
+    margin-inline-start: 0.375rem;
+    padding: 0 0.375rem;
+    border-radius: 2px;
+    font-size: 11px;
+    line-height: 1.125rem;
+    font-weight: 700;
+    vertical-align: 1px;
+  }
+
+  .log-verdict.is-bluff {
+    color: var(--ink);
+    background-color: var(--oxblood);
+    background-image: repeating-linear-gradient(45deg, rgba(242, 115, 102, 0.35) 0 2px, transparent 2px 6px);
+  }
+
+  .log-verdict.is-honest {
+    color: var(--ink-mute);
+    background-color: var(--ground-deep);
+    box-shadow: var(--deboss);
+  }
+
+  .log-explain {
+    color: var(--ink-mute);
+    box-shadow: inset 0 0 0 1px var(--line);
+    transition: color 120ms, box-shadow 120ms;
+  }
+
+  .log-explain:hover,
+  .log-explain.is-open {
+    color: var(--brass);
+    box-shadow: inset 0 0 0 1px var(--brass);
+  }
+
+  /* Settings > Language: each language named in itself. */
+  .lang-picker {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.2rem;
+    padding: 0.2rem;
+    border-radius: 3px;
+    background-color: var(--ground-deep);
+    box-shadow: var(--deboss);
+  }
+
+  .lang-picker > button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0.3rem 0.5rem;
+    border-radius: 2px;
+    font-family: var(--font-body);
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--ink);
+    transition: background-color 120ms, color 120ms;
+  }
+
+  .lang-picker > button small {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--ink-mute);
+  }
+
+  .lang-picker > button.is-on {
+    background-color: var(--brass);
+    color: var(--ground);
+  }
+
+  .lang-picker > button.is-on small {
+    color: var(--ground);
+  }
+
+  .lang-picker > .lang-picker-auto {
+    grid-column: 1 / -1;
   }
 
   /* A coin in the air between a pool and a seat (table/CoinFlights.tsx).

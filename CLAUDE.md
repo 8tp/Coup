@@ -119,6 +119,11 @@ Not every turn visits every phase. Income resolves immediately. Coup skips to In
 | `src/app/components/game/ExaminePrompt.tsx` | Inquisitor examine decision UI: shows revealed card, Return or Force Swap buttons |
 | `src/app/components/icons/InquisitorIcon.tsx` | Inquisitor SVG icon (all-seeing eye, teal) |
 | `docs/REFORMATION_PLAN.md` | Full implementation plan for the Reformation expansion |
+| `docs/I18N.md` | Internationalisation: adding strings, key naming, plurals, rich text, adding a language, right to left, glossary |
+| `src/shared/i18n/` | Shared i18n core: language registry (`locales.ts`), ICU message formatter, locale matching, pre-paint boot script, structured log keys (`logMessages.ts`), server error codes (`serverErrors.ts`) |
+| `src/app/i18n/` | Client i18n: catalogs in `messages/<locale>/<namespace>.ts` (English is the source of truth), `useT()` / `getT()`, glossary helpers, `I18nBootstrap` |
+| `src/app/components/game/LogLine.tsx` | Renders one action-log line from its structured `msg` (stamps, emblems, figures); shared by `ActionLog`, the drawer's Latest row and `LogTicker` |
+| `scripts/i18n-report.ts` | `npx tsx scripts/i18n-report.ts [locale]`: missing, extra and mismatched keys per locale |
 
 ---
 
@@ -214,6 +219,7 @@ The `GameEngine.applySideEffect()` method interprets each effect and mutates the
 
 - **Server is authoritative** -- never add game logic to the client
 - **On-screen copy follows `docs/VOICE.md`** -- no em-dash clauses, slogans, rhetorical questions or eyebrow labels
+- **On-screen text comes from the catalogs** (`docs/I18N.md`) -- `t('namespace.key')` via `useT()`, game nouns via the glossary helpers, never a hard-coded string or a printed enum value. Server text a player sees carries a key: log side effects need `msg: logMsg(...)` beside `message`, and new error texts need a code in `src/shared/i18n/serverErrors.ts`. Use logical CSS properties so right-to-left works; the court table never mirrors
 - **Types live in `src/shared/`** -- do not define game types in engine or server files
 - **Engine has no I/O** -- no `setTimeout`, no `socket.emit`, no `console.log` in `ActionResolver`. Timers and logging are expressed as side effects
 - **All game constants** are in `src/shared/constants.ts` -- do not hardcode magic numbers

@@ -17,7 +17,13 @@ function finishGame(manager: RoomManager, roomCode: string, winnerId: string): v
   for (const player of engine.game.players) {
     if (player.id === winnerId) continue;
     for (const influence of player.influences) influence.revealed = true;
-    engine.game.log(`${player.name} is out.`, 'elimination', null, player.id, player.name);
+    engine.game.log({
+      message: `${player.name} is out.`,
+      msg: { key: 'eliminated', params: { actor: player.id } },
+      eventType: 'elimination',
+      actorId: player.id,
+      actorName: player.name,
+    });
   }
   engine.game.checkWinCondition();
   expect(engine.game.status).toBe(GameStatus.Finished);

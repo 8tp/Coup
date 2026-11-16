@@ -1,0 +1,91 @@
+import type { ServerErrorCode } from '@/shared/i18n/serverErrors';
+
+/**
+ * Server errors and notices, by the stable code the socket layer attaches
+ * (`src/shared/i18n/serverErrors.ts`). Rendered with `describeServerError()`.
+ * `unknown` is never shown: an uncoded error falls back to the server's own
+ * English text. Params come from the server: numbers, a room code, and for
+ * `cannot_block_with` a character and an action, which render through the
+ * glossary.
+ */
+const errors = {
+  rate_limited: 'Too many requests. Wait a moment.',
+  server_error: 'Something went wrong on the server. Try again.',
+  invalid_request: "The server couldn't read that request. Try again.",
+  already_in_room: "You're already in a room.",
+  not_in_room: "You're not in a room.",
+  no_game: 'No game is running.',
+  host_only_start: 'Only the host can start the game.',
+  host_only_rematch: 'Only the host can start a rematch.',
+  host_only: 'Only the host can do that.',
+  game_not_finished: "The game isn't over yet.",
+  start_failed: "The game couldn't start. Try again.",
+  rematch_failed: "The rematch couldn't start. Try again.",
+  removed_from_room: 'You were removed from room {room}.',
+  removed_idle: 'You were idle too long, so a bot took your seat.',
+
+  invalid_room_code: 'Room codes are 4 letters.',
+  room_not_found: 'Room not found.',
+  room_full: 'That room is full.',
+  game_in_progress: 'A game is already in progress.',
+  name_taken: 'Someone in this room already has that name.',
+  cannot_remove_host: "The host can't be removed.",
+  player_not_found: 'That player is not in this room.',
+  seat_taken_by_bot: 'A bot took your seat while you were away.',
+  invalid_session: 'Your session ended. Join the room again.',
+  settings_locked: "Settings can't change during a game.",
+  invalid_settings: 'That setting value is not allowed.',
+  timer_range: 'Timers must be between {min} and {max} seconds.',
+  need_players: 'You need at least {count} players.',
+  message_length: 'Messages are 1 to {max} characters.',
+  chat_rate_limited: "You're sending messages too fast.",
+  spectate_unavailable: 'You can only watch public games in progress.',
+  too_many_spectators: 'This game has too many spectators.',
+  spectator_not_found: 'That spectator is not in this room.',
+
+  invalid_name: 'Enter a valid name.',
+  name_required: 'Enter a name.',
+  name_too_long: 'Names are {max} characters or fewer.',
+  name_needs_letter: 'Names need at least one letter or number.',
+  name_inappropriate: 'Choose a different name.',
+  message_required: 'Type a message.',
+  message_too_long: 'Messages are {max} characters or fewer.',
+  message_inappropriate: "That message can't be sent.",
+
+  not_your_turn: "It's not your turn.",
+  you_are_eliminated: "You're out of this game.",
+  must_coup: 'With {threshold} or more coins you must Coup.',
+  not_enough_coins: 'You need {need, plural, one {# coin} other {# coins}} and have {have}.',
+  target_required: 'Choose a target.',
+  target_not_found: "That player isn't in the game.",
+  target_eliminated: 'That player is out.',
+  cannot_target_self: "You can't target yourself.",
+  target_no_coins: 'That player has no coins to steal.',
+  same_faction_target: "You can't target a player in your faction.",
+  same_faction_block: "You can't block Foreign Aid for a player in your faction.",
+  invalid_challenger: "You can't challenge right now.",
+  cannot_challenge_own_action: "You can't challenge your own action.",
+  cannot_challenge_own_block: "You can't challenge your own block.",
+  already_passed: 'You already passed.',
+  invalid_blocker: "You can't block right now.",
+  cannot_block_own_action: "You can't block your own action.",
+  cannot_pass_own_block: "You can't pass on your own block.",
+  cannot_block_with: "{character} can't block {action}.",
+  only_target_blocks_assassination: 'Only the target can block an assassination.',
+  only_target_blocks_steal: 'Only the target can block a steal.',
+  not_your_influence_loss: "It's not your card to lose.",
+  invalid_influence_index: 'Choose one of your hidden cards.',
+  influence_already_revealed: 'That card is already face up.',
+  not_your_exchange: "It's not your exchange.",
+  must_keep_cards: 'Keep exactly {count, plural, one {# card} other {# cards}}.',
+  invalid_card_index: 'Choose different cards.',
+  reformation_only: '{action} is only in Reformation games.',
+  reserve_empty: 'The Treasury Reserve is empty.',
+  not_your_examine: "It's not your Examine.",
+  invalid_examine: "That Examine can't go ahead.",
+  cannot_present_revealed: 'Show a hidden card.',
+  moment_passed: 'Too late. That step is over.',
+  unknown: '',
+} satisfies Record<ServerErrorCode, string>;
+
+export default errors;
