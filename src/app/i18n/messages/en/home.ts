@@ -72,7 +72,8 @@ const home = {
   guidedGame: 'Play a guided game',
   guidedGameSub: 'You against 1 gentle bot. A coach points at what to do next.',
   tutorial: 'Take the tutorial',
-  tutorialSub: '6 short lessons. You try each move on a small table.',
+  // Under "Take the tutorial". {count} is the number of lessons (6).
+  tutorialSub: '{count, plural, one {# short lesson} other {# short lessons}}. You try each move on a small table.',
   rules: 'Read the rules',
   rulesSub: 'Characters, actions, challenges and blocks. Reformation too.',
   practiceFoot: 'More bots, other rules, or no coach',

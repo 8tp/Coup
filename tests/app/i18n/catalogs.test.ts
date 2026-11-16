@@ -77,6 +77,6 @@ describe('runtime lookup and fallback', () => {
 
   it('marks every pseudo-locale string', () => {
     expect(translateIn('en-XA', 'log.tabLog')).toBe('⟦Ļööĝ⟧');
-    expect(translateIn('ar-XB', 'log.tabLog')).toBe('⟦‮Log‬⟧');
+    expect(translateIn('ar-XB', 'log.tabLog')).toBe('⟦\u2067\u202eLog\u202c\u2069⟧');
   });
 });

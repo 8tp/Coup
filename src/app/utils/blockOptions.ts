@@ -19,16 +19,6 @@ export function visibleBlockCharacters(gameState: ClientGameState): Character[] 
 }
 
 /**
- * "Captain", "Captain or Ambassador", "Duke, Captain or Contessa". English
- * only: the table uses `characterList` below. Kept for the practice coach
- * until it is converted.
- */
-export function formatCharacters(characters: Character[]): string {
-  if (characters.length <= 1) return characters[0] ?? 'the shown character';
-  return `${characters.slice(0, -1).join(', ')} or ${characters[characters.length - 1]}`;
-}
-
-/**
  * True when you are the target of a claim that can also be blocked (Steal,
  * Assassinate) and its challenge window is open, so you can declare your
  * block now instead of waiting for the block step. The server decides; this

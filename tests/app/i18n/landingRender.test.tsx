@@ -75,7 +75,7 @@ describe('server rendering a landing page', () => {
     expect(renderToStaticMarkup(<Probe />)).toBe('en ltr Questions');
     expect(renderToStaticMarkup(
       <LandingLocaleProvider locale="ar-XB"><Probe /></LandingLocaleProvider>,
-    )).toBe('ar-XB rtl ⟦‮Questions‬⟧');
+    )).toBe('ar-XB rtl ⟦\u2067\u202eQuestions\u202c\u2069⟧');
   });
 
   it('JSON-LD cannot be closed early by catalog text', () => {
