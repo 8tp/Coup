@@ -1,10 +1,10 @@
 'use client';
 
-import { Fragment, isValidElement, useMemo, type ReactNode } from 'react';
+import { createContext, Fragment, isValidElement, useContext, useLayoutEffect, useMemo, type ReactNode } from 'react';
 import { LOCALES, type Locale } from '@/shared/i18n/locales';
 import { formatListToParts, numberFormat, type FormatOptions, type Part } from '@/shared/i18n/messageFormat';
-import { makePlainTranslator, translatePartsIn, useI18nStore, type PlainTranslator } from './runtime';
-import type { MessageKey } from './schema';
+import { plainTranslatorWith, registerCatalog, translatePartsIn, useI18nStore, type PlainTranslator } from './runtime';
+import type { MessageKey, Translation } from './schema';
 
 /**
  * Params for `t.rich`: values may be React nodes, and a function under a
@@ -48,14 +48,41 @@ function wrapParams(params: RichParams): Record<string, unknown> {
 }
 
 export function makeTranslator(locale: Locale): Translator {
-  const t = makePlainTranslator(locale) as Translator;
+  return translatorWith(locale, undefined);
+}
+
+/** A translator that reads `catalog` (a landing page's) instead of the loaded one, when given. */
+export function translatorWith(locale: Locale, catalog: Translation | undefined): Translator {
+  const t = plainTranslatorWith(locale, catalog) as Translator;
   t.dir = LOCALES[locale].dir;
   t.intl = LOCALES[locale].intl;
-  t.rich = (key, params = {}, opts) => <>{partsToNodes(translatePartsIn(locale, key, wrapParams(params), opts))}</>;
+  t.rich = (key, params = {}, opts) => <>{partsToNodes(translatePartsIn(locale, key, wrapParams(params), opts, catalog))}</>;
   t.list = (items, type = 'conjunction') =>
     <>{partsToNodes(formatListToParts(items.map(item => (typeof item === 'string' ? item : { rich: item })), LOCALES[locale].intl, type))}</>;
   t.number = (value: number) => numberFormat(LOCALES[locale].intl).format(value);
   return t;
+}
+
+/**
+ * A landing page (`/pt-br`) renders in its own language on the server and in
+ * the first client render, before the runtime has activated anything. The
+ * page's layout wraps it in this context with the language and the catalog
+ * the server used, and `useT()` prefers it to the active locale.
+ */
+interface LandingLocale {
+  locale: Locale;
+  /** Undefined for the pseudo-locales, which are derived from English. */
+  catalog?: Translation;
+}
+
+const LandingLocaleContext = createContext<LandingLocale | null>(null);
+
+export function LandingLocaleProvider({ locale, catalog, children }: LandingLocale & { children: ReactNode }) {
+  // Before any passive effect (I18nBootstrap activates this locale in one),
+  // so activating it needs no download.
+  useLayoutEffect(() => { registerCatalog(locale, catalog); }, [locale, catalog]);
+  const value = useMemo(() => ({ locale, catalog }), [locale, catalog]);
+  return <LandingLocaleContext.Provider value={value}>{children}</LandingLocaleContext.Provider>;
 }
 
 /**
@@ -64,12 +91,17 @@ export function makeTranslator(locale: Locale): Translator {
  * loading, so a switch mid-game re-renders the log without a reload.
  */
 export function useT(): Translator {
-  const locale = useI18nStore(s => s.locale);
+  const landing = useContext(LandingLocaleContext);
+  const active = useI18nStore(s => s.locale);
+  const locale = landing?.locale ?? active;
   // Re-render when this locale's catalog object changes.
-  const catalog = useI18nStore(s => s.catalogs[s.locale]);
-  return useMemo(() => makeTranslator(locale), [locale, catalog]); // eslint-disable-line react-hooks/exhaustive-deps
+  const loaded = useI18nStore(s => s.catalogs[locale]);
+  const catalog = landing?.catalog ?? loaded;
+  return useMemo(() => translatorWith(locale, catalog), [locale, catalog]);
 }
 
 export function useLocale(): Locale {
-  return useI18nStore(s => s.locale);
+  const landing = useContext(LandingLocaleContext);
+  const active = useI18nStore(s => s.locale);
+  return landing?.locale ?? active;
 }

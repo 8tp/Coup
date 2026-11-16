@@ -3,11 +3,15 @@ import { DEFAULT_LOCALE, LOCALES, SHIPPED_LOCALES, type Locale, isLocale } from 
 /**
  * Locale resolution, in this order (docs/I18N.md):
  *
- *   1. an explicit locale as the first URL path segment (`/pt-BR/...`), kept
- *      for translated landing pages; the app's own routes never start with one;
- *   2. the player's saved choice (Settings > Language);
- *   3. the best match from `navigator.languages`;
- *   4. English.
+ *   1. an explicit locale as the first URL path segment (`/pt-br`), the
+ *      translated landing pages; the app's own routes never start with one;
+ *   2. the landing page language this browser tab came in through, so a
+ *      player who opened `/hi` and started a game keeps Hindi after a reload
+ *      mid-game (sessionStorage, per tab; ignored and cleared on `/`, cleared
+ *      by any choice made in Settings);
+ *   3. the player's saved choice (Settings > Language);
+ *   4. the best match from `navigator.languages`;
+ *   5. English.
  *
  * Regional variants map to the language we have: any `pt-*` to `pt-BR`, any
  * `es-*` to `es`, `zh`, `zh-CN`, `zh-SG` and `zh-Hans-*` to `zh-Hans`.
@@ -40,6 +44,8 @@ export interface LocaleTable {
 
 export interface LocaleInputs {
   pathname?: string | null;
+  /** The landing page language this tab arrived through (sessionStorage), see step 2. */
+  session?: string | null;
   saved?: string | null;
   languages?: readonly string[] | null;
 }
@@ -90,6 +96,9 @@ export function resolveLocaleCore(table: LocaleTable, input: LocaleInputs): stri
   var fromPath = first ? findIgnoringCase(table.shipped, first) : null;
   if (fromPath && has(table.selectable, fromPath)) return fromPath;
 
+  // `/` is the English landing page and the language-detecting x-default: it never uses the tab's landing language.
+  if (first && input.session && has(table.selectable, input.session)) return input.session;
+
   if (input.saved && has(table.selectable, input.saved)) return input.saved;
 
   var languages = input.languages || [];
@@ -106,9 +115,14 @@ export function resolveLocaleCore(table: LocaleTable, input: LocaleInputs): stri
 const IMPLIED_SCRIPTS: Record<string, string> = { 'zh-tw': 'hant', 'zh-hk': 'hant', 'zh-mo': 'hant' };
 const DEFAULT_SCRIPTS: Record<string, string> = { zh: 'hans' };
 
-export function buildLocaleTable(selectable: readonly Locale[], detectable: readonly Locale[]): LocaleTable {
+/**
+ * `pathLocales` are the locales a URL path may name. The app passes the
+ * landing locales of the build (`landingLocales` in ./locales), so only a
+ * path that really is a landing page selects a language.
+ */
+export function buildLocaleTable(selectable: readonly Locale[], detectable: readonly Locale[], pathLocales: readonly Locale[] = SHIPPED_LOCALES): LocaleTable {
   return {
-    shipped: SHIPPED_LOCALES,
+    shipped: pathLocales,
     selectable,
     detectable: detectable.filter(l => !LOCALES[l].dev),
     impliedScripts: IMPLIED_SCRIPTS,
@@ -122,10 +136,12 @@ export interface ResolveLocaleInput extends LocaleInputs {
   selectable: readonly Locale[];
   /** Locales automatic detection may choose. */
   detectable: readonly Locale[];
+  /** Locales a URL path may name (default: every shipped language). */
+  pathLocales?: readonly Locale[];
 }
 
 export function resolveLocale(input: ResolveLocaleInput): Locale {
-  const result = resolveLocaleCore(buildLocaleTable(input.selectable, input.detectable), input);
+  const result = resolveLocaleCore(buildLocaleTable(input.selectable, input.detectable, input.pathLocales), input);
   return isLocale(result) ? result : DEFAULT_LOCALE;
 }
 
@@ -137,8 +153,8 @@ export function matchNavigatorLanguages(languages: readonly string[], candidates
 }
 
 /** The explicit locale in a URL path's first segment, if any (`/pt-BR/rules` → `pt-BR`). */
-export function localeFromPath(pathname: string | null | undefined): Locale | null {
-  const table = { ...buildLocaleTable(SHIPPED_LOCALES, []), fallback: '' };
+export function localeFromPath(pathname: string | null | undefined, candidates: readonly Locale[] = SHIPPED_LOCALES): Locale | null {
+  const table = { ...buildLocaleTable(candidates, [], candidates), fallback: '' };
   const result = resolveLocaleCore(table, { pathname });
   return isLocale(result) ? result : null;
 }

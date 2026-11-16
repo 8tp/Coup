@@ -7,7 +7,10 @@ import {
 } from './utils/assets';
 import { PWAInstallPrompt } from './components/pwa/PWAInstallPrompt';
 import { I18nBootstrap } from './i18n/I18nBootstrap';
+import { LocaleHtml } from './i18n/LocaleHtml';
 import { localeTables } from './i18n/runtime';
+import { landingMetadata, siteUrl } from './i18n/landing';
+import { RootLandingContent } from './components/home/SeoContent';
 import { localeBootScript } from '@/shared/i18n/bootScript';
 
 /**
@@ -101,9 +104,15 @@ export const viewport: Viewport = {
   themeColor: '#090d0e',
 };
 
+/**
+ * The English landing page's search metadata (`/`), from the `seo` catalog:
+ * title, description, canonical, the hreflang set of every landing page,
+ * Open Graph and Twitter. The translated landing pages (`[locale]/layout.tsx`)
+ * override the same fields in their own language. The app routes inherit
+ * this too, but robots.ts keeps crawlers out of them.
+ */
 export const metadata: Metadata = {
-  title: 'Coup Online',
-  description: 'Play the bluffing card game Coup online with friends or bots. Claim characters, challenge bluffs and steal coins, 2 to 6 players.',
+  ...landingMetadata('en', undefined),
   applicationName: 'Coup Online',
   keywords: ['coup', 'card game', 'multiplayer', 'board game', 'bluffing', 'online game', 'strategy', 'free'],
   appleWebApp: {
@@ -111,10 +120,7 @@ export const metadata: Metadata = {
     title: 'Coup Online',
     statusBarStyle: 'black-translucent',
   },
-  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || 'https://coup.8tp.dev'),
-  alternates: {
-    canonical: '/',
-  },
+  metadataBase: new URL(siteUrl()),
   icons: {
     icon: [
       { url: '/favicon-v3.ico', sizes: '16x16 32x32 48x48' },
@@ -122,26 +128,6 @@ export const metadata: Metadata = {
       { url: '/icons/icon-192-v3.png', sizes: '192x192', type: 'image/png' },
     ],
     apple: '/apple-touch-icon-v3.png',
-  },
-  openGraph: {
-    title: 'Coup Online',
-    description: 'Play the bluffing card game Coup online with friends or bots. Claim characters, challenge bluffs and steal coins, 2 to 6 players.',
-    siteName: 'Coup Online',
-    images: [
-      {
-        url: '/og-image-v4.jpg',
-        width: 1200,
-        height: 630,
-        alt: 'Coup Online, a multiplayer bluffing card game',
-      },
-    ],
-    type: 'website',
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Coup Online',
-    description: 'Play the bluffing card game Coup online with friends or bots. Claim characters, challenge bluffs and steal coins, 2 to 6 players.',
-    images: ['/embed-image-v4.jpg'],
   },
 };
 
@@ -151,10 +137,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    // `lang` and `dir` are rewritten before first paint by the locale script
-    // below, so the server's "en"/"ltr" never paints for other languages;
-    // suppressHydrationWarning covers that difference on this one element.
-    <html lang="en" dir="ltr" className={FONT_VARIABLES} suppressHydrationWarning>
+    // <html lang dir> is the landing page's language on `/pt-br` and the like,
+    // English elsewhere; on `/` and the app routes the locale script below
+    // rewrites it before first paint (LocaleHtml explains).
+    <LocaleHtml className={FONT_VARIABLES}>
       <head>
         {CRITICAL_PRELOAD_IMAGES.map(href => (
           <link key={href} rel="preload" href={href} as="image" fetchPriority="high" />
@@ -172,8 +158,9 @@ export default function RootLayout({
       <body className="bg-coup-bg text-white min-h-screen">
         <I18nBootstrap />
         {children}
+        <RootLandingContent />
         <PWAInstallPrompt />
       </body>
-    </html>
+    </LocaleHtml>
   );
 }

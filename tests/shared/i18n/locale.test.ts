@@ -73,19 +73,40 @@ describe('resolution order', () => {
     expect(localeFromPath('/zh-hans')).toBe('zh-Hans');
     expect(localeFromPath('/lobby/ES')).toBeNull();
     expect(localeFromPath('/en-XA')).toBeNull();
+    expect(localeFromPath('/en-xa', ['en-XA'])).toBe('en-XA');
+  });
+
+  it('a path names a language only if it has a landing page in this build', () => {
+    expect(resolveLocale({ ...base, pathLocales: ['es'], pathname: '/es', saved: 'vi' })).toBe('es');
+    expect(resolveLocale({ ...base, pathLocales: [], pathname: '/es', saved: 'vi' })).toBe('vi');
+  });
+
+  it('the landing language this tab came in through beats the saved choice on app routes, never on /', () => {
+    const tab = { ...base, session: 'hi', saved: 'vi', languages: ['en-IN'] };
+    expect(resolveLocale({ ...tab, pathname: '/game/ABCD' })).toBe('hi');
+    expect(resolveLocale({ ...tab, pathname: '/lobby/ABCD' })).toBe('hi');
+    expect(resolveLocale({ ...tab, pathname: '/' })).toBe('vi');
+    expect(resolveLocale({ ...tab, pathname: '/es' })).toBe('es');
+    expect(resolveLocale({ ...tab, session: 'klingon', pathname: '/game/ABCD' })).toBe('vi');
   });
 });
 
 describe('the pre-paint script', () => {
   /** Run the inline script against a fake document and return what it set. */
-  function runBoot(env: { saved?: string | null; languages: string[]; pathname?: string }) {
+  function runBoot(env: { saved?: string | null; session?: string | null; ssr?: string; languages: string[]; pathname?: string }) {
     const table = buildLocaleTable(ALL, ALL);
     const script = localeBootScript(table, table);
     const classes = new Set<string>();
-    const html = { lang: 'en', dir: 'ltr', classList: { add: (c: string) => classes.add(c), remove: (c: string) => classes.delete(c) } };
-    const fn = new Function('localStorage', 'navigator', 'location', 'document', 'setTimeout', script);
+    const html = {
+      lang: env.ssr ?? 'en',
+      dir: 'ltr',
+      classList: { add: (c: string) => classes.add(c), remove: (c: string) => classes.delete(c) },
+      getAttribute: (name: string) => (name === 'data-ssr-locale' ? env.ssr ?? 'en' : null),
+    };
+    const fn = new Function('localStorage', 'sessionStorage', 'navigator', 'location', 'document', 'setTimeout', script);
     fn(
       { getItem: (k: string) => (k === 'coup_locale' ? env.saved ?? null : null) },
+      { getItem: (k: string) => (k === 'coup_landing_locale' ? env.session ?? null : null) },
       { languages: env.languages, language: env.languages[0] },
       { pathname: env.pathname ?? '/' },
       { documentElement: html },
@@ -103,6 +124,8 @@ describe('the pre-paint script', () => {
       { languages: ['fr'], saved: 'vi' },
       { languages: ['pt-PT'], pathname: '/es' },
       { languages: ['de'] },
+      { languages: ['en'], session: 'ar', pathname: '/game/ABCD' },
+      { languages: ['en'], session: 'ar', pathname: '/' },
     ];
     for (const env of cases) {
       const expected = resolveLocale({ selectable: ALL, detectable: ALL, ...env });
@@ -111,6 +134,21 @@ describe('the pre-paint script', () => {
       expect(got.dir).toBe(LOCALES[expected].dir);
       expect(got.pending).toBe(expected !== 'en');
     }
+  });
+
+  it('does not hide a landing page the server already rendered in its language', () => {
+    expect(runBoot({ languages: ['en'], pathname: '/es', ssr: 'es' })).toEqual({ lang: 'es', dir: 'ltr', pending: false });
+    expect(runBoot({ languages: ['en'], pathname: '/ar', ssr: 'ar' })).toEqual({ lang: 'ar', dir: 'rtl', pending: false });
+    // English HTML, Arabic reader: hidden until the catalog renders.
+    expect(runBoot({ languages: ['ar'], pathname: '/' }).pending).toBe(true);
+  });
+
+  it('survives storage that throws', () => {
+    const table = buildLocaleTable(ALL, ALL);
+    const html = { lang: 'en', dir: 'ltr', classList: { add: () => {}, remove: () => {} }, getAttribute: () => 'en' };
+    const fn = new Function('localStorage', 'sessionStorage', 'navigator', 'location', 'document', 'setTimeout', localeBootScript(table, table));
+    fn({ getItem: () => null }, { getItem: () => { throw new Error('blocked'); } }, { languages: ['vi'] }, { pathname: '/game/X' }, { documentElement: html }, () => 0);
+    expect(html.lang).toBe('vi');
   });
 
   it('treats a saved "auto" as no choice', () => {

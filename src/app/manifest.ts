@@ -1,40 +1,11 @@
 import type { MetadataRoute } from 'next';
+import { landingManifest } from './i18n/landing';
 
+/**
+ * The app's manifest, in English, opening on `/`. Each translated landing
+ * page links its own (`/pt-br/manifest.webmanifest`): the same app, named in
+ * that language and opening on that page.
+ */
 export default function manifest(): MetadataRoute.Manifest {
-  return {
-    id: '/',
-    name: 'Coup Online',
-    short_name: 'Coup',
-    description: 'Real-time multiplayer Coup. Bluff and challenge friends or bots, no account needed.',
-    start_url: '/',
-    scope: '/',
-    display: 'standalone',
-    display_override: ['standalone', 'minimal-ui'],
-    orientation: 'portrait',
-    lang: 'en-US',
-    dir: 'ltr',
-    categories: ['games', 'entertainment', 'social'],
-    theme_color: '#090d0e',
-    background_color: '#090d0e',
-    icons: [
-      {
-        src: '/icons/icon-192-v3.png',
-        sizes: '192x192',
-        type: 'image/png',
-        purpose: 'any',
-      },
-      {
-        src: '/icons/icon-512-v3.png',
-        sizes: '512x512',
-        type: 'image/png',
-        purpose: 'any',
-      },
-      {
-        src: '/icons/icon-maskable-512-v3.png',
-        sizes: '512x512',
-        type: 'image/png',
-        purpose: 'maskable',
-      },
-    ],
-  };
+  return landingManifest('en', undefined);
 }
