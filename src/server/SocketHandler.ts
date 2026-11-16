@@ -1,6 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import { ClientToServerEvents, ServerToClientEvents } from '../shared/protocol';
-import { ActionType, BotPersonality, BotReplaceReason, Character, GameState, GameStatus, RoomOrigin, TurnPhase } from '../shared/types';
+import { ActionType, BotPersonality, BotReplaceReason, Character, ClientRoomPlayer, GameState, GameStatus, RoomOrigin, TurnPhase } from '../shared/types';
 import { MAX_PLAYERS, QUICK_PHRASES, REACTIONS,RATE_LIMIT_ROOM_CREATE_MS, RATE_LIMIT_ROOM_JOIN_MS, RATE_LIMIT_GAME_ACTION_MS, RATE_LIMIT_BOT_ADD_MS } from '../shared/constants';
 import { validateName, validateChatMessage } from './ContentFilter';
 import { nameKey } from '../shared/textLimits';
@@ -1196,7 +1196,10 @@ export class SocketHandler {
 
     const spectators = this.roomManager.getSpectators(roomCode);
     this.io.to(roomCode).emit('room:updated', {
-      players: room.players.map(({ socketId: _, sessionToken: __, ...rest }) => rest),
+      // A Random bot's resolved personality and its emote traits are server-only.
+      players: room.players.map(({
+        socketId: _, sessionToken: __, resolvedPersonality: ___, emotiveness: ____, meanness: _____, ...rest
+      }): ClientRoomPlayer => rest),
       hostId: room.hostId,
       settings: room.settings,
       lastWinnerId: room.lastWinnerId ?? null,

@@ -354,4 +354,19 @@ describe('SocketHandler — funnel and resilience flows', () => {
     const weird = await emitAck<RoomResponse>(other, 'room:create', { playerName: 'Odd', origin: 'not-a-real-origin' });
     expect(weird.success).toBe(true);
   });
+
+  it("never sends a Random bot's resolved personality or emote traits to clients", async () => {
+    const { host, guest } = await createTwoPlayerRoom();
+    await emitAck(host, 'bot:add', { name: 'Robo', personality: 'random' });
+    await startGame(host, [guest]);
+    // Any room update after the start (here: the guest dropping) carries the bot
+    const update = waitForRoom(host, d => d.players.some(p => p.name === 'Guest' && !p.connected), 'guest dropped');
+    guest.disconnect();
+    const data = await update;
+    const bot = data.players.find(p => p.name === 'Robo')! as ClientRoomPlayer & Record<string, unknown>;
+    expect(bot.personality).toBe('random');
+    expect(bot).not.toHaveProperty('resolvedPersonality');
+    expect(bot).not.toHaveProperty('emotiveness');
+    expect(bot).not.toHaveProperty('meanness');
+  });
 });
