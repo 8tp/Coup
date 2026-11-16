@@ -401,23 +401,47 @@ export class ActionResolver {
   ): ResolverResult {
     const def = ACTION_DEFINITIONS[pendingAction.type];
 
-    // If blockable, go to block phase
+    // If blockable, go to block phase (or straight to a declared block)
     if (def.blockedBy.length > 0) {
-      sideEffects.push({ type: 'set_timer', durationMs: this.timerMs });
-      return {
-        newPhase: TurnPhase.AwaitingBlock,
-        pendingAction,
-        pendingBlock: null,
-        challengeState: null,
-        influenceLossRequest: null,
-        exchangeState: null,
-        sideEffects,
-        blockAutoPassIds: [challengerId],
-      };
+      return this.enterBlockPhase(game, pendingAction, sideEffects, [challengerId]);
     }
 
     // Otherwise resolve the action
     return this.resolveAction(game, pendingAction, sideEffects);
+  }
+
+  /**
+   * The action survived its challenge window and can be blocked. If the
+   * target already declared a block during that window, the block takes
+   * effect now and the block-challenge window opens; otherwise the normal
+   * block phase starts.
+   */
+  private enterBlockPhase(
+    game: Game,
+    pendingAction: PendingAction,
+    sideEffects: SideEffect[],
+    blockAutoPassIds?: string[],
+  ): ResolverResult {
+    const { declaredBlock, ...action } = pendingAction;
+
+    if (declaredBlock) {
+      const blocker = game.getPlayer(declaredBlock.blockerId);
+      if (blocker?.isAlive) {
+        return this.blockResult(game, blocker, declaredBlock.claimedCharacter, action, sideEffects);
+      }
+    }
+
+    sideEffects.push({ type: 'set_timer', durationMs: this.timerMs });
+    return {
+      newPhase: TurnPhase.AwaitingBlock,
+      pendingAction: action,
+      pendingBlock: null,
+      challengeState: null,
+      influenceLossRequest: null,
+      exchangeState: null,
+      sideEffects,
+      ...(blockAutoPassIds?.length ? { blockAutoPassIds } : {}),
+    };
   }
 
   /**
@@ -431,19 +455,48 @@ export class ActionResolver {
     const sideEffects: SideEffect[] = [{ type: 'clear_timer' }];
 
     if (def.blockedBy.length > 0) {
-      sideEffects.push({ type: 'set_timer', durationMs: this.timerMs });
-      return {
-        newPhase: TurnPhase.AwaitingBlock,
-        pendingAction,
-        pendingBlock: null,
-        challengeState: null,
-        influenceLossRequest: null,
-        exchangeState: null,
-        sideEffects,
-      };
+      return this.enterBlockPhase(game, pendingAction, sideEffects);
     }
 
     return this.resolveAction(game, pendingAction, sideEffects);
+  }
+
+  /**
+   * The rules every block must satisfy, whenever it is declared. Returns an
+   * error message, or null when the block is legal.
+   */
+  private validateBlock(
+    game: Game,
+    blockerId: string,
+    claimedCharacter: Character,
+    pendingAction: PendingAction,
+  ): string | null {
+    const blocker = game.getPlayer(blockerId);
+    if (!blocker || !blocker.isAlive) return 'Invalid blocker';
+    if (blockerId === pendingAction.actorId) return 'Cannot block your own action';
+
+    const def = ACTION_DEFINITIONS[pendingAction.type];
+    if (!def.blockedBy.includes(claimedCharacter)) {
+      return `${claimedCharacter} cannot block ${ACTION_DISPLAY_NAMES[pendingAction.type]}`;
+    }
+
+    if (
+      pendingAction.type === ActionType.ForeignAid &&
+      game.isFactionRestricted(blockerId, pendingAction.actorId)
+    ) {
+      return "You can't block Foreign Aid for a player in the same faction";
+    }
+
+    // Foreign Aid can be blocked by any player claiming Duke.
+    // Steal (Captain/Ambassador/Inquisitor) and Assassinate (Contessa) only by the target.
+    if (pendingAction.type === ActionType.Assassinate && blockerId !== pendingAction.targetId) {
+      return 'Only the target can block an assassination';
+    }
+    if (pendingAction.type === ActionType.Steal && blockerId !== pendingAction.targetId) {
+      return 'Only the target can block a steal';
+    }
+
+    return null;
   }
 
   /**
@@ -455,38 +508,79 @@ export class ActionResolver {
     claimedCharacter: Character,
     pendingAction: PendingAction,
   ): ResolverResult | { error: string } {
-    const blocker = game.getPlayer(blockerId);
-    if (!blocker || !blocker.isAlive) return { error: 'Invalid blocker' };
-    if (blockerId === pendingAction.actorId) return { error: 'Cannot block your own action' };
+    const error = this.validateBlock(game, blockerId, claimedCharacter, pendingAction);
+    if (error) return { error };
 
+    const blocker = game.getPlayer(blockerId)!;
+    return this.blockResult(game, blocker, claimedCharacter, pendingAction, [{ type: 'clear_timer' }]);
+  }
+
+  /**
+   * The target of a challengeable, blockable action (Steal, Assassinate)
+   * declares their block while the action is still open to challenge, as a
+   * player would say "I block" across the table. This counts as their pass on
+   * the challenge. Everyone else keeps their chance to challenge the action
+   * first: if a challenge cancels the action, the block is dropped with it;
+   * if the action survives, the block takes effect without asking the target
+   * again (see enterBlockPhase), and the actor can challenge the block.
+   */
+  declareBlockDuringChallenge(
+    game: Game,
+    blockerId: string,
+    claimedCharacter: Character,
+    pendingAction: PendingAction,
+    challengeState: ChallengeState,
+  ): ResolverResult | { error: string } {
     const def = ACTION_DEFINITIONS[pendingAction.type];
-    if (!def.blockedBy.includes(claimedCharacter)) {
-      return { error: `${claimedCharacter} cannot block ${ACTION_DISPLAY_NAMES[pendingAction.type]}` };
+    if (!def.challengeable || def.blockedBy.length === 0) {
+      return { error: `${ACTION_DISPLAY_NAMES[pendingAction.type]} cannot be blocked` };
+    }
+    if (!pendingAction.targetId || blockerId !== pendingAction.targetId) {
+      return { error: 'Only the target can block this now' };
+    }
+    if (pendingAction.declaredBlock) return { error: 'You already declared a block' };
+
+    const error = this.validateBlock(game, blockerId, claimedCharacter, pendingAction);
+    if (error) return { error };
+
+    const updatedAction: PendingAction = {
+      ...pendingAction,
+      declaredBlock: { blockerId, claimedCharacter },
+    };
+    const passedPlayerIds = challengeState.passedPlayerIds.includes(blockerId)
+      ? [...challengeState.passedPlayerIds]
+      : [...challengeState.passedPlayerIds, blockerId];
+
+    const allPassed = game.getAlivePlayers().every(p => passedPlayerIds.includes(p.id));
+    if (allPassed) {
+      return this.allPassedChallenge(game, updatedAction);
     }
 
-    if (
-      pendingAction.type === ActionType.ForeignAid &&
-      game.isFactionRestricted(blockerId, pendingAction.actorId)
-    ) {
-      return { error: "You can't block Foreign Aid for a player in the same faction" };
-    }
+    // Others may still challenge the action: stay in this window, timer untouched.
+    return {
+      newPhase: TurnPhase.AwaitingActionChallenge,
+      pendingAction: updatedAction,
+      pendingBlock: null,
+      challengeState: { ...challengeState, passedPlayerIds },
+      influenceLossRequest: null,
+      exchangeState: null,
+      sideEffects: [],
+    };
+  }
 
-    // For Steal/Assassinate blocks, only the target can block (Contessa) or any player (Captain/Ambassador for steal)
-    // Actually per Coup rules: Foreign Aid can be blocked by any player claiming Duke
-    // Steal can be blocked by target claiming Captain or Ambassador
-    // Assassinate can be blocked by target claiming Contessa
-    if (pendingAction.type === ActionType.Assassinate && blockerId !== pendingAction.targetId) {
-      return { error: 'Only the target can block an assassination' };
-    }
-    if (pendingAction.type === ActionType.Steal && blockerId !== pendingAction.targetId) {
-      return { error: 'Only the target can block a steal' };
-    }
-
-    const sideEffects: SideEffect[] = [
-      { type: 'clear_timer' },
+  /** The block is on the table: log it and open the block-challenge window. */
+  private blockResult(
+    game: Game,
+    blocker: Player,
+    claimedCharacter: Character,
+    pendingAction: PendingAction,
+    sideEffects: SideEffect[],
+  ): ResolverResult {
+    const blockerId = blocker.id;
+    sideEffects.push(
       { type: 'log', message: `${blocker.name} blocks with ${claimedCharacter}.`, msg: logMsg('block', { blocker: blockerId, character: claimedCharacter }), eventType: 'block', character: claimedCharacter, actorId: blockerId, actorName: blocker.name, wasBluff: !blocker.hasCharacter(claimedCharacter) },
       { type: 'set_timer', durationMs: this.timerMs },
-    ];
+    );
 
     const pendingBlock: PendingBlock = { blockerId, claimedCharacter };
 
@@ -726,17 +820,8 @@ export class ActionResolver {
             : true;
           const challengerIsTarget = pendingAction.targetId === playerId;
           if (targetAlive && !challengerIsTarget) {
-            sideEffects.push({ type: 'set_timer', durationMs: this.timerMs });
-            return {
-              newPhase: TurnPhase.AwaitingBlock,
-              pendingAction,
-              pendingBlock: null,
-              challengeState: null,
-              influenceLossRequest: null,
-              exchangeState: null,
-              sideEffects,
-              blockAutoPassIds: [playerId],
-            };
+            // Block phase, or the target's declared block takes effect now
+            return this.enterBlockPhase(game, pendingAction, sideEffects, [playerId]);
           }
           // If challenger IS the target, they forfeited their block — resolve action directly
           if (challengerIsTarget) {

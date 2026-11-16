@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Modal } from '../ui/Modal';
 import { useGameStore } from '../../stores/gameStore';
 import { useSettingsStore, TextSize } from '../../stores/settingsStore';
@@ -8,6 +8,8 @@ import { haptic } from '../../utils/haptic';
 import { GameMode } from '@/shared/types';
 import { LOCALES, type Locale } from '@/shared/i18n/locales';
 import { useT, selectableLocales, gameModeName, type MessageKey } from '../../i18n';
+import { FEEDBACK_GITHUB_ISSUES_URL } from '@/shared/constants';
+import { FeedbackForm } from '../feedback/FeedbackForm';
 
 interface SettingsModalProps {
   open: boolean;
@@ -94,10 +96,35 @@ export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, pr
   const setReducedMotionEnabled = useSettingsStore(s => s.setReducedMotionEnabled);
 
   const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const [view, setView] = useState<'settings' | 'feedback'>('settings');
 
   useEffect(() => {
     setIsTouchDevice(window.matchMedia('(pointer: coarse)').matches);
   }, []);
+
+  const feedbackButtonRef = useRef<HTMLButtonElement>(null);
+  const returningFromFeedback = useRef(false);
+
+  // Always reopen on the settings list.
+  useEffect(() => {
+    if (!open) setView('settings');
+  }, [open]);
+
+  // Coming back from the form, put focus back on the button that opened it.
+  useEffect(() => {
+    if (view === 'settings' && returningFromFeedback.current) {
+      returningFromFeedback.current = false;
+      feedbackButtonRef.current?.focus();
+    }
+  }, [view]);
+
+  if (view === 'feedback') {
+    return (
+      <Modal open={open} onClose={onClose} title={t('feedback.title')} maxWidth="max-w-sm">
+        <FeedbackForm onClose={() => { returningFromFeedback.current = true; setView('settings'); }} closeLabel={t('common.back')} />
+      </Modal>
+    );
+  }
 
   return (
     <Modal open={open} onClose={onClose} title={t('settings.title')} maxWidth="max-w-sm">
@@ -234,27 +261,26 @@ export function SettingsModal({ open, onClose, onOpenTutorial, onPracticeBot, pr
           </div>
         )}
 
-        {/* Feedback links */}
+        {/* Feedback: opens the in-app form in place of the settings list */}
         <div className="border-t border-coup-line/70 pt-4">
           <span className="text-sm text-gray-300 block mb-2">{t('settings.help')}</span>
-          <div className="flex gap-2">
+          <button
+            ref={feedbackButtonRef}
+            type="button"
+            className="btn-secondary w-full"
+            onClick={() => { haptic(); setView('feedback'); }}
+          >
+            {t('settings.feedbackOpen')}
+          </button>
+          <div className="flex justify-center">
             <a
-              href="https://github.com/8tp/Coup/issues/new?template=bug_report.yml"
+              href={FEEDBACK_GITHUB_ISSUES_URL}
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => haptic()}
-              className="btn-ghost flex-1"
+              className="inline-flex min-h-[44px] items-center px-2 text-sm text-coup-ink-mute underline underline-offset-4 hover:text-coup-accent"
             >
-              {t('settings.reportBug')}
-            </a>
-            <a
-              href="https://github.com/8tp/Coup/issues/new?template=feature_request.yml"
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => haptic()}
-              className="btn-ghost flex-1"
-            >
-              {t('settings.sendFeedback')}
+              {t('settings.githubIssue')}
             </a>
           </div>
         </div>

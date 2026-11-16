@@ -84,6 +84,14 @@ export interface PendingAction {
   targetId?: string;
   /** Character claimed for this action (e.g., Duke for Tax) */
   claimedCharacter?: Character;
+  /**
+   * A block the target declared while the action was still open to challenge.
+   * It counts as the target passing on that challenge. If the action survives
+   * its challenge window the block takes effect straight away (the actor can
+   * still challenge it); if the action is successfully challenged it is
+   * dropped with the action. Public, like a block said aloud at the table.
+   */
+  declaredBlock?: PendingBlock;
 }
 
 // ─── Pending Block ───

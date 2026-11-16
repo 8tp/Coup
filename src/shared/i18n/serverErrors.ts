@@ -97,6 +97,10 @@ const RULES = [
     match: new RegExp(`^(${Object.values(Character).join('|')}) cannot block (.+)$`),
     params: m => ({ character: m[1], action: actionFromDisplayName(m[2]) }),
   },
+  // Early block: the target declares a block during the challenge window.
+  { code: 'not_blockable', match: /^(.+) cannot be blocked$/, params: m => ({ action: actionFromDisplayName(m[1]) }) },
+  { code: 'only_target_blocks_now', match: 'Only the target can block this now' },
+  { code: 'block_already_declared', match: 'You already declared a block' },
   { code: 'only_target_blocks_assassination', match: 'Only the target can block an assassination' },
   { code: 'only_target_blocks_steal', match: 'Only the target can block a steal' },
   { code: 'not_your_influence_loss', match: 'Not your turn to lose influence' },

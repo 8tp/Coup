@@ -1,4 +1,4 @@
-import { BotPersonality, Character, PersonalityParams, LogEntry, RoomPlayer } from '../shared/types';
+import { BotPersonality, Character, GameState, PersonalityParams, LogEntry, RoomPlayer, TurnPhase } from '../shared/types';
 import {
   BOT_ACTION_DELAY_MIN,
   BOT_ACTION_DELAY_MAX,
@@ -26,6 +26,33 @@ function resolvePersonality(personalityType: BotPersonality): PersonalityParams 
   return BOT_PERSONALITIES[personalityType];
 }
 
+/** Phases in which several players may respond to the same claim at once. */
+const REACTION_PHASES: ReadonlySet<TurnPhase> = new Set([
+  TurnPhase.AwaitingActionChallenge,
+  TurnPhase.AwaitingBlock,
+  TurnPhase.AwaitingBlockChallenge,
+]);
+
+/**
+ * Identifies one reaction window: the same claim, in the same phase, on the
+ * same turn. Null outside reaction phases. A pass by any player leaves the key
+ * unchanged; a challenge, a block or the window resolving changes it.
+ */
+function reactionWindowKey(state: GameState): string | null {
+  if (!REACTION_PHASES.has(state.turnPhase)) return null;
+  const action = state.pendingAction;
+  const block = state.pendingBlock;
+  return [
+    state.turnNumber,
+    state.turnPhase,
+    action?.actorId ?? '',
+    action?.type ?? '',
+    action?.targetId ?? '',
+    block?.blockerId ?? '',
+    block?.claimedCharacter ?? '',
+  ].join('|');
+}
+
 interface BotInfo {
   id: string;
   name: string;
@@ -48,7 +75,10 @@ interface BotInfo {
 export class BotController {
   private bots: BotInfo[];
   private engine: GameEngine;
-  private pendingTimeout: ReturnType<typeof setTimeout> | null = null;
+  /** One pending decision per bot. More than one only inside a reaction window. */
+  private pendingTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+  /** The reaction window the pending timers belong to, or null outside one. */
+  private reactionWindow: string | null = null;
   private pendingEmoteTimeout: ReturnType<typeof setTimeout> | null = null;
   private onBotEmote: BotEmoteCallback | null = null;
   private destroyed = false;
@@ -109,17 +139,32 @@ export class BotController {
   }
 
   /**
-   * Called after every state broadcast. Evaluates whether any bot needs to act
-   * and schedules the first one with a randomized delay.
+   * Called after every state broadcast. Evaluates which bots need to act and
+   * schedules them with randomized delays.
+   *
+   * Turn decisions (choosing an action, losing a card, exchanging, examining)
+   * belong to one player, so one bot is scheduled at a time, exactly as before.
+   *
+   * Reaction windows (challenge an action, block, challenge a block) are open to
+   * several players at once. Every bot in the window gets its own timer, started
+   * together, so a window closes after the slowest bot rather than after the sum
+   * of all of them: with three bots and the default 2s thinking time, a Tax used
+   * to sit on the table for 6s before resolving and now sits for 2s. A bot's
+   * timer survives state changes that keep the window open (another player
+   * passing), and is cleared when the window closes or changes.
+   *
+   * Bluff safety: every bot's delay in a window is drawn from the same
+   * distribution whatever it decided, so a pass, a challenge and a block all
+   * arrive on the same clock and timing says nothing about a bot's hand.
    */
   onStateChange(): void {
     if (this.destroyed) return;
 
-    // Clear any pending action — state has changed, re-evaluate
-    this.clearPending();
-
     const game = this.engine.game;
-    if (game.status !== 'InProgress') return;
+    if (game.status !== 'InProgress') {
+      this.clearPending();
+      return;
+    }
 
     // Invalidate deck memory when deck-mutating events occur
     const logLength = game.actionLog.length;
@@ -147,9 +192,19 @@ export class BotController {
     // Check for emote triggers in new log entries
     this.checkForEmotes();
 
-    // Find the first bot that has a decision to make
+    const state = this.engine.getFullState();
+    const windowKey = reactionWindowKey(state);
+
+    // Leaving or changing a window, or any turn decision: re-evaluate from scratch.
+    if (windowKey === null || windowKey !== this.reactionWindow) {
+      this.clearPending();
+    }
+    this.reactionWindow = windowKey;
+
     for (const bot of this.bots) {
-      const state = this.engine.getFullState();
+      // Already thinking about this window; let that timer run.
+      if (this.pendingTimeouts.has(bot.id)) continue;
+
       const decision = BotBrain.decide(
         game,
         bot.id,
@@ -167,11 +222,14 @@ export class BotController {
 
       if (decision) {
         const delay = this.getDelay(decision);
-        this.pendingTimeout = setTimeout(() => {
+        const botId = bot.id;
+        this.pendingTimeouts.set(botId, setTimeout(() => {
+          this.pendingTimeouts.delete(botId);
           if (this.destroyed) return;
-          this.executeDecision(bot.id, decision);
-        }, delay);
-        return; // Only schedule one bot at a time
+          this.executeDecision(botId, decision);
+        }, delay));
+        // Turn decisions: one bot at a time.
+        if (windowKey === null) return;
       }
     }
   }
@@ -187,10 +245,11 @@ export class BotController {
   }
 
   private clearPending(): void {
-    if (this.pendingTimeout) {
-      clearTimeout(this.pendingTimeout);
-      this.pendingTimeout = null;
+    for (const timeout of this.pendingTimeouts.values()) {
+      clearTimeout(timeout);
     }
+    this.pendingTimeouts.clear();
+    this.reactionWindow = null;
   }
 
   private getDelay(decision: BotDecision): number {

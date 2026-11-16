@@ -4,6 +4,7 @@ import { ClientGameState, TurnPhase } from '@/shared/types';
 import { Timer } from '../ui/Timer';
 import { getSocket } from '../../hooks/useSocket';
 import { haptic, hapticHeavy } from '../../utils/haptic';
+import { usePendingAnswer } from '../../hooks/usePendingAnswer';
 import { CardArtwork, CharacterCardBadge } from './CardArtwork';
 
 interface ExaminePromptProps {
@@ -12,6 +13,7 @@ interface ExaminePromptProps {
 
 export function ExaminePrompt({ gameState }: ExaminePromptProps) {
   const socket = getSocket();
+  const { pending, answer } = usePendingAnswer(gameState);
   const { examineState, turnPhase } = gameState;
 
   if (!examineState || turnPhase !== TurnPhase.AwaitingExamineDecision) return null;
@@ -37,19 +39,23 @@ export function ExaminePrompt({ gameState }: ExaminePromptProps) {
       <div className="flex gap-2">
         <button
           className="btn-secondary flex-1"
-          onClick={() => {
+          data-pending={pending === 'return' || undefined}
+          aria-busy={pending === 'return' || undefined}
+          onClick={() => answer('return', () => {
             haptic(80);
             socket.emit('game:examine_decision', { forceSwap: false });
-          }}
+          })}
         >
           Return
         </button>
         <button
           className="btn-primary flex-1"
-          onClick={() => {
+          data-pending={pending === 'swap' || undefined}
+          aria-busy={pending === 'swap' || undefined}
+          onClick={() => answer('swap', () => {
             hapticHeavy();
             socket.emit('game:examine_decision', { forceSwap: true });
-          }}
+          })}
         >
           Force Swap
         </button>

@@ -13,6 +13,7 @@ import { useStatsStore } from '../../stores/statsStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { CardFace } from './CardFace';
 import { ActionLog } from './ActionLog';
+import { FeedbackModal } from '../feedback/FeedbackForm';
 
 const hiddenInfluence: ClientInfluence = { character: null, revealed: false };
 
@@ -87,6 +88,7 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
   const [statsRecorded, setStatsRecorded] = useState(false);
   const [showFullTruth, setShowFullTruth] = useState(false);
   const [exportStatus, setExportStatus] = useState<'idle' | 'copied' | 'error'>('idle');
+  const [showFeedback, setShowFeedback] = useState(false);
   const awards = useMemo(() => computeAwards(gameState), [gameState]);
   const bluffSummary = useMemo(() => computeBluffSummary(gameState), [gameState]);
   const recap = useMemo(() => computeGameRecap(gameState), [gameState]);
@@ -407,8 +409,18 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
               Waiting for the host to start a rematch
             </p>
           )}
+          <div className="mt-2 flex justify-center">
+            <button
+              type="button"
+              className="inline-flex min-h-[44px] items-center px-2 text-sm text-coup-ink-mute underline underline-offset-4 hover:text-coup-accent"
+              onClick={() => { haptic(); setShowFeedback(true); }}
+            >
+              Report a bug or idea
+            </button>
+          </div>
         </div>
       </div>
+      <FeedbackModal open={showFeedback} onClose={() => setShowFeedback(false)} screen="game_over" />
     </div>
   );
 }

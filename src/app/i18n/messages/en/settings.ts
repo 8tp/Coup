@@ -20,8 +20,8 @@ const settings = {
   tutorial: 'New player tutorial',
   coachedBots: 'Coached · {count, plural, one {# bot} other {# bots}}',
   help: 'Help and feedback',
-  reportBug: 'Report a bug',
-  sendFeedback: 'Send feedback',
+  feedbackOpen: 'Report a bug or idea',
+  githubIssue: 'Open a GitHub issue',
 } satisfies Record<string, string>;
 
 export default settings;

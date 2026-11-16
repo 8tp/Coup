@@ -145,6 +145,19 @@ export class GameEngine {
 
   handleBlock(blockerId: string, character: Character): string | null {
     if (!this.pendingAction) return 'No pending action';
+
+    // The target may declare a block while the action is still open to
+    // challenge; it applies once the action survives that window.
+    if (this.game.turnPhase === TurnPhase.AwaitingActionChallenge) {
+      if (!this.challengeState) return 'No pending challenge';
+      const early = this.resolver.declareBlockDuringChallenge(
+        this.game, blockerId, character, this.pendingAction, this.challengeState,
+      );
+      if ('error' in early) return early.error;
+      this.applyResult(early);
+      return null;
+    }
+
     if (this.game.turnPhase !== TurnPhase.AwaitingBlock) return 'Not in block phase';
 
     const result = this.resolver.block(this.game, blockerId, character, this.pendingAction);

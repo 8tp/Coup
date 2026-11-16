@@ -352,4 +352,63 @@ describe('StateSerializer', () => {
       expect(clientState.actionLog[0].wasBluff).toBe(true);
     });
   });
+  /**
+   * Final hands are shown on the game over screen, so the server sends every
+   * card once the game is over. Before that, a card face down on the table must
+   * never leave the server: not to an opponent, not to a spectator, and not to
+   * a player who is already out and is watching the rest of the game.
+   */
+  describe('hidden cards across the whole game', () => {
+    const phasesBeforeGameOver = Object.values(TurnPhase).filter(phase => phase !== TurnPhase.GameOver);
+
+    const hiddenCharacters = (state: ReturnType<typeof serializeForPlayer>, ownerId: string) =>
+      state.players
+        .find(p => p.id === ownerId)!
+        .influences.filter(inf => !inf.revealed)
+        .map(inf => inf.character);
+
+    it.each(phasesBeforeGameOver)('withholds opponents\' face-down cards from players during %s', (turnPhase) => {
+      const state = createMockGameState({ turnPhase });
+      const bob = serializeForPlayer(state, 'p2');
+      expect(hiddenCharacters(bob, 'p1')).toEqual([null, null]);
+      // Your own face-down cards are always yours to see.
+      expect(hiddenCharacters(bob, 'p2')).toEqual([Character.Assassin]);
+    });
+
+    it.each(phasesBeforeGameOver)('withholds face-down cards from an eliminated player during %s', (turnPhase) => {
+      const state = createMockGameState({ turnPhase });
+      const charlie = serializeForPlayer(state, 'p3');
+      expect(hiddenCharacters(charlie, 'p1')).toEqual([null, null]);
+      expect(hiddenCharacters(charlie, 'p2')).toEqual([null]);
+    });
+
+    it.each(phasesBeforeGameOver)('withholds every face-down card from spectators during %s', (turnPhase) => {
+      const state = createMockGameState({ turnPhase });
+      const spectator = serializeForSpectator(state, 'spec-1');
+      expect(hiddenCharacters(spectator, 'p1')).toEqual([null, null]);
+      expect(hiddenCharacters(spectator, 'p2')).toEqual([null]);
+    });
+
+    it('withholds face-down cards when a finished game has not reached the game over phase', () => {
+      const state = createMockGameState({ status: GameStatus.Finished, turnPhase: TurnPhase.ActionResolved, winnerId: 'p1' });
+      expect(hiddenCharacters(serializeForPlayer(state, 'p2'), 'p1')).toEqual([null, null]);
+      expect(hiddenCharacters(serializeForSpectator(state, 'spec-1'), 'p1')).toEqual([null, null]);
+    });
+
+    it('shows every final hand to every player and spectator at game over', () => {
+      const state = createMockGameState({ status: GameStatus.Finished, turnPhase: TurnPhase.GameOver, winnerId: 'p1' });
+      for (const view of [
+        serializeForPlayer(state, 'p1'),
+        serializeForPlayer(state, 'p2'),
+        serializeForPlayer(state, 'p3'),
+        serializeForSpectator(state, 'spec-1'),
+      ]) {
+        expect(hiddenCharacters(view, 'p1')).toEqual([Character.Duke, Character.Captain]);
+        expect(hiddenCharacters(view, 'p2')).toEqual([Character.Assassin]);
+        // Still not the deck: only its size.
+        expect(view.deckCount).toBe(3);
+        expect(view).not.toHaveProperty('deck');
+      }
+    });
+  });
 });

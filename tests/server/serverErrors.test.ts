@@ -40,6 +40,7 @@ function scan(): Array<{ file: string; text: string; template: boolean }> {
 const TEMPLATE_SAMPLES: Record<string, string> = {
   '${claimedCharacter} cannot block ${ACTION_DISPLAY_NAMES[pendingAction.type]}': 'Duke cannot block Foreign Aid',
   'You were removed from room ${found.room.code}.': 'You were removed from room ABCD.',
+  '${ACTION_DISPLAY_NAMES[pendingAction.type]} cannot be blocked': 'Foreign Aid cannot be blocked',
   "Must keep exactly ${expectedKeep} card${expectedKeep === 1 ? '' : 's'}": 'Must keep exactly 2 cards',
 };
 
@@ -64,6 +65,8 @@ describe('server error codes', () => {
     expect(classifyServerError('Duke cannot block Foreign Aid')).toEqual({ code: 'cannot_block_with', params: { character: Character.Duke, action: ActionType.ForeignAid } });
     expect(classifyServerError('Must keep exactly 1 card')).toEqual({ code: 'must_keep_cards', params: { count: 1 } });
     expect(classifyServerError('You were removed from room ABCD.')).toEqual({ code: 'removed_from_room', params: { room: 'ABCD' } });
+    expect(classifyServerError('Foreign Aid cannot be blocked')).toEqual({ code: 'not_blockable', params: { action: ActionType.ForeignAid } });
+    expect(classifyServerError('You already declared a block')).toEqual({ code: 'block_already_declared' });
     expect(classifyServerError('Something new')).toEqual({ code: 'unknown' });
   });
 
@@ -87,6 +90,14 @@ describe('rendering server errors on the client', () => {
     expect(describeServerError({ message: 'Too many requests, please wait', code: 'rate_limited' }, t)).toBe('Too many requests. Wait a moment.');
     expect(describeServerError({ message: 'x', code: 'not_enough_coins', params: { need: 7, have: 3 } }, t)).toBe('You need 7 coins and have 3.');
     expect(describeServerError({ message: 'x', code: 'cannot_block_with', params: { character: 'Duke', action: 'ForeignAid' } }, t)).toBe("Duke can't block Foreign Aid.");
+  });
+
+  it('is never empty for an error the server sent, so a pressed answer is always released', () => {
+    // gameStore.setError releases usePendingAnswer's held button only on a truthy error.
+    for (const code of SERVER_ERROR_CODES) {
+      expect(describeServerError({ message: 'Server text', code }, t), code).not.toBe('');
+    }
+    expect(describeServerError({ message: 'x', code: 'not_blockable', params: { action: 'ForeignAid' } }, t)).toBe("Foreign Aid can't be blocked.");
   });
 
   it('falls back to the English text for an unknown or missing code', () => {

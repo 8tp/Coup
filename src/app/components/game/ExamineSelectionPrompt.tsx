@@ -3,6 +3,7 @@
 import { ClientGameState, TurnPhase } from '@/shared/types';
 import { getSocket } from '../../hooks/useSocket';
 import { haptic } from '../../utils/haptic';
+import { usePendingAnswer } from '../../hooks/usePendingAnswer';
 import { Timer } from '../ui/Timer';
 import { CardFace } from './CardFace';
 
@@ -12,6 +13,7 @@ interface ExamineSelectionPromptProps {
 
 export function ExamineSelectionPrompt({ gameState }: ExamineSelectionPromptProps) {
   const socket = getSocket();
+  const { answer } = usePendingAnswer(gameState);
   const selection = gameState.examineSelectionState;
 
   if (
@@ -45,10 +47,10 @@ export function ExamineSelectionPrompt({ gameState }: ExamineSelectionPromptProp
               size="md"
               disablePreview
               priority
-              onClick={() => {
+              onClick={() => answer(`show:${influenceIndex}`, () => {
                 haptic(80);
                 socket.emit('game:choose_examine_influence', { influenceIndex });
-              }}
+              })}
             />
           );
         })}

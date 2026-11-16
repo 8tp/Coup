@@ -136,6 +136,74 @@ describe('every server log line has a structured form that renders to its Englis
     }
   });
 
+  it('blocks declared during the challenge window (issue #88)', () => {
+    const NAMES3 = new Map([['p1', 'Ana'], ['p2', 'Bo'], ['p3', 'محمد']]);
+    /** p1 claims an action on p2; p3 looks on. Same staging as tests/engine/EarlyBlock.test.ts. */
+    const stage = (action: ActionType, cards: Record<string, Character[]>) => {
+      const engine = new GameEngine('EARLY', 15000, 0);
+      engine.startGame([...NAMES3].map(([id, name]) => ({ id, name })));
+      engine.game.currentPlayerIndex = 0;
+      engine.game.players[0].coins = 5;
+      for (const [id, hand] of Object.entries(cards)) {
+        engine.game.getPlayer(id)!.influences = hand.map(c => ({ character: c, revealed: false }));
+      }
+      expect(engine.handleAction('p1', action, 'p2')).toBeNull();
+      return engine;
+    };
+    const honestSteal = { p1: [Character.Captain, Character.Duke], p2: [Character.Captain, Character.Duke], p3: [Character.Assassin, Character.Contessa] };
+    const bluffedSteal = { p1: [Character.Duke, Character.Contessa], p2: [Character.Captain, Character.Duke], p3: [Character.Assassin, Character.Contessa] };
+    const engines: GameEngine[] = [];
+
+    // Declared, everyone else passes: the block takes effect; the actor challenges a genuine Captain.
+    const a = stage(ActionType.Steal, honestSteal);
+    expect(a.handleBlock('p2', Character.Captain)).toBeNull();
+    expect(a.game.actionLog.some(e => e.eventType === 'block')).toBe(false);
+    expect(a.handlePassChallenge('p3')).toBeNull();
+    expect(a.handleChallengeBlock('p1')).toBeNull();
+    engines.push(a);
+
+    // Declared, then a bystander challenges a bluffed Steal: the action and the block are dropped.
+    const b = stage(ActionType.Steal, bluffedSteal);
+    expect(b.handleBlock('p2', Character.Captain)).toBeNull();
+    expect(b.handleChallenge('p3')).toBeNull();
+    engines.push(b);
+
+    // Declared, a bystander's challenge fails: the challenger loses a card, then the block applies.
+    const c = stage(ActionType.Steal, honestSteal);
+    expect(c.handleBlock('p2', Character.Captain)).toBeNull();
+    expect(c.handleChallenge('p3')).toBeNull();
+    expect(c.handleChooseInfluenceLoss('p3', 0)).toBeNull();
+    expect(c.handlePassChallengeBlock('p1')).toBeNull();
+    engines.push(c);
+
+    // Contessa declared against an Assassinate, bluffed and caught by the actor.
+    const d = stage(ActionType.Assassinate, { p1: [Character.Assassin, Character.Duke], p2: [Character.Duke, Character.Captain], p3: [Character.Captain, Character.Duke] });
+    expect(d.handleBlock('p2', Character.Contessa)).toBeNull();
+    expect(d.handlePassChallenge('p3')).toBeNull();
+    expect(d.handleChallengeBlock('p1')).toBeNull();
+    engines.push(d);
+
+    // Declared, and the challenge window times out: the block applies, then stands unchallenged.
+    const e = stage(ActionType.Steal, honestSteal);
+    expect(e.handleBlock('p2', Character.Captain)).toBeNull();
+    vi.advanceTimersByTime(15000);
+    vi.advanceTimersByTime(15000);
+    engines.push(e);
+
+    const keys = new Set<string>();
+    for (const engine of engines) {
+      for (const entry of engine.game.actionLog) {
+        expect(entry.msg, entry.message).toBeDefined();
+        keys.add(entry.msg!.key);
+        expect(logLinePlain(entry, tEn, NAMES3)).toBe(entry.message);
+      }
+      engine.destroy();
+    }
+    for (const key of ['block', 'blockChallenge', 'blockChallengeFailed', 'blockChallengeSucceeded', 'challenge', 'challengeSucceeded', 'challengeFailed', 'blockStands', 'influenceLost']) {
+      expect(keys, key).toContain(key);
+    }
+  });
+
   it('bot seat replacement lines', () => {
     vi.useFakeTimers();
     const manager = new RoomManager({});
