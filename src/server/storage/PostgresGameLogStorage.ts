@@ -79,6 +79,21 @@ export interface PostgresGameLogStorageOptions {
   pool?: PgPoolLike;
 }
 
+/**
+ * A one-line reason for a database error, for the log. A refused connection
+ * to a host with several addresses (localhost, or an IPv4+IPv6 name) arrives
+ * as an AggregateError whose message is empty, so fall back to its code and
+ * first inner error ("ECONNREFUSED: connect ECONNREFUSED ::1:5432").
+ */
+export function describeDbError(err: unknown): string {
+  if (!(err instanceof Error)) return String(err);
+  if (err.message) return err.message;
+  const code = (err as { code?: unknown }).code;
+  const inner = (err as { errors?: unknown }).errors;
+  const first = Array.isArray(inner) && inner[0] instanceof Error ? inner[0].message : '';
+  return [typeof code === 'string' ? code : err.name, first].filter(Boolean).join(': ');
+}
+
 class PoolSaturatedError extends Error {
   constructor() {
     super('Postgres pool saturated; dropping request');
@@ -174,7 +189,7 @@ export class PostgresGameLogStorage implements GameLogStorage {
         JSON.stringify(anonymizeGameLog(log)),
       ]);
     } catch (err) {
-      console.error('[storage] Failed to save game log:', err instanceof Error ? err.message : err);
+      console.error('[storage] Failed to save game log:', describeDbError(err));
     }
   }
 
@@ -200,7 +215,7 @@ export class PostgresGameLogStorage implements GameLogStorage {
       const result = await this.query('SELECT payload FROM coup_games ORDER BY finished_at DESC LIMIT 500');
       return result.rows.map(row => row.payload as GameLog);
     } catch (err) {
-      console.error('[storage] Failed to read game logs:', err instanceof Error ? err.message : err);
+      console.error('[storage] Failed to read game logs:', describeDbError(err));
       return [];
     }
   }
@@ -212,7 +227,7 @@ export class PostgresGameLogStorage implements GameLogStorage {
       const result = await this.query('SELECT payload FROM coup_games WHERE game_id = $1', [gameId]);
       return (result.rows[0]?.payload as GameLog | undefined) ?? null;
     } catch (err) {
-      console.error('[storage] Failed to read game log:', err instanceof Error ? err.message : err);
+      console.error('[storage] Failed to read game log:', describeDbError(err));
       return null;
     }
   }
@@ -258,7 +273,7 @@ export class PostgresGameLogStorage implements GameLogStorage {
         generatedAt: new Date(now).toISOString(),
       };
     } catch (err) {
-      console.error('[storage] Failed to compute stats:', err instanceof Error ? err.message : err);
+      console.error('[storage] Failed to compute stats:', describeDbError(err));
       return null;
     }
   }

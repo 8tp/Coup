@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createGameLogStorage, PgPoolLike, PostgresGameLogStorage } from '@/server/storage/PostgresGameLogStorage';
+import { createGameLogStorage, describeDbError, PgPoolLike, PostgresGameLogStorage } from '@/server/storage/PostgresGameLogStorage';
 import { GameLog } from '@/shared/gameLogTypes';
 import { GameMode } from '@/shared/types';
 
@@ -100,6 +100,19 @@ describe('PostgresGameLogStorage', () => {
     up = true;
     await storage.saveGameLog(sampleLog());
     expect(query.mock.calls.some(call => String(call[0]).includes('INSERT INTO coup_games'))).toBe(true);
+  });
+
+  it('logs a reason for a refused connection whose error message is empty (AggregateError)', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const refused = Object.assign(
+      new AggregateError([new Error('connect ECONNREFUSED ::1:5432'), new Error('connect ECONNREFUSED 127.0.0.1:5432')], ''),
+      { code: 'ECONNREFUSED' },
+    );
+    const { pool } = fakePool(async () => { throw refused; });
+    await new PostgresGameLogStorage({ pool }).saveGameLog(sampleLog());
+    expect(errorSpy).toHaveBeenCalledWith('[storage] Failed to save game log:', 'ECONNREFUSED: connect ECONNREFUSED ::1:5432');
+    expect(describeDbError(new Error('boom'))).toBe('boom');
+    expect(describeDbError('plain')).toBe('plain');
   });
 
   const STATS_ROW = {

@@ -14,6 +14,7 @@
  */
 import { FeedbackRecord } from '../src/shared/feedbackTypes';
 import { createFeedbackStorage, FEEDBACK_LIST_DEFAULT_LIMIT } from '../src/server/storage/PostgresFeedbackStorage';
+import { describeDbError } from '../src/server/storage/PostgresGameLogStorage';
 
 export interface FeedbackCliArgs {
   limit: number;
@@ -102,7 +103,7 @@ async function main(): Promise<number> {
     }
     return 0;
   } catch (err) {
-    console.error('Failed to read feedback:', err instanceof Error ? err.message : err);
+    console.error('Failed to read feedback:', describeDbError(err));
     return 1;
   } finally {
     await storage.close();
