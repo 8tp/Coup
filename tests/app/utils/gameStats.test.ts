@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeBluffSummary, computeGameRecap } from '@/app/utils/gameStats';
+import { computeBluffSummary } from '@/app/utils/gameStats';
 import { ClientGameState, Character, GameMode, GameStatus, TurnPhase } from '@/shared/types';
 
 function createMockClientState(overrides: Partial<ClientGameState> = {}): ClientGameState {
@@ -52,12 +52,12 @@ describe('computeBluffSummary', () => {
     const summary = computeBluffSummary(state);
 
     // Alice: 2 claims, 1 bluff
-    const alice = summary.find(e => e.playerName === 'You')!; // myId=p1 -> "You"
+    const alice = summary.find(e => e.playerId === 'p1')!;
     expect(alice.totalClaims).toBe(2);
     expect(alice.bluffs).toBe(1);
 
     // Bob: 1 claim, 0 bluffs
-    const bob = summary.find(e => e.playerName === 'Bob')!;
+    const bob = summary.find(e => e.playerId === 'p2')!;
     expect(bob.totalClaims).toBe(1);
     expect(bob.bluffs).toBe(0);
   });
@@ -71,7 +71,7 @@ describe('computeBluffSummary', () => {
     });
 
     const summary = computeBluffSummary(state);
-    const bob = summary.find(e => e.playerName === 'Bob')!;
+    const bob = summary.find(e => e.playerId === 'p2')!;
     expect(bob.totalClaims).toBe(1); // block counts as a claim
     expect(bob.bluffs).toBe(1);
   });
@@ -100,64 +100,9 @@ describe('computeBluffSummary', () => {
     });
 
     const summary = computeBluffSummary(state);
-    const alice = summary.find(e => e.playerName === 'You')!;
+    const alice = summary.find(e => e.playerId === 'p1')!;
     expect(alice.bluffs).toBe(2);
     expect(alice.caughtBluffing).toBe(1);
     expect(alice.unchallengedBluffs).toBe(1);
-  });
-});
-
-describe('computeGameRecap', () => {
-  it('summarizes winner, decisive moment, economy, bluffs, and challenges', () => {
-    const state = createMockClientState({
-      players: [
-        {
-          id: 'p1',
-          name: 'Alice',
-          coins: 1,
-          influences: [
-            { character: Character.Duke, revealed: false },
-            { character: Character.Assassin, revealed: true },
-          ],
-          isAlive: true,
-          seatIndex: 0,
-        },
-        {
-          id: 'p2',
-          name: 'Bob',
-          coins: 0,
-          influences: [
-            { character: Character.Captain, revealed: true },
-            { character: Character.Contessa, revealed: true },
-          ],
-          isAlive: false,
-          seatIndex: 1,
-        },
-      ],
-      actionLog: [
-        { message: 'Game started. Alice goes first.', eventType: 'game_start', character: null, turnNumber: 1, actorId: null, actorName: null, timestamp: 0 },
-        { message: 'Bob declares Tax claiming Duke.', eventType: 'claim_action', character: Character.Duke, turnNumber: 1, actorId: 'p2', actorName: 'Bob', timestamp: 0, wasBluff: true },
-        { message: 'Alice challenges Bob\'s claim of Duke!', eventType: 'challenge', character: Character.Duke, turnNumber: 1, actorId: 'p1', actorName: 'Alice', timestamp: 0 },
-        { message: 'Challenge succeeds! Bob was bluffing.', eventType: 'challenge_success', character: Character.Duke, turnNumber: 1, actorId: 'p1', actorName: 'Alice', timestamp: 0 },
-        { message: 'Alice launches a Coup against Bob.', eventType: 'coup', character: null, turnNumber: 5, actorId: 'p1', actorName: 'Alice', targetId: 'p2', timestamp: 0 },
-        { message: 'Bob is out.', eventType: 'elimination', character: null, turnNumber: 5, actorId: 'p2', actorName: 'Bob', timestamp: 0 },
-        { message: 'Alice wins the game.', eventType: 'win', character: null, turnNumber: 5, actorId: 'p1', actorName: 'Alice', timestamp: 0 },
-      ],
-    });
-
-    const recap = computeGameRecap(state);
-
-    expect(recap.map(item => item.label)).toEqual([
-      'Winner standing',
-      'Deciding moment',
-      'Biggest coin move',
-      'Bluff table',
-      'Challenge reads',
-    ]);
-    expect(recap[0].value).toContain('You kept 1 card');
-    expect(recap[1].value).toBe('Bob went out');
-    expect(recap[2].value).toBe('You spent 7 coins');
-    expect(recap[3].value).toBe('1/1 claims were bluffs');
-    expect(recap[4].value).toBe('1/1 challenges won');
   });
 });

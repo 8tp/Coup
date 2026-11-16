@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import { ClientGameState } from '@/shared/types';
 import { StoredPlayerStats } from '../types/stats';
-import { createEmptyStats, recordGameResult } from '../utils/statsRecorder';
+import { createEmptyStats, normalizeStoredStats, recordGameResult } from '../utils/statsRecorder';
 
 const STORAGE_KEY_STATS = 'coup_player_stats';
 const STORAGE_KEY_DEVICE = 'coup_device_id';
@@ -41,7 +41,7 @@ export const useStatsStore = create<StatsStore>((set, get) => ({
       if (raw) {
         const parsed = JSON.parse(raw) as StoredPlayerStats;
         if (parsed.version === 1) {
-          set({ stats: parsed, loaded: true });
+          set({ stats: normalizeStoredStats(parsed), loaded: true });
           return;
         }
       }

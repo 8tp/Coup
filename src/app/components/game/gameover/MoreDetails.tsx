@@ -4,62 +4,25 @@ import { useState } from 'react';
 import type { ClientGameState } from '@/shared/types';
 import type { BluffSummaryEntry } from '../../../utils/gameStats';
 import { haptic } from '../../../utils/haptic';
+import { useT } from '../../../i18n/react';
 import { ActionLog } from '../ActionLog';
-
-function plural(n: number, noun: string): string {
-  return `${n} ${noun}${n === 1 ? '' : 's'}`;
-}
-
-function buildReplayExport(gameState: ClientGameState): string {
-  const winner = gameState.players.find(p => p.id === gameState.winnerId);
-  const lines = [
-    `Coup Online recap, room ${gameState.roomCode}`,
-    `Winner: ${winner?.name ?? 'Unknown'}`,
-    `Turns: ${gameState.turnNumber}`,
-    `Mode: ${gameState.gameMode}${gameState.useInquisitor ? ' with Inquisitor' : ''}`,
-    '',
-    'Final table:',
-    ...gameState.players.map(player => {
-      const cards = player.influences
-        .map(inf => (inf.character ? `${inf.character} ${inf.revealed ? 'revealed' : 'hidden'}` : 'hidden card'))
-        .join(', ');
-      const status = player.id === gameState.winnerId ? 'winner' : player.isAlive ? 'alive' : 'eliminated';
-      const faction = player.faction ? `, ${player.faction}` : '';
-      return `- ${player.name}: ${status}, ${player.coins} coin${player.coins === 1 ? '' : 's'}${faction}, ${cards}`;
-    }),
-    '',
-    'Final log:',
-    ...gameState.actionLog.map(entry => {
-      const turn = String(entry.turnNumber).padStart(2, '0');
-      return `[T${turn}] ${entry.message}`;
-    }),
-  ];
-
-  return lines.join('\n');
-}
-
-function bluffDetail(entry: BluffSummaryEntry): string {
-  const claims = plural(entry.totalClaims, 'claim');
-  if (entry.bluffs === 0) return `${claims}, all honest`;
-  const parts = [claims, plural(entry.bluffs, 'bluff')];
-  if (entry.caughtBluffing > 0) parts.push(`${entry.caughtBluffing} caught`);
-  if (entry.unchallengedBluffs > 0) parts.push(`${entry.unchallengedBluffs} got away`);
-  return parts.join(' · ');
-}
+import { buildRecapExport } from './recapExport';
+import { bluffRowText, type Reader } from './summary';
 
 interface MoreDetailsProps {
   gameState: ClientGameState;
   bluffSummary: BluffSummaryEntry[];
   showBluffTable: boolean;
   isPracticeRoom?: boolean;
-  myName: string;
+  reader: Reader;
 }
 
 /**
  * The long tail, folded away: per-player bluffs, the full log, and the
  * recap export. None of it is needed to read the result.
  */
-export function MoreDetails({ gameState, bluffSummary, showBluffTable, isPracticeRoom, myName }: MoreDetailsProps) {
+export function MoreDetails({ gameState, bluffSummary, showBluffTable, isPracticeRoom, reader }: MoreDetailsProps) {
+  const t = useT();
   const [open, setOpen] = useState<'bluffs' | 'log' | null>(null);
   const [exportStatus, setExportStatus] = useState<'idle' | 'copied' | 'error'>('idle');
 
@@ -74,7 +37,7 @@ export function MoreDetails({ gameState, bluffSummary, showBluffTable, isPractic
       setExportStatus('error');
       return;
     }
-    navigator.clipboard.writeText(buildReplayExport(gameState))
+    navigator.clipboard.writeText(buildRecapExport(gameState, t))
       .then(() => {
         setExportStatus('copied');
         setTimeout(() => setExportStatus('idle'), 2000);
@@ -84,7 +47,7 @@ export function MoreDetails({ gameState, bluffSummary, showBluffTable, isPractic
 
   const downloadReplay = () => {
     haptic();
-    const blob = new Blob([buildReplayExport(gameState)], { type: 'text/plain;charset=utf-8' });
+    const blob = new Blob([buildRecapExport(gameState, t)], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -96,7 +59,7 @@ export function MoreDetails({ gameState, bluffSummary, showBluffTable, isPractic
   };
 
   return (
-    <section className="gameover-section" aria-label="More about this game">
+    <section className="gameover-section" aria-label={t('gameover.moreLabel')}>
       <div className="gameover-more">
         {showBluffTable && (
           <button
@@ -106,7 +69,7 @@ export function MoreDetails({ gameState, bluffSummary, showBluffTable, isPractic
             aria-controls="gameover-bluffs"
             onClick={() => toggle('bluffs')}
           >
-            {open === 'bluffs' ? 'Hide Bluffs' : 'Show Bluffs'}
+            {open === 'bluffs' ? t('gameover.hideBluffs') : t('gameover.showBluffs')}
           </button>
         )}
         <button
@@ -116,26 +79,28 @@ export function MoreDetails({ gameState, bluffSummary, showBluffTable, isPractic
           aria-controls="gameover-log"
           onClick={() => toggle('log')}
         >
-          {open === 'log' ? 'Hide Log' : 'Show Full Log'}
+          {open === 'log' ? t('gameover.hideLog') : t('gameover.showLog')}
         </button>
         <button type="button" className="btn-ghost" onClick={copyReplay}>
-          Copy Recap
+          {t('gameover.copyRecap')}
         </button>
         <button type="button" className="btn-ghost" onClick={downloadReplay}>
-          Download Log
+          {t('gameover.downloadLog')}
         </button>
       </div>
       <p className="gameover-export-status" aria-live="polite">
-        {exportStatus === 'copied' && 'Recap copied'}
-        {exportStatus === 'error' && 'Can\'t copy here. Download the log instead.'}
+        {exportStatus === 'copied' && t('gameover.recapCopied')}
+        {exportStatus === 'error' && t('gameover.copyFailed')}
       </p>
 
       {open === 'bluffs' && showBluffTable && (
         <ul id="gameover-bluffs" className="gameover-plate gameover-lines">
           {bluffSummary.map(entry => (
             <li key={entry.playerId} className="gameover-bluff-row">
-              <span className="gameover-bluff-name">{entry.playerName}</span>
-              <span className="gameover-bluff-detail">{bluffDetail(entry)}</span>
+              <span className="gameover-bluff-name">
+                {entry.playerId === reader.myId ? t('gameover.youName') : <bdi>{reader.names.get(entry.playerId) ?? t('gameover.someone')}</bdi>}
+              </span>
+              <span className="gameover-bluff-detail">{bluffRowText(entry, t)}</span>
             </li>
           ))}
         </ul>
@@ -145,7 +110,7 @@ export function MoreDetails({ gameState, bluffSummary, showBluffTable, isPractic
         <div id="gameover-log" className="gameover-plate gameover-log">
           <ActionLog
             log={gameState.actionLog}
-            myName={myName}
+            players={gameState.players}
             turnPhase={gameState.turnPhase}
             showExplanations={isPracticeRoom}
           />

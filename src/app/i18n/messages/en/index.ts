@@ -20,7 +20,8 @@ import feedback from './feedback';
 import tutorial from './tutorial';
 import rules from './rules';
 import seo from './seo';
+import stats from './stats';
 
-const en = { common, glossary, log, errors, settings, home, lobby, game, prompts, gameover, feedback, tutorial, rules, seo };
+const en = { common, glossary, log, errors, settings, home, lobby, game, prompts, gameover, feedback, tutorial, rules, seo, stats };
 
 export default en;

@@ -4,7 +4,8 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation';
 import { ClientGameState, TurnPhase } from '@/shared/types';
 import { useGameStore } from '../../stores/gameStore';
-import { computeAwards, computeBluffSummary, getWinnerFlavorText, getLoserFlavorText } from '../../utils/gameStats';
+import { computeAwards, computeBluffSummary } from '../../utils/gameStats';
+import { useT } from '../../i18n/react';
 import { CrownGlyph, SkullGlyph } from '../icons';
 import { useStatsStore } from '../../stores/statsStore';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -13,7 +14,8 @@ import { FinalHands } from './gameover/FinalHands';
 import { GameRecap } from './gameover/GameRecap';
 import { MoreDetails } from './gameover/MoreDetails';
 import { GameOverFooter } from './gameover/GameOverFooter';
-import { bluffLine, challengeLine, finishLine } from './gameover/summary';
+import { bluffLine, challengeLine, finishOrLength, loserLine, readerOf, winnerLine } from './gameover/summary';
+import { useRecapText } from './gameover/RecapText';
 import { leaveFinishedGame } from './gameover/leaveGame';
 import { useDialogFocus } from './gameover/useDialogFocus';
 
@@ -31,6 +33,7 @@ const REVEAL_BEAT_MS = 1400;
 
 export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isPracticeRoom, onExitPractice }: GameOverOverlayProps) {
   const router = useRouter();
+  const t = useT();
   const challengeReveal = useGameStore(s => s.challengeReveal);
   const roomPlayers = useGameStore(s => s.roomPlayers);
   const hostId = useGameStore(s => s.hostId);
@@ -41,11 +44,13 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
   const [showFeedback, setShowFeedback] = useState(false);
   const awards = useMemo(() => computeAwards(gameState), [gameState]);
   const bluffSummary = useMemo(() => computeBluffSummary(gameState), [gameState]);
-  const finish = useMemo(() => finishLine(gameState), [gameState]);
+  const finish = useMemo(() => finishOrLength(gameState), [gameState]);
   const bluffs = useMemo(() => bluffLine(gameState), [gameState]);
   const challenges = useMemo(() => challengeLine(gameState), [gameState]);
-  const winnerFlavor = useMemo(() => getWinnerFlavorText(gameState), [gameState]);
-  const loserFlavor = useMemo(() => getLoserFlavorText(gameState), [gameState]);
+  const winnerFlavor = useMemo(() => winnerLine(gameState), [gameState]);
+  const loserFlavor = useMemo(() => loserLine(gameState), [gameState]);
+  const reader = useMemo(() => readerOf(gameState), [gameState]);
+  const recapText = useRecapText(reader);
   const totalBluffs = useMemo(() => bluffSummary.reduce((sum, e) => sum + e.bluffs, 0), [bluffSummary]);
   const winsById = useMemo(() => new Map(roomPlayers.map(rp => [rp.id, rp.wins ?? 0] as const)), [roomPlayers]);
 
@@ -100,12 +105,11 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
   const isOnlyHuman = !isSpectator && gameState.players.filter(p => !p.isBot).length <= 1;
   // The server lets any connected player start the rematch once the host has dropped.
   const hostAway = !isSpectator && !roomPlayers.some(rp => rp.id === hostId && rp.connected && !rp.isBot);
-  const myName = gameState.players.find(p => p.id === gameState.myId)?.name ?? '';
   const lost = !isSpectator && !isMe;
   const personal = isSpectator ? null : isMe ? winnerFlavor : loserFlavor;
   // "Quick Exit" for you says what the line under the title already says
-  // (getLoserFlavorText leads with "You were the first player out").
-  const recapAwards = awards.filter(a => !(a.glyph === 'exit' && a.playerName === 'You' && !isMe));
+  // (loserLine leads with "You were the first player out").
+  const recapAwards = awards.filter(a => !(a.id === 'quickExit' && a.playerId === gameState.myId && !isMe));
 
   return (
     <div
@@ -127,9 +131,13 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
             <div className="min-w-0">
               {/* ART-DIRECTION.md §4: the game-over title is the largest Display use in the app. */}
               <h1 id={titleId} ref={titleRef} tabIndex={-1} className="gameover-title type-display">
-                {isMe ? 'You win' : `${winner?.name ?? 'Nobody'} wins`}
+                {isMe
+                  ? t('gameover.titleYouWin')
+                  : winner
+                    ? t.rich('gameover.titleWins', { name: <bdi>{winner.name}</bdi> })
+                    : t('gameover.titleNobodyWins')}
               </h1>
-              {personal && <p className="gameover-subtitle text-coup-accent">{personal}</p>}
+              {personal && <p className="gameover-subtitle text-coup-accent">{recapText(personal)}</p>}
             </div>
           </header>
 
@@ -145,11 +153,12 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
             <div className="gameover-col">
               {showFullTruth && (
                 <GameRecap
-                  finish={finish ?? `The game lasted ${gameState.turnNumber} turns.`}
+                  finish={finish}
                   bluffs={bluffs}
                   allHonest={totalBluffs === 0}
                   challenges={challenges}
                   awards={recapAwards}
+                  reader={reader}
                   headingId={recapHeadingId}
                   awardsHeadingId={awardsHeadingId}
                 />
@@ -159,7 +168,7 @@ export function GameOverOverlay({ gameState, isHost, onRematch, isSpectator, isP
                 bluffSummary={bluffSummary}
                 showBluffTable={showFullTruth && totalBluffs > 0}
                 isPracticeRoom={isPracticeRoom}
-                myName={myName}
+                reader={reader}
               />
             </div>
           </div>

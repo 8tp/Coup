@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createEmptyStats, recordGameResult } from '@/app/utils/statsRecorder';
+import { createEmptyStats, normalizeStoredStats, recordGameResult, storedAwardId } from '@/app/utils/statsRecorder';
 import { ClientGameState, GameMode, TurnPhase, GameStatus, ActionType, Character, LogEntry } from '@/shared/types';
 import { StoredPlayerStats } from '@/app/types/stats';
 
@@ -379,5 +379,54 @@ describe('recordGameResult', () => {
     // The award counts should be populated
     const totalAwards = Object.values(result.lifetime.awardCounts).reduce((a, b) => a + b, 0);
     expect(totalAwards).toBeGreaterThan(0);
+  });
+});
+
+describe('awards in stored stats', () => {
+  const challengeGame = (names: [string, string]) => makeGameState({
+    turnNumber: 10,
+    players: [
+      { id: 'p1', name: names[0], coins: 5, influences: [], isAlive: true, seatIndex: 0 },
+      { id: 'p2', name: names[1], coins: 0, influences: [], isAlive: false, seatIndex: 1 },
+    ],
+    actionLog: makeLog([
+      { eventType: 'game_start' },
+      { eventType: 'claim_action', actorId: 'p2', character: Character.Duke },
+      { eventType: 'challenge', actorId: 'p1' },
+      { eventType: 'challenge_success', actorId: 'p1' },
+      { eventType: 'claim_action', actorId: 'p2', character: Character.Captain },
+      { eventType: 'challenge', actorId: 'p1' },
+      { eventType: 'challenge_success', actorId: 'p1' },
+      { eventType: 'win', actorId: 'p1', timestamp: 4242 },
+    ]),
+  });
+
+  it('records award ids, not names in any language', () => {
+    const result = recordGameResult(createEmptyStats('dev1'), challengeGame(['Alice', 'Bob']));
+    expect(result.history[0].awardsEarned).toEqual(['eagleEye']);
+    expect(result.lifetime.awardCounts).toEqual({ eagleEye: 1 });
+  });
+
+  it("matches the reader's awards by id, so an opponent named \"You\" earns nothing for them", () => {
+    const asP2 = { ...challengeGame(['You', 'Bob']), myId: 'p2' };
+    const result = recordGameResult(createEmptyStats('dev1'), asP2);
+    expect(result.history[0].awardsEarned).toEqual(['pantsOnFire']);
+  });
+
+  it('reads stats saved with English award names as ids, merging the counts', () => {
+    const legacy = createEmptyStats('dev1');
+    legacy.lifetime.awardCounts = { 'The Wall': 2, 'Quick Exit': 1, wall: 1, 'Some Future Award': 4 };
+    legacy.history = [{
+      id: 'g1', timestamp: 1, won: false, playerCount: 4, turnCount: 12, challengesMade: 0, challengesWon: 0,
+      blocksMade: 2, coupsMade: 0, assassinationsMade: 0, awardsEarned: ['The Wall', 'Pants on Fire'],
+    }];
+    const normalized = normalizeStoredStats(legacy);
+    expect(normalized.lifetime.awardCounts).toEqual({ wall: 3, quickExit: 1, 'Some Future Award': 4 });
+    expect(normalized.history[0].awardsEarned).toEqual(['wall', 'pantsOnFire']);
+    expect(storedAwardId('Honest Abe')).toBe('honestAbe');
+    expect(storedAwardId('eagleEye')).toBe('eagleEye');
+    expect(storedAwardId('nope')).toBeNull();
+    // Already normalized: the same object back, so nothing is rewritten.
+    expect(normalizeStoredStats(normalized)).toBe(normalized);
   });
 });

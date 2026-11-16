@@ -1,8 +1,8 @@
 'use client';
 
 import { LifetimeStats } from '../../types/stats';
-import { ActionType } from '@/shared/types';
-import { ACTION_DISPLAY_NAMES } from '@/shared/constants';
+import { isActionType, actionName } from '../../i18n/glossary';
+import { useT, type Translator } from '../../i18n/react';
 
 interface OverviewTabProps {
   lifetime: LifetimeStats;
@@ -17,7 +17,7 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function getFavoriteAction(actionCounts: Partial<Record<ActionType, number>>): string {
+function getFavoriteAction(actionCounts: LifetimeStats['actionCounts'], t: Translator): string {
   let best: string | null = null;
   let bestCount = 0;
   for (const [action, count] of Object.entries(actionCounts)) {
@@ -26,43 +26,50 @@ function getFavoriteAction(actionCounts: Partial<Record<ActionType, number>>): s
       best = action;
     }
   }
-  return best ? ACTION_DISPLAY_NAMES[best as ActionType] ?? best : '-';
+  if (!best) return t('stats.noValue');
+  return isActionType(best) ? actionName(t, best) : best;
+}
+
+/** A whole-number percentage in the reader's format ("67%", "67 %", "٪67"). */
+function percent(t: Translator, ratio: number): string {
+  return new Intl.NumberFormat(t.intl, { style: 'percent', maximumFractionDigits: 0 }).format(ratio);
 }
 
 export function OverviewTab({ lifetime }: OverviewTabProps) {
+  const t = useT();
   if (lifetime.gamesPlayed === 0) {
     return (
       <div className="text-center py-8">
-        <p className="text-coup-ink-mute text-sm">No games played yet.</p>
-        <p className="text-coup-ink-mute text-xs mt-1">Finish a game to start tracking stats. Practice games don&apos;t count.</p>
+        <p className="text-coup-ink-mute text-sm">{t('stats.empty')}</p>
+        <p className="text-coup-ink-mute text-xs mt-1">{t('stats.emptyHint')}</p>
       </div>
     );
   }
 
-  const winRate = lifetime.gamesPlayed > 0
-    ? `${Math.round((lifetime.gamesWon / lifetime.gamesPlayed) * 100)}%`
-    : '0%';
+  const winRate = percent(t, lifetime.gamesWon / lifetime.gamesPlayed);
 
   const challengeAccuracy = lifetime.challengesMade > 0
-    ? `${Math.round((lifetime.challengesWon / lifetime.challengesMade) * 100)}%`
-    : '-';
+    ? percent(t, lifetime.challengesWon / lifetime.challengesMade)
+    : t('stats.noValue');
+
+  const n = (value: number) => t.number(value);
 
   return (
     <div className="grid grid-cols-2 gap-2">
-      <StatCard label="Games Played" value={lifetime.gamesPlayed} />
-      <StatCard label="Games Won" value={lifetime.gamesWon} />
-      <StatCard label="Win Rate" value={winRate} />
-      <StatCard label="Win Streak" value={`${lifetime.currentWinStreak} (best ${lifetime.bestWinStreak})`} />
-      <StatCard label="Challenges Made" value={lifetime.challengesMade} />
-      <StatCard label="Challenges Won" value={`${lifetime.challengesWon} (${challengeAccuracy})`} />
-      <StatCard label="Blocks Made" value={lifetime.blocksMade} />
-      <StatCard label="Successful Bluffs" value={lifetime.successfulBluffs} />
-      <StatCard label="Times Caught" value={lifetime.timesCaughtBluffing} />
-      <StatCard label="Coups" value={lifetime.coupsMade} />
-      <StatCard label="Assassinations" value={lifetime.assassinationsMade} />
-      <StatCard label="First Eliminated" value={lifetime.firstEliminatedCount} />
-      <StatCard label="Total Turns" value={lifetime.totalTurns} />
-      <StatCard label="Favorite Action" value={getFavoriteAction(lifetime.actionCounts)} />
+      <StatCard label={t('stats.gamesPlayed')} value={n(lifetime.gamesPlayed)} />
+      <StatCard label={t('stats.gamesWon')} value={n(lifetime.gamesWon)} />
+      <StatCard label={t('stats.winRate')} value={winRate} />
+      <StatCard label={t('stats.winStreak')} value={t('stats.winStreakValue', { current: lifetime.currentWinStreak, best: lifetime.bestWinStreak })} />
+      <StatCard label={t('stats.challengesMade')} value={n(lifetime.challengesMade)} />
+      <StatCard label={t('stats.challengesWon')} value={t('stats.challengesWonValue', { won: lifetime.challengesWon, accuracy: challengeAccuracy })} />
+      <StatCard label={t('stats.blocksMade')} value={n(lifetime.blocksMade)} />
+      <StatCard label={t('stats.successfulBluffs')} value={n(lifetime.successfulBluffs)} />
+      <StatCard label={t('stats.timesCaught')} value={n(lifetime.timesCaughtBluffing)} />
+      <StatCard label={t('stats.coups')} value={n(lifetime.coupsMade)} />
+      <StatCard label={t('stats.assassinations')} value={n(lifetime.assassinationsMade)} />
+      <StatCard label={t('stats.firstEliminated')} value={n(lifetime.firstEliminatedCount)} />
+      <StatCard label={t('stats.totalTurns')} value={n(lifetime.totalTurns)} />
+      <StatCard label={t('stats.favoriteAction')} value={getFavoriteAction(lifetime.actionCounts, t)} />
     </div>
   );
 }
