@@ -3,6 +3,7 @@ import { ClientToServerEvents, ServerToClientEvents } from '../shared/protocol';
 import { ActionType, BotPersonality, BotReplaceReason, Character, GameState, GameStatus, RoomOrigin, TurnPhase } from '../shared/types';
 import { MAX_PLAYERS, REACTIONS, RATE_LIMIT_ROOM_CREATE_MS, RATE_LIMIT_ROOM_JOIN_MS, RATE_LIMIT_GAME_ACTION_MS, RATE_LIMIT_BOT_ADD_MS } from '../shared/constants';
 import { validateName, validateChatMessage } from './ContentFilter';
+import { nameKey } from '../shared/textLimits';
 import { failedAck, serverErrorPayload } from '../shared/i18n/serverErrors';
 import { RoomEvent, RoomManager } from './RoomManager';
 import { serializeForPlayer, serializeForSpectator } from './StateSerializer';
@@ -505,7 +506,7 @@ export class SocketHandler {
         return;
       }
 
-      const existingNames = new Set(found.room.players.map(player => player.name.toLowerCase()));
+      const existingNames = new Set(found.room.players.map(player => nameKey(player.name)));
       const validatedBots: Array<{ name: string; personality: BotPersonality }> = [];
       for (const bot of data.bots) {
         if (!bot || typeof bot.name !== 'string' || typeof bot.personality !== 'string') {
@@ -521,7 +522,7 @@ export class SocketHandler {
           callback(failedAck(nameResult.error));
           return;
         }
-        const normalizedName = nameResult.sanitized.toLowerCase();
+        const normalizedName = nameKey(nameResult.sanitized);
         if (existingNames.has(normalizedName)) {
           callback(failedAck('Name already taken in this room'));
           return;

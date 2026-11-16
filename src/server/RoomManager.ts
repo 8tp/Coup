@@ -1,9 +1,10 @@
 import { randomInt, randomBytes, randomUUID } from 'crypto';
 import { BotPersonality, BotReplaceReason, ChatMessage, GameMode, GameStatus, PublicRoomInfo, Room, RoomOrigin, RoomPlayer, RoomSettings, Spectator } from '../shared/types';
-import { AFK_TIMEOUTS_BEFORE_REPLACE, CHAT_MAX_HISTORY, CHAT_MAX_MESSAGE_LENGTH, CHAT_RATE_LIMIT_MS, DEFAULT_ROOM_SETTINGS, DISCONNECT_BOT_REPLACE_MS, INACTIVE_ROOM_CLEANUP_MS, LOBBY_DISCONNECT_GRACE_MS, MAX_ACTION_TIMER, MAX_BOT_REACTION_SECONDS, MAX_PLAYERS, MAX_TURN_TIMER, MIN_ACTION_TIMER, MIN_BOT_REACTION_SECONDS, MIN_PLAYERS, MIN_TURN_TIMER, PUBLIC_ROOM_LIST_MAX, REACTION_RATE_LIMIT_MS } from '../shared/constants';
+import { AFK_TIMEOUTS_BEFORE_REPLACE, CHAT_MAX_HISTORY, CHAT_MAX_MESSAGE_CODE_UNITS, CHAT_MAX_MESSAGE_LENGTH, CHAT_RATE_LIMIT_MS, DEFAULT_ROOM_SETTINGS, DISCONNECT_BOT_REPLACE_MS, INACTIVE_ROOM_CLEANUP_MS, LOBBY_DISCONNECT_GRACE_MS, MAX_ACTION_TIMER, MAX_BOT_REACTION_SECONDS, MAX_PLAYERS, MAX_TURN_TIMER, MIN_ACTION_TIMER, MIN_BOT_REACTION_SECONDS, MIN_PLAYERS, MIN_TURN_TIMER, PUBLIC_ROOM_LIST_MAX, REACTION_RATE_LIMIT_MS } from '../shared/constants';
 import { RoomCloseReason, RoomMeta } from '../shared/metricTypes';
 import { GameLog } from '../shared/gameLogTypes';
 import { logMsg } from '../shared/i18n/logMessages';
+import { graphemeLength, nameKey } from '../shared/textLimits';
 import { FeedbackRoomSnapshot, FeedbackRoomState, FeedbackSenderStatus } from '../shared/feedbackTypes';
 import { GameEngine } from '../engine/GameEngine';
 import { BotController } from './BotController';
@@ -143,7 +144,7 @@ export class RoomManager {
     if (room.players.length >= MAX_PLAYERS) return { error: 'Room is full' };
 
     // Check for duplicate names
-    if (room.players.some(p => p.name.toLowerCase() === playerName.toLowerCase())) {
+    if (room.players.some(p => nameKey(p.name) === nameKey(playerName))) {
       return { error: 'Name already taken in this room' };
     }
 
@@ -171,7 +172,7 @@ export class RoomManager {
     if (room.gameState) return { error: 'Game already in progress' };
     if (room.players.length >= MAX_PLAYERS) return { error: 'Room is full' };
 
-    if (room.players.some(p => p.name.toLowerCase() === name.toLowerCase())) {
+    if (room.players.some(p => nameKey(p.name) === nameKey(name))) {
       return { error: 'Name already taken in this room' };
     }
 
@@ -750,7 +751,7 @@ export class RoomManager {
     if (!room) return { error: 'Room not found' };
 
     const trimmed = message.trim();
-    if (!trimmed || trimmed.length > CHAT_MAX_MESSAGE_LENGTH) {
+    if (!trimmed || trimmed.length > CHAT_MAX_MESSAGE_CODE_UNITS || graphemeLength(trimmed) > CHAT_MAX_MESSAGE_LENGTH) {
       return { error: `Message must be 1-${CHAT_MAX_MESSAGE_LENGTH} characters` };
     }
 
@@ -905,7 +906,7 @@ export class RoomManager {
       const spectator = spectators.shift()!;
 
       // Retain spectators whose name conflicts with an existing player
-      if (room.players.some(p => p.name.toLowerCase() === spectator.name.toLowerCase())) {
+      if (room.players.some(p => nameKey(p.name) === nameKey(spectator.name))) {
         skipped.push(spectator);
         continue;
       }
