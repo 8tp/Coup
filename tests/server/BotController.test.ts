@@ -356,6 +356,117 @@ describe('BotController', () => {
     });
   });
 
+  describe('reaction windows', () => {
+    /**
+     * A table wired the way SocketHandler wires it: every engine broadcast
+     * re-evaluates the bots. Humans act by calling the engine directly.
+     */
+    function createTable(humanIds: string[], botIds: string[], botMinReactionMs?: number) {
+      const engine = new GameEngine('WINDOW');
+      engine.startGame([
+        ...humanIds.map(id => ({ id, name: id })),
+        ...botIds.map(id => ({ id, name: id })),
+      ]);
+      const botPlayers: RoomPlayer[] = botIds.map(id => ({
+        id, name: id, socketId: '', connected: true, isBot: true, personality: 'optimal' as const,
+      }));
+      const controller = new BotController(engine, botPlayers, botMinReactionMs);
+      engine.setOnStateChange(() => controller.onStateChange());
+      // The human acts first.
+      engine.game.currentPlayerIndex = engine.game.players.findIndex(p => p.id === humanIds[0]);
+      engine.game.turnPhase = TurnPhase.AwaitingAction;
+      return { engine, controller };
+    }
+
+    /** Bots answer challenge windows with `answer(botId)` and sit out everything else. */
+    function scriptBots(answer: (botId: string) => 'challenge' | 'pass_challenge') {
+      return vi.spyOn(BotBrain, 'decide').mockImplementation((game, botId, _p, pendingAction, _b, challengeState) => {
+        if (game.turnPhase !== TurnPhase.AwaitingActionChallenge || !pendingAction || !challengeState) return null;
+        if (pendingAction.actorId === botId || challengeState.passedPlayerIds.includes(botId)) return null;
+        return { type: answer(botId) };
+      });
+    }
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('every bot thinks at once, so the window closes after the slowest bot rather than the sum', () => {
+      const { engine, controller } = createTable(['human1'], ['bot1', 'bot2', 'bot3']);
+      scriptBots(() => 'pass_challenge');
+      const coinsBefore = engine.game.getPlayer('human1')!.coins;
+
+      expect(engine.handleAction('human1', ActionType.Tax)).toBeNull();
+      expect(engine.game.turnPhase).toBe(TurnPhase.AwaitingActionChallenge);
+
+      // One bot's worth of thinking time (default minimum: 2s) closes the window.
+      // One bot at a time took three of these.
+      vi.advanceTimersByTime(BOT_REACTION_DELAY_MAX + 100);
+      expect(engine.game.turnPhase).not.toBe(TurnPhase.AwaitingActionChallenge);
+      expect(engine.game.getPlayer('human1')!.coins).toBe(coinsBefore + 3);
+
+      controller.destroy();
+    });
+
+    it('another player passing does not restart the bots already thinking', () => {
+      const { engine, controller } = createTable(['human1', 'human2'], ['bot1', 'bot2']);
+      scriptBots(() => 'pass_challenge');
+      const passSpy = vi.spyOn(engine, 'handlePassChallenge');
+
+      engine.handleAction('human1', ActionType.Tax);
+      vi.advanceTimersByTime(1000);
+      expect(engine.handlePassChallenge('human2')).toBeNull();
+
+      // Bots were scheduled at t=0 and fire at the 2s minimum, not 2s after human2.
+      vi.advanceTimersByTime(BOT_REACTION_DELAY_MAX - 1000 + 100);
+      expect(passSpy.mock.calls.map(c => c[0]).sort()).toEqual(['bot1', 'bot2', 'human2']);
+      expect(engine.game.turnPhase).not.toBe(TurnPhase.AwaitingActionChallenge);
+
+      controller.destroy();
+    });
+
+    it('a challenge closes the window and cancels the other bots\' pending passes', () => {
+      const { engine, controller } = createTable(['human1'], ['bot1', 'bot2', 'bot3']);
+      scriptBots(botId => (botId === 'bot1' ? 'challenge' : 'pass_challenge'));
+      const challengeSpy = vi.spyOn(engine, 'handleChallenge');
+      const passSpy = vi.spyOn(engine, 'handlePassChallenge');
+
+      engine.handleAction('human1', ActionType.Tax);
+      vi.advanceTimersByTime(BOT_REACTION_DELAY_MAX + 100);
+
+      expect(challengeSpy).toHaveBeenCalledTimes(1);
+      expect(challengeSpy).toHaveBeenCalledWith('bot1');
+      expect(passSpy).not.toHaveBeenCalled();
+
+      controller.destroy();
+    });
+
+    it('a challenge and a pass arrive on the same clock, so timing does not leak a bot\'s hand', () => {
+      // Below the 0.8–2s reaction range so the delay is genuinely random.
+      const fireTimes: Record<string, number> = {};
+      for (const answer of ['challenge', 'pass_challenge'] as const) {
+        vi.restoreAllMocks();
+        const { engine, controller } = createTable(['human1'], ['bot1'], 500);
+        scriptBots(() => answer);
+        vi.spyOn(Math, 'random').mockReturnValue(0.5);
+        const start = Date.now();
+        vi.spyOn(engine, answer === 'challenge' ? 'handleChallenge' : 'handlePassChallenge')
+          .mockImplementation(() => {
+            fireTimes[answer] = Date.now() - start;
+            return null;
+          });
+
+        engine.handleAction('human1', ActionType.Tax);
+        vi.advanceTimersByTime(BOT_REACTION_DELAY_MAX + 100);
+        controller.destroy();
+      }
+
+      expect(fireTimes.challenge).toBeDefined();
+      expect(fireTimes.challenge).toBe(fireTimes.pass_challenge);
+      expect(fireTimes.challenge).toBe(BOT_REACTION_DELAY_MIN + 0.5 * (BOT_REACTION_DELAY_MAX - BOT_REACTION_DELAY_MIN));
+    });
+  });
+
   // ─── Personality Bot Tests ───
 
   describe('personality bots', () => {

@@ -317,6 +317,24 @@
     box-shadow: 0 0 0 var(--ground-deep);
   }
 
+  /* An answer sent and not yet answered by the server (utils/pendingAnswer.ts):
+     the press is HELD, collapsed into the surface, until the reply arrives.
+     The same mechanic as :active, so it reads as "pressed" and nothing else. */
+  .btn-primary[data-pending],
+  .btn-secondary[data-pending],
+  .btn-danger[data-pending],
+  .btn-ghost[data-pending] {
+    transform: translate(3px, 3px);
+    box-shadow: 0 0 0 var(--ground-deep);
+    cursor: progress;
+  }
+
+  /* The card chosen to lose stays pressed in the same way while the server replies. */
+  button.loss-choice[data-pending] {
+    transform: scale(0.95);
+    cursor: progress;
+  }
+
   .btn-primary:disabled,
   .btn-secondary:disabled,
   .btn-danger:disabled,

@@ -2,6 +2,7 @@
 
 import { ActionType, ClientGameState, GameMode, TurnPhase } from '@/shared/types';
 import { ACTION_DISPLAY_NAMES } from '@/shared/constants';
+import { canBlockDuringChallenge } from '../../utils/blockOptions';
 
 interface PhaseStatusProps {
   gameState: ClientGameState;
@@ -95,7 +96,10 @@ export function PhaseStatus({ gameState }: PhaseStatusProps) {
 
     case TurnPhase.AwaitingActionChallenge: {
       const actor = gameState.players.find(p => p.id === pendingAction?.actorId);
-      if (canAnswer && myId !== pendingAction?.actorId && !passedChallenge) {
+      if (canBlockDuringChallenge(gameState) && !passedChallenge) {
+        text = `${actor?.name} claims ${claimText(gameState)}: block or challenge`;
+        tone = pendingAction?.type === ActionType.Assassinate ? 'danger' : 'ask';
+      } else if (canAnswer && myId !== pendingAction?.actorId && !passedChallenge) {
         text = `${actor?.name} claims ${claimText(gameState)}: challenge or pass`;
         tone = 'ask';
       } else {
