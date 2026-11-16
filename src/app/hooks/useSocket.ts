@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-import type { ClientToServerEvents, ServerToClientEvents } from '@/shared/protocol';
+import type { ClientToServerEvents, ServerNotice, ServerToClientEvents } from '@/shared/protocol';
+import { describeAckError, describeServerError } from '../i18n/serverErrors';
 import type { BotPersonality, ChallengeRevealEvent, ChatMessage, ClientGameState, ClientRoomPlayer, ClientSpectator, PublicRoomInfo, RoomOrigin, RoomSettings } from '@/shared/types';
 import type { FeedbackResponse, FeedbackSubmission } from '@/shared/feedbackTypes';
 import { FEEDBACK_ACK_TIMEOUT_MS } from '@/shared/constants';
@@ -157,18 +158,22 @@ export function useSocket() {
       setGameState(state);
     };
 
-    const onGameError = (data: { message: string }) => {
-      setError(data.message);
+    // Server errors carry a code; show them in the reader's language (docs/I18N.md).
+    const onGameError = (data: ServerNotice) => {
+      // Never empty: setError releases a pending answer only on a truthy error (gameStore).
+      setError(describeServerError(data) || describeServerError({ code: 'server_error' }));
       errorTimers.push(setTimeout(() => setError(null), 3000));
     };
 
-    const onRoomError = (data: { message: string }) => {
-      setError(data.message);
+    const onRoomError = (data: ServerNotice) => {
+      // Never empty: setError releases a pending answer only on a truthy error (gameStore).
+      setError(describeServerError(data) || describeServerError({ code: 'server_error' }));
       errorTimers.push(setTimeout(() => setError(null), 3000));
     };
 
-    const onRoomRemoved = (data: { message: string }) => {
-      sessionStorage.setItem('coup_removed_message', data.message);
+    const onRoomRemoved = (data: ServerNotice) => {
+      const message = describeServerError(data);
+      sessionStorage.setItem('coup_removed_message', message);
       sessionStorage.removeItem('coup_room');
       sessionStorage.removeItem('coup_player');
       sessionStorage.removeItem('coup_session_token');
@@ -176,7 +181,7 @@ export function useSocket() {
       sessionStorage.removeItem('coup_player_name');
       sessionStorage.removeItem(PRACTICE_ROOM_KEY);
       useGameStore.getState().clearRoom();
-      setError(data.message);
+      setError(message);
       window.location.assign('/');
     };
 
@@ -276,7 +281,7 @@ export function useSocket() {
           }
           resolve({ roomCode: response.roomCode, playerId: response.playerId });
         } else {
-          reject(new Error(response.error || 'Failed to create room'));
+          reject(new Error(describeAckError(response, 'Failed to create room')));
         }
       });
     }));
@@ -294,7 +299,7 @@ export function useSocket() {
           }
           resolve({ roomCode: response.roomCode, playerId: response.playerId });
         } else {
-          reject(new Error(response.error || 'Failed to join room'));
+          reject(new Error(describeAckError(response, 'Failed to join room')));
         }
       });
     }));
@@ -326,7 +331,7 @@ export function useSocket() {
         if (response.success && response.botId) {
           resolve(response.botId);
         } else {
-          reject(new Error(response.error || 'Failed to add bot'));
+          reject(new Error(describeAckError(response, 'Failed to add bot')));
         }
       });
     }));
@@ -338,7 +343,7 @@ export function useSocket() {
         if (response.success && response.botIds) {
           resolve(response.botIds);
         } else {
-          reject(new Error(response.error || 'Failed to add bots'));
+          reject(new Error(describeAckError(response, 'Failed to add bots')));
         }
       });
     }));
@@ -350,7 +355,7 @@ export function useSocket() {
         if (response.success) {
           resolve();
         } else {
-          reject(new Error(response.error || 'Failed to update settings'));
+          reject(new Error(describeAckError(response, 'Failed to update settings')));
         }
       });
     }));
@@ -362,7 +367,7 @@ export function useSocket() {
         if (response.success) {
           resolve();
         } else {
-          reject(new Error(response.error || 'Failed to remove bot'));
+          reject(new Error(describeAckError(response, 'Failed to remove bot')));
         }
       });
     }));
@@ -374,7 +379,7 @@ export function useSocket() {
         if (response.success) {
           resolve();
         } else {
-          reject(new Error(response.error || 'Failed to remove player'));
+          reject(new Error(describeAckError(response, 'Failed to remove player')));
         }
       });
     }));
@@ -386,7 +391,7 @@ export function useSocket() {
         if (response.success) {
           resolve();
         } else {
-          reject(new Error(response.error || 'Failed to remove spectator'));
+          reject(new Error(describeAckError(response, 'Failed to remove spectator')));
         }
       });
     }));
@@ -407,7 +412,7 @@ export function useSocket() {
           sessionStorage.setItem('coup_player_name', playerName);
           resolve({ roomCode: response.roomCode, spectatorId: response.spectatorId });
         } else {
-          reject(new Error(response.error || 'Failed to spectate'));
+          reject(new Error(describeAckError(response, 'Failed to spectate')));
         }
       });
     }));

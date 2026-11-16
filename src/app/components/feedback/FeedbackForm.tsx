@@ -11,21 +11,10 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { collectFeedbackClientContext } from '../../utils/feedbackContext';
 import { haptic } from '../../utils/haptic';
 import { Modal } from '../ui/Modal';
+import { useT } from '../../i18n';
 
-const KIND_OPTIONS: { value: FeedbackKind; label: string; placeholder: string }[] = [
-  { value: 'bug', label: 'Bug', placeholder: 'Tell us what happened and what you expected.' },
-  { value: 'idea', label: 'Idea', placeholder: "Tell us what you'd change or add." },
-  { value: 'other', label: 'Other', placeholder: 'Tell us anything.' },
-];
-
-const ERROR_COPY: Record<FeedbackErrorCode, string> = {
-  invalid: "Couldn't send that note. Try again.",
-  empty: 'Write a few words first.',
-  too_long: `Keep it under ${FEEDBACK_MAX_LENGTH} characters.`,
-  rate_limited: "You've sent a few notes already. Try again in a few minutes.",
-  busy: 'Too many notes are coming in right now. Try again in a few minutes.',
-  server_error: "Couldn't send. Check your connection and try again.",
-};
+/** Text lives in the `feedback` catalog: `feedback.kind.<kind>`, `feedback.placeholder.<kind>`, `feedback.error.<code>`. */
+const KIND_OPTIONS: { value: FeedbackKind }[] = [{ value: 'bug' }, { value: 'idea' }, { value: 'other' }];
 
 type Status = 'idle' | 'sending' | 'sent' | 'failed';
 
@@ -56,6 +45,7 @@ interface FeedbackFormProps {
 }
 
 export function FeedbackForm({ screen: screenOverride, onClose, closeLabel }: FeedbackFormProps) {
+  const t = useT();
   const screen = useFeedbackScreen(screenOverride);
   const textSize = useSettingsStore(s => s.textSize);
   const [kind, setKind] = useState<FeedbackKind>(draft.kind);
@@ -96,7 +86,7 @@ export function FeedbackForm({ screen: screenOverride, onClose, closeLabel }: Fe
 
   const trimmed = message.trim();
   const canSend = status !== 'sending' && trimmed.length > 0 && trimmed.length <= FEEDBACK_MAX_LENGTH;
-  const placeholder = KIND_OPTIONS.find(o => o.value === kind)?.placeholder ?? '';
+  const placeholder = t(`feedback.placeholder.${kind}`);
 
   const submit = async () => {
     if (!canSend) return;
@@ -136,8 +126,8 @@ export function FeedbackForm({ screen: screenOverride, onClose, closeLabel }: Fe
     return (
       <div className="space-y-4">
         <div className="panel-sunk bg-coup-bg/60 px-4 py-4" role="status">
-          <p className="font-semibold text-coup-ink">Sent. Thanks for the note.</p>
-          <p className="mt-1 text-sm text-coup-ink-mute">It goes straight to the developer.</p>
+          <p className="font-semibold text-coup-ink">{t('feedback.sent')}</p>
+          <p className="mt-1 text-sm text-coup-ink-mute">{t('feedback.sentDetail')}</p>
         </div>
         <div className={onClose ? 'grid grid-cols-2 gap-2' : ''}>
           <button
@@ -145,11 +135,11 @@ export function FeedbackForm({ screen: screenOverride, onClose, closeLabel }: Fe
             className="btn-secondary w-full"
             onClick={() => { haptic(); setStatus('idle'); }}
           >
-            Write another
+            {t('feedback.writeAnother')}
           </button>
           {onClose && (
             <button type="button" className="btn-primary w-full" onClick={() => { haptic(); onClose(); }} autoFocus>
-              Done
+              {t('common.done')}
             </button>
           )}
         </div>
@@ -163,7 +153,7 @@ export function FeedbackForm({ screen: screenOverride, onClose, closeLabel }: Fe
       onSubmit={(e) => { e.preventDefault(); void submit(); }}
       aria-busy={status === 'sending'}
     >
-      <div className="lobby-seg !grid-cols-3" role="radiogroup" aria-label="Kind of note">
+      <div className="lobby-seg !grid-cols-3" role="radiogroup" aria-label={t('feedback.kindLabel')}>
         {KIND_OPTIONS.map((opt, i) => (
           <button
             key={opt.value}
@@ -176,13 +166,13 @@ export function FeedbackForm({ screen: screenOverride, onClose, closeLabel }: Fe
             onClick={() => { haptic(); setKind(opt.value); }}
             onKeyDown={(e) => onKindKeyDown(e, i)}
           >
-            {opt.label}
+            {t(`feedback.kind.${opt.value}`)}
           </button>
         ))}
       </div>
 
       <div>
-        <label htmlFor={fieldId} className="sr-only">Your note</label>
+        <label htmlFor={fieldId} className="sr-only">{t('feedback.noteLabel')}</label>
         <textarea
           id={fieldId}
           ref={textareaRef}
@@ -205,13 +195,13 @@ export function FeedbackForm({ screen: screenOverride, onClose, closeLabel }: Fe
           className="input-field block min-h-[8rem] resize-y leading-snug"
         />
         <div className="mt-1.5 flex items-start justify-between gap-3 text-xs text-coup-ink-mute">
-          <span id={hintId}>Sent without your name or room code.</span>
+          <span id={hintId}>{t('feedback.privacy')}</span>
           <span className="figure shrink-0" aria-hidden="true">{message.length}/{FEEDBACK_MAX_LENGTH}</span>
         </div>
       </div>
 
       <div id={statusId} role="status" aria-live="polite">
-        {status === 'failed' && error && <p className="menu-error">{ERROR_COPY[error]}</p>}
+        {status === 'failed' && error && <p className="menu-error">{t(`feedback.error.${error}`, { max: FEEDBACK_MAX_LENGTH })}</p>}
       </div>
 
       <div className={onClose && closeLabel ? 'grid grid-cols-2 gap-2' : ''}>
@@ -221,7 +211,7 @@ export function FeedbackForm({ screen: screenOverride, onClose, closeLabel }: Fe
           </button>
         )}
         <button type="submit" className="btn-primary w-full" disabled={!canSend}>
-          {status === 'sending' ? 'Sending' : status === 'failed' ? 'Try again' : 'Send'}
+          {status === 'sending' ? t('feedback.sending') : status === 'failed' ? t('feedback.retry') : t('feedback.send')}
         </button>
       </div>
 
@@ -233,7 +223,7 @@ export function FeedbackForm({ screen: screenOverride, onClose, closeLabel }: Fe
           onClick={() => haptic()}
           className="inline-flex min-h-[44px] items-center px-2 text-sm text-coup-ink-mute underline underline-offset-4 hover:text-coup-accent"
         >
-          Open a GitHub issue instead
+          {t('feedback.githubInstead')}
         </a>
       </div>
     </form>
@@ -248,9 +238,10 @@ interface FeedbackModalProps {
 
 /** The form in its own dialog, for screens without a settings modal at hand. */
 export function FeedbackModal({ open, onClose, screen }: FeedbackModalProps) {
+  const t = useT();
   return (
-    <Modal open={open} onClose={onClose} title="Send feedback" maxWidth="max-w-md">
-      <FeedbackForm screen={screen} onClose={onClose} closeLabel="Cancel" />
+    <Modal open={open} onClose={onClose} title={t('feedback.title')} maxWidth="max-w-md">
+      <FeedbackForm screen={screen} onClose={onClose} closeLabel={t('common.cancel')} />
     </Modal>
   );
 }

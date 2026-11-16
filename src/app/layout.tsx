@@ -6,6 +6,9 @@ import {
   GAME_PREFETCH_IMAGES,
 } from './utils/assets';
 import { PWAInstallPrompt } from './components/pwa/PWAInstallPrompt';
+import { I18nBootstrap } from './i18n/I18nBootstrap';
+import { localeTables } from './i18n/runtime';
+import { localeBootScript } from '@/shared/i18n/bootScript';
 
 /**
  * ART-DIRECTION.md §4 — the Display role.
@@ -28,32 +31,70 @@ import { PWAInstallPrompt } from './components/pwa/PWAInstallPrompt';
  * Explicitly not Inter or Space Grotesk: those are the generic default and
  * would restate the "web app" tell §3 exists to kill.
  *
- * Loaded with next/font/local from a vendored variable woff2 (latin +
- * latin-ext, ~52KB total, SIL OFL — see src/app/fonts/OFL.txt). §4 requires
- * no CDN dependency because the app is offline-capable (public/sw.js); local
- * also means the production build never needs the network to succeed.
+ * Loaded with next/font/local from vendored variable woff2 files, one family
+ * per Google Fonts subset (latin ~28KB, latin-ext ~24KB, vietnamese ~8KB; all
+ * Oswald v57, SIL OFL, see src/app/fonts/OFL.txt). Each declares its
+ * `unicode-range`, so a browser fetches latin-ext or vietnamese only when a
+ * glyph on screen needs it; only latin is preloaded. `--font-display` stacks
+ * them in globals.css. §4 requires no CDN dependency because the app is
+ * offline-capable (public/sw.js), and the CSP is `font-src 'self'`.
+ *
+ * Arabic display text uses Noto Kufi Arabic (~124KB, SIL OFL, see
+ * src/app/fonts/OFL-NotoKufiArabic.txt): a geometric Kufi is the Arabic
+ * counterpart of a condensed civic grotesque. Its range is Arabic only, so
+ * nobody else downloads it. Chinese uses system faces (see globals.css,
+ * "Per-language type"). docs/I18N.md records why.
  */
-const displayFont = localFont({
-  src: [
-    {
-      path: './fonts/Oswald-Variable-latin.woff2',
-      weight: '200 700',
-      style: 'normal',
-    },
-    {
-      path: './fonts/Oswald-Variable-latin-ext.woff2',
-      weight: '200 700',
-      style: 'normal',
-    },
-  ],
-  variable: '--font-display',
+// next/font needs literal options, so the shared ones are repeated per call.
+// adjustFontFallback is off because Oswald is far narrower than any
+// metric-adjustable system face; a synthesised override would make the swap jump.
+const displayLatin = localFont({
+  weight: '200 700',
+  style: 'normal',
   display: 'swap',
-  preload: true,
-  // Oswald is far narrower than any metric-adjustable system face; letting
-  // Next synthesise a fallback metric override would make the swap jump.
   adjustFontFallback: false,
-  fallback: ['Haettenschweiler', 'Arial Narrow', 'Impact', 'system-ui', 'sans-serif'],
+  src: './fonts/Oswald-Variable-latin.woff2',
+  variable: '--font-display-latin',
+  preload: true,
+  declarations: [{ prop: 'unicode-range', value: 'U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD' }],
 });
+
+const displayLatinExt = localFont({
+  weight: '200 700',
+  style: 'normal',
+  display: 'swap',
+  adjustFontFallback: false,
+  src: './fonts/Oswald-Variable-latin-ext.woff2',
+  variable: '--font-display-latin-ext',
+  preload: false,
+  declarations: [{ prop: 'unicode-range', value: 'U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF' }],
+});
+
+const displayVietnamese = localFont({
+  weight: '200 700',
+  style: 'normal',
+  display: 'swap',
+  adjustFontFallback: false,
+  src: './fonts/Oswald-Variable-vietnamese.woff2',
+  variable: '--font-display-vietnamese',
+  preload: false,
+  declarations: [{ prop: 'unicode-range', value: 'U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB' }],
+});
+
+const displayArabic = localFont({
+  src: './fonts/NotoKufiArabic-Variable-arabic.woff2',
+  weight: '100 900',
+  style: 'normal',
+  display: 'swap',
+  adjustFontFallback: false,
+  variable: '--font-display-arabic',
+  preload: false,
+  declarations: [{ prop: 'unicode-range', value: 'U+0600-06FF, U+0750-077F, U+0870-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FEFC' }],
+});
+
+const FONT_VARIABLES = [displayLatin, displayLatinExt, displayVietnamese, displayArabic].map(f => f.variable).join(' ');
+
+const { strict: LOCALE_TABLE, preview: LOCALE_PREVIEW_TABLE } = localeTables();
 
 export const viewport: Viewport = {
   viewportFit: 'cover',
@@ -110,7 +151,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={displayFont.variable} suppressHydrationWarning>
+    // `lang` and `dir` are rewritten before first paint by the locale script
+    // below, so the server's "en"/"ltr" never paints for other languages;
+    // suppressHydrationWarning covers that difference on this one element.
+    <html lang="en" dir="ltr" className={FONT_VARIABLES} suppressHydrationWarning>
       <head>
         {CRITICAL_PRELOAD_IMAGES.map(href => (
           <link key={href} rel="preload" href={href} as="image" fetchPriority="high" />
@@ -118,6 +162,7 @@ export default function RootLayout({
         {GAME_PREFETCH_IMAGES.map(href => (
           <link key={href} rel="prefetch" href={href} as="image" />
         ))}
+        <script dangerouslySetInnerHTML={{ __html: localeBootScript(LOCALE_TABLE, LOCALE_PREVIEW_TABLE) }} />
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var s=localStorage.getItem('coup_text_size');if(s==='large')document.documentElement.classList.add('text-size-large');else if(s==='xl')document.documentElement.classList.add('text-size-xl');if(localStorage.getItem('coup_reduced_motion')==='true')document.documentElement.classList.add('reduce-motion')}catch(e){}})()`,
@@ -125,6 +170,7 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-coup-bg text-white min-h-screen">
+        <I18nBootstrap />
         {children}
         <PWAInstallPrompt />
       </body>

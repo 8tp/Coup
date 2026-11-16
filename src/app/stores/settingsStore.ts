@@ -1,6 +1,8 @@
 'use client';
 
 import { create } from 'zustand';
+import { isLocale, type Locale } from '@/shared/i18n/locales';
+import { LOCALE_STORAGE_KEY } from '@/shared/i18n/bootScript';
 
 export type TextSize = 'normal' | 'large' | 'xl';
 
@@ -20,6 +22,24 @@ interface SettingsStore {
 
   reducedMotionEnabled: boolean;
   setReducedMotionEnabled: (enabled: boolean) => void;
+
+  /**
+   * The player's language choice, or null to match the device
+   * (`navigator.languages`). `I18nBootstrap` resolves and applies it;
+   * see docs/I18N.md for the full resolution order.
+   */
+  locale: Locale | null;
+  setLocale: (locale: Locale | null) => void;
+}
+
+function readSavedLocale(): Locale | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const saved = localStorage.getItem(LOCALE_STORAGE_KEY);
+    return isLocale(saved) ? saved : null;
+  } catch {
+    return null;
+  }
 }
 
 function applyTextSizeClass(size: TextSize): void {
@@ -97,5 +117,17 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
     }
     applyReducedMotionClass(enabled);
     set({ reducedMotionEnabled: enabled });
+  },
+
+  locale: readSavedLocale(),
+  setLocale: (locale) => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(LOCALE_STORAGE_KEY, locale ?? 'auto');
+      } catch {
+        // Private mode: the choice lasts for this page only.
+      }
+    }
+    set({ locale });
   },
 }));

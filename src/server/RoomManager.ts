@@ -3,6 +3,7 @@ import { BotPersonality, BotReplaceReason, ChatMessage, GameMode, GameStatus, Pu
 import { AFK_TIMEOUTS_BEFORE_REPLACE, CHAT_MAX_HISTORY, CHAT_MAX_MESSAGE_LENGTH, CHAT_RATE_LIMIT_MS, DEFAULT_ROOM_SETTINGS, DISCONNECT_BOT_REPLACE_MS, INACTIVE_ROOM_CLEANUP_MS, LOBBY_DISCONNECT_GRACE_MS, MAX_ACTION_TIMER, MAX_BOT_REACTION_SECONDS, MAX_PLAYERS, MAX_TURN_TIMER, MIN_ACTION_TIMER, MIN_BOT_REACTION_SECONDS, MIN_PLAYERS, MIN_TURN_TIMER, PUBLIC_ROOM_LIST_MAX, REACTION_RATE_LIMIT_MS } from '../shared/constants';
 import { RoomCloseReason, RoomMeta } from '../shared/metricTypes';
 import { GameLog } from '../shared/gameLogTypes';
+import { logMsg } from '../shared/i18n/logMessages';
 import { FeedbackRoomSnapshot, FeedbackRoomState, FeedbackSenderStatus } from '../shared/feedbackTypes';
 import { GameEngine } from '../engine/GameEngine';
 import { BotController } from './BotController';
@@ -744,7 +745,7 @@ export class RoomManager {
 
   // ─── Chat ───
 
-  addChatMessage(roomCode: string, playerId: string, playerName: string, message: string): ChatMessage | { error: string } {
+  addChatMessage(roomCode: string, playerId: string, playerName: string, message: string, reactionId?: string): ChatMessage | { error: string } {
     const room = this.rooms.get(roomCode);
     if (!room) return { error: 'Room not found' };
 
@@ -767,6 +768,7 @@ export class RoomManager {
       playerName,
       message: trimmed,
       timestamp: now,
+      ...(reactionId ? { reactionId } : {}),
     };
 
     let history = this.chatMessages.get(roomCode);
@@ -782,7 +784,7 @@ export class RoomManager {
     return chatMsg;
   }
 
-  addBotChatMessage(roomCode: string, botId: string, botName: string, message: string): ChatMessage | { error: string } {
+  addBotChatMessage(roomCode: string, botId: string, botName: string, message: string, reactionId?: string): ChatMessage | { error: string } {
     const room = this.rooms.get(roomCode);
     if (!room) return { error: 'Room not found' };
 
@@ -792,6 +794,7 @@ export class RoomManager {
       playerName: botName,
       message,
       timestamp: Date.now(),
+      ...(reactionId ? { reactionId } : {}),
     };
 
     let history = this.chatMessages.get(roomCode);
@@ -1089,7 +1092,16 @@ export class RoomManager {
       : reason === 'left'
         ? `${roomPlayer.name} left, so a bot took their seat.`
         : `A bot took ${roomPlayer.name}'s seat.`;
-    engine.game.log(message, 'bot_replace', null, playerId, roomPlayer.name);
+    engine.game.log({
+      message,
+      msg: logMsg(
+        reason === 'afk' ? 'botReplacedIdle' : reason === 'left' ? 'botReplacedLeft' : 'botReplacedDisconnected',
+        { actor: playerId },
+      ),
+      eventType: 'bot_replace',
+      actorId: playerId,
+      actorName: roomPlayer.name,
+    });
 
     const meta = this.getMeta(roomCode);
     emitMetric({

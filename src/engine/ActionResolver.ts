@@ -24,6 +24,7 @@ import {
   CONVERSION_OTHER_COST,
 } from '../shared/constants';
 import type { ChallengeRevealEvent } from '../shared/types';
+import { logMsg, type LogMessage } from '../shared/i18n/logMessages';
 import { Game } from './Game';
 import { Player } from './Player';
 
@@ -42,7 +43,12 @@ export type SideEffect =
   | { type: 'advance_turn' }
   | { type: 'set_timer'; durationMs: number }
   | { type: 'clear_timer' }
-  | { type: 'log'; message: string; eventType: LogEventType; character: Character | null; actorId: string | null; actorName: string | null; targetId?: string | null; wasBluff?: boolean }
+  /**
+   * `message` is the English line every consumer has always read; `msg` is the
+   * same line as a catalog key and typed params for clients (docs/I18N.md).
+   * Both are required: a log effect without a structured form does not compile.
+   */
+  | { type: 'log'; message: string; msg: LogMessage; eventType: LogEventType; character: Character | null; actorId: string | null; actorName: string | null; targetId?: string | null; wasBluff?: boolean }
   | { type: 'start_exchange'; playerId: string; drawnCards: Character[] }
   | { type: 'win_check' }
   | { type: 'challenge_reveal'; challengerName: string; challengedName: string; character: Character; wasGenuine: boolean; replacementDrawn?: boolean; revealedCharacters?: Character[]; inverseClaim?: boolean }
@@ -157,13 +163,13 @@ export class ActionResolver {
     // Income and Coup cannot be challenged or blocked
     if (actionType === ActionType.Income) {
       sideEffects.push({ type: 'give_coins', playerId: actorId, amount: 1 });
-      sideEffects.push({ type: 'log', message: `${actor.name} takes Income (+1 coin).`, eventType: 'income', character: null, actorId, actorName: actor.name });
+      sideEffects.push({ type: 'log', message: `${actor.name} takes Income (+1 coin).`, msg: logMsg('income', { actor: actorId, amount: 1 }), eventType: 'income', character: null, actorId, actorName: actor.name });
       sideEffects.push({ type: 'advance_turn' });
       return this.resolved(sideEffects);
     }
 
     if (actionType === ActionType.Coup) {
-      sideEffects.push({ type: 'log', message: `${actor.name} launches a Coup against ${game.getPlayer(targetId!)?.name}.`, eventType: 'coup', character: null, actorId, actorName: actor.name, targetId });
+      sideEffects.push({ type: 'log', message: `${actor.name} launches a Coup against ${game.getPlayer(targetId!)?.name}.`, msg: logMsg('coup', { actor: actorId, target: targetId! }), eventType: 'coup', character: null, actorId, actorName: actor.name, targetId });
       // Target must lose influence
       return {
         newPhase: TurnPhase.AwaitingInfluenceLoss,
@@ -183,6 +189,9 @@ export class ActionResolver {
       sideEffects.push({
         type: 'log',
         message: `${actor.name} claims ${claimedCharacter} to ${ACTION_DISPLAY_NAMES[actionType]}${targetPart}.`,
+        msg: targetName && targetId
+          ? logMsg('claimActionTargeting', { actor: actorId, character: claimedCharacter, action: actionType, target: targetId })
+          : logMsg('claimAction', { actor: actorId, character: claimedCharacter, action: actionType }),
         eventType: 'claim_action',
         character: claimedCharacter,
         actorId,
@@ -194,6 +203,7 @@ export class ActionResolver {
       sideEffects.push({
         type: 'log',
         message: `${actor.name} declares ${ACTION_DISPLAY_NAMES[actionType]}.`,
+        msg: logMsg('declareAction', { actor: actorId, action: actionType }),
         eventType: 'declare_action',
         character: null,
         actorId,
@@ -262,7 +272,7 @@ export class ActionResolver {
     const claimedChar = pendingAction.claimedCharacter!;
     const sideEffects: SideEffect[] = [
       { type: 'clear_timer' },
-      { type: 'log', message: `${challenger.name} challenges ${challenged.name}'s ${claimedChar} claim.`, eventType: 'challenge', character: claimedChar, actorId: challengerId, actorName: challenger.name },
+      { type: 'log', message: `${challenger.name} challenges ${challenged.name}'s ${claimedChar} claim.`, msg: logMsg('challenge', { challenger: challengerId, challenged: challenged.id, character: claimedChar }), eventType: 'challenge', character: claimedChar, actorId: challengerId, actorName: challenger.name },
     ];
 
     if (challenged.hasCharacter(claimedChar)) {
@@ -279,6 +289,7 @@ export class ActionResolver {
       sideEffects.push({
         type: 'log',
         message: `${challenged.name} has ${claimedChar}. ${challenger.name} must lose a card.`,
+        msg: logMsg('challengeFailed', { challenger: challenger.id, challenged: challenged.id, character: claimedChar }),
         eventType: 'challenge_fail',
         character: claimedChar,
         actorId: challenged.id,
@@ -341,6 +352,7 @@ export class ActionResolver {
       sideEffects.push({
         type: 'log',
         message: `${challenged.name} has no ${claimedChar} and must lose a card.`,
+        msg: logMsg('challengeSucceeded', { challenged: challenged.id, character: claimedChar }),
         eventType: 'challenge_success',
         character: claimedChar,
         actorId: challengerId,
@@ -566,7 +578,7 @@ export class ActionResolver {
   ): ResolverResult {
     const blockerId = blocker.id;
     sideEffects.push(
-      { type: 'log', message: `${blocker.name} blocks with ${claimedCharacter}.`, eventType: 'block', character: claimedCharacter, actorId: blockerId, actorName: blocker.name, wasBluff: !blocker.hasCharacter(claimedCharacter) },
+      { type: 'log', message: `${blocker.name} blocks with ${claimedCharacter}.`, msg: logMsg('block', { blocker: blockerId, character: claimedCharacter }), eventType: 'block', character: claimedCharacter, actorId: blockerId, actorName: blocker.name, wasBluff: !blocker.hasCharacter(claimedCharacter) },
       { type: 'set_timer', durationMs: this.timerMs },
     );
 
@@ -623,7 +635,7 @@ export class ActionResolver {
     const claimedChar = pendingBlock.claimedCharacter;
     const sideEffects: SideEffect[] = [
       { type: 'clear_timer' },
-      { type: 'log', message: `${challenger.name} challenges ${blocker.name}'s ${claimedChar} block.`, eventType: 'block_challenge', character: claimedChar, actorId: challengerId, actorName: challenger.name },
+      { type: 'log', message: `${challenger.name} challenges ${blocker.name}'s ${claimedChar} block.`, msg: logMsg('blockChallenge', { challenger: challengerId, blocker: blocker.id, character: claimedChar }), eventType: 'block_challenge', character: claimedChar, actorId: challengerId, actorName: challenger.name },
     ];
 
     if (blocker.hasCharacter(claimedChar)) {
@@ -641,6 +653,7 @@ export class ActionResolver {
       sideEffects.push({
         type: 'log',
         message: `${blocker.name} has ${claimedChar}, so the block stands. ${challenger.name} must lose a card.`,
+        msg: logMsg('blockChallengeFailed', { challenger: challenger.id, blocker: blocker.id, character: claimedChar }),
         eventType: 'block_challenge_fail',
         character: claimedChar,
         actorId: blocker.id,
@@ -694,6 +707,7 @@ export class ActionResolver {
       sideEffects.push({
         type: 'log',
         message: `${blocker.name} has no ${claimedChar} and must lose a card. The block fails and the action goes ahead.`,
+        msg: logMsg('blockChallengeSucceeded', { blocker: blocker.id, character: claimedChar }),
         eventType: 'block_challenge_success',
         character: claimedChar,
         actorId: challengerId,
@@ -732,7 +746,7 @@ export class ActionResolver {
   ): ResolverResult {
     const sideEffects: SideEffect[] = [
       { type: 'clear_timer' },
-      { type: 'log', message: 'No one challenges the block. The action is blocked.', eventType: 'block_unchallenged', character: null, actorId: null, actorName: null },
+      { type: 'log', message: 'No one challenges the block. The action is blocked.', msg: logMsg('blockStands', {}), eventType: 'block_unchallenged', character: null, actorId: null, actorName: null },
     ];
 
     // No cost refund — per official rules, a counteracted action's cost remains spent
@@ -765,7 +779,7 @@ export class ActionResolver {
     const revealedChar = player.influences[influenceIndex].character;
     const sideEffects: SideEffect[] = [
       { type: 'reveal_influence', playerId, influenceIndex },
-      { type: 'log', message: `${player.name} loses ${revealedChar}.`, eventType: 'influence_loss', character: revealedChar, actorId: playerId, actorName: player.name },
+      { type: 'log', message: `${player.name} loses ${revealedChar}.`, msg: logMsg('influenceLost', { actor: playerId, character: revealedChar }), eventType: 'influence_loss', character: revealedChar, actorId: playerId, actorName: player.name },
       { type: 'eliminate_check', playerId },
     ];
 
@@ -871,7 +885,7 @@ export class ActionResolver {
 
     const exchangeChar = pendingAction.claimedCharacter === Character.Inquisitor ? Character.Inquisitor : Character.Ambassador;
     const sideEffects: SideEffect[] = [
-      { type: 'log', message: `${player.name} completes the exchange.`, eventType: 'exchange', character: exchangeChar, actorId: playerId, actorName: player.name },
+      { type: 'log', message: `${player.name} completes the exchange.`, msg: logMsg('exchangeComplete', { actor: playerId }), eventType: 'exchange', character: exchangeChar, actorId: playerId, actorName: player.name },
     ];
 
     // Return cards to deck
@@ -907,13 +921,13 @@ export class ActionResolver {
     switch (pendingAction.type) {
       case ActionType.Tax:
         sideEffects.push({ type: 'give_coins', playerId: actor.id, amount: 3 });
-        sideEffects.push({ type: 'log', message: `${actor.name} collects Tax (+3 coins).`, eventType: 'action_resolve', character: Character.Duke, actorId: actor.id, actorName: actor.name });
+        sideEffects.push({ type: 'log', message: `${actor.name} collects Tax (+3 coins).`, msg: logMsg('taxCollected', { actor: actor.id, amount: 3 }), eventType: 'action_resolve', character: Character.Duke, actorId: actor.id, actorName: actor.name });
         sideEffects.push({ type: 'advance_turn' });
         return this.resolved(sideEffects);
 
       case ActionType.ForeignAid:
         sideEffects.push({ type: 'give_coins', playerId: actor.id, amount: 2 });
-        sideEffects.push({ type: 'log', message: `${actor.name} takes Foreign Aid (+2 coins).`, eventType: 'action_resolve', character: null, actorId: actor.id, actorName: actor.name });
+        sideEffects.push({ type: 'log', message: `${actor.name} takes Foreign Aid (+2 coins).`, msg: logMsg('foreignAidTaken', { actor: actor.id, amount: 2 }), eventType: 'action_resolve', character: null, actorId: actor.id, actorName: actor.name });
         sideEffects.push({ type: 'advance_turn' });
         return this.resolved(sideEffects);
 
@@ -929,6 +943,7 @@ export class ActionResolver {
         sideEffects.push({
           type: 'log',
           message: `${actor.name} steals ${stealAmount} coin${stealAmount === 1 ? '' : 's'} from ${target.name}.`,
+          msg: logMsg('stealResolved', { actor: actor.id, target: target.id, amount: stealAmount }),
           eventType: 'action_resolve',
           character: Character.Captain,
           actorId: actor.id,
@@ -950,7 +965,7 @@ export class ActionResolver {
         if (target.aliveInfluenceCount === 1) {
           const idx = target.influences.findIndex(inf => !inf.revealed);
           sideEffects.push({ type: 'reveal_influence', playerId: target.id, influenceIndex: idx });
-          sideEffects.push({ type: 'log', message: `${target.name} loses a card to the assassination.`, eventType: 'assassination', character: Character.Assassin, actorId: actor.id, actorName: actor.name, targetId: target.id });
+          sideEffects.push({ type: 'log', message: `${target.name} loses a card to the assassination.`, msg: logMsg('assassinationLoss', { target: target.id }), eventType: 'assassination', character: Character.Assassin, actorId: actor.id, actorName: actor.name, targetId: target.id });
           sideEffects.push({ type: 'eliminate_check', playerId: target.id });
           sideEffects.push({ type: 'win_check' });
           sideEffects.push({ type: 'advance_turn' });
@@ -958,7 +973,7 @@ export class ActionResolver {
         }
 
         // Target chooses which influence to lose
-        sideEffects.push({ type: 'log', message: `${target.name} must lose a card to the assassination.`, eventType: 'assassination', character: Character.Assassin, actorId: actor.id, actorName: actor.name, targetId: target.id });
+        sideEffects.push({ type: 'log', message: `${target.name} must lose a card to the assassination.`, msg: logMsg('assassinationPending', { target: target.id }), eventType: 'assassination', character: Character.Assassin, actorId: actor.id, actorName: actor.name, targetId: target.id });
         return {
           newPhase: TurnPhase.AwaitingInfluenceLoss,
           pendingAction,
@@ -977,7 +992,7 @@ export class ActionResolver {
         const drawnCards = game.deck.drawMultiple(drawCount);
         if (drawnCards.length === 0) {
           // Deck exhausted — resolve exchange with no new cards (player keeps current hand)
-          sideEffects.push({ type: 'log', message: `${actor.name} draws no cards. The deck is empty.`, eventType: 'exchange', character: pendingAction.claimedCharacter!, actorId: actor.id, actorName: actor.name });
+          sideEffects.push({ type: 'log', message: `${actor.name} draws no cards. The deck is empty.`, msg: logMsg('exchangeDeckEmpty', { actor: actor.id }), eventType: 'exchange', character: pendingAction.claimedCharacter!, actorId: actor.id, actorName: actor.name });
           sideEffects.push({ type: 'advance_turn' });
           return this.resolved(sideEffects);
         }
@@ -1011,6 +1026,7 @@ export class ActionResolver {
           sideEffects.push({
             type: 'log',
             message: `${actor.name} asks ${target.name} for a card to examine.`,
+            msg: logMsg('examineAsk', { actor: actor.id, target: target.id }),
             eventType: 'examine',
             character: Character.Inquisitor,
             actorId: actor.id,
@@ -1037,6 +1053,7 @@ export class ActionResolver {
         sideEffects.push({
           type: 'log',
           message: `${target.name} shows ${actor.name} a card.`,
+          msg: logMsg('examineShown', { actor: actor.id, target: target.id }),
           eventType: 'examine',
           character: Character.Inquisitor,
           actorId: actor.id,
@@ -1067,6 +1084,7 @@ export class ActionResolver {
         sideEffects.push({
           type: 'log',
           message: `${actor.name} embezzles the Treasury Reserve.`,
+          msg: logMsg('embezzled', { actor: actor.id }),
           eventType: 'embezzle',
           character: null,
           actorId: actor.id,
@@ -1118,6 +1136,7 @@ export class ActionResolver {
       sideEffects.push({
         type: 'log',
         message: `${actor.name} converts to ${newFaction} (${cost} coin to Treasury Reserve).`,
+        msg: logMsg('convertSelf', { actor: actor.id, faction: newFaction, amount: cost }),
         eventType: 'convert',
         character: null,
         actorId: actor.id,
@@ -1131,6 +1150,7 @@ export class ActionResolver {
       sideEffects.push({
         type: 'log',
         message: `${actor.name} converts ${target.name} to ${newFaction} (${cost} coins to Treasury Reserve).`,
+        msg: logMsg('convertOther', { actor: actor.id, target: target.id, faction: newFaction, amount: cost }),
         eventType: 'convert',
         character: null,
         actorId: actor.id,
@@ -1165,6 +1185,7 @@ export class ActionResolver {
     sideEffects.push({
       type: 'log',
       message: `${actor.name} claims no Duke to Embezzle the Treasury Reserve (${game.treasuryReserve} coin${game.treasuryReserve === 1 ? '' : 's'}).`,
+      msg: logMsg('embezzleClaim', { actor: actor.id, character: Character.Duke, amount: game.treasuryReserve }),
       eventType: 'claim_action',
       character: Character.Duke,
       actorId: actor.id,
@@ -1216,7 +1237,7 @@ export class ActionResolver {
     const challenged = game.getPlayer(pendingAction.actorId)!;
     const sideEffects: SideEffect[] = [
       { type: 'clear_timer' },
-      { type: 'log', message: `${challenger.name} challenges ${challenged.name}'s claim to have no Duke.`, eventType: 'challenge', character: Character.Duke, actorId: challengerId, actorName: challenger.name },
+      { type: 'log', message: `${challenger.name} challenges ${challenged.name}'s claim to have no Duke.`, msg: logMsg('embezzleChallenge', { challenger: challengerId, challenged: challenged.id, character: Character.Duke }), eventType: 'challenge', character: Character.Duke, actorId: challengerId, actorName: challenger.name },
     ];
 
     // INVERSE: if challenged player HAS Duke, challenge SUCCEEDS (they were lying)
@@ -1233,6 +1254,7 @@ export class ActionResolver {
       sideEffects.push({
         type: 'log',
         message: `${challenged.name} has Duke and must lose a card. The Embezzle fails.`,
+        msg: logMsg('embezzleChallengeSucceeded', { challenged: challenged.id, character: Character.Duke }),
         eventType: 'challenge_success',
         character: Character.Duke,
         actorId: challengerId,
@@ -1273,6 +1295,7 @@ export class ActionResolver {
       sideEffects.push({
         type: 'log',
         message: `${challenged.name} shows every hidden card and has no Duke, so those cards are replaced. ${challenger.name} must lose a card and the Embezzle goes ahead.`,
+        msg: logMsg('embezzleChallengeFailed', { challenger: challenger.id, challenged: challenged.id, character: Character.Duke }),
         eventType: 'challenge_fail',
         character: Character.Duke,
         actorId: challenged.id,
@@ -1289,6 +1312,7 @@ export class ActionResolver {
         sideEffects.push({
           type: 'log',
           message: `${challenged.name} embezzles the Treasury Reserve.`,
+          msg: logMsg('embezzled', { actor: challenged.id }),
           eventType: 'embezzle',
           character: null,
           actorId: challenged.id,
@@ -1345,6 +1369,7 @@ export class ActionResolver {
     const sideEffects: SideEffect[] = [{
       type: 'log',
       message: `${target.name} shows ${examiner.name} a card.`,
+      msg: logMsg('examineShown', { actor: examiner.id, target: target.id }),
       eventType: 'examine',
       character: Character.Inquisitor,
       actorId: examiner.id,
@@ -1398,6 +1423,7 @@ export class ActionResolver {
         sideEffects.push({
           type: 'log',
           message: `${game.getPlayer(playerId)?.name} forces ${target.name} to swap a card.`,
+          msg: logMsg('examineForceSwap', { actor: playerId, target: target.id }),
           eventType: 'examine_decision',
           character: Character.Inquisitor,
           actorId: playerId,
@@ -1409,6 +1435,7 @@ export class ActionResolver {
         sideEffects.push({
           type: 'log',
           message: `${game.getPlayer(playerId)?.name} can't force a swap with an empty deck. The card goes back.`,
+          msg: logMsg('examineSwapDeckEmpty', { actor: playerId }),
           eventType: 'examine_decision',
           character: Character.Inquisitor,
           actorId: playerId,
@@ -1420,6 +1447,7 @@ export class ActionResolver {
       sideEffects.push({
         type: 'log',
         message: `${game.getPlayer(playerId)?.name} returns ${target.name}'s card.`,
+        msg: logMsg('examineReturn', { actor: playerId, target: target.id }),
         eventType: 'examine_decision',
         character: Character.Inquisitor,
         actorId: playerId,

@@ -1,4 +1,5 @@
 import { GameLog } from '../../shared/gameLogTypes';
+import { logParamKind, type LogMessage } from '../../shared/i18n/logMessages';
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -49,6 +50,7 @@ export function anonymizeGameLog(log: GameLog): GameLog {
       actorId: seatOf(entry.actorId),
       actorName: entry.actorName ? scrub(entry.actorName) : entry.actorName,
       ...(entry.targetId !== undefined ? { targetId: seatOf(entry.targetId) } : {}),
+      ...(entry.msg ? { msg: anonymizeMsg(entry.msg, seatOf) } : {}),
     })),
     decisions: log.decisions?.map(decision => ({
       ...decision,
@@ -57,4 +59,13 @@ export function anonymizeGameLog(log: GameLog): GameLog {
       ...(decision.targetName !== undefined ? { targetName: scrub(decision.targetName) } : {}),
     })),
   };
+}
+
+/** Player params in a structured log line are ids; map them to seats like `actorId`. */
+function anonymizeMsg(msg: LogMessage, seatOf: (id: string | null | undefined) => string | null): LogMessage {
+  const params: Record<string, unknown> = {};
+  for (const [name, value] of Object.entries(msg.params)) {
+    params[name] = logParamKind(name) === 'player' && typeof value === 'string' ? seatOf(value) ?? 'unknown' : value;
+  }
+  return { key: msg.key, params } as LogMessage;
 }
