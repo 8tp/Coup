@@ -9,8 +9,10 @@ import { useGameMusic } from '../../hooks/useMusicDirector';
 import { QUICK_PLAY_BOT_COUNT } from '@/shared/constants';
 import { buildBots } from '../../utils/botFill';
 import { loadSavedPlayerName, savePlayerName } from '../../utils/playerName';
+import { getT, useT } from '../../i18n';
 
 export default function GamePage() {
+  const t = useT();
   const router = useRouter();
   const { sendChat, sendReaction, rematch, stopSpectating, leaveRoom, createRoom, addBots, startGame } = useSocket();
 
@@ -119,7 +121,7 @@ export default function GamePage() {
         useGameStore.getState().clearRoom();
       }
       setDealingNew(false);
-      useGameStore.getState().setError(e instanceof Error ? e.message : 'Could not start a game');
+      useGameStore.getState().setError(e instanceof Error ? e.message : getT()('game.newGameFailed'));
       router.push('/');
     }
   }, [addBots, clearPracticeSession, createRoom, dealingNew, handleLeaveTable, leaveRoom, router, startGame]);
@@ -127,7 +129,7 @@ export default function GamePage() {
   if (!gameState) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-400">{dealingNew ? 'Dealing…' : 'Connecting…'}</p>
+        <p className="text-gray-400">{dealingNew ? t('game.dealing') : t('game.connecting')}</p>
       </div>
     );
   }

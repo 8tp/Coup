@@ -1,6 +1,8 @@
 'use client';
 
-import { ClientGameState, TurnPhase } from '@/shared/types';
+import { Character, ClientGameState, TurnPhase } from '@/shared/types';
+import { characterName, useT } from '../../i18n';
+import { playerName } from './tableText';
 import { getSocket } from '../../hooks/useSocket';
 import { haptic } from '../../utils/haptic';
 import { usePendingAnswer } from '../../hooks/usePendingAnswer';
@@ -12,6 +14,7 @@ interface ExamineSelectionPromptProps {
 }
 
 export function ExamineSelectionPrompt({ gameState }: ExamineSelectionPromptProps) {
+  const t = useT();
   const socket = getSocket();
   const { answer } = usePendingAnswer(gameState);
   const selection = gameState.examineSelectionState;
@@ -32,10 +35,12 @@ export function ExamineSelectionPrompt({ gameState }: ExamineSelectionPromptProp
     <div className="prompt-action">
       <Timer expiresAt={gameState.timerExpiry} />
       <p className="mb-1 text-center text-lg font-bold text-white">
-        Choose a card to show {examiner?.name ?? 'the Inquisitor'}
+        {examiner
+          ? t.rich('prompts.showTo', { name: playerName(examiner.name) })
+          : t('prompts.showToInquisitor', { character: characterName(t, Character.Inquisitor) })}
       </p>
       <p className="mb-3 text-center text-xs text-gray-400">
-        Only the examiner sees it. They can return it or force you to swap it for a new card.
+        {t('prompts.showHint')}
       </p>
       <div className="flex justify-center gap-3">
         {me.influences.map((influence, influenceIndex) => {

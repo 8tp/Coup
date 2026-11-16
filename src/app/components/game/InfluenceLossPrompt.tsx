@@ -1,6 +1,9 @@
 'use client';
 
-import { ClientGameState, TurnPhase } from '@/shared/types';
+import type { ReactNode } from 'react';
+import { Character, ClientGameState, InfluenceLossRequest, TurnPhase } from '@/shared/types';
+import { characterName, useT } from '../../i18n';
+import { playerName } from './tableText';
 import { CardFace } from './CardFace';
 import { Timer } from '../ui/Timer';
 import { getSocket } from '../../hooks/useSocket';
@@ -13,23 +16,17 @@ interface InfluenceLossPromptProps {
   gameState: ClientGameState;
 }
 
-const REASON_LABELS: Record<string, string> = {
-  coup: 'You were Couped',
-  assassination: 'You were assassinated',
-  challenge_lost: 'You lost the challenge',
-  challenge_failed_defense: 'You were caught bluffing',
-  embezzle_failed: 'You were caught holding a Duke',
-};
+type LossReason = InfluenceLossRequest['reason'];
+const LOSS_REASONS: ReadonlySet<string> = new Set<LossReason>([
+  'coup', 'assassination', 'challenge_lost', 'challenge_failed_defense', 'embezzle_failed',
+]);
 
-const SPECTATOR_REASON_LABELS: Record<string, string> = {
-  coup: 'Coup',
-  assassination: 'Assassination',
-  challenge_lost: 'Lost challenge',
-  challenge_failed_defense: 'Caught bluffing',
-  embezzle_failed: 'Failed Embezzle',
-};
+function isLossReason(reason: unknown): reason is LossReason {
+  return typeof reason === 'string' && LOSS_REASONS.has(reason);
+}
 
 export function InfluenceLossPrompt({ gameState }: InfluenceLossPromptProps) {
+  const t = useT();
   const socket = getSocket();
   const { pending, answer } = usePendingAnswer(gameState);
   // A short desktop has no height to spare between the far seats and your hand.
@@ -38,13 +35,18 @@ export function InfluenceLossPrompt({ gameState }: InfluenceLossPromptProps) {
 
   if (turnPhase !== TurnPhase.AwaitingInfluenceLoss || !influenceLossRequest) return null;
 
+  const reason = isLossReason(influenceLossRequest.reason) ? influenceLossRequest.reason : null;
+
   if (influenceLossRequest.playerId !== myId) {
     const loser = gameState.players.find(p => p.id === influenceLossRequest.playerId);
-    const spectatorReason = SPECTATOR_REASON_LABELS[influenceLossRequest.reason] || 'Must lose a card';
+    const spectatorReason = reason ? t(`prompts.lossWatch.${reason}`) : t('prompts.lossWatch.default');
     return (
       <div className="prompt-info">
         <p className="text-center text-gray-300 text-sm">
-          <span className="font-bold">{loser?.name}</span> must choose a card to lose.
+          {t.rich('prompts.mustChoose', {
+            name: playerName(loser?.name),
+            b: (chunks: ReactNode) => <span className="font-bold">{chunks}</span>,
+          })}
         </p>
         <p className="text-center text-coup-ink-mute text-xs mt-1">
           {spectatorReason}
@@ -60,7 +62,11 @@ export function InfluenceLossPrompt({ gameState }: InfluenceLossPromptProps) {
     .map((inf, i) => ({ inf, index: i }))
     .filter(({ inf }) => !inf.revealed);
 
-  const reasonText = REASON_LABELS[influenceLossRequest.reason] || 'Choose a card to lose';
+  const reasonText = reason === 'embezzle_failed'
+    ? t('prompts.loss.embezzle_failed', { character: characterName(t, Character.Duke) })
+    : reason
+      ? t(`prompts.loss.${reason}`)
+      : t('prompts.loss.default');
 
   return (
     <div className="prompt-urgent">
@@ -69,7 +75,7 @@ export function InfluenceLossPrompt({ gameState }: InfluenceLossPromptProps) {
         {reasonText}
       </p>
       <p className="text-center text-gray-400 text-xs mb-3">
-        Tap a card to lose it. It turns face up.
+        {t('prompts.tapToLose')}
       </p>
       <div className="flex gap-4 justify-center">
         {unrevealed.map(({ inf, index }) => (

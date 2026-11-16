@@ -48,7 +48,12 @@ export interface ClientToServerEvents {
   'game:examine_decision': (data: { forceSwap: boolean }) => void;
 
   // Chat
-  'chat:send': (data: { message: string }) => void;
+  /**
+   * `phraseId` marks one of `QUICK_PHRASES`: the server then stores that
+   * phrase's English as `message` and passes the id on, so each reader
+   * renders it in their own language. Older clients send `message` alone.
+   */
+  'chat:send': (data: { message: string; phraseId?: string }) => void;
 
   // Reactions
   'reaction:send': (data: { reactionId: string }) => void;

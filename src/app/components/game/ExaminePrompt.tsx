@@ -6,12 +6,15 @@ import { getSocket } from '../../hooks/useSocket';
 import { haptic, hapticHeavy } from '../../utils/haptic';
 import { usePendingAnswer } from '../../hooks/usePendingAnswer';
 import { CardArtwork, CharacterCardBadge } from './CardArtwork';
+import { useT } from '../../i18n';
+import { playerName } from './tableText';
 
 interface ExaminePromptProps {
   gameState: ClientGameState;
 }
 
 export function ExaminePrompt({ gameState }: ExaminePromptProps) {
+  const t = useT();
   const socket = getSocket();
   const { pending, answer } = usePendingAnswer(gameState);
   const { examineState, turnPhase } = gameState;
@@ -34,10 +37,10 @@ export function ExaminePrompt({ gameState }: ExaminePromptProps) {
         </div>
         <div className="examine-text">
           <p className="text-white font-bold">
-            {target?.name}&apos;s card
+            {t.rich('prompts.examinedCard', { name: playerName(target?.name) })}
           </p>
           <p className="text-gray-400 text-xs">
-            Force Swap sends it to the deck and they draw a new card.
+            {t('prompts.forceSwapHint')}
           </p>
           <div className="flex gap-2 w-full">
             <button
@@ -49,7 +52,7 @@ export function ExaminePrompt({ gameState }: ExaminePromptProps) {
                 socket.emit('game:examine_decision', { forceSwap: false });
               })}
             >
-              Return
+              {t('prompts.examineReturn')}
             </button>
             <button
               className="btn-primary flex-1"
@@ -60,7 +63,7 @@ export function ExaminePrompt({ gameState }: ExaminePromptProps) {
                 socket.emit('game:examine_decision', { forceSwap: true });
               })}
             >
-              Force Swap
+              {t('prompts.forceSwap')}
             </button>
           </div>
         </div>

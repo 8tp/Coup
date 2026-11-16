@@ -79,6 +79,7 @@
  */
 
 import type { HapticName } from '../utils/haptic';
+import type { MessageKey } from '../i18n/schema';
 import { COL, type ColorIndex } from './palette';
 
 /* ── the axes ───────────────────────────────────────────────────────────── */
@@ -213,9 +214,12 @@ export interface FxFlash<T extends FxTone = FxTone> {
 
 export type FxFloatTone = 'brass' | 'crimson' | 'bone' | 'ash' | 'signed';
 
+/** A float's words, as a catalog key (`game.fx.*`), so it reads in the player's language. */
+export type FxFloatKey = Extract<MessageKey, `game.fx.${string}`>;
+
 export interface FxFloatSpec {
   /** `null` = the caller supplies the text (a coin delta, a player name). */
-  readonly text: string | null;
+  readonly text: FxFloatKey | null;
   /** `'signed'` picks brass for a gain and crimson for a loss. */
   readonly tone: FxFloatTone;
   /** 1 = the default size. A shout is 1.35 and gets the heavy outline. */
@@ -368,7 +372,7 @@ export const FX_TABLE: readonly FxRow[] = [
     trauma: 0.3,
     traumaCeiling: null,
     haptic: 'targeted',
-    float: { text: 'Caught bluffing', tone: 'crimson', scale: 1.35 },
+    float: { text: 'game.fx.caughtBluffing', tone: 'crimson', scale: 1.35 },
     why: 'Loud moment 1 of 3. Everything a bystander does not get: red, shake, buzz, and a shout.',
   },
   {
@@ -397,7 +401,7 @@ export const FX_TABLE: readonly FxRow[] = [
     trauma: 0.34,
     traumaCeiling: null,
     haptic: 'influenceLost',
-    float: { text: 'Lost a card', tone: 'crimson', scale: 1.2 },
+    float: { text: 'game.fx.lostCard', tone: 'crimson', scale: 1.2 },
     why: 'ART-DIRECTION §6 world-stopping moment 1: the only irreversible thing in this game.',
   },
   {
@@ -475,7 +479,7 @@ export const FX_TABLE: readonly FxRow[] = [
     trauma: 0.3,
     traumaCeiling: null,
     haptic: 'targeted',
-    float: { text: 'Blocked', tone: 'bone', scale: 1.35 },
+    float: { text: 'game.fx.blocked', tone: 'bone', scale: 1.35 },
     why: 'A knife stopped by a Contessa is a collision. Loud enough to feel, colourless because nobody bled.',
   },
   {
@@ -525,7 +529,7 @@ export const FX_TABLE: readonly FxRow[] = [
     trauma: 0.22,
     traumaCeiling: null,
     haptic: null,
-    float: { text: 'Eliminated', tone: 'crimson', scale: 1.35 },
+    float: { text: 'game.fx.eliminated', tone: 'crimson', scale: 1.35 },
     why: 'No second flash and no second buzz — see the header. The dust settles and the word lands.',
   },
   {

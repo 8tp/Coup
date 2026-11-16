@@ -11,7 +11,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { Character, ClientInfluence } from '@/shared/types';
-import { CHARACTER_DESCRIPTIONS } from '@/shared/constants';
+import { characterName, useT } from '../../i18n';
 import { useGameStore } from '../../stores/gameStore';
 import { CHARACTER_PALETTE, characterCardVars } from '../../utils/characterPalette';
 import { CardArtwork, CardBackArtwork, CharacterCardBadge } from './CardArtwork';
@@ -290,27 +290,30 @@ function useCardPress(enabled: boolean) {
 }
 
 function CardFaceImage({ character, variant = 'focus', priority = false }: { character: Character; variant?: 'full' | 'focus'; priority?: boolean }) {
+  const t = useT();
   return (
     <>
       <CardArtwork character={character} variant={variant} priority={priority} />
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
       <CharacterCardBadge character={character} />
-      <span className="sr-only">{character}</span>
+      <span className="sr-only">{characterName(t, character)}</span>
     </>
   );
 }
 
 function CardBackImage({ priority = false }: { priority?: boolean }) {
+  const t = useT();
   return (
     <>
       <CardBackArtwork variant="focus" priority={priority} />
       <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10" />
-      <span className="sr-only">Hidden influence</span>
+      <span className="sr-only">{t('game.card.hidden')}</span>
     </>
   );
 }
 
 function CardPreviewModal({ character, onClose }: { character: Character; onClose: () => void }) {
+  const t = useT();
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', handler);
@@ -335,15 +338,15 @@ function CardPreviewModal({ character, onClose }: { character: Character; onClos
         >
           <CardFaceImage character={character} variant="full" />
         </div>
-        <h3 className={`text-lg font-bold ${palette.text}`}>{character}</h3>
+        <h3 className={`text-lg font-bold ${palette.text}`}>{characterName(t, character)}</h3>
         <p className="text-xs text-coup-ink-mute text-center leading-relaxed">
-          {CHARACTER_DESCRIPTIONS[character]}
+          {t(`game.cardAbility.${character}`)}
         </p>
         <button
           className="mt-1 text-xs text-coup-ink-mute hover:text-coup-ink transition-colors"
           onClick={onClose}
         >
-          Close
+          {t('common.close')}
         </button>
       </div>
     </div>,
@@ -369,6 +372,7 @@ interface CardFaceProps {
 }
 
 export function CardFace({ influence, size = 'md', onClick, selected, disablePreview, priority = false, enterFrom }: CardFaceProps) {
+  const t = useT();
   const [showPreview, setShowPreview] = useState(false);
   const sizeClass = cardSizeClasses[size];
   const { flipping, flipFront, swapCue } = useCardFlip(influence);
@@ -463,10 +467,10 @@ export function CardFace({ influence, size = 'md', onClick, selected, disablePre
       <>
         <div ref={flight.ref} style={FLIGHT_TRANSFORM_STYLE} className={`card-flip-wrapper ${sizeClass}`}>
           <div
-            title={influence.character}
+            title={characterName(t, influence.character)}
             role={interactive ? 'button' : 'img'}
             tabIndex={interactive ? 0 : undefined}
-            aria-label={`Revealed ${influence.character} influence`}
+            aria-label={t('game.card.revealed', { character: characterName(t, influence.character) })}
             className={`card-face ${sizeClass} card-face-revealed
               ${canPreview ? 'is-interactive' : ''} ${pressClass} ${flipClass}`}
             style={cardVars}
@@ -493,10 +497,10 @@ export function CardFace({ influence, size = 'md', onClick, selected, disablePre
       <>
         <div ref={flight.ref} style={FLIGHT_TRANSFORM_STYLE} className={`card-flip-wrapper ${sizeClass}`}>
           <div
-            title={influence.character}
+            title={characterName(t, influence.character)}
             role={interactive ? 'button' : 'img'}
             tabIndex={interactive ? 0 : undefined}
-            aria-label={`${influence.character} influence${selected ? ', selected' : ''}`}
+            aria-label={t(selected ? 'game.card.influenceSelected' : 'game.card.influence', { character: characterName(t, influence.character) })}
             aria-pressed={interactive ? !!selected : undefined}
             className={`card-face ${sizeClass}
               ${interactive ? 'is-interactive' : ''}
@@ -523,7 +527,7 @@ export function CardFace({ influence, size = 'md', onClick, selected, disablePre
 
   return (
     <div ref={flight.ref} style={FLIGHT_TRANSFORM_STYLE} className={`card-flip-wrapper ${sizeClass}`}>
-      <div className={`card-face ${sizeClass} bg-coup-surface card-back`} role="img" aria-label="Hidden influence">
+      <div className={`card-face ${sizeClass} bg-coup-surface card-back`} role="img" aria-label={t('game.card.hidden')}>
         <CardBackImage priority={priority} />
       </div>
     </div>
