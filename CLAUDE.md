@@ -96,6 +96,12 @@ Not every turn visits every phase. Income resolves immediately. Coup skips to In
 | `src/server/RoomManager.ts` | Room lifecycle: create, join, rejoin, leave, cleanup (24h TTL), chat storage, rematch reset, bot management |
 | `src/server/SocketHandler.ts` | Socket.io event routing: validates context, delegates to engine |
 | `src/server/StateSerializer.ts` | Per-player state filtering before sending to clients |
+| `src/server/feedback.ts` | In-game feedback: validation and sanitizing, per-connection and global rate limits, PII-free context, `[feedback] {json}` log line |
+| `src/server/storage/PostgresFeedbackStorage.ts` | `coup_feedback` table (only when `DATABASE_URL` is set); `listRecent` backs `npm run feedback` |
+| `src/shared/feedbackTypes.ts` | Feedback kinds, client/room context, record and ack types |
+| `src/app/components/feedback/FeedbackForm.tsx` | Feedback form (Bug/Idea/Other, note, send states) and `FeedbackModal`; opened from Settings and the game over screen |
+| `src/app/utils/feedbackContext.ts` | Coarse client context for feedback: viewport bucket, browser and OS family |
+| `scripts/feedback.ts` | `npm run feedback -- [--limit N] [--since 7d] [--json]`: print recent feedback from Postgres |
 | `src/server/BotController.ts` | Bot timing/execution: schedules AI decisions with randomized delays, triggers bot emotes |
 | `server.ts` | Entry point: wires Express + Socket.io + Next.js |
 | `src/app/page.tsx` | Home screen UI (create/join room) |
@@ -114,7 +120,7 @@ Not every turn visits every phase. Income resolves immediately. Coup skips to In
 | `src/app/components/game/GameOverOverlay.tsx` | Game over screen with rematch flow |
 | `src/app/components/game/ReactionPicker.tsx` | Emoji reaction selector (12 reactions) |
 | `src/app/components/game/ReactionBubble.tsx` | Displays active reaction above a player seat |
-| `src/app/components/settings/SettingsModal.tsx` | Settings: sound, haptic feedback, text size, bug report/feedback links |
+| `src/app/components/settings/SettingsModal.tsx` | Settings: sound, haptic feedback, text size, in-app feedback form (plus a GitHub issues link) |
 | `src/app/components/lobby/AddBotModal.tsx` | Modal with name input + personality selector (7 personality buttons) for adding bots |
 | `src/app/components/game/ExaminePrompt.tsx` | Inquisitor examine decision UI: shows revealed card, Return or Force Swap buttons |
 | `src/app/components/icons/InquisitorIcon.tsx` | Inquisitor SVG icon (all-seeing eye, teal) |

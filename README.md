@@ -314,6 +314,16 @@ Set the build command to `npm run build` and the start command to `npm start`. T
 
 **Optional:** set `DATABASE_URL` (Postgres) to store every finished game, anonymized, and enable `GET /api/stats` with aggregate counts. Without it the server runs exactly the same and the endpoint returns 404. Usage events are also written to the log as one `[metric] {json}` line each (room created/closed, game started/finished/abandoned, bot replacements), with no names, IPs or room codes.
 
+**In-game feedback.** Players can send a bug report or idea from Settings or the game over screen, with no account. Each note is written to the log as one `[feedback] {json}` line (the text plus coarse context: screen, phone/tablet/desktop, browser and OS family, the room's random metric id, game id, turn, mode, seat counts, commit). It never carries names, IPs, socket ids or room codes. With `DATABASE_URL` set, notes are also stored in the `coup_feedback` table. To read them, newest first:
+
+```sh
+DATABASE_URL=postgres://... npm run feedback                       # latest 50
+DATABASE_URL=postgres://... npm run feedback -- --since 7d --limit 20
+DATABASE_URL=postgres://... npm run feedback -- --since 2026-11-01 --json
+```
+
+Without a database, search the server logs for `[feedback]`. There is no HTTP endpoint that returns feedback. Limits live in `src/shared/constants.ts` (`FEEDBACK_*`): 1000 characters per note, 5 notes per connection and 30 per server per 10 minutes.
+
 ## Contributing
 
 Contributions are welcome. See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for guidelines.
