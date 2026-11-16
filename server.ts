@@ -8,6 +8,7 @@ import { createGameLogStorage } from './src/server/storage/PostgresGameLogStorag
 import { createFeedbackStorage } from './src/server/storage/PostgresFeedbackStorage';
 import { FeedbackService } from './src/server/feedback';
 import type { ClientToServerEvents, ServerToClientEvents } from './src/shared/protocol';
+import { landingLocales, landingRedirect } from './src/shared/i18n/locales';
 
 const dev = process.env.NODE_ENV !== 'production';
 /** On shutdown, wait at most this long for in-flight game-log writes. */
@@ -109,6 +110,17 @@ app.prepare().then(() => {
     }
     res.setHeader('Cache-Control', 'public, max-age=60');
     res.json(stats);
+  });
+
+  // One URL per landing page (docs/I18N.md): /PT-BR and /Pt-Br → /pt-br, /en → /.
+  // Next.js would serve a prerendered page for another spelling on a
+  // case-insensitive disk, and answers the first request for an unknown
+  // spelling with a 200 before caching the redirect, so it is decided here.
+  const landing = landingLocales({ includeDev: dev });
+  server.use((req, res, next) => {
+    const target = landingRedirect(req.path, landing);
+    if (!target) { next(); return; }
+    res.redirect(308, target + req.url.slice(req.path.length));
   });
 
   // Let Next.js handle all other routes
