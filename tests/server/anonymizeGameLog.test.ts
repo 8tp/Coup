@@ -51,4 +51,21 @@ describe('anonymizeGameLog', () => {
       }
     }
   });
+
+  it('scrubs names whose capitals have no simple case folding (Turkish dotted İ)', () => {
+    const names = ['İbrahim', 'İLKER'];
+    const engine = new GameEngine('ANON', 15000, 0);
+    engine.startGame(names.map((name, i) => ({ id: `uuid-${i}`, name })));
+    const [a] = engine.game.players;
+    engine.game.currentPlayerIndex = 0;
+    expect(engine.handleAction(a.id, ActionType.Income)).toBeNull();
+
+    const roomPlayers = names.map((name, i) => ({ id: `uuid-${i}`, name, socketId: `s-${i}`, connected: true })) as RoomPlayer[];
+    const stored = anonymizeGameLog(GameLogger.buildGameLog(engine, roomPlayers, 'online'));
+    engine.destroy();
+
+    const json = JSON.stringify(stored);
+    for (const name of names) expect(json).not.toContain(name);
+    expect(stored.actionLog.some(e => e.message.startsWith('Player 1 takes Income'))).toBe(true);
+  });
 });
