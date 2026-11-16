@@ -1,6 +1,70 @@
 import type { NamespaceTranslation } from '../../schema';
 
-/** pt-BR `rules`: untranslated keys fall back to English. */
-const rules: NamespaceTranslation<'rules'> = {};
+/** pt-BR `rules`. */
+const rules: NamespaceTranslation<'rules'> = {
+  title: 'Como jogar',
+
+  'tab.overview': 'Resumo',
+  'tab.characters': 'Personagens',
+  'tab.rules': 'Ações e regras',
+
+  'overview.whatIsHeading': 'O que é Coup',
+  'overview.whatIs': 'Coup é um jogo de blefe para {minPlayers} a {maxPlayers} jogadores. Todo mundo começa com duas cartas viradas para baixo, chamadas de influência, e {startingCoins, plural, =0 {# moedas} one {# moeda} other {# moedas}}. Vence quem ficar por último com uma carta virada para baixo.',
+  'overview.goalHeading': 'Objetivo',
+  'overview.goal': 'Faça todos os outros perderem a influência. Quando você perde uma influência, vira uma das suas cartas para cima. Perdeu as duas, está fora.',
+  'overview.flowHeading': 'Como funciona',
+  'overview.flow1': 'Na sua vez, faça uma ação. Algumas ações alegam um personagem.',
+  'overview.flow2': 'Qualquer outro jogador pode <term>contestar</term> uma alegação. Se você estava blefando, perde uma influência. Se não estava, quem contestou perde uma.',
+  'overview.flow3': 'Algumas ações podem ser <term>bloqueadas</term> alegando o personagem que as impede. Quem fez a ação pode contestar o bloqueio.',
+  'overview.flow4': 'Se ninguém contestar nem bloquear, a ação acontece.',
+  'overview.bluffHeading': 'Blefe',
+  'overview.bluff': 'Você pode alegar qualquer personagem, seja qual for a sua mão. Uma alegação só custa caro se alguém contestar e você estiver mentindo.',
+  'overview.creditsHeading': 'Sobre o jogo original',
+  'overview.credits': 'Coup é um jogo de cartas criado por <term>{designer}</term> e publicado originalmente em 2012 pela <term>{publisher1}</term> e pela <term>{publisher2}</term>. Esta é uma adaptação feita por fãs. Se você gostar, apoie os criadores <link>comprando o jogo físico</link>.',
+
+  'character.Duke': '{tax}: pegue {taxCoins, plural, =0 {# moedas} one {# moeda} other {# moedas}}. Bloqueia {foreignAid}.',
+  'character.Assassin': '{assassinate}: pague {assassinateCost, plural, =0 {# moedas} one {# moeda} other {# moedas}}. O alvo perde uma carta.',
+  'character.Captain': '{steal}: pegue {stealCoins, plural, =0 {# moedas} one {# moeda} other {# moedas}} do alvo. Bloqueia {steal}.',
+  'character.Ambassador': '{exchange}: compre {exchangeDraw}, devolva {exchangeDraw}. Bloqueia {steal}.',
+  'character.Contessa': 'Bloqueia o assassinato.',
+  'character.Inquisitor': '{exchange}: compre {inquisitorDraw}, devolva {inquisitorDraw}. {examine}: olhe uma carta de um adversário. Bloqueia {steal}.',
+
+  actionsHeading: 'Ações',
+  'table.action': 'Ação',
+  'table.cost': 'Custo',
+  'table.effect': 'Efeito',
+  'table.claims': 'Alega',
+  'table.blockedBy': 'Bloqueada por',
+  'effect.gain': '+{amount, plural, =0 {# moedas} one {# moeda} other {# moedas}}',
+  'effect.loseInfluence': 'O alvo perde influência',
+  'effect.steal': 'Pega {stealCoins, plural, =0 {# moedas} one {# moeda} other {# moedas}} do alvo',
+  'effect.exchange': 'Compra {exchangeDraw} e escolhe o que manter',
+  'table.pair': '{first}, {second}',
+  challengeHeading: 'Contestação',
+  challenge: 'Qualquer jogador pode contestar uma alegação, seja de uma ação ou de um bloqueio. Se quem alegou tem a carta, mostra a carta, embaralha no baralho e compra outra, e quem contestou perde uma influência. Se não tem, quem alegou perde uma influência.',
+  blockHeading: 'Bloqueio',
+  block: 'Algumas ações podem ser bloqueadas alegando o personagem que as impede. Um bloqueio é uma alegação, então pode ser contestado, e você pode blefar.',
+  forcedHeading: '{coup} obrigatório',
+  forced: 'Se você começar a sua vez com {forcedCoup, plural, =0 {# moedas ou mais} one {# moeda ou mais} other {# moedas ou mais}}, precisa dar um {coup}.',
+
+  'reformation.whatIsHeading': 'O que é a {reformation}',
+  'reformation.whatIs': 'A {reformation} é uma expansão que traz facções, três ações ({convert}, {embezzle} e {examine}) e o <inq>{inquisitor}</inq>. Ative nas configurações da sala antes de a partida começar.',
+  'reformation.quickStartHeading': 'Para começar',
+  'reformation.quick1': 'Confira as marcas de facção antes de escolher um alvo: <loy>{loyalistMark}</loy> e <ref>{reformistMark}</ref>.',
+  'reformation.quick2': 'Use {convert} para liberar um alvo, salvar um aliado ou pôr moedas na reserva.',
+  'reformation.quick3': 'Só use {embezzle} quando a reserva valer o risco de uma contestação.',
+  'reformation.quick4': 'Com o {inquisitor}, {exchange} compra {inquisitorDraw, plural, =0 {# cartas} one {# carta} other {# cartas}} em vez de {exchangeDraw}, e {examine} mostra a você uma carta de outro jogador.',
+  markLoyalist: '▲ LEA',
+  markReformist: '◆ REF',
+  'reformation.openWalkthrough': 'Abrir o passo a passo',
+  'reformation.factionsHeading': 'Facções',
+  'reformation.factions': 'Cada jogador é <loy>▲ {loyalist}</loy> ou <ref>◆ {reformist}</ref>. Você não pode usar {coup}, {assassinate}, {steal} nem {examine} contra alguém da sua facção. Quando todos os jogadores que restam são da mesma facção, qualquer um pode ser alvo. Enquanto as duas facções existirem, só a outra facção pode bloquear a sua {foreignAid}.',
+  'reformation.newActionsHeading': 'Ações novas',
+  'reformation.convert': '<name>{convert}:</name> pague {convertSelfCost, plural, =0 {# moedas} one {# moeda} other {# moedas}} para mudar a sua facção, ou {convertOtherCost, plural, =0 {# moedas} one {# moeda} other {# moedas}} para mudar a de outro jogador. As moedas vão para a {reserve}. Ninguém pode contestar nem bloquear.',
+  'reformation.embezzle': '<name>{embezzle}:</name> pegue todas as moedas da {reserve} alegando que você não tem o {duke}. A contestação funciona ao contrário: quem contesta ganha se você tiver o {duke}.',
+  'reformation.examine': '<inq>{examine}:</inq> alegue o {inquisitor}. O alvo escolhe uma das cartas viradas para baixo e mostra a você. Depois você devolve a carta ou obriga o alvo a trocá-la por uma carta qualquer do baralho.',
+  'reformation.inquisitor': 'Substitui o {ambassador} quando está ativado. O {inquisitor} pode usar {exchange} (comprando {inquisitorDraw, plural, =0 {# cartas} one {# carta} other {# cartas}} em vez de {exchangeDraw}), usar {examine} na carta de outro jogador e bloquear {steal}, como o {captain}.',
+  'reformation.reserve': 'Um monte de moedas separado do tesouro. Os pagamentos de {convert} entram nele, e {embezzle} tira tudo de uma vez.',
+};
 
 export default rules;
