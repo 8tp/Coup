@@ -136,6 +136,13 @@ describe('RoomManager with names and chat in other scripts', () => {
     expect(manager.joinRoom(room.code, 'ＢＯＢ', 's2')).toEqual({ error: 'Name already taken in this room' });
   });
 
+  it('refuses a look-alike name that differs only by a joiner validateName kept', () => {
+    const { room } = manager.createRoom('Bob', 's1');
+    const lookAlike = validateName('B‍ob');
+    expect(lookAlike).toEqual({ valid: true, sanitized: 'B‍ob' });
+    expect(manager.joinRoom(room.code, 'B‍ob', 's2')).toEqual({ error: 'Name already taken in this room' });
+  });
+
   it('keeps a long Hindi chat message that is within the limit in characters', () => {
     const { room, playerId } = manager.createRoom('प्रिया', 's1');
     const hindi = 'नमस्ते '.repeat(45).trim();

@@ -26,4 +26,12 @@ describe('textLimits', () => {
     expect(nameKey('Nguyễn')).toBe(nameKey('NGUYỄN'));
     expect(nameKey('李小龙')).not.toBe(nameKey('李小虎'));
   });
+
+  it('ignores the invisible joiners a name may keep, so they cannot make a look-alike', () => {
+    // validateName keeps one ZWJ/ZWNJ between two visible characters (Indic
+    // half forms, emoji sequences), so "B<ZWJ>ob" passes it and renders as "Bob".
+    expect(nameKey('B‍ob')).toBe(nameKey('Bob'));
+    expect(nameKey('Bo‌b')).toBe(nameKey('bob'));
+    expect(nameKey('Bob️')).toBe(nameKey('Bob'));
+  });
 });

@@ -291,6 +291,26 @@ describe('Block declared during the action challenge window', () => {
       expect(engine.game.getPlayer('p2')!.isAlive).toBe(false);
     });
 
+    it('a one-card target caught bluffing Contessa is out once, with no assassination after', () => {
+      const engine = assassinate();
+      engine.game.getPlayer('p2')!.influences = [
+        { character: Character.Duke, revealed: true },
+        { character: Character.Captain, revealed: false },
+      ];
+      engine.handleBlock('p2', Character.Contessa);
+      engine.handlePassChallenge('p3');
+      engine.handleChallengeBlock('p1');
+
+      expect(engine.game.getPlayer('p2')!.isAlive).toBe(false);
+      const p2Lines = engine.game.actionLog.filter(e => e.actorId === 'p2' || e.targetId === 'p2').map(e => e.eventType);
+      expect(p2Lines.filter(t => t === 'elimination')).toHaveLength(1);
+      // The caught bluff took the last card; nothing is left to assassinate.
+      expect(p2Lines).not.toContain('assassination');
+      // The turn moves on to p3.
+      expect(engine.game.turnPhase).toBe(TurnPhase.AwaitingAction);
+      expect(engine.game.currentPlayer.id).toBe('p3');
+    });
+
     it('Captain cannot be declared against an Assassinate', () => {
       const engine = assassinate();
       expect(engine.handleBlock('p2', Character.Captain)).toBe('Captain cannot block Assassinate');

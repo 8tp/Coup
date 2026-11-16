@@ -47,9 +47,17 @@ export function clampToGraphemes(text: string, max: number): string {
 }
 
 /**
- * The form two names are compared in: compatibility-normalised and
- * lower-cased, so "Bob", "BOB" and fullwidth "Ｂｏｂ" are one name in a room.
+ * Invisible characters a name may keep (src/server/ContentFilter.ts): ZWNJ
+ * and ZWJ shape Indic text and emoji, VS15/VS16 pick an emoji's style. None
+ * of them makes two names look different, so comparison ignores them.
+ */
+const INVISIBLE_IN_NAMES = /[‌‍︎️]/g;
+
+/**
+ * The form two names are compared in: compatibility-normalised, lower-cased
+ * and without the invisible joiners, so "Bob", "BOB", fullwidth "Ｂｏｂ" and
+ * "B<ZWJ>ob" are one name in a room.
  */
 export function nameKey(name: string): string {
-  return name.normalize('NFKC').toLowerCase();
+  return name.normalize('NFKC').replace(INVISIBLE_IN_NAMES, '').toLowerCase();
 }
