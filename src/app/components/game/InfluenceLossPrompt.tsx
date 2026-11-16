@@ -6,6 +6,8 @@ import { Timer } from '../ui/Timer';
 import { getSocket } from '../../hooks/useSocket';
 import { hapticHeavy } from '../../utils/haptic';
 import { usePendingAnswer } from '../../hooks/usePendingAnswer';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { SHORT_DESKTOP_QUERY } from './table/seatLayout';
 
 interface InfluenceLossPromptProps {
   gameState: ClientGameState;
@@ -30,6 +32,8 @@ const SPECTATOR_REASON_LABELS: Record<string, string> = {
 export function InfluenceLossPrompt({ gameState }: InfluenceLossPromptProps) {
   const socket = getSocket();
   const { pending, answer } = usePendingAnswer(gameState);
+  // A short desktop has no height to spare between the far seats and your hand.
+  const shortDesktop = useMediaQuery(SHORT_DESKTOP_QUERY);
   const { turnPhase, influenceLossRequest, myId } = gameState;
 
   if (turnPhase !== TurnPhase.AwaitingInfluenceLoss || !influenceLossRequest) return null;
@@ -76,7 +80,7 @@ export function InfluenceLossPrompt({ gameState }: InfluenceLossPromptProps) {
             aria-busy={pending === `lose:${index}` || undefined}
             onClick={() => answer(`lose:${index}`, () => { hapticHeavy(); socket.emit('game:choose_influence_loss', { influenceIndex: index }); })}
           >
-            <CardFace influence={inf} size="lg" disablePreview priority />
+            <CardFace influence={inf} size={shortDesktop ? 'md' : 'lg'} disablePreview priority />
           </button>
         ))}
       </div>

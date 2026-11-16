@@ -3,10 +3,14 @@
 import { Character, ClientGameState, GameMode, TurnPhase, ActionType } from '@/shared/types';
 import { ACTION_DEFINITIONS, ACTION_DISPLAY_NAMES } from '@/shared/constants';
 import { CHARACTER_SVG_ICONS } from '../icons';
+import { formatNames, remainingBlockNames } from './PhaseStatus';
 import { Timer } from '../ui/Timer';
 import { getSocket } from '../../hooks/useSocket';
 import { haptic } from '../../utils/haptic';
 import { usePendingAnswer } from '../../hooks/usePendingAnswer';
+
+/** What a Steal takes, at most. Mirrors `Math.min(2, target.coins)` in ActionResolver. */
+const STEAL_AMOUNT = 2;
 
 interface BlockPromptProps {
   gameState: ClientGameState;
@@ -45,10 +49,12 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
   if (pendingAction.targetId && pendingAction.targetId !== myId) {
     return (
       <div className="prompt-info">
-        <p className="text-center text-gray-400 text-sm">
+        <p className="prompt-claim text-center text-gray-300 text-sm mb-1">
           <span className="font-bold">{actor?.name}</span> uses {ACTION_DISPLAY_NAMES[pendingAction.type]} on{' '}
           <span className="font-bold">{target?.name}</span>.
-          Waiting for their response.
+        </p>
+        <p className="text-center text-gray-400 text-sm">
+          Waiting for <span className="font-bold text-gray-300">{target?.name}</span> to block or allow.
         </p>
         <Timer expiresAt={gameState.timerExpiry} />
       </div>
@@ -79,9 +85,12 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
 
   // Already passed check
   if (gameState.blockPassedPlayerIds?.includes(myId)) {
+    const waitingOn = remainingBlockNames(gameState);
     return (
       <div className="prompt-info">
-        <p className="text-center text-gray-400 text-sm">You passed. Waiting for the others.</p>
+        <p className="text-center text-gray-400 text-sm">
+          {waitingOn.length > 0 ? <>You passed. Waiting for {formatNames(waitingOn)}.</> : 'You passed.'}
+        </p>
         <Timer expiresAt={gameState.timerExpiry} />
       </div>
     );
@@ -94,6 +103,9 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
 
   const wrapperClass = isAssassination ? 'prompt-urgent' : 'prompt-action';
 
+  /* `headline` is the claim, for a phone (see ChallengePrompt). `subtext` is
+     what blocking or allowing costs you, and it has to stand on its own on the
+     desktop table, where the plaque states the claim and the headline is hidden. */
   let headline: string;
   let subtext: string;
 
@@ -101,12 +113,14 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
     headline = `${actor?.name} is assassinating you`;
     subtext = 'Block with Contessa or lose a card. You can claim Contessa without holding one.';
   } else if (isStealing) {
-    headline = `${actor?.name} is stealing 2 of your coins`;
+    const taken = Math.min(STEAL_AMOUNT, me.coins);
+    const coins = taken === 1 ? 'your coin' : `${taken} of your coins`;
+    headline = `${actor?.name} is stealing ${coins}`;
     const blocker = gameState.useInquisitor ? 'Captain or Inquisitor' : 'Captain or Ambassador';
-    subtext = `Block with ${blocker} to keep them. You can claim either without holding it.`;
+    subtext = `Block with ${blocker} to keep ${coins}. You can claim either without holding it.`;
   } else if (isForeignAid) {
     headline = `${actor?.name} is taking Foreign Aid (+2 coins)`;
-    subtext = 'Claim Duke to stop them taking the coins. You can claim Duke without holding one.';
+    subtext = 'Claim Duke to stop them taking 2 coins. You can claim Duke without holding one.';
   } else {
     headline = `${actor?.name} uses ${ACTION_DISPLAY_NAMES[pendingAction.type]}`;
     subtext = 'You can block it.';
@@ -114,14 +128,14 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
 
   return (
     <div className={wrapperClass}>
-      <p className={`text-center font-bold text-lg mb-1 ${isAssassination ? 'text-red-300' : 'text-white'}`}>
+      <p className={`prompt-claim text-center font-bold text-lg mb-1 ${isAssassination ? 'text-red-300' : 'text-white'}`}>
         {headline}
       </p>
-      <p className="text-center text-gray-400 text-xs mb-2">
+      <p className="prompt-hint text-center text-gray-400 text-xs mb-2">
         {subtext}
       </p>
       <Timer expiresAt={gameState.timerExpiry} />
-      <div className="flex flex-col gap-2 mt-3">
+      <div className="block-choices flex flex-col gap-2 mt-3">
         {def.blockedBy
           .filter(char => {
             // Hide Ambassador in Inquisitor mode and vice versa
@@ -133,7 +147,7 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
           return (
             <button
               key={char}
-              className="btn-primary w-full flex items-center justify-center gap-2"
+              className="block-choice btn-primary w-full flex items-center justify-center gap-2"
               data-pending={pending === `block:${char}` || undefined}
               aria-busy={pending === `block:${char}` || undefined}
               onClick={() => answer(`block:${char}`, () => { haptic(80); socket.emit('game:block', { character: char }); })}
@@ -144,7 +158,7 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
           );
         })}
         <button
-          className="btn-secondary w-full"
+          className="block-allow btn-secondary w-full"
           data-pending={pending === 'pass' || undefined}
           aria-busy={pending === 'pass' || undefined}
           onClick={() => answer('pass', () => { haptic(80); socket.emit('game:pass_block'); })}

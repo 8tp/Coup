@@ -8,6 +8,7 @@ import { getSocket } from '../../hooks/useSocket';
 import { haptic, hapticHeavy } from '../../utils/haptic';
 import { blockHint, canBlockDuringChallenge, visibleBlockCharacters } from '../../utils/blockOptions';
 import { usePendingAnswer } from '../../hooks/usePendingAnswer';
+import { formatNames, remainingChallengeNames } from './PhaseStatus';
 
 interface ChallengePromptProps {
   gameState: ClientGameState;
@@ -66,6 +67,13 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
     ? gameState.players.find(p => p.id === pendingAction.targetId)
     : null;
   const actionName = ACTION_DISPLAY_NAMES[pendingAction.type];
+  const waitingOn = formatNames(remainingChallengeNames(gameState, pendingAction.actorId));
+
+  /* `.prompt-claim` restates the claim for a phone, where this prompt sits in
+     the bottom sheet and can cover the plaque. On the desktop table the plaque
+     sits right above the prompt, so globals.css hides the line there and the
+     prompt carries only what you need to decide: the hint, the timer and the
+     buttons. */
 
   // A block the target has already declared, shown to everyone else.
   const declared = pendingAction.declaredBlock;
@@ -81,14 +89,14 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
     const isMyEmbezzle = pendingAction.type === ActionType.Embezzle;
     return (
       <div className="prompt-info">
-        <p className="text-center text-gray-300 mb-1">
+        <p className="prompt-claim text-center text-gray-300 mb-1">
           {isMyEmbezzle
             ? <>You claimed <span className="text-coup-accent font-bold">no Duke</span> to Embezzle</>
             : <>You claimed <span className="text-coup-accent font-bold">{pendingAction.claimedCharacter}</span> to {actionName}
               {target && <> on <span className="font-bold">{target.name}</span></>}</>
           }
         </p>
-        <p className="text-center text-coup-ink-mute text-xs">Waiting for the others to challenge or pass.</p>
+        <p className="text-center text-coup-ink-mute text-sm">Waiting for {waitingOn} to challenge or pass.</p>
         {declaredNote}
         <Timer expiresAt={gameState.timerExpiry} />
       </div>
@@ -102,7 +110,7 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
         <p className="text-center text-gray-300 text-sm">
           You&apos;ll block with <span className="text-coup-accent font-bold">{declared.claimedCharacter}</span> if the {actionName} goes ahead.
         </p>
-        <p className="text-center text-coup-ink-mute text-xs">Waiting for the others.</p>
+        <p className="text-center text-coup-ink-mute text-xs">Waiting for {waitingOn}.</p>
         <Timer expiresAt={gameState.timerExpiry} />
       </div>
     );
@@ -120,7 +128,7 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
           <p className="text-center text-gray-300 text-sm mb-1">
             You passed on the challenge. You can still block.
           </p>
-          <p className="text-center text-gray-400 text-xs mb-2">{blockHint(pendingAction.type, blockers)}</p>
+          <p className="prompt-hint text-center text-gray-400 text-xs mb-2">{blockHint(pendingAction.type, blockers)}</p>
           <Timer expiresAt={gameState.timerExpiry} />
           <BlockButtons characters={blockers} pending={pending} answer={answer} />
         </div>
@@ -129,7 +137,7 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
     return (
       <div className="prompt-info">
         <p className="text-center text-gray-400 text-sm">
-          You passed. Waiting for the others.
+          You passed. Waiting for {waitingOn}.
         </p>
         {declaredNote}
         <Timer expiresAt={gameState.timerExpiry} />
@@ -162,13 +170,13 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
   if (canBlock) {
     return (
       <div className={isAssassination ? 'prompt-urgent' : 'prompt-action'}>
-        <p className={`text-center font-bold mb-1 ${isAssassination ? 'text-red-300' : 'text-white'}`}>
+        <p className={`prompt-claim text-center font-bold mb-1 ${isAssassination ? 'text-red-300' : 'text-white'}`}>
           {actor?.name} claims {pendingAction.claimedCharacter} to {aimedAtYou(pendingAction)}
         </p>
-        <p className="text-center text-gray-400 text-xs mb-2">{blockHint(pendingAction.type, blockers)}</p>
+        <p className="prompt-hint text-center text-gray-400 text-xs mb-2">{blockHint(pendingAction.type, blockers)}</p>
         <Timer expiresAt={gameState.timerExpiry} />
         <BlockButtons characters={blockers} pending={pending} answer={answer} />
-        <p className="text-center text-gray-400 text-xs mt-3">
+        <p className="prompt-hint text-center text-gray-400 text-xs mt-3">
           Challenge if you think they&apos;re bluffing. If they aren&apos;t, you lose a card.
         </p>
         {challengeButtons}
@@ -181,15 +189,15 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
   const actionDesc = isEmbezzle
     ? `${actor?.name} claims no Duke to Embezzle`
     : target
-      ? `${actor?.name} claims ${pendingAction.claimedCharacter} to ${actionName} ${target.id === myId ? 'you' : target.name}`
+      ? `${actor?.name} claims ${pendingAction.claimedCharacter} to ${actionName} ${pendingAction.type === ActionType.Steal ? 'from ' : ''}${target.id === myId ? 'you' : target.name}`
       : `${actor?.name} claims ${pendingAction.claimedCharacter} to ${actionName}`;
 
   return (
     <div className="prompt-action">
-      <p className="text-center text-white font-bold mb-1">
+      <p className="prompt-claim text-center text-white font-bold mb-1">
         {actionDesc}
       </p>
-      <p className="text-center text-gray-400 text-xs mb-2">
+      <p className="prompt-hint text-center text-gray-400 text-xs mb-2">
         {isEmbezzle
           ? "Challenge if you think they have a Duke. If they don't, you lose a card."
           : "Challenge if you think they're bluffing. If they aren't, you lose a card."}

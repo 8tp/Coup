@@ -23,42 +23,47 @@ export function ExaminePrompt({ gameState }: ExaminePromptProps) {
   return (
     <div className="prompt-action">
       <Timer expiresAt={gameState.timerExpiry} />
-      <p className="text-center text-white font-bold mb-2">
-        {target?.name}&apos;s card
-      </p>
-      <div className="flex justify-center mb-3">
-        <div className="relative h-32 w-24 overflow-hidden rounded-xl border-2 border-teal-500 bg-teal-900/40">
+      {/* One column on a phone. In the middle of the desktop table the card
+          sits beside the words and the buttons (globals.css), so the prompt
+          fits between the far seats and your hand on a 720px laptop. */}
+      <div className="examine-body">
+        <div className="examine-card relative h-32 w-24 overflow-hidden rounded-xl border-2 border-teal-500 bg-teal-900/40">
           <CardArtwork character={examineState.revealedCard} variant="focus" priority />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20" />
           <CharacterCardBadge character={examineState.revealedCard} />
         </div>
-      </div>
-      <p className="text-center text-gray-400 text-xs mb-3">
-        Force Swap sends it to the deck and they draw a new card.
-      </p>
-      <div className="flex gap-2">
-        <button
-          className="btn-secondary flex-1"
-          data-pending={pending === 'return' || undefined}
-          aria-busy={pending === 'return' || undefined}
-          onClick={() => answer('return', () => {
-            haptic(80);
-            socket.emit('game:examine_decision', { forceSwap: false });
-          })}
-        >
-          Return
-        </button>
-        <button
-          className="btn-primary flex-1"
-          data-pending={pending === 'swap' || undefined}
-          aria-busy={pending === 'swap' || undefined}
-          onClick={() => answer('swap', () => {
-            hapticHeavy();
-            socket.emit('game:examine_decision', { forceSwap: true });
-          })}
-        >
-          Force Swap
-        </button>
+        <div className="examine-text">
+          <p className="text-white font-bold">
+            {target?.name}&apos;s card
+          </p>
+          <p className="text-gray-400 text-xs">
+            Force Swap sends it to the deck and they draw a new card.
+          </p>
+          <div className="flex gap-2 w-full">
+            <button
+              className="btn-secondary flex-1"
+              data-pending={pending === 'return' || undefined}
+              aria-busy={pending === 'return' || undefined}
+              onClick={() => answer('return', () => {
+                haptic(80);
+                socket.emit('game:examine_decision', { forceSwap: false });
+              })}
+            >
+              Return
+            </button>
+            <button
+              className="btn-primary flex-1"
+              data-pending={pending === 'swap' || undefined}
+              aria-busy={pending === 'swap' || undefined}
+              onClick={() => answer('swap', () => {
+                hapticHeavy();
+                socket.emit('game:examine_decision', { forceSwap: true });
+              })}
+            >
+              Force Swap
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

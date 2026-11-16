@@ -681,6 +681,11 @@ interface GameTableProps {
   isPracticeRoom?: boolean;
   onExitPractice?: () => void;
   onStopSpectating?: () => void;
+  /** A knocked-out player leaves the table (WaitingView). */
+  onLeaveTable?: () => void;
+  /** A knocked-out player, alone with bots, deals a new Play vs Bots game. */
+  onNewGame?: () => void;
+  newGamePending?: boolean;
 }
 
 /** Per-player mute for chat and reactions, as a list of 44px toggles. On touch
@@ -720,7 +725,7 @@ function DrawerMuteList({ players }: { players: ClientPlayerState[] }) {
   );
 }
 
-export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction, isHost, onRematch, isSpectator, isPracticeRoom, onExitPractice, onStopSpectating }: GameTableProps) {
+export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction, isHost, onRematch, isSpectator, isPracticeRoom, onExitPractice, onStopSpectating, onLeaveTable, onNewGame, newGamePending }: GameTableProps) {
   useSoundEffects();
   useHapticFeedback();
   // Deliberately AFTER useHapticFeedback: that hook picks the single
@@ -1003,7 +1008,6 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
       <ExchangeView gameState={gameState} />
       <ExamineSelectionPrompt gameState={gameState} />
       <ExaminePrompt gameState={gameState} />
-      {!promptsInDock && <WaitingView gameState={gameState} />}
     </div>
   );
   const angles = seatAngles(opponents.length, compactTable);
@@ -1198,6 +1202,7 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
           <div className="court-dock-actions" data-coach-anchor="dock">
             {promptsInDock && promptStack}
             <ActionBar gameState={gameState} />
+            <WaitingView gameState={gameState} onLeave={onLeaveTable} onNewGame={onNewGame} busy={newGamePending} />
           </div>
         )}
       </div>
