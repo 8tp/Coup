@@ -5,6 +5,7 @@ import { ClientGameState, TurnPhase } from '@/shared/types';
 import { Timer } from '../ui/Timer';
 import { getSocket } from '../../hooks/useSocket';
 import { haptic } from '../../utils/haptic';
+import { usePendingAnswer } from '../../hooks/usePendingAnswer';
 import { characterCardVars } from '../../utils/characterPalette';
 import { CardArtwork, CharacterCardBadge } from './CardArtwork';
 import { getSoundEngine } from '../../audio/SoundEngine';
@@ -42,6 +43,7 @@ function playSwapLanding(): void {
 
 export function ExchangeView({ gameState }: ExchangeViewProps) {
   const socket = getSocket();
+  const { pending: pendingAnswer, answer } = usePendingAnswer(gameState);
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const { turnPhase, exchangeState } = gameState;
   const prevTurnRef = useRef(gameState.turnNumber);
@@ -192,8 +194,10 @@ export function ExchangeView({ gameState }: ExchangeViewProps) {
   };
 
   const handleConfirm = () => {
-    haptic(80);
-    socket.emit('game:choose_exchange', { keepIndices: selectedIndices });
+    answer('keep', () => {
+      haptic(80);
+      socket.emit('game:choose_exchange', { keepIndices: selectedIndices });
+    });
   };
 
   return (
@@ -240,6 +244,8 @@ export function ExchangeView({ gameState }: ExchangeViewProps) {
       <button
         className="btn-primary w-full"
         disabled={selectedIndices.length !== keepCount}
+        data-pending={pendingAnswer === 'keep' || undefined}
+        aria-busy={pendingAnswer === 'keep' || undefined}
         onClick={handleConfirm}
       >
         Keep selected ({selectedIndices.length}/{keepCount})

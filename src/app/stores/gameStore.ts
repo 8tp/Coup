@@ -2,6 +2,10 @@
 
 import { create } from 'zustand';
 import { ChallengeRevealEvent, ChatMessage, ClientGameState, ClientRoomPlayer, ClientSpectator, PublicRoomInfo, RoomSettings, TargetingPublication } from '@/shared/types';
+import { PENDING_ANSWER_TIMEOUT_MS } from '@/shared/constants';
+import { activePendingAnswer, type PendingAnswer } from '../utils/pendingAnswer';
+
+let pendingAnswerTimer: ReturnType<typeof setTimeout> | null = null;
 
 interface GameStore {
   // Connection state
@@ -46,6 +50,10 @@ interface GameStore {
   targeting: TargetingPublication | null;
   setTargeting: (targeting: TargetingPublication | null) => void;
 
+  /** An answer sent to the server and not yet answered. See utils/pendingAnswer.ts. */
+  pendingAnswer: PendingAnswer | null;
+  setPendingAnswer: (answer: PendingAnswer | null) => void;
+
   // Chat state
   chatMessages: ChatMessage[];
   addChatMessage: (msg: ChatMessage) => void;
@@ -80,7 +88,7 @@ interface GameStore {
   setError: (error: string | null) => void;
 }
 
-export const useGameStore = create<GameStore>((set) => ({
+export const useGameStore = create<GameStore>((set, get) => ({
   connected: false,
   reconnecting: false,
   setConnected: (connected) => set({ connected }),
@@ -116,6 +124,7 @@ export const useGameStore = create<GameStore>((set) => ({
     isSpectator: false,
     gameState: null,
     targeting: null,
+    pendingAnswer: null,
     chatMessages: [],
     mutedPlayerIds: [],
     challengeReveal: null,
@@ -123,10 +132,29 @@ export const useGameStore = create<GameStore>((set) => ({
   }),
 
   gameState: null,
-  setGameState: (state) => set({ gameState: state }),
+  // A new state from the server releases a pending answer once it has moved the
+  // decision on. Another player's pass in the same window does not.
+  setGameState: (state) => set((s) => ({
+    gameState: state,
+    pendingAnswer: activePendingAnswer(s.pendingAnswer, state),
+  })),
 
   targeting: null,
   setTargeting: (targeting) => set({ targeting }),
+
+  pendingAnswer: null,
+  setPendingAnswer: (answer) => {
+    if (pendingAnswerTimer) clearTimeout(pendingAnswerTimer);
+    pendingAnswerTimer = null;
+    if (answer) {
+      // A reply that never comes (a dropped connection) must not leave the prompt stuck.
+      pendingAnswerTimer = setTimeout(() => {
+        pendingAnswerTimer = null;
+        if (get().pendingAnswer === answer) set({ pendingAnswer: null });
+      }, PENDING_ANSWER_TIMEOUT_MS);
+    }
+    set({ pendingAnswer: answer });
+  },
 
   chatMessages: [],
   addChatMessage: (msg) => set((s) => ({ chatMessages: [...s.chatMessages, msg] })),
@@ -173,5 +201,6 @@ export const useGameStore = create<GameStore>((set) => ({
   },
 
   error: null,
-  setError: (error) => set({ error }),
+  // A server refusal is the reply to a pending answer: release it so the player can answer again.
+  setError: (error) => set(error ? { error, pendingAnswer: null } : { error }),
 }));

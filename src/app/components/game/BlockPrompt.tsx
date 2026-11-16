@@ -6,6 +6,7 @@ import { CHARACTER_SVG_ICONS } from '../icons';
 import { Timer } from '../ui/Timer';
 import { getSocket } from '../../hooks/useSocket';
 import { haptic } from '../../utils/haptic';
+import { usePendingAnswer } from '../../hooks/usePendingAnswer';
 
 interface BlockPromptProps {
   gameState: ClientGameState;
@@ -13,6 +14,7 @@ interface BlockPromptProps {
 
 export function BlockPrompt({ gameState }: BlockPromptProps) {
   const socket = getSocket();
+  const { pending, answer } = usePendingAnswer(gameState);
   const { turnPhase, pendingAction, myId } = gameState;
 
   if (turnPhase !== TurnPhase.AwaitingBlock || !pendingAction) return null;
@@ -132,7 +134,9 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
             <button
               key={char}
               className="btn-primary w-full flex items-center justify-center gap-2"
-              onClick={() => { haptic(80); socket.emit('game:block', { character: char }); }}
+              data-pending={pending === `block:${char}` || undefined}
+              aria-busy={pending === `block:${char}` || undefined}
+              onClick={() => answer(`block:${char}`, () => { haptic(80); socket.emit('game:block', { character: char }); })}
             >
               <Icon size={20} />
               Block with {char}
@@ -141,7 +145,9 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
         })}
         <button
           className="btn-secondary w-full"
-          onClick={() => { haptic(80); socket.emit('game:pass_block'); }}
+          data-pending={pending === 'pass' || undefined}
+          aria-busy={pending === 'pass' || undefined}
+          onClick={() => answer('pass', () => { haptic(80); socket.emit('game:pass_block'); })}
         >
           Don&apos;t block
         </button>

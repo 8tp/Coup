@@ -157,7 +157,7 @@ All bots use the same underlying architecture: card counting, bluff persistence,
 
 The default personality is `'random'` (defined as `DEFAULT_BOT_PERSONALITY` in constants). The lobby UI presents 7 color-coded personality buttons: Random (purple), Aggressive (red), Conservative (green), Vengeful (orange), Deceptive (pink), Analytical (blue), Optimal (yellow).
 
-Bots are server-side only — they use the same `GameEngine` methods as human players but decisions are made by `BotBrain` (pure logic, no I/O) and scheduled by `BotController` (timing layer with randomized delays: 1.5–3.5s for actions, 0.8–2s for reactions). Only one bot acts at a time; each action triggers a state change which cascades to the next bot.
+Bots are server-side only — they use the same `GameEngine` methods as human players but decisions are made by `BotBrain` (pure logic, no I/O) and scheduled by `BotController` (timing layer with randomized delays: 1.5–3.5s for actions, 0.8–2s for reactions, both floored by the room's "Bot thinking time", default 2s). Turn decisions (action, influence loss, exchange, examine) are scheduled one bot at a time. In a reaction window (challenge an action, block, challenge a block) every bot thinks in parallel on its own timer, so the window closes after the slowest bot rather than the sum; a timer survives other players passing and is cleared when the window changes. A pass, a challenge and a block draw from the same delay distribution, so timing never hints at a bot's hand.
 
 Key behaviors:
 - Bots never peek at opponents' hidden cards or the deck (they only use publicly revealed card information for card counting)

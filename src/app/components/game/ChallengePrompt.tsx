@@ -7,6 +7,7 @@ import { Timer } from '../ui/Timer';
 import { getSocket } from '../../hooks/useSocket';
 import { haptic, hapticHeavy } from '../../utils/haptic';
 import { blockHint, canBlockDuringChallenge, visibleBlockCharacters } from '../../utils/blockOptions';
+import { usePendingAnswer } from '../../hooks/usePendingAnswer';
 
 interface ChallengePromptProps {
   gameState: ClientGameState;
@@ -18,7 +19,11 @@ function aimedAtYou(action: PendingAction): string {
   return action.type === ActionType.Steal ? `${name} from you` : `${name} you`;
 }
 
-function BlockButtons({ characters }: { characters: Character[] }) {
+function BlockButtons({ characters, pending, answer }: {
+  characters: Character[];
+  pending: string | null;
+  answer: (choice: string, send: () => void) => void;
+}) {
   const socket = getSocket();
   return (
     /* Stacked in the phone dock, where half a row cannot hold "Block with
@@ -31,7 +36,9 @@ function BlockButtons({ characters }: { characters: Character[] }) {
           <button
             key={char}
             className="btn-primary w-full flex items-center justify-center gap-2 lg:px-2"
-            onClick={() => { haptic(80); socket.emit('game:block', { character: char }); }}
+            data-pending={pending === `block:${char}` || undefined}
+            aria-busy={pending === `block:${char}` || undefined}
+            onClick={() => answer(`block:${char}`, () => { haptic(80); socket.emit('game:block', { character: char }); })}
           >
             <Icon size={20} />
             Block with {char}
@@ -44,6 +51,7 @@ function BlockButtons({ characters }: { characters: Character[] }) {
 
 export function ChallengePrompt({ gameState }: ChallengePromptProps) {
   const socket = getSocket();
+  const { pending, answer } = usePendingAnswer(gameState);
   const { turnPhase, pendingAction, challengeState, myId } = gameState;
 
   if (turnPhase !== TurnPhase.AwaitingActionChallenge || !pendingAction || !challengeState) {
@@ -114,7 +122,7 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
           </p>
           <p className="text-center text-gray-400 text-xs mb-2">{blockHint(pendingAction.type, blockers)}</p>
           <Timer expiresAt={gameState.timerExpiry} />
-          <BlockButtons characters={blockers} />
+          <BlockButtons characters={blockers} pending={pending} answer={answer} />
         </div>
       );
     }
@@ -133,13 +141,17 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
     <div className="flex gap-3 mt-3">
       <button
         className="btn-danger flex-1"
-        onClick={() => { hapticHeavy(); socket.emit('game:challenge'); }}
+        data-pending={pending === 'challenge' || undefined}
+        aria-busy={pending === 'challenge' || undefined}
+        onClick={() => answer('challenge', () => { hapticHeavy(); socket.emit('game:challenge'); })}
       >
         Challenge
       </button>
       <button
         className="btn-secondary flex-1"
-        onClick={() => { haptic(80); socket.emit('game:pass_challenge'); }}
+        data-pending={pending === 'pass' || undefined}
+        aria-busy={pending === 'pass' || undefined}
+        onClick={() => answer('pass', () => { haptic(80); socket.emit('game:pass_challenge'); })}
       >
         Pass
       </button>
@@ -155,7 +167,7 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
         </p>
         <p className="text-center text-gray-400 text-xs mb-2">{blockHint(pendingAction.type, blockers)}</p>
         <Timer expiresAt={gameState.timerExpiry} />
-        <BlockButtons characters={blockers} />
+        <BlockButtons characters={blockers} pending={pending} answer={answer} />
         <p className="text-center text-gray-400 text-xs mt-3">
           Challenge if you think they&apos;re bluffing. If they aren&apos;t, you lose a card.
         </p>
