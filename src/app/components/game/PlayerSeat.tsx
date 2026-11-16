@@ -6,6 +6,7 @@ import { CardFace, FLIGHT_VARS_RESET } from './CardFace';
 import { CoinIcon } from '../icons';
 import { CoinChangeBurst } from './CoinChangeBurst';
 import { useGameStore } from '../../stores/gameStore';
+import { factionName, useT } from '../../i18n';
 
 interface PlayerSeatProps {
   player: ClientPlayerState;
@@ -27,7 +28,7 @@ interface PlayerSeatProps {
   onSelect?: () => void;
   /** A legal choice: brass hover ring (§1.2's selection material) and a pointer. */
   selectable?: boolean;
-  /** Why this seat cannot be chosen. §6.2's "illegal half": marked, not omitted. */
+  /** Why this seat cannot be chosen, already in the reader's language. §6.2's "illegal half": marked, not omitted. */
   illegalReason?: string;
   timerExpiry?: number | null;
   /** Tap a known card to preview it. Off for scripted seats (the tutorial). */
@@ -76,6 +77,7 @@ export function PlayerSeat({
   timerExpiry,
   cardPreview = true,
 }: PlayerSeatProps) {
+  const t = useT();
   const mutedPlayerIds = useGameStore(s => s.mutedPlayerIds);
   const toggleMutedPlayer = useGameStore(s => s.toggleMutedPlayer);
   const isMuted = mutedPlayerIds.includes(player.id);
@@ -105,7 +107,9 @@ export function PlayerSeat({
       tabIndex={interactive ? 0 : undefined}
       aria-disabled={illegalReason ? true : undefined}
       aria-label={interactive
-        ? (illegalReason ? `${player.name}: ${illegalReason}` : `Choose ${player.name}`)
+        ? (illegalReason
+          ? t('game.seat.refused', { name: player.name, reason: illegalReason })
+          : t('game.seat.choose', { name: player.name }))
         : undefined}
       data-target-illegal={illegalReason ? 'true' : undefined}
       onClick={interactive ? activate : undefined}
@@ -136,15 +140,15 @@ export function PlayerSeat({
 
       <div className="court-seat-plate">
         <span className="court-seat-name type-display">{player.name}</span>
-        {player.isBot && <span className="court-seat-tag">BOT</span>}
+        {player.isBot && <span className="court-seat-tag">{t('game.seat.bot')}</span>}
         {player.faction && (
-          <span className="court-seat-tag" title={player.faction}>
-            {player.faction === Faction.Loyalist ? '▲ LOY' : '◆ REF'}
+          <span className="court-seat-tag" title={factionName(t, player.faction)}>
+            {player.faction === Faction.Loyalist ? '▲' : '◆'} {t(`game.seat.faction.${player.faction}`)}
           </span>
         )}
         <span className="court-seat-coins figure">
           <CoinIcon size={13} />
-          {player.coins}
+          {t.number(player.coins)}
           <CoinChangeBurst coins={player.coins} />
         </span>
         {timerExpiry && <TimerBar timerExpiry={timerExpiry} />}
@@ -153,9 +157,9 @@ export function PlayerSeat({
       {!isMe && (
         <button
           type="button"
-          aria-label={isMuted ? `Unmute ${player.name}` : `Mute chat and reactions from ${player.name}`}
+          aria-label={isMuted ? t('game.seat.unmute', { name: player.name }) : t('game.seat.mute', { name: player.name })}
           aria-pressed={isMuted}
-          title={isMuted ? `Unmute ${player.name}` : `Mute ${player.name}`}
+          title={isMuted ? t('game.seat.unmute', { name: player.name }) : t('game.seat.muteShort', { name: player.name })}
           className={`court-seat-mute ${isMuted ? 'is-muted' : ''}`}
           onClick={(event) => {
             event.stopPropagation();

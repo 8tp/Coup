@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { ClientGameState } from '@/shared/types';
-import { getPracticeCoachTip, type CoachAnchor, type CoachHistory } from '../../utils/practiceCoach';
+import {
+  coachParams,
+  getPracticeCoachMessage,
+  type CoachAnchor,
+  type CoachHistory,
+  type CoachText,
+} from '../../utils/practiceCoach';
 import {
   isEmptyRect,
   placeDockBanner,
@@ -14,6 +20,7 @@ import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useGameStore } from '../../stores/gameStore';
 import { useIsomorphicLayoutEffect } from '../../anim';
 import { haptic } from '../../utils/haptic';
+import { useT, type Translator } from '../../i18n';
 
 /**
  * THE PRACTICE COACH, AS A CALLOUT ON THE TABLE.
@@ -85,11 +92,23 @@ function rectsOf(selector: string): Rect[] {
   return Array.from(document.querySelectorAll(selector)).map(toRect).filter((r): r is Rect => r !== null);
 }
 
+/** One coach line as rich text: player names isolated in `<bdi>`, character lists joined with "or". */
+function CoachLine({ t, line }: { t: Translator; line: CoachText }) {
+  return <>{t.rich(line.key, coachParams(t, line.params, name => <bdi>{name}</bdi>, items => t.list(items, 'disjunction')))}</>;
+}
+
 export function PracticeCoach({ gameState, onOpenRules }: PracticeCoachProps) {
+  const t = useT();
   const [hidden, setHidden] = useState<boolean | null>(null);
   const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
   const [history, setHistory] = useState<CoachHistory>(() => new Map());
   const [placement, setPlacement] = useState<CalloutPlacement | null>(null);
+  /* The tip whose docked banner had no clean spot (it would cover seats, the
+     plaque or the phase line: a phone with a tall dock, three players and
+     Reformation's ten actions, or longer translated text). That tip shows
+     compact, its title only, and the title opens the rest on request. */
+  const [compactTip, setCompactTip] = useState<string | null>(null);
+  const [expandedTip, setExpandedTip] = useState<string | null>(null);
   const calloutRef = useRef<HTMLElement>(null);
   const docked = useMediaQuery('(max-width: 1023px)');
   // The challenge reveal is the table's own moment; the coach steps aside.
@@ -101,7 +120,7 @@ export function PracticeCoach({ gameState, onOpenRules }: PracticeCoachProps) {
     setHistory(new Map(readJson<Array<[string, number]>>(HISTORY_KEY, [])));
   }, []);
 
-  const tip = useMemo(() => getPracticeCoachTip(gameState, history), [gameState, history]);
+  const tip = useMemo(() => getPracticeCoachMessage(gameState, history), [gameState, history]);
   const visibleTip = hidden === false && !revealing && tip && !dismissed.has(tip.id) ? tip : null;
 
   // A first-time tip is recorded the turn it is first shown, so it stays up
@@ -140,6 +159,9 @@ export function PracticeCoach({ gameState, onOpenRules }: PracticeCoachProps) {
         soft: [...seats, ...rectsOf('[data-coach-anchor="plaque"], .court-phase')],
         extraTops: seatsBottom > 0 ? [seatsBottom + 8] : [],
       });
+      if (!next || next.overlap > 0) setCompactTip(visibleTip.id);
+      // Opened, it may not fit anywhere at all: fold it back rather than hide it.
+      if (!next) setExpandedTip(null);
     } else if (anchor) {
       const controls = (['dock', 'prompt', 'plaque', 'hand'] as const)
         .filter(name => name !== anchor.name)
@@ -206,6 +228,9 @@ export function PracticeCoach({ gameState, onOpenRules }: PracticeCoachProps) {
 
   if (!visibleTip) return null;
 
+  const compact = docked && compactTip === visibleTip.id;
+  const expanded = compact && expandedTip === visibleTip.id;
+
   const dismissTip = () => {
     haptic();
     const next = new Set(dismissed).add(visibleTip.id);
@@ -238,8 +263,9 @@ export function PracticeCoach({ gameState, onOpenRules }: PracticeCoachProps) {
       data-side={placement?.side ?? 'none'}
       data-tone={visibleTip.tone}
       data-placed={placement ? 'true' : 'false'}
+      data-compact={compact ? (expanded ? 'open' : 'true') : undefined}
       style={style}
-      aria-label="Practice coach"
+      aria-label={t('tutorial.coach.region')}
       aria-hidden={placement ? undefined : true}
     >
       {placement && placement.side !== 'dock' && (
@@ -249,19 +275,34 @@ export function PracticeCoach({ gameState, onOpenRules }: PracticeCoachProps) {
         </>
       )}
       <div className="coach-head">
-        <span className="coach-label">Coach</span>
+        <span className="coach-label">{t('tutorial.coach.tag')}</span>
         <span className="coach-controls">
-          <button type="button" className="coach-btn coach-got" onClick={dismissTip}>Got it</button>
-          <button type="button" className="coach-btn" onClick={hideCoach}>Hide tips</button>
+          <button type="button" className="coach-btn coach-got" onClick={dismissTip}>{t('tutorial.coach.gotIt')}</button>
+          <button type="button" className="coach-btn" onClick={hideCoach}>{t('tutorial.coach.hide')}</button>
         </span>
       </div>
       <div role="status" aria-live="polite">
-        <p className="coach-title type-display">{visibleTip.title}</p>
-        <p className="coach-body">{visibleTip.body}</p>
+        <p className="coach-title type-display">
+          {compact ? (
+            <button
+              type="button"
+              className="coach-expand"
+              aria-expanded={expanded}
+              onClick={() => { haptic(); setExpandedTip(expanded ? null : visibleTip.id); }}
+            >
+              <CoachLine t={t} line={visibleTip.title} />
+              <svg viewBox="0 0 20 20" fill="currentColor" className="coach-expand-chevron" aria-hidden="true">
+                <path d="M5.3 7.3 10 12l4.7-4.7 1.4 1.4L10 14.8 3.9 8.7z" />
+              </svg>
+            </button>
+          ) : <CoachLine t={t} line={visibleTip.title} />}
+        </p>
+        {/* Compact and folded, the body stays for screen readers. */}
+        <p className={compact && !expanded ? 'coach-body sr-only' : 'coach-body'}><CoachLine t={t} line={visibleTip.body} /></p>
       </div>
       {!docked && (
         <button type="button" className="coach-rules" onClick={() => { haptic(); onOpenRules(); }}>
-          Check the rules
+          {t('tutorial.coach.rules')}
         </button>
       )}
     </aside>

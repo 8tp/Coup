@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActionType, ChallengeRevealEvent, Character, ChatMessage, ClientGameState, ClientInfluence, ClientPlayerState, GameMode, TargetingPublication, TurnPhase } from '@/shared/types';
+import { ActionType, ChallengeRevealEvent, Character, ChatMessage, ClientGameState, ClientInfluence, ClientPlayerState, Faction, GameMode, TargetingPublication, TurnPhase } from '@/shared/types';
 import { PlayerSeat } from './PlayerSeat';
 import { CardFace, FLIGHT_VARS_RESET, type EnterFrom } from './CardFace';
 import { CoinChangeBurst } from './CoinChangeBurst';
@@ -31,6 +31,7 @@ import { TableTalk } from './table/TableTalk';
 import { SeatSpeech } from './table/SeatSpeech';
 import { seatAngles, seatPoint } from './table/seatLayout';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useSoundEffects } from '../../hooks/useSoundEffects';
 import { useHapticFeedback } from '../../hooks/useHapticFeedback';
 import {
@@ -62,6 +63,9 @@ import { getSoundEngine } from '../../audio/SoundEngine';
 import { useGameStore } from '../../stores/gameStore';
 import { characterCardVars } from '../../utils/characterPalette';
 import { haptic } from '../../utils/haptic';
+import { canBlockDuringChallenge } from '../../utils/blockOptions';
+import { actionName, factionName, useT, type MessageKey } from '../../i18n';
+import { refusalText } from './tableText';
 
 /* ======================================================================
    THE COURT TABLE.
@@ -352,8 +356,9 @@ export function actionFlightPoints(
   return { anchor, other };
 }
 
-/** Enough of a card to be recognised at 60px, and nothing more. */
+/** Enough of a card to be recognised at 60px, and nothing more. The label is printed in capitals by CSS, like the card plates. */
 function ActionCardBody({ kind }: { kind: ActionFlightState['kind'] }) {
+  const t = useT();
   if (kind === 'coup') {
     /* A Coup is not a claim — nobody holds a card called Coup — so §1.2 gives
        it no character hue, and the reveal overlay's treatment for exactly that
@@ -364,7 +369,7 @@ function ActionCardBody({ kind }: { kind: ActionFlightState['kind'] }) {
         style={{ backgroundColor: 'rgba(95,20,28,0.45)', backgroundImage: 'var(--hazard)' }}
       >
         <CoupGlyph size={26} className="text-coup-crimson" />
-        <span className="type-display text-[10px] leading-none text-coup-ink">COUP</span>
+        <span className="type-display text-[10px] leading-none text-coup-ink uppercase">{actionName(t, ActionType.Coup)}</span>
       </div>
     );
   }
@@ -374,8 +379,8 @@ function ActionCardBody({ kind }: { kind: ActionFlightState['kind'] }) {
   return (
     <div className="card-face w-full h-full gap-1" style={characterCardVars(character)}>
       <Mark size={26} className="text-coup-ink" />
-      <span className="type-display text-[10px] leading-none text-coup-ink">
-        {kind === 'steal' ? 'STEAL' : 'STRIKE'}
+      <span className="type-display text-[10px] leading-none text-coup-ink uppercase">
+        {kind === 'steal' ? actionName(t, ActionType.Steal) : t('game.flightStrike')}
       </span>
     </div>
   );
@@ -539,6 +544,7 @@ export function shoveDirection(from: Point | null, to: Point | null): Pick<Shove
  * does the counting, in the monospace Figures role (§4).
  */
 function DeckPile({ count }: { count: number }) {
+  const t = useT();
   const leaves = Math.min(count, DECK_MAX_LEAVES);
 
   return (
@@ -553,14 +559,15 @@ function DeckPile({ count }: { count: number }) {
         ))}
       </div>
       <span className="table-object-label">
-        Deck <span className="figure text-coup-ink">{count}</span>
+        {t.rich('game.deck', { count: <span className="figure text-coup-ink">{t.number(count)}</span> })}
       </span>
     </div>
   );
 }
 
 /** Coins are circles, and §3.9 says they may stay circles. Everything else on the table is a plate. */
-function CoinStack({ count, label, tone }: { count: number; label: string; tone: 'treasury' | 'reserve' }) {
+function CoinStack({ count, tone }: { count: number; tone: 'treasury' | 'reserve' }) {
+  const t = useT();
   const discs = count === 0 ? 0 : Math.max(1, Math.min(COIN_MAX_DISCS, Math.round(count / 5)));
 
   return (
@@ -571,7 +578,9 @@ function CoinStack({ count, label, tone }: { count: number; label: string; tone:
         ))}
       </div>
       <span className="table-object-label">
-        {label} <span className="figure text-coup-brass-lit">{count}</span>
+        {t.rich(tone === 'reserve' ? 'game.reserve' : 'game.treasury', {
+          count: <span className="figure text-coup-brass-lit">{t.number(count)}</span>,
+        })}
       </span>
     </div>
   );
@@ -630,6 +639,7 @@ export function discardTilt(id: string): number {
 
 /** Where a lost influence lands and STAYS (§1.4). Face-up, in the order it fell. */
 function DiscardPile({ entries }: { entries: DiscardEntry[] }) {
+  const t = useT();
   return (
     entries.length === 0 ? null : (
     <div className="table-object court-discard">
@@ -655,7 +665,7 @@ function DiscardPile({ entries }: { entries: DiscardEntry[] }) {
         )}
       </div>
       <span className="table-object-label">
-        Fallen <span className="figure text-coup-ink">{entries.length}</span>
+        {t.rich('game.fallen', { count: <span className="figure text-coup-ink">{t.number(entries.length)}</span> })}
       </span>
     </div>
     )
@@ -672,7 +682,8 @@ const DISCARD_TILTS = [-4, 3, -2, 5, -5, 2, 4, -3];
 interface GameTableProps {
   gameState: ClientGameState;
   chatMessages: ChatMessage[];
-  onSendChat: (message: string) => void;
+  /** Send typed chat, or a quick phrase by id (`QUICK_PHRASES`). */
+  onSendChat: (message: string, phraseId?: string) => void;
   onSendReaction: (reactionId: string) => void;
   isHost: boolean;
   onRematch: () => void;
@@ -680,19 +691,25 @@ interface GameTableProps {
   isPracticeRoom?: boolean;
   onExitPractice?: () => void;
   onStopSpectating?: () => void;
+  /** A knocked-out player leaves the table (WaitingView). */
+  onLeaveTable?: () => void;
+  /** A knocked-out player, alone with bots, deals a new Play vs Bots game. */
+  onNewGame?: () => void;
+  newGamePending?: boolean;
 }
 
 /** Per-player mute for chat and reactions, as a list of 44px toggles. On touch
     screens this is the only place to mute someone: the seat's corner button
     is hidden there because the seat itself is a tap target. */
 function DrawerMuteList({ players }: { players: ClientPlayerState[] }) {
+  const t = useT();
   const muted = useGameStore(s => s.mutedPlayerIds);
   const toggle = useGameStore(s => s.toggleMutedPlayer);
   const humans = players.filter(p => !p.isBot);
   if (humans.length === 0) return null;
   return (
     <details className="drawer-mutes">
-      <summary>Mute players</summary>
+      <summary>{t('game.mutePlayers')}</summary>
       <ul>
         {humans.map(p => {
           const isMuted = muted.includes(p.id);
@@ -707,7 +724,7 @@ function DrawerMuteList({ players }: { players: ClientPlayerState[] }) {
               >
                 <span className="truncate font-semibold text-coup-ink">{p.name}</span>
                 <span className="flex items-center gap-2 text-sm text-coup-ink-mute">
-                  {isMuted ? 'Muted' : 'Chat & reactions on'}
+                  {isMuted ? t('game.muted') : t('game.chatOn')}
                   <span className={`switch-track ${isMuted ? 'is-on' : ''}`} aria-hidden="true"><span /></span>
                 </span>
               </button>
@@ -719,7 +736,7 @@ function DrawerMuteList({ players }: { players: ClientPlayerState[] }) {
   );
 }
 
-export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction, isHost, onRematch, isSpectator, isPracticeRoom, onExitPractice, onStopSpectating }: GameTableProps) {
+export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction, isHost, onRematch, isSpectator, isPracticeRoom, onExitPractice, onStopSpectating, onLeaveTable, onNewGame, newGamePending }: GameTableProps) {
   useSoundEffects();
   useHapticFeedback();
   // Deliberately AFTER useHapticFeedback: that hook picks the single
@@ -859,61 +876,66 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
     }
   }, [gameState, challengeReveal]);
 
-  useEffect(() => {
-    const titleSuffix = `Coup ${gameState.roomCode}`;
-    let title = titleSuffix;
+  const t = useT();
+
+  const documentTitle = useMemo(() => {
+    let status: MessageKey | null = null;
 
     if (isSpectator) {
-      title = `Watching | ${titleSuffix}`;
+      status = 'game.title.watching';
     } else if (me && !me.isAlive) {
-      title = `Eliminated | ${titleSuffix}`;
+      status = 'game.title.eliminated';
     } else if (me) {
       const challengePassed = gameState.challengeState?.passedPlayerIds.includes(gameState.myId) ?? false;
       const blockPassed = gameState.blockPassedPlayerIds?.includes(gameState.myId) ?? false;
 
       if (gameState.turnPhase === TurnPhase.AwaitingAction && currentPlayerId === gameState.myId) {
-        title = `Your turn | ${titleSuffix}`;
+        status = 'game.title.yourTurn';
       } else if (
         gameState.turnPhase === TurnPhase.AwaitingActionChallenge &&
         gameState.pendingAction?.actorId !== gameState.myId &&
         !challengePassed
       ) {
-        title = `Challenge or pass | ${titleSuffix}`;
+        status = canBlockDuringChallenge(gameState)
+          ? 'game.title.blockOrChallenge'
+          : 'game.title.challengeOrPass';
       } else if (
         gameState.turnPhase === TurnPhase.AwaitingBlock &&
         gameState.pendingAction?.actorId !== gameState.myId &&
         !blockPassed &&
         (!gameState.pendingAction?.targetId || gameState.pendingAction.targetId === gameState.myId)
       ) {
-        title = `Block or allow | ${titleSuffix}`;
+        status = 'game.title.blockOrAllow';
       } else if (
         gameState.turnPhase === TurnPhase.AwaitingBlockChallenge &&
         gameState.pendingBlock?.blockerId !== gameState.myId &&
         !challengePassed
       ) {
-        title = `Challenge the block | ${titleSuffix}`;
+        status = 'game.title.challengeBlock';
       } else if (
         gameState.turnPhase === TurnPhase.AwaitingInfluenceLoss &&
         gameState.influenceLossRequest?.playerId === gameState.myId
       ) {
-        title = `Lose a card | ${titleSuffix}`;
+        status = 'game.title.loseCard';
       } else if (gameState.turnPhase === TurnPhase.AwaitingExchange && gameState.exchangeState) {
-        title = `Choose cards to keep | ${titleSuffix}`;
+        status = 'game.title.keepCards';
       } else if (
         gameState.turnPhase === TurnPhase.AwaitingExamineSelection &&
         gameState.examineSelectionState?.targetId === gameState.myId
       ) {
-        title = `Show a card | ${titleSuffix}`;
+        status = 'game.title.showCard';
       } else if (gameState.turnPhase === TurnPhase.AwaitingExamineDecision && gameState.examineState) {
-        title = `Examine card | ${titleSuffix}`;
+        status = 'game.title.examineCard';
       }
     }
 
-    document.title = title;
-    return () => {
-      document.title = 'Coup Online';
-    };
-  }, [currentPlayerId, gameState, isSpectator, me]);
+    return status
+      ? t('game.title.status', { status: t(status), room: gameState.roomCode })
+      : t('game.title.plain', { room: gameState.roomCode });
+  }, [currentPlayerId, gameState, isSpectator, me, t]);
+  useDocumentTitle(documentTitle);
+  // Leaving the table: the product name, never translated, until the next page sets its own.
+  useEffect(() => () => { document.title = 'Coup Online'; }, []);
 
   /* Which seats the current selection can and cannot take. `action` is null
      whenever nothing is being aimed, which is most of the time. */
@@ -923,7 +945,8 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
   const renderSeat = (p: ClientPlayerState, angle: number) => {
     const pos = seatPoint(angle);
     const eligible = !!aiming?.eligibleIds.includes(p.id);
-    const illegalReason = aiming?.reasons[p.id];
+    const refusal = aiming?.reasons[p.id];
+    const illegalReason = refusal ? refusalText(t, refusal) : undefined;
     const inSelection = eligible || !!illegalReason;
     /* The hazard material means "in the crosshairs", which covers both halves
        of that: a seat you are about to pick, and the seat an action already on
@@ -1000,7 +1023,6 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
       <ExchangeView gameState={gameState} />
       <ExamineSelectionPrompt gameState={gameState} />
       <ExaminePrompt gameState={gameState} />
-      {!promptsInDock && <WaitingView gameState={gameState} />}
     </div>
   );
   const angles = seatAngles(opponents.length, compactTable);
@@ -1031,27 +1053,28 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
     >
       <header className="court-header">
         <div className="court-header-info">
-          <span className="court-room figure" title="Room code">{gameState.roomCode}</span>
-          <span>Turn <span className="figure">{gameState.turnNumber}</span></span>
-          {spectators.length > 0 && <span>{spectators.length} watching</span>}
+          <span className="court-room figure" title={t('game.roomCodeTitle')}>{gameState.roomCode}</span>
+          <span>{t.rich('game.turn', { turn: <span className="figure">{t.number(gameState.turnNumber)}</span> })}</span>
+          {spectators.length > 0 && <span>{t('game.watching', { count: spectators.length })}</span>}
         </div>
         <div className="court-header-actions">
           <button
             onClick={() => { haptic(); setLogOpen(true); }}
             className="court-icon-btn"
-            title="Game log and chat"
-            aria-label={unreadChat > 0 ? `Game log and chat, ${unreadChat} unread` : 'Game log and chat'}
+            title={t('game.logAndChat')}
+            aria-label={unreadChat > 0 ? t('game.logAndChatUnread', { count: unreadChat }) : t('game.logAndChat')}
           >
-            <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" aria-hidden="true">
+            {/* Lines of text, short line last: mirrors with the text in right to left. */}
+            <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 rtl:-scale-x-100" aria-hidden="true">
               <path d="M3 4h14v2H3zM3 9h14v2H3zM3 14h9v2H3z" />
             </svg>
-            {unreadChat > 0 && <span className="court-badge figure">{unreadChat > 9 ? '9+' : unreadChat}</span>}
+            {unreadChat > 0 && <span className="court-badge figure">{unreadChat > 9 ? t('game.unreadMany') : t.number(unreadChat)}</span>}
           </button>
           <button
             onClick={() => { haptic(); setMuted(!isMuted); }}
             className="court-icon-btn"
-            title={isMuted ? 'Unmute sound effects' : 'Mute sound effects'}
-            aria-label={isMuted ? 'Unmute sound effects' : 'Mute sound effects'}
+            title={isMuted ? t('game.unmuteSound') : t('game.muteSound')}
+            aria-label={isMuted ? t('game.unmuteSound') : t('game.muteSound')}
             aria-pressed={isMuted}
           >
             {isMuted ? <SpeakerMutedGlyph size={16} /> : <SpeakerGlyph size={16} />}
@@ -1062,8 +1085,8 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
           <button
             onClick={() => { haptic(); setShowSettings(true); }}
             className="court-icon-btn"
-            title="Settings"
-            aria-label="Settings"
+            title={t('game.settings')}
+            aria-label={t('game.settings')}
           >
             <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" aria-hidden="true">
               <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
@@ -1072,8 +1095,8 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
           <button
             onClick={() => { haptic(); setShowRules(true); }}
             className="court-icon-btn type-display"
-            title="How to play"
-            aria-label="How to play"
+            title={t('game.howToPlay')}
+            aria-label={t('game.howToPlay')}
           >
             ?
           </button>
@@ -1082,15 +1105,15 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
 
       {isSpectator && (
         <div className="court-banner">
-          <span>Spectating</span>
+          <span>{t('game.spectating')}</span>
           {onStopSpectating && (
             <button onClick={() => { haptic(); onStopSpectating(); }} className="court-banner-action">
-              Leave
+              {t('game.stopSpectating')}
             </button>
           )}
         </div>
       )}
-      {reconnecting && <div className="court-banner court-banner-warn">Reconnecting to server…</div>}
+      {reconnecting && <div className="court-banner court-banner-warn">{t('game.reconnecting')}</div>}
 
       {/* A callout over the table that points at what each tip is about —
           see PracticeCoach. It takes no layout space of its own. */}
@@ -1106,9 +1129,9 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
             <div className="court-felt">
               <div className="court-objects">
                 <DeckPile count={gameState.deckCount} />
-                <CoinStack count={gameState.treasury} label="Treasury" tone="treasury" />
+                <CoinStack count={gameState.treasury} tone="treasury" />
                 {gameState.gameMode === GameMode.Reformation && (
-                  <CoinStack count={gameState.treasuryReserve} label="Reserve" tone="reserve" />
+                  <CoinStack count={gameState.treasuryReserve} tone="reserve" />
                 )}
               </div>
               <DiscardPile entries={discarded} />
@@ -1174,16 +1197,16 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
               </div>
               <div className="court-hand-meta">
                 <span className="court-hand-name type-display">
-                  {isMyActionTurn ? 'Your move' : me.isAlive ? 'Your hand' : 'Eliminated'}
+                  {isMyActionTurn ? t('game.yourMove') : me.isAlive ? t('game.yourHand') : t('game.eliminated')}
                 </span>
                 {me.faction && (
                   <span className="court-seat-tag">
-                    {me.faction === 'Loyalist' ? '▲ Loyalist' : '◆ Reformist'}
+                    {me.faction === Faction.Loyalist ? '▲' : '◆'} {factionName(t, me.faction)}
                   </span>
                 )}
                 <span className="court-hand-coins figure">
                   <CoinIcon size={18} />
-                  {me.coins}
+                  {t.number(me.coins)}
                   <CoinChangeBurst coins={me.coins} />
                 </span>
               </div>
@@ -1195,6 +1218,7 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
           <div className="court-dock-actions" data-coach-anchor="dock">
             {promptsInDock && promptStack}
             <ActionBar gameState={gameState} />
+            <WaitingView gameState={gameState} onLeave={onLeaveTable} onNewGame={onNewGame} busy={newGamePending} />
           </div>
         )}
       </div>
@@ -1204,10 +1228,10 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
         onClick={() => setLogOpen(false)}
         aria-hidden="true"
       />
-      <aside className={`court-drawer ${logOpen ? 'is-open' : ''}`} aria-label="Game log and chat" aria-hidden={!logOpen}>
+      <aside className={`court-drawer ${logOpen ? 'is-open' : ''}`} aria-label={t('game.logAndChat')} aria-hidden={!logOpen}>
         <div className="court-drawer-head">
-          <span className="type-display">Log &amp; chat</span>
-          <button className="court-icon-btn" onClick={() => setLogOpen(false)} aria-label="Close log">
+          <span className="type-display">{t('game.drawerTitle')}</span>
+          <button className="court-icon-btn" onClick={() => setLogOpen(false)} aria-label={t('game.closeLog')}>
             <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" aria-hidden="true">
               <path d="M5.3 4 10 8.6 14.7 4 16 5.3 11.4 10l4.6 4.7-1.3 1.3-4.7-4.6L5.3 16 4 14.7 8.6 10 4 5.3z" />
             </svg>

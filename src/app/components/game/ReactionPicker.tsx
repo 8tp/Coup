@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { REACTIONS } from '@/shared/constants';
 import { haptic } from '../../utils/haptic';
 import { ReactGlyph } from '../icons';
+import { useT } from '../../i18n';
 
 interface ReactionPickerProps {
   onReact: (reactionId: string) => void;
@@ -15,6 +16,7 @@ interface ReactionPickerProps {
 }
 
 export function ReactionPicker({ onReact, disabled, placement = 'below', buttonClassName = 'court-icon-btn' }: ReactionPickerProps) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -53,8 +55,8 @@ export function ReactionPicker({ onReact, disabled, placement = 'below', buttonC
         onClick={() => { haptic(); setOpen((o) => !o); }}
         disabled={disabled}
         className={`${buttonClassName} disabled:opacity-40 disabled:cursor-not-allowed`}
-        title="Send a reaction"
-        aria-label="Send a reaction"
+        title={t('game.reactionPicker')}
+        aria-label={t('game.reactionPicker')}
         aria-expanded={open}
       >
         <ReactGlyph size={18} />
@@ -74,10 +76,10 @@ export function ReactionPicker({ onReact, disabled, placement = 'below', buttonC
                   setOpen(false);
                 }}
                 className="flex flex-col items-center justify-center gap-1 min-h-[52px] p-2 rounded hover:bg-gray-700/50 active:bg-gray-700/70 transition"
-                title={r.label}
+                title={t(`game.reaction.${r.id}`)}
               >
                 <span className="text-2xl">{r.emoji}</span>
-                <span className="text-[11px] text-gray-400 leading-tight">{r.label}</span>
+                <span className="text-[11px] text-gray-400 leading-tight">{t(`game.reaction.${r.id}`)}</span>
               </button>
             ))}
           </div>

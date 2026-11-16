@@ -17,6 +17,7 @@ import {
 import { ACTION_DEFINITIONS, FORCED_COUP_THRESHOLD, TURN_TIMER_MS } from '../shared/constants';
 import { Game } from './Game';
 import { ActionResolver, ResolverResult, SideEffect } from './ActionResolver';
+import { logMsg } from '../shared/i18n/logMessages';
 
 export type StateChangeCallback = (state: GameState) => void;
 /**
@@ -144,6 +145,19 @@ export class GameEngine {
 
   handleBlock(blockerId: string, character: Character): string | null {
     if (!this.pendingAction) return 'No pending action';
+
+    // The target may declare a block while the action is still open to
+    // challenge; it applies once the action survives that window.
+    if (this.game.turnPhase === TurnPhase.AwaitingActionChallenge) {
+      if (!this.challengeState) return 'No pending challenge';
+      const early = this.resolver.declareBlockDuringChallenge(
+        this.game, blockerId, character, this.pendingAction, this.challengeState,
+      );
+      if ('error' in early) return early.error;
+      this.applyResult(early);
+      return null;
+    }
+
     if (this.game.turnPhase !== TurnPhase.AwaitingBlock) return 'Not in block phase';
 
     const result = this.resolver.block(this.game, blockerId, character, this.pendingAction);
@@ -585,19 +599,20 @@ export class GameEngine {
         break;
       }
       case 'log': {
-        this.game.log(effect.message, effect.eventType, effect.character, effect.actorId, effect.actorName, effect.targetId, effect.wasBluff);
+        this.game.log(effect);
         break;
       }
       case 'start_exchange': {
         // Exchange state is set in applyResult
         const exchPlayer = this.game.getPlayer(effect.playerId);
-        this.game.log(
-          `${exchPlayer?.name} draws cards for exchange.`,
-          'exchange_draw',
-          Character.Ambassador,
-          effect.playerId,
-          exchPlayer?.name ?? null,
-        );
+        this.game.log({
+          message: `${exchPlayer?.name} draws cards for exchange.`,
+          msg: logMsg('exchangeDraw', { actor: effect.playerId }),
+          eventType: 'exchange_draw',
+          character: Character.Ambassador,
+          actorId: effect.playerId,
+          actorName: exchPlayer?.name ?? null,
+        });
         break;
       }
       case 'win_check': {

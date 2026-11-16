@@ -1,7 +1,8 @@
 'use client';
 
 import { ActionType, Character, ClientGameState, TurnPhase } from '@/shared/types';
-import { ACTION_DISPLAY_NAMES } from '@/shared/constants';
+import { selectable } from '@/shared/i18n/messageFormat';
+import { actionName, characterName, useT } from '../../../i18n';
 import {
   AssassinateGlyph,
   CharacterMedallion,
@@ -88,44 +89,58 @@ export function Plaque({ actor, headline, detail, character, actionType, isBlock
  * tip is about a claim (utils/practiceCoach.ts).
  */
 export function ClaimPlaque({ gameState }: { gameState: ClientGameState }) {
+  const t = useT();
   const { pendingAction, pendingBlock, turnPhase } = gameState;
   if (!pendingAction || !PLAQUE_PHASES.has(turnPhase)) return null;
 
-  const nameOf = (id?: string | null) => {
+  /** Who is acting: "You", or the player's name. */
+  const actorOf = (id?: string | null): ReactNode => {
     if (!id) return null;
-    if (id === gameState.myId) return 'You';
-    return gameState.players.find(p => p.id === id)?.name ?? null;
+    if (id === gameState.myId) return t('game.plaque.you');
+    const name = gameState.players.find(p => p.id === id)?.name;
+    return name ? <bdi>{name}</bdi> : null;
   };
-  const actor = nameOf(pendingAction.actorId);
-  const target = nameOf(pendingAction.targetId);
-  const blocker = pendingBlock ? nameOf(pendingBlock.blockerId) : null;
+  /** A target param: `you` selects the reader's own wording in the message. */
+  const targetOf = (id?: string | null) => {
+    if (!id) return null;
+    if (id === gameState.myId) return selectable('', 'you');
+    const name = gameState.players.find(p => p.id === id)?.name;
+    return name ? selectable(<bdi>{name}</bdi>, 'other') : null;
+  };
+  const actor = actorOf(pendingAction.actorId);
+  const target = targetOf(pendingAction.targetId);
+  const blocker = pendingBlock ? actorOf(pendingBlock.blockerId) : null;
+
+  const claimed = pendingAction.claimedCharacter;
+  const isEmbezzle = pendingAction.type === ActionType.Embezzle;
+  /* The plaque's second line: the claim (Embezzle claims no Duke) and the target, as one sentence. */
+  let detail: ReactNode = null;
+  if (claimed && target) {
+    detail = t.rich(isEmbezzle ? 'game.plaque.claimsNoOn' : 'game.plaque.asOn', { character: characterName(t, claimed), target });
+  } else if (claimed) {
+    detail = t.rich(isEmbezzle ? 'game.plaque.claimsNo' : 'game.plaque.as', { character: characterName(t, claimed) });
+  } else if (target) {
+    detail = t.rich('game.plaque.on', { target });
+  }
 
   return (
     <div className="claim-stack" data-coach-anchor="plaque" key={`${gameState.turnNumber}-${pendingAction.type}`}>
       <Plaque
         actor={actor}
-        headline={ACTION_DISPLAY_NAMES[pendingAction.type]}
+        headline={actionName(t, pendingAction.type)}
         character={pendingAction.claimedCharacter}
         actionType={pendingAction.type}
         blocked={!!pendingBlock}
-        detail={(pendingAction.claimedCharacter || target) && (
-          <>
-            {pendingAction.claimedCharacter && (pendingAction.type === ActionType.Embezzle
-              ? <>claims no Duke</>
-              : <>as {pendingAction.claimedCharacter}</>)}
-            {pendingAction.claimedCharacter && target && ' · '}
-            {target && <>on {target}</>}
-          </>
-        )}
+        detail={detail}
       />
 
       {pendingBlock && (
         <Plaque
           isBlock
           actor={blocker}
-          headline="Blocks"
+          headline={t('game.plaque.blocks')}
           character={pendingBlock.claimedCharacter}
-          detail={<>as {pendingBlock.claimedCharacter}</>}
+          detail={t.rich('game.plaque.as', { character: characterName(t, pendingBlock.claimedCharacter) })}
         />
       )}
     </div>

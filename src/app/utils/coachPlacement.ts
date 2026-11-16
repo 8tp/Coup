@@ -7,6 +7,13 @@
  * and never covers a control the player may need (the `avoid` list). A
  * placement that would is not returned at all — the caller then docks the
  * tip as a banner instead of pointing.
+ *
+ * Everything here is physical screen geometry (left, top, `left`/`right`
+ * sides) and stays so under `dir="rtl"`: the court table does not mirror
+ * (docs/I18N.md, "Right to left"), so the anchors sit in the same place in
+ * every language, and the callout's position and pointer (`--pointer`, set
+ * with physical `left`/`top` in globals.css) are measured from the same
+ * physical edges. Only the text inside the callout mirrors.
  */
 
 export interface Rect {

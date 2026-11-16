@@ -1,20 +1,16 @@
 'use client';
 
-import { ActionType, ClientGameState, GameMode, TurnPhase } from '@/shared/types';
-import { ACTION_DISPLAY_NAMES } from '@/shared/constants';
+import type { ReactNode } from 'react';
+import { ActionType, Character, ClientGameState, GameMode, TurnPhase } from '@/shared/types';
+import { actionName, characterName, useT } from '../../i18n';
+import { canBlockDuringChallenge } from '../../utils/blockOptions';
+import { nameList, playerName } from './tableText';
 
 interface PhaseStatusProps {
   gameState: ClientGameState;
 }
 
-function formatNames(names: string[]): string {
-  if (names.length === 0) return 'players';
-  if (names.length === 1) return names[0];
-  if (names.length === 2) return `${names[0]} and ${names[1]}`;
-  return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
-}
-
-function remainingChallengeNames(gameState: ClientGameState, excludedPlayerId?: string): string[] {
+export function remainingChallengeNames(gameState: ClientGameState, excludedPlayerId?: string): string[] {
   const passed = new Set(gameState.challengeState?.passedPlayerIds ?? []);
   if (excludedPlayerId) passed.add(excludedPlayerId);
   return gameState.players
@@ -22,7 +18,7 @@ function remainingChallengeNames(gameState: ClientGameState, excludedPlayerId?: 
     .map(p => p.name);
 }
 
-function remainingBlockNames(gameState: ClientGameState): string[] {
+export function remainingBlockNames(gameState: ClientGameState): string[] {
   const pendingAction = gameState.pendingAction;
   if (!pendingAction) return [];
 
@@ -55,85 +51,99 @@ function remainingBlockNames(gameState: ClientGameState): string[] {
     .map(p => p.name);
 }
 
-/** What the actor claimed. Embezzle's claim is that they hold no Duke. */
-function claimText(gameState: ClientGameState): string {
-  const action = gameState.pendingAction;
-  if (!action) return 'a character';
-  if (action.type === ActionType.Embezzle) return 'no Duke';
-  return action.claimedCharacter ?? 'a character';
-}
-
+/**
+ * The status line over the felt. During a claim it never restates the claim
+ * itself: the plaque under it says who claimed what, at whom. It names who the
+ * table is waiting on, and when you can answer it says what to do.
+ *
+ * Whenever a prompt is open (yours, or the waiting note for you) the prompt is
+ * the one statement of the state, so globals.css hides this line visually and
+ * keeps it for screen readers ("THE CENTRE SAYS IT ONCE").
+ */
 export function PhaseStatus({ gameState }: PhaseStatusProps) {
+  const t = useT();
   const { turnPhase, pendingAction, pendingBlock, influenceLossRequest, myId } = gameState;
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
   const isMyTurn = currentPlayer?.id === myId;
+  // A spectator, or a seat that has been knocked out, can only watch.
+  const canAnswer = !!gameState.players.find(p => p.id === myId)?.isAlive;
+  const passedChallenge = gameState.challengeState?.passedPlayerIds.includes(myId) ?? false;
+  const nameOf = (id?: string | null) => playerName(gameState.players.find(p => p.id === id)?.name);
+  const waiting = (key: 'game.phase.waitingChallenge' | 'game.phase.waitingBlock', names: string[]) =>
+    t.rich(key, { count: names.length, names: nameList(t, names) });
 
-  let text = '';
+  let text: ReactNode = null;
   let tone: 'neutral' | 'mine' | 'ask' | 'danger' = 'neutral';
 
   switch (turnPhase) {
     case TurnPhase.AwaitingAction:
       if (isMyTurn) {
-        text = 'Your turn: choose an action';
+        text = t('game.phase.yourTurn');
         tone = 'mine';
       } else {
-        text = `${currentPlayer?.name}'s turn`;
+        text = t.rich('game.phase.theirTurn', { name: playerName(currentPlayer?.name) });
       }
       break;
 
     case TurnPhase.AwaitingActionChallenge: {
-      const actor = gameState.players.find(p => p.id === pendingAction?.actorId);
-      const remainingNames = remainingChallengeNames(gameState, pendingAction?.actorId);
-      if (myId === pendingAction?.actorId) {
-        text = `Waiting for ${formatNames(remainingNames)} to challenge or pass on your claim of ${claimText(gameState)}`;
-      } else if (gameState.challengeState?.passedPlayerIds.includes(myId)) {
-        text = `Waiting for ${formatNames(remainingNames)} to challenge or pass`;
-      } else {
-        text = `${actor?.name} claims ${claimText(gameState)}: challenge or pass`;
+      const actor = nameOf(pendingAction?.actorId);
+      // What the actor claimed. Embezzle's claim is that they hold no Duke.
+      const isEmbezzle = pendingAction?.type === ActionType.Embezzle;
+      const character = isEmbezzle
+        ? characterName(t, Character.Duke)
+        : pendingAction?.claimedCharacter
+          ? characterName(t, pendingAction.claimedCharacter)
+          : t('game.phase.aCharacter');
+      if (canBlockDuringChallenge(gameState) && !passedChallenge) {
+        // Only a Steal or an Assassinate aimed at you can be blocked from here, never an Embezzle.
+        text = t.rich('game.phase.claimBlockOrChallenge', { actor, character });
+        tone = pendingAction?.type === ActionType.Assassinate ? 'danger' : 'ask';
+      } else if (canAnswer && myId !== pendingAction?.actorId && !passedChallenge) {
+        text = t.rich(isEmbezzle ? 'game.phase.claimNoChallengeOrPass' : 'game.phase.claimChallengeOrPass', { actor, character });
         tone = 'ask';
+      } else {
+        text = waiting('game.phase.waitingChallenge', remainingChallengeNames(gameState, pendingAction?.actorId));
       }
       break;
     }
 
     case TurnPhase.AwaitingBlock: {
-      const actor = gameState.players.find(p => p.id === pendingAction?.actorId);
-      const isTarget = pendingAction?.targetId === myId;
-      const remainingNames = remainingBlockNames(gameState);
-      if (myId === pendingAction?.actorId) {
-        text = `Waiting for ${formatNames(remainingNames)} to block or allow your ${pendingAction ? ACTION_DISPLAY_NAMES[pendingAction.type] : 'action'}`;
-      } else if (isTarget) {
-        text = `${actor?.name} is targeting you: block or allow`;
-        tone = 'danger';
-      } else if (gameState.blockPassedPlayerIds?.includes(myId)) {
-        text = `Waiting for ${formatNames(remainingNames)} to block or allow`;
+      const actor = nameOf(pendingAction?.actorId);
+      const remaining = remainingBlockNames(gameState);
+      const myName = gameState.players.find(p => p.id === myId)?.name;
+      if (canAnswer && myName && remaining.includes(myName) && pendingAction) {
+        if (pendingAction.targetId === myId) {
+          text = t.rich('game.phase.targetingYou', { actor });
+          tone = 'danger';
+        } else {
+          text = t.rich('game.phase.usesBlockOrAllow', { actor, action: actionName(t, pendingAction.type) });
+          tone = 'ask';
+        }
       } else {
-        text = `Waiting for ${formatNames(remainingNames)} to block ${actor?.name}'s ${pendingAction ? ACTION_DISPLAY_NAMES[pendingAction.type] : 'action'}`;
+        text = waiting('game.phase.waitingBlock', remaining);
       }
       break;
     }
 
     case TurnPhase.AwaitingBlockChallenge: {
-      const blocker = gameState.players.find(p => p.id === pendingBlock?.blockerId);
-      const remainingNames = remainingChallengeNames(gameState, pendingBlock?.blockerId);
-      if (myId === pendingAction?.actorId && !gameState.challengeState?.passedPlayerIds.includes(myId)) {
-        text = `${blocker?.name} blocks with ${pendingBlock?.claimedCharacter}: challenge or pass`;
+      if (canAnswer && pendingBlock && myId !== pendingBlock.blockerId && !passedChallenge) {
+        text = t.rich('game.phase.blockChallengeOrPass', {
+          blocker: nameOf(pendingBlock.blockerId),
+          character: characterName(t, pendingBlock.claimedCharacter),
+        });
         tone = 'ask';
-      } else if (gameState.challengeState?.passedPlayerIds.includes(myId) || myId === pendingBlock?.blockerId) {
-        text = `Waiting for ${formatNames(remainingNames)} to challenge or pass on ${blocker?.name}'s block`;
       } else {
-        text = `${blocker?.name} blocks with ${pendingBlock?.claimedCharacter}: challenge or pass`;
-        tone = 'ask';
+        text = waiting('game.phase.waitingChallenge', remainingChallengeNames(gameState, pendingBlock?.blockerId));
       }
       break;
     }
 
     case TurnPhase.AwaitingInfluenceLoss: {
-      const loser = gameState.players.find(p => p.id === influenceLossRequest?.playerId);
       if (influenceLossRequest?.playerId === myId) {
-        text = 'Choose a card to lose';
+        text = t('game.phase.chooseLoss');
         tone = 'danger';
       } else {
-        text = `${loser?.name} is choosing a card to lose`;
+        text = t.rich('game.phase.choosingLoss', { name: nameOf(influenceLossRequest?.playerId) });
       }
       break;
     }
@@ -141,38 +151,44 @@ export function PhaseStatus({ gameState }: PhaseStatusProps) {
     case TurnPhase.AwaitingExamineSelection: {
       const target = gameState.players.find(p => p.id === gameState.examineSelectionState?.targetId);
       const examiner = gameState.players.find(p => p.id === gameState.examineSelectionState?.examinerId);
-      if (target?.id === myId) {
-        text = `Choose a card to show ${examiner?.name ?? 'the Inquisitor'}`;
+      if (target && target.id === myId) {
+        text = examiner
+          ? t.rich('game.phase.chooseToShow', { examiner: playerName(examiner.name) })
+          : t('game.phase.chooseToShowInquisitor', { character: characterName(t, Character.Inquisitor) });
         tone = 'ask';
       } else {
-        text = `${target?.name ?? 'The target'} is choosing a card for ${examiner?.name ?? 'the Inquisitor'} to examine`;
+        text = t.rich('game.phase.choosingToShow', {
+          target: playerName(target?.name),
+          examiner: playerName(examiner?.name),
+        });
       }
       break;
     }
 
     case TurnPhase.AwaitingExamineDecision: {
-      const examiner = gameState.players.find(p => p.id === pendingAction?.actorId);
       if (myId === pendingAction?.actorId) {
-        text = 'Return the card or force a swap';
+        text = t('game.phase.examineDecision');
         tone = 'ask';
       } else {
-        text = `${examiner?.name} is examining a card`;
+        text = t.rich('game.phase.examining', { name: nameOf(pendingAction?.actorId) });
       }
       break;
     }
 
     case TurnPhase.AwaitingExchange:
       if (gameState.exchangeState) {
-        text = 'Choose the cards to keep';
+        text = t('game.phase.chooseKeep');
         tone = 'ask';
       } else {
         const exchanger = gameState.players.find(p => p.id === pendingAction?.actorId);
-        text = `${exchanger?.name ?? 'A player'} is choosing cards to keep`;
+        text = exchanger
+          ? t.rich('game.phase.choosingKeep', { name: playerName(exchanger.name) })
+          : t('game.phase.someoneChoosingKeep');
       }
       break;
 
     case TurnPhase.GameOver:
-      text = 'Game over';
+      text = t('game.phase.gameOver');
       tone = 'mine';
       break;
 

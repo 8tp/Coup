@@ -1,8 +1,56 @@
 import { ClientGameState, ActionType, TurnPhase } from '@/shared/types';
 import { StoredPlayerStats, LifetimeStats, GameHistoryEntry } from '../types/stats';
-import { computePlayerStats, computeAwards } from './gameStats';
+import { computePlayerStats, computeAwards, isAwardId, type AwardId } from './gameStats';
 
 const MAX_HISTORY = 50;
+
+/**
+ * Stats saved before awards had ids keyed them by their English names. Read
+ * those as ids so they show in the reader's language and count together
+ * with awards earned since.
+ */
+const LEGACY_AWARD_TITLES: Readonly<Record<string, AwardId>> = {
+  'Pants on Fire': 'pantsOnFire',
+  'Honest Abe': 'honestAbe',
+  'The Inquisitor': 'inquisitor',
+  'Eagle Eye': 'eagleEye',
+  'The Wall': 'wall',
+  'Smooth Operator': 'smoothOperator',
+  'Coup Machine': 'coupMachine',
+  'Silent Assassin': 'silentAssassin',
+  'Bold Strategy': 'boldStrategy',
+  'Quick Exit': 'quickExit',
+};
+
+/** An award id for a stored award key, whether an id or a legacy English name. */
+export function storedAwardId(key: string): AwardId | null {
+  if (isAwardId(key)) return key;
+  return LEGACY_AWARD_TITLES[key] ?? null;
+}
+
+/**
+ * Stored stats with every award key as an id. Unknown keys are kept as they
+ * are, so nothing a newer version saved is thrown away. Returns the same
+ * object when there was nothing to change.
+ */
+export function normalizeStoredStats(stats: StoredPlayerStats): StoredPlayerStats {
+  const toId = (key: string) => storedAwardId(key) ?? key;
+  const counts = stats.lifetime.awardCounts ?? {};
+  const legacyCounts = Object.keys(counts).some(k => toId(k) !== k);
+  const legacyHistory = stats.history.some(h => h.awardsEarned.some(a => toId(a) !== a));
+  if (!legacyCounts && !legacyHistory) return stats;
+
+  const awardCounts: Record<string, number> = {};
+  for (const [key, count] of Object.entries(counts)) {
+    const id = toId(key);
+    awardCounts[id] = (awardCounts[id] ?? 0) + count;
+  }
+  return {
+    ...stats,
+    lifetime: { ...stats.lifetime, awardCounts },
+    history: stats.history.map(h => ({ ...h, awardsEarned: h.awardsEarned.map(toId) })),
+  };
+}
 
 export function createEmptyStats(deviceId: string): StoredPlayerStats {
   return {
@@ -101,22 +149,14 @@ export function recordGameResult(
   }
 
   // Compute per-player stats
-  const playerIds = gameState.players.map(p => p.id);
-  const playerNames = new Map<string, string>();
-  for (const p of gameState.players) {
-    playerNames.set(p.id, p.name);
-  }
-  const allStats = computePlayerStats(gameState.actionLog, playerIds, playerNames);
+  const allStats = computePlayerStats(gameState.actionLog, gameState.players.map(p => p.id));
   const myStats = allStats.get(myId);
   if (!myStats) return current;
 
-  // Awards for this game (use real names, not "You")
-  const awardsForDisplay = computeAwards(gameState);
-  const myName = playerNames.get(myId) ?? '';
-  // computeAwards replaces myId name with "You", so match on "You"
-  const myAwards = awardsForDisplay
-    .filter(a => a.playerName === 'You')
-    .map(a => a.title);
+  // Awards for this game, by id
+  const myAwards: AwardId[] = computeAwards(gameState)
+    .filter(a => a.playerId === myId)
+    .map(a => a.id);
 
   const won = gameState.winnerId === myId;
   const myTurns = countMyTurns(gameState, myId);
@@ -170,8 +210,8 @@ export function recordGameResult(
 
   // Merge award counts
   const newAwardCounts = { ...lt.awardCounts };
-  for (const title of myAwards) {
-    newAwardCounts[title] = (newAwardCounts[title] ?? 0) + 1;
+  for (const id of myAwards) {
+    newAwardCounts[id] = (newAwardCounts[id] ?? 0) + 1;
   }
   lt.awardCounts = newAwardCounts;
 

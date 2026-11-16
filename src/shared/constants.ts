@@ -1,6 +1,11 @@
 import { ActionType, BotPersonality, Character, GameMode, PersonalityParams, LogEventType, RoomSettings } from './types';
 
 // ─── Action Display Names ───
+/**
+ * English, for the server's own log and error text. Screens name actions
+ * with `actionName(t, type)` from `src/app/i18n`, so they read in the
+ * player's language.
+ */
 export const ACTION_DISPLAY_NAMES: Record<ActionType, string> = {
   [ActionType.Income]: 'Income',
   [ActionType.ForeignAid]: 'Foreign Aid',
@@ -23,6 +28,14 @@ export const STARTING_HAND_SIZE = 2;
 export const COUP_COST = 7;
 export const ASSASSINATE_COST = 3;
 export const FORCED_COUP_THRESHOLD = 10;
+/** Coins Income takes from the treasury. */
+export const INCOME_COINS = 1;
+/** Coins Foreign Aid takes from the treasury. */
+export const FOREIGN_AID_COINS = 2;
+/** Coins Tax (Duke) takes from the treasury. */
+export const TAX_COINS = 3;
+/** Coins Steal (Captain) takes from the target, at most: a target with fewer gives what they have. */
+export const STEAL_COINS = 2;
 export const CHALLENGE_TIMER_MS = 15_000;
 export const BLOCK_TIMER_MS = 15_000;
 export const TURN_TIMER_MS = 30_000;
@@ -101,17 +114,64 @@ export const BOT_EMOTE_TRIGGERS: BotEmoteTrigger[] = [
 ];
 
 // ─── Name Constants ───
+/** Longest name, in user-perceived characters (src/shared/textLimits.ts), whatever the script. */
 export const NAME_MAX_LENGTH = 20;
+/**
+ * Hard cap on a name in UTF-16 code units, and the name inputs' `maxLength`.
+ * Four per character leaves room for Devanagari conjuncts and emoji
+ * sequences while bounding stacked combining marks.
+ */
+export const NAME_MAX_CODE_UNITS = NAME_MAX_LENGTH * 4;
+/** Most combining marks kept in a row: real text needs two or three (Vietnamese, Arabic, Devanagari); more is "zalgo". */
+export const TEXT_MAX_COMBINING_RUN = 4;
 
 // ─── Chat Constants ───
+/** Longest chat message, in user-perceived characters. */
 export const CHAT_MAX_MESSAGE_LENGTH = 200;
+/** Hard cap on a chat message in UTF-16 code units (see NAME_MAX_CODE_UNITS). */
+export const CHAT_MAX_MESSAGE_CODE_UNITS = CHAT_MAX_MESSAGE_LENGTH * 4;
 export const CHAT_RATE_LIMIT_MS = 1000;
 export const CHAT_MAX_HISTORY = 50;
 
+// ─── Quick Phrases ───
+/**
+ * One-tap chat lines offered in the desktop chat composer. The client sends
+ * the `id` (`chat:send` with `phraseId`) and every reader renders it from the
+ * catalog (`game.phrase.<id>`) in their own language. `text` is the English,
+ * used only as the chat line's `message` for older clients and server logs.
+ */
+export const QUICK_PHRASE_IDS = ['nice_bluff', 'have_it', 'liar', 'well_played'] as const;
+export type QuickPhraseId = (typeof QUICK_PHRASE_IDS)[number];
+
+export const QUICK_PHRASES: ReadonlyArray<{ id: QuickPhraseId; text: string }> = [
+  { id: 'nice_bluff', text: 'Nice bluff' },
+  { id: 'have_it', text: 'I have it' },
+  { id: 'liar', text: 'Liar!' },
+  { id: 'well_played', text: 'Well played' },
+];
+
+export function isQuickPhraseId(value: unknown): value is QuickPhraseId {
+  return typeof value === 'string' && (QUICK_PHRASE_IDS as readonly string[]).includes(value);
+}
+
 // ─── Reaction Constants ───
+export const REACTION_IDS = [
+  'gg', 'nice_bluff', 'sus', 'salty', 'wow', 'lol', 'rip', 'no_way', 'big_brain', 'sweat', 'eyes', 'cope',
+] as const;
+export type ReactionId = (typeof REACTION_IDS)[number];
+
+export function isReactionId(value: unknown): value is ReactionId {
+  return typeof value === 'string' && (REACTION_IDS as readonly string[]).includes(value);
+}
+
 export interface ReactionDefinition {
-  id: string;
+  id: ReactionId;
   emoji: string;
+  /**
+   * English, for the server's chat line (`"<emoji> <label>"`), which older
+   * clients and server logs read. Screens render `game.reaction.<id>` from
+   * the catalog instead.
+   */
   label: string;
 }
 
@@ -133,11 +193,36 @@ export const REACTIONS: ReactionDefinition[] = [
 export const REACTION_RATE_LIMIT_MS = 2000;
 export const REACTION_DISPLAY_MS = 3000;
 
+// ─── Feedback Constants ───
+/** Longest feedback note accepted, after trimming and stripping control characters. */
+export const FEEDBACK_MAX_LENGTH = 1000;
+/** Reject a raw payload this long without sanitizing it (cheap guard against huge strings). */
+export const FEEDBACK_MAX_RAW_LENGTH = FEEDBACK_MAX_LENGTH * 4;
+/** Per connection: at most this many notes in the window below. */
+export const FEEDBACK_PER_CONNECTION_MAX = 5;
+export const FEEDBACK_PER_CONNECTION_WINDOW_MS = 10 * 60_000;
+/** Whole server: at most this many notes in the window below, so nobody can flood the log or database. */
+export const FEEDBACK_GLOBAL_MAX = 30;
+export const FEEDBACK_GLOBAL_WINDOW_MS = 10 * 60_000;
+/** Client gives up waiting for the server's acknowledgement after this long. */
+export const FEEDBACK_ACK_TIMEOUT_MS = 8000;
+/** Viewport width buckets reported with feedback (CSS px). */
+export const FEEDBACK_PHONE_MAX_WIDTH = 639;
+export const FEEDBACK_TABLET_MAX_WIDTH = 1023;
+/** GitHub issues page offered as a secondary route. */
+export const FEEDBACK_GITHUB_ISSUES_URL = 'https://github.com/8tp/Coup/issues/new/choose';
+
 // ─── Socket Rate Limits ───
 export const RATE_LIMIT_ROOM_CREATE_MS = 3000;
 export const RATE_LIMIT_ROOM_JOIN_MS = 2000;
 export const RATE_LIMIT_GAME_ACTION_MS = 500;
 export const RATE_LIMIT_BOT_ADD_MS = 400; // add-one then fill-seats in quick succession is normal use
+/**
+ * How long a prompt holds a sent answer (the chosen button stays pressed, a
+ * second answer is ignored) while waiting for the server. Normally released
+ * far sooner, by the server's reply; this only covers a reply that never comes.
+ */
+export const PENDING_ANSWER_TIMEOUT_MS = 5000;
 
 // ─── Action Definitions ───
 export interface ActionDefinition {
@@ -239,6 +324,10 @@ export const ACTION_DEFINITIONS: Record<ActionType, ActionDefinition> = {
 };
 
 // ─── Character role descriptions ───
+/**
+ * English only. The table's card preview reads `game.cardAbility.<Character>`
+ * from the catalog instead; this stays for code not yet converted.
+ */
 export const CHARACTER_DESCRIPTIONS: Record<Character, string> = {
   [Character.Duke]: 'Tax: Take 3 coins. Blocks Foreign Aid.',
   [Character.Assassin]: 'Assassinate: Pay 3 coins. The target loses a card.',
@@ -422,3 +511,42 @@ export const BOT_PERSONALITIES: Record<Exclude<BotPersonality, 'random'>, Person
     bluffPersistenceModifier: 1.0,
   },
 };
+
+// ─── Home Screen Constants ───
+
+/**
+ * The live counter on the home screen ("12 online · 3 games in play") shows
+ * only at or above this many people online, and is left out entirely below
+ * it. `playersOnline` counts distinct connections by IP and includes the
+ * visitor reading it, so a single-digit figure mostly says "nobody else is
+ * here". Ten is the first two-digit number: enough people for a couple of
+ * full tables, which reads as a busy room rather than an empty one. At the
+ * current ~20 visitors a day it rarely shows; it appears when there is a
+ * real crowd to point at.
+ */
+export const HOME_PRESENCE_MIN_ONLINE = 10;
+
+/** Public tables listed on the home screen before "Browse all" takes over. */
+export const HOME_OPEN_TABLES_SHOWN = 3;
+
+/**
+ * Words for the name suggested to a first-time visitor ("Velvet Envoy 42"),
+ * so Play vs Bots is a single tap. Court titles and manners to match the
+ * game, never one of the character names (no "Duke 12 claims Duke"). With a
+ * number from 10 to 99 that is 26 × 26 × 90 = 60,840 names, at most 18
+ * characters, and every one passes the server's name filter
+ * (tests/app/utils/suggestedName.test.ts checks them all).
+ */
+export const SUGGESTED_NAME_ADJECTIVES = [
+  'Quiet', 'Sly', 'Bold', 'Velvet', 'Silver', 'Gilded', 'Masked', 'Shrewd',
+  'Wily', 'Hidden', 'Steady', 'Lucky', 'Stern', 'Candid', 'Subtle', 'Brazen',
+  'Nimble', 'Ashen', 'Iron', 'Golden', 'Veiled', 'Dapper', 'Placid', 'Wary',
+  'Grim', 'Sombre',
+] as const;
+
+export const SUGGESTED_NAME_TITLES = [
+  'Envoy', 'Baron', 'Regent', 'Herald', 'Steward', 'Marquis', 'Squire',
+  'Consul', 'Notary', 'Heir', 'Warden', 'Jester', 'Scribe', 'Sheriff',
+  'Abbess', 'Baroness', 'Courier', 'Vizier', 'Bailiff', 'Page',
+  'Minister', 'Prior', 'Earl', 'Lady', 'Knight', 'Falconer',
+] as const;

@@ -125,11 +125,14 @@
 
     /* --------------------------------------------------------------------
        ART-DIRECTION.md §4 — three type roles, no more.
-       `--font-display` is not declared here: next/font/local sets it on <html>
-       (see layout.tsx) so the hashed self-hosted family name is the value.
-       Consume all three through Tailwind's `font-display` / `font-sans` /
-       `font-mono`, which carry the literal fallback stacks.
+       `--font-display` stacks the Oswald subsets next/font/local declares on
+       <html> (layout.tsx: latin, latin-ext, vietnamese, each limited by
+       unicode-range, so only the subsets a page uses are fetched), then the
+       condensed fallbacks. Arabic and Chinese replace the stacks below
+       ("Per-language type"). Consume all three through Tailwind's
+       `font-display` / `font-sans` / `font-mono`.
        -------------------------------------------------------------------- */
+    --font-display: var(--font-display-latin), var(--font-display-latin-ext), var(--font-display-vietnamese), 'Haettenschweiler', 'Arial Narrow', Impact, system-ui, sans-serif;
     --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     --font-figure: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
 
@@ -231,6 +234,121 @@
     outline: 2px solid #d6a12a;
     outline-offset: 2px;
   }
+
+  /* ------------------------------------------------------------------
+     Language loading (docs/I18N.md). The pre-paint script in layout.tsx
+     adds this class only when the reader's language is not English; the
+     runtime removes it once that catalog has rendered (1.5s backstop), so
+     nobody sees English flash into another language.
+     ------------------------------------------------------------------ */
+  html.i18n-pending body {
+    visibility: hidden;
+  }
+
+  /* ------------------------------------------------------------------
+     Per-language type (docs/I18N.md, "Type").
+
+     Arabic: display in Noto Kufi Arabic (vendored, Arabic range only; a
+     geometric Kufi is the Arabic cousin of a condensed civic grotesque),
+     Latin inside it (player names) stays Oswald. Body is the system face:
+     SF Arabic / Geeza Pro on Apple, Segoe UI on Windows, Noto on Android.
+
+     Chinese: system faces only. A vendored Simplified Chinese face is 4-8MB
+     even sliced, against ~60KB for all of Oswald, and every platform ships
+     a good one (PingFang SC, Microsoft YaHei, Noto Sans CJK SC). Latin keeps
+     Oswald, CJK falls through to the system face in the same stack.
+
+     Hindi (Devanagari): system faces only. Every platform ships a good
+     sans (Kohinoor Devanagari on Apple, Nirmala UI on Windows, Noto Sans
+     Devanagari on Android, which is most of our Indian players). The
+     candidates for a vendored display face were Teko (condensed, 64KB for
+     the Devanagari subset) and Noto Sans Devanagari (207KB); condensed
+     Devanagari crowds its matras at our sizes, and 64-207KB on Indian
+     mobile data buys headings only. Latin keeps Oswald in the same stack.
+
+     None of these scripts has case. Arabic is cursive and Devanagari hangs
+     letters from a shared headline: letter-spacing breaks both (Chrome turns
+     shaping off for spaced text), and tracking or faux italics distort CJK.
+     So all three drop tracking, capitals and italics, and display type is
+     set in a normal-width face, not a condensed one.
+
+     Devanagari also stacks vowel marks above the headline and below the
+     baseline, so the tight line-heights the Latin display role uses (1.1 on
+     buttons, 1.15 on the phase banner, leading-5 in the log) clip them.
+     Under :lang(hi) every line box is 1.5.
+     ------------------------------------------------------------------ */
+  :root:lang(ar) {
+    --font-display: var(--font-display-arabic), var(--font-display-latin), var(--font-display-latin-ext), 'Geeza Pro', 'Segoe UI', 'Noto Kufi Arabic', 'Noto Sans Arabic', system-ui, sans-serif;
+    --font-body: system-ui, -apple-system, 'Geeza Pro', 'Segoe UI', 'Noto Sans Arabic', 'Noto Naskh Arabic', Tahoma, sans-serif;
+    --display-tracking: 0;
+  }
+
+  :root:lang(zh) {
+    --font-display: var(--font-display-latin), 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Noto Sans SC', 'Source Han Sans SC', system-ui, sans-serif;
+    --font-body: system-ui, -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Noto Sans SC', sans-serif;
+    --display-tracking: 0;
+  }
+
+  :root:lang(hi) {
+    --font-display: var(--font-display-latin), var(--font-display-latin-ext), 'Kohinoor Devanagari', 'Devanagari Sangam MN', 'Nirmala UI', 'Noto Sans Devanagari', 'Mangal', system-ui, sans-serif;
+    --font-body: system-ui, -apple-system, 'Kohinoor Devanagari', 'Nirmala UI', 'Noto Sans Devanagari', 'Segoe UI', Roboto, sans-serif;
+    --display-tracking: 0;
+  }
+
+  :root:lang(ar) body,
+  :root:lang(zh) body,
+  :root:lang(hi) body {
+    font-family: var(--font-body);
+  }
+
+  :root:lang(ar) :is(*, *::before, *::after),
+  :root:lang(zh) :is(*, *::before, *::after),
+  :root:lang(hi) :is(*, *::before, *::after) {
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+  }
+
+  :root:lang(ar) :is(i, em, .italic),
+  :root:lang(zh) :is(i, em, .italic),
+  :root:lang(hi) :is(i, em, .italic) {
+    font-style: normal;
+  }
+
+  /* Room for matras above the headline and below the baseline. */
+  :root:lang(hi) :is(*, *::before, *::after) {
+    line-height: 1.5 !important;
+  }
+
+  /* ------------------------------------------------------------------
+     Right to left (docs/I18N.md, "Right to left").
+
+     With dir="rtl" text blocks, prompts, the log, chat and forms mirror on
+     their own: they use logical properties (start/end, inline-start). The
+     court table does NOT mirror. It is a physical object: seat angles,
+     the deck and treasury positions and the coin and card flights are
+     geometry measured in px and %, and the same seat must sit in the same
+     place for every reader at the table. So the table box is pinned LTR,
+     and text inside a seat is isolated so an Arabic or Latin name still
+     reads in its own direction.
+     ------------------------------------------------------------------ */
+  [dir='rtl'] .court-table {
+    direction: ltr;
+  }
+
+  [dir='rtl'] .court-table .table-seat {
+    unicode-bidi: isolate;
+  }
+
+  [dir='rtl'] .court-table .table-seat :is(span, p),
+  [dir='rtl'] .court-table .table-object-label {
+    unicode-bidi: plaintext;
+  }
+
+  /* Figures (coins, timers, room codes, deck count) always read left to right. */
+  [dir='rtl'] .figure {
+    direction: ltr;
+    unicode-bidi: isolate;
+  }
 }
 
 @layer components {
@@ -315,6 +433,24 @@
   .btn-ghost:active:not(:disabled) {
     transform: translate(3px, 3px);
     box-shadow: 0 0 0 var(--ground-deep);
+  }
+
+  /* An answer sent and not yet answered by the server (utils/pendingAnswer.ts):
+     the press is HELD, collapsed into the surface, until the reply arrives.
+     The same mechanic as :active, so it reads as "pressed" and nothing else. */
+  .btn-primary[data-pending],
+  .btn-secondary[data-pending],
+  .btn-danger[data-pending],
+  .btn-ghost[data-pending] {
+    transform: translate(3px, 3px);
+    box-shadow: 0 0 0 var(--ground-deep);
+    cursor: progress;
+  }
+
+  /* The card chosen to lose stays pressed in the same way while the server replies. */
+  button.loss-choice[data-pending] {
+    transform: scale(0.95);
+    cursor: progress;
   }
 
   .btn-primary:disabled,
@@ -420,6 +556,492 @@
       var(--tw-ring-offset-shadow, 0 0 #0000),
       var(--tw-ring-shadow, 0 0 #0000),
       var(--tw-shadow);
+  }
+
+  /* ==================================================================
+     THE GAME-OVER SCREEN (GameOverOverlay.tsx and game/gameover/).
+
+     Two parts: content that scrolls, and a footer that never does. The
+     rematch is the control that matters most here, so it lives in the
+     footer and is on screen the moment the result is, on a phone and on a
+     desktop. On a phone the panel is the whole screen (safe areas kept);
+     from 640px it is a dialog; from 1024px the hands sit beside the recap
+     instead of above it.
+
+     Everything is in rem so the text-size setting scales the lot.
+     ================================================================== */
+  .gameover-root {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(5, 9, 10, 0.82);
+  }
+
+  .gameover-panel {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    border-radius: 0;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+  }
+
+  .gameover-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 1.25rem 1rem 1.25rem;
+  }
+
+  .gameover-header {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .gameover-glyph {
+    flex: none;
+    display: flex;
+  }
+
+  .gameover-title {
+    font-size: var(--step-4);
+    line-height: 1.05;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+
+  .gameover-title:focus {
+    outline: none;
+  }
+
+  .gameover-subtitle {
+    margin-top: 0.375rem;
+    font-size: var(--step-0);
+    line-height: 1.4;
+  }
+
+  .gameover-body {
+    display: grid;
+    gap: 1.25rem;
+  }
+
+  .gameover-col {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    min-width: 0;
+  }
+
+  .gameover-section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+
+  /* A section heading in the Display face, sentence case. It replaces the
+     tracked-caps eyebrow labels (§4: hierarchy from size and weight). */
+  .gameover-heading {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: var(--display-tracking);
+    font-size: var(--step-1);
+    line-height: 1.2;
+    color: var(--ink);
+    margin-bottom: 0.5rem;
+  }
+
+  .gameover-section-head .gameover-heading {
+    margin-bottom: 0;
+  }
+
+  .gameover-key {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: var(--step--1);
+    color: var(--ink-mute);
+  }
+
+  .gameover-key-swatch {
+    width: 1.25rem;
+    height: 0.375rem;
+    border-radius: 1px;
+    background-image: var(--hazard-rail);
+  }
+
+  /* Sunk plates: the deboss on a darker well, no outline (§3.1, §5). */
+  .gameover-plate,
+  .gameover-hand,
+  .gameover-status {
+    border-radius: 2px;
+    background-color: rgba(9, 13, 14, 0.45);
+    box-shadow: var(--deboss);
+  }
+
+  .gameover-hands {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  /* Mark, name, cards on one line; when the name would get narrower than
+     about seven characters (320px, or the largest text size) the cards
+     drop to their own line instead of squeezing it. */
+  .gameover-hand {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem 0.625rem;
+    padding-block: 0.5rem;
+    padding-inline: 0.5rem 0.75rem;
+  }
+
+  /* The winner: brass, and the crown (§1.2 RULING: the crown means the winner). */
+  .gameover-hand.is-winner {
+    background-color: rgba(214, 161, 42, 0.12);
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+  }
+
+  .gameover-hand-mark {
+    flex: none;
+    width: 1.25rem;
+    display: flex;
+    justify-content: center;
+    color: var(--brass);
+  }
+
+  .gameover-hand-who {
+    flex: 1 1 7rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-width: 0;
+  }
+
+  .gameover-hand-name {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: var(--display-tracking);
+    font-size: var(--step-1);
+    line-height: 1.15;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .gameover-hand.is-winner .gameover-hand-name {
+    color: var(--brass);
+    font-size: var(--step-2);
+  }
+
+  .gameover-hand-meta {
+    font-size: var(--step--1);
+    line-height: 1.3;
+    color: var(--ink-mute);
+  }
+
+  .gameover-hand-cards {
+    flex: none;
+    display: flex;
+    gap: 0.375rem;
+    /* Cards to the far end of the row: the right, or the left under dir="rtl". */
+    margin-inline-start: auto;
+  }
+
+  /* Every hand at full strength. The table's "Eliminated" print degradation
+     (grayscale + half opacity on .card-face-revealed) is right mid-game,
+     where a dead card should recede; here reading what everyone held is the
+     point, so the art comes back and a lost card is marked by material
+     instead: the hazard hatch it already carries, plus the hazard rail
+     printed along its top edge. */
+  .gameover-card {
+    position: relative;
+    display: inline-flex;
+  }
+
+  .gameover-card .card-face-revealed {
+    filter: none;
+    opacity: 1;
+  }
+
+  .gameover-card.is-lost::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 0.3125rem;
+    border-radius: 6px 6px 0 0;
+    background-image: var(--hazard-rail);
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .gameover-lines > li + li {
+    border-top: 1px solid rgba(51, 68, 62, 0.6);
+  }
+
+  .gameover-line {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625rem;
+    padding: 0.5rem 0.75rem;
+    font-size: var(--step-0);
+    line-height: 1.4;
+    color: var(--ink);
+  }
+
+  .gameover-line-glyph {
+    flex: none;
+    margin-top: 0.125rem;
+    color: var(--brass);
+  }
+
+  .gameover-awards {
+    display: grid;
+    gap: 0.375rem;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  }
+
+  .gameover-award {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .gameover-award-title {
+    display: block;
+    font-weight: 700;
+    font-size: var(--step-0);
+    line-height: 1.3;
+    color: var(--ink);
+  }
+
+  .gameover-award-who {
+    display: block;
+    font-size: var(--step--1);
+    line-height: 1.35;
+    color: var(--ink-mute);
+  }
+
+  /* The long tail: three or four quiet pressables, small. Two to a row on
+     a phone (three when there are three), one row from 640px. */
+  .gameover-more {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .gameover-more:not(:has(> :nth-child(4))) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .gameover-more .btn-ghost {
+    min-height: 2.75rem;
+    padding: 0.5rem 0.75rem;
+    font-size: var(--step--1);
+  }
+
+  .gameover-export-status {
+    min-height: 1rem;
+    margin: 0.25rem 0;
+    text-align: center;
+    font-size: var(--step--1);
+    color: var(--ink-mute);
+  }
+
+  .gameover-bluff-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    column-gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .gameover-bluff-name {
+    font-weight: 600;
+    font-size: var(--step-0);
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+
+  .gameover-bluff-detail {
+    font-size: var(--step--1);
+    color: var(--ink-mute);
+  }
+
+  .gameover-log {
+    max-height: 15rem;
+    overflow-y: auto;
+  }
+
+  /* The pinned tray. A step above the felt (--raised), split from the
+     scrolling content by the one hairline value. */
+  .gameover-footer {
+    flex: none;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 0.125rem;
+    padding: 0.75rem 1rem max(0.375rem, env(safe-area-inset-bottom));
+    background-color: var(--raised);
+    border-top: 1px solid var(--line);
+  }
+
+  .gameover-actions {
+    display: flex;
+    align-items: stretch;
+    gap: 0.625rem;
+  }
+
+  .gameover-leave {
+    flex: none;
+  }
+
+  .gameover-primary {
+    flex: 1 1 auto;
+  }
+
+  .gameover-status {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    padding: 0.5rem 0.75rem;
+    text-align: center;
+    font-size: var(--step-0);
+    line-height: 1.3;
+    color: var(--ink-mute);
+  }
+
+  .gameover-feedback {
+    align-self: center;
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    padding: 0 0.5rem;
+    font-size: var(--step--1);
+    color: var(--ink-mute);
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+
+  .gameover-feedback:hover {
+    color: var(--brass);
+  }
+
+  @media (min-width: 640px) {
+    .gameover-root {
+      padding:
+        max(1.5rem, env(safe-area-inset-top))
+        max(1.5rem, env(safe-area-inset-right))
+        max(1.5rem, env(safe-area-inset-bottom))
+        max(1.5rem, env(safe-area-inset-left));
+    }
+
+    .gameover-panel {
+      height: auto;
+      max-height: calc(100dvh - 3rem);
+      max-width: 36rem;
+      border-radius: 2px;
+      padding: 0;
+    }
+
+    .gameover-scroll {
+      padding: 1.5rem 1.5rem 1.25rem;
+    }
+
+    .gameover-footer {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.875rem 1.5rem;
+    }
+
+    .gameover-primary {
+      flex: none;
+      min-width: 12rem;
+    }
+
+    .gameover-more {
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(0, 1fr);
+      grid-template-columns: none;
+    }
+
+    .gameover-more:not(:has(> :nth-child(4))) {
+      grid-template-columns: none;
+    }
+
+    .gameover-status {
+      flex: none;
+      max-width: 20rem;
+    }
+  }
+
+  /* A phone on its side: give the scrolling part every pixel of height. */
+  @media (min-width: 640px) and (max-height: 520px) {
+    .gameover-root {
+      padding-top: max(0.5rem, env(safe-area-inset-top));
+      padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+    }
+
+    .gameover-panel {
+      max-height: calc(100dvh - 1rem);
+    }
+
+    .gameover-scroll {
+      padding-top: 1rem;
+    }
+
+    .gameover-header {
+      margin-bottom: 0.75rem;
+    }
+
+    .gameover-footer {
+      padding-top: 0.5rem;
+      padding-bottom: 0.5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .gameover-panel {
+      max-width: 68rem;
+    }
+
+    .gameover-scroll {
+      padding: 1.75rem 2rem 1.5rem;
+    }
+
+    .gameover-title {
+      font-size: var(--step-5);
+    }
+
+    .gameover-body {
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+      gap: 2rem;
+      align-items: start;
+    }
+
+    .gameover-footer {
+      padding: 1rem 2rem;
+    }
   }
 
   /* ==================================================================
@@ -610,8 +1232,19 @@
     pointer-events: none;
   }
 
+  /* THE PLATES FIT THEIR WORDS, IN ANY LANGUAGE.
+     Each size class below sets `--label-size`, the size the English names
+     were tuned at. A word wider than its plate at that size (a long
+     Portuguese name, the pseudo-locale, AMBASSADOR in a phone's hand) is
+     measured by CharacterCardBadge, which sets `--label-fit` to the
+     fraction that fits, so it shrinks instead of being clipped, at every
+     card size. Past half size it wraps instead (`data-wrap`). A word that
+     fits keeps its tuned size. Printed in capitals, like a real card's
+     role strip; `:lang()` turns that off for scripts without case. */
   .card-character-label,
   .card-action-label {
+    font-size: calc(var(--label-size) * var(--label-fit, 1));
+    text-transform: uppercase;
     color: white;
     line-height: 1;
     font-weight: 900;
@@ -628,31 +1261,37 @@
     min-width: 0;
   }
 
+  .card-character-label[data-wrap],
+  .card-action-label[data-wrap] {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
   .card-character-label {
-    font-size: 5.8px;
+    --label-size: 5.8px;
   }
 
   .card-action-label {
     color: rgb(251, 191, 36);
-    font-size: 6.4px;
+    --label-size: 6.4px;
     text-shadow: 0 1px 1px rgba(0,0,0,0.95);
   }
 
   .card-character-label.card-label-medium {
-    font-size: 5.3px;
+    --label-size: 5.3px;
   }
 
   .card-character-label.card-label-long {
-    font-size: 4.8px;
+    --label-size: 4.8px;
   }
 
   .card-character-label.card-label-extra-long {
-    font-size: 4.6px;
+    --label-size: 4.6px;
     letter-spacing: -0.05em;
   }
 
   .card-action-label.card-label-medium {
-    font-size: 5.7px;
+    --label-size: 5.7px;
     letter-spacing: -0.03em;
   }
 
@@ -661,28 +1300,28 @@
   }
 
   .card-face-sm .card-character-label {
-    font-size: 6.6px;
+    --label-size: 6.6px;
   }
 
   .card-face-sm .card-action-label {
-    font-size: 7px;
+    --label-size: 7px;
   }
 
   .card-face-sm .card-character-label.card-label-medium {
-    font-size: 6px;
+    --label-size: 6px;
   }
 
   .card-face-sm .card-character-label.card-label-long {
-    font-size: 5.5px;
+    --label-size: 5.5px;
   }
 
   .card-face-sm .card-character-label.card-label-extra-long {
-    font-size: 5.2px;
+    --label-size: 5.2px;
     letter-spacing: -0.06em;
   }
 
   .card-face-sm .card-action-label.card-label-medium {
-    font-size: 6px;
+    --label-size: 6px;
     letter-spacing: -0.04em;
   }
 
@@ -692,59 +1331,62 @@
   }
 
   .card-face-md .card-character-label {
-    font-size: 8.4px;
+    --label-size: 8.4px;
   }
 
   .card-face-md .card-action-label {
-    font-size: 9.2px;
+    --label-size: 9.2px;
   }
 
   .card-face-md .card-character-label.card-label-medium {
-    font-size: 7.6px;
+    --label-size: 7.6px;
   }
 
   .card-face-md .card-character-label.card-label-long {
-    font-size: 7px;
+    --label-size: 7px;
   }
 
   .card-face-md .card-character-label.card-label-extra-long {
-    font-size: 6.4px;
+    --label-size: 6.4px;
     letter-spacing: -0.05em;
   }
 
   .card-face-md .card-action-label.card-label-medium {
-    font-size: 7.5px;
+    --label-size: 7.5px;
     letter-spacing: -0.04em;
   }
 
-  .card-face-lg .card-label-plate {
+  /* The examine prompt's card (96x128, ExaminePrompt) is not a CardFace,
+     so it takes the large card's plate too; without it its labels fell back
+     to the 5.8px base. */
+  :is(.card-face-lg, .examine-card) .card-label-plate {
     padding: 19px 4px 5px;
     gap: 2px;
   }
 
-  .card-face-lg .card-character-label {
-    font-size: 10.8px;
+  :is(.card-face-lg, .examine-card) .card-character-label {
+    --label-size: 10.8px;
   }
 
-  .card-face-lg .card-action-label {
-    font-size: 12px;
+  :is(.card-face-lg, .examine-card) .card-action-label {
+    --label-size: 12px;
   }
 
-  .card-face-lg .card-character-label.card-label-medium {
-    font-size: 9.8px;
+  :is(.card-face-lg, .examine-card) .card-character-label.card-label-medium {
+    --label-size: 9.8px;
   }
 
-  .card-face-lg .card-character-label.card-label-long {
-    font-size: 8.9px;
+  :is(.card-face-lg, .examine-card) .card-character-label.card-label-long {
+    --label-size: 8.9px;
   }
 
-  .card-face-lg .card-character-label.card-label-extra-long {
-    font-size: 8.2px;
+  :is(.card-face-lg, .examine-card) .card-character-label.card-label-extra-long {
+    --label-size: 8.2px;
     letter-spacing: -0.04em;
   }
 
-  .card-face-lg .card-action-label.card-label-medium {
-    font-size: 10.4px;
+  :is(.card-face-lg, .examine-card) .card-action-label.card-label-medium {
+    --label-size: 10.4px;
     letter-spacing: -0.02em;
   }
 
@@ -754,28 +1396,28 @@
   }
 
   .card-reveal-face .card-character-label {
-    font-size: 12.8px;
+    --label-size: 12.8px;
   }
 
   .card-reveal-face .card-action-label {
-    font-size: 14.2px;
+    --label-size: 14.2px;
   }
 
   .card-reveal-face .card-character-label.card-label-medium {
-    font-size: 11.6px;
+    --label-size: 11.6px;
   }
 
   .card-reveal-face .card-character-label.card-label-long {
-    font-size: 10.8px;
+    --label-size: 10.8px;
   }
 
   .card-reveal-face .card-character-label.card-label-extra-long {
-    font-size: 10px;
+    --label-size: 10px;
     letter-spacing: -0.03em;
   }
 
   .card-reveal-face .card-action-label.card-label-medium {
-    font-size: 12.6px;
+    --label-size: 12.6px;
     letter-spacing: -0.01em;
   }
 
@@ -785,28 +1427,28 @@
   }
 
   .card-preview-face .card-character-label {
-    font-size: 13px;
+    --label-size: 13px;
   }
 
   .card-preview-face .card-action-label {
-    font-size: 15px;
+    --label-size: 15px;
   }
 
   .card-preview-face .card-character-label.card-label-medium {
-    font-size: 12px;
+    --label-size: 12px;
   }
 
   .card-preview-face .card-character-label.card-label-long {
-    font-size: 11px;
+    --label-size: 11px;
   }
 
   .card-preview-face .card-character-label.card-label-extra-long {
-    font-size: 10.3px;
+    --label-size: 10.3px;
     letter-spacing: -0.02em;
   }
 
   .card-preview-face .card-action-label.card-label-medium {
-    font-size: 13px;
+    --label-size: 13px;
     letter-spacing: 0;
   }
 
@@ -830,12 +1472,12 @@
   }
 
   .card-face-xl .card-label-plate { padding: 25px 5px 7px; gap: 3px; }
-  .card-face-xl .card-character-label { font-size: 14px; }
-  .card-face-xl .card-action-label { font-size: 15.6px; }
-  .card-face-xl .card-character-label.card-label-medium { font-size: 12.7px; }
-  .card-face-xl .card-character-label.card-label-long { font-size: 11.6px; }
-  .card-face-xl .card-character-label.card-label-extra-long { font-size: 10.7px; letter-spacing: -0.04em; }
-  .card-face-xl .card-action-label.card-label-medium { font-size: 13.5px; letter-spacing: -0.02em; }
+  .card-face-xl .card-character-label { --label-size: 14px; }
+  .card-face-xl .card-action-label { --label-size: 15.6px; }
+  .card-face-xl .card-character-label.card-label-medium { --label-size: 12.7px; }
+  .card-face-xl .card-character-label.card-label-long { --label-size: 11.6px; }
+  .card-face-xl .card-character-label.card-label-extra-long { --label-size: 10.7px; letter-spacing: -0.04em; }
+  .card-face-xl .card-action-label.card-label-medium { --label-size: 13.5px; letter-spacing: -0.02em; }
 
   /* Band width per card size. 4px on a 44px card is 9% of the width — enough
      to name the character at a glance in a seat, small enough that the art
@@ -1153,7 +1795,8 @@
      language as the flash that just fired on the control. */
   .refusal-alert {
     margin-top: 0.5rem;
-    padding: 0.375rem 0.5rem 0.375rem 0.625rem;
+    padding-block: 0.375rem;
+    padding-inline: 0.625rem 0.5rem;
     border-radius: 2px;
     background-color: var(--ground);
     background-image: var(--hazard-rail);
@@ -1164,6 +1807,14 @@
     font-size: var(--step--1);
     line-height: 1.35;
     text-align: center;
+  }
+
+  /* Right to left, the leading edge is the right one. Not on the court
+     table, which never mirrors (a seat refusing a target keeps its mark on
+     the left for every reader). */
+  [dir='rtl'] [data-ineligible='true']:not(.court-table *),
+  [dir='rtl'] .refusal-alert {
+    background-position: right top;
   }
 
   /* A CARD refuses by flashing, never by shaking. This is an overlay element
@@ -1455,7 +2106,13 @@
   /* ==================================================================
      THE MENU — home screen. One column, one panel, everything a thumb
      needs inside the bottom two-thirds on a phone. Every pressable is at
-     least 44px; the name is asked once and remembered.
+     least 44px; the name is suggested on a first visit and remembered.
+
+     Nothing that arrives over the socket after first paint may move what
+     is already on screen: the column is anchored to the top (not centred,
+     which would re-centre it when Open tables appears below), Open tables
+     sits under everything a newcomer needs, and the live counter is out
+     of the flow in the top-left corner.
      ================================================================== */
 
   .menu-root {
@@ -1470,7 +2127,7 @@
   .menu-topbar {
     position: absolute;
     top: max(0.75rem, env(safe-area-inset-top));
-    right: 0.75rem;
+    inset-inline-end: 0.75rem;
     z-index: 10;
     display: flex;
     gap: 0.5rem;
@@ -1479,8 +2136,8 @@
   .menu-column {
     width: 100%;
     max-width: 26rem;
-    margin: auto 0;
-    padding-top: 3.25rem;
+    margin: 0 0 auto;
+    padding-top: clamp(3.25rem, 13vh, 8rem);
     display: flex;
     flex-direction: column;
     gap: 1rem;
@@ -1507,12 +2164,55 @@
     letter-spacing: 0.02em;
   }
 
+  /* The live counter, level with the stats/settings buttons. Only shown at
+     or above HOME_PRESENCE_MIN_ONLINE (constants.ts). */
   .menu-presence {
-    display: inline-flex;
+    position: absolute;
+    top: max(0.75rem, env(safe-area-inset-top));
+    inset-inline-start: 1rem;
+    z-index: 10;
+    max-width: calc(100% - 9rem);
+    min-height: 44px;
+    display: flex;
     align-items: center;
     gap: 0.4rem;
     font-size: var(--step--1);
+    line-height: 1.25;
     color: var(--ink-mute);
+  }
+
+  .menu-presence-online {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    white-space: nowrap;
+  }
+
+  .menu-presence-games {
+    white-space: nowrap;
+  }
+
+  .menu-presence-games::before {
+    content: '·';
+    margin-inline-end: 0.4rem;
+  }
+
+  /* Phones: two short lines beside the buttons rather than one long one. */
+  @media (max-width: 479px) {
+    .menu-presence {
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 0.1rem;
+    }
+
+    .menu-presence-games {
+      padding-inline-start: 0.85rem;
+    }
+
+    .menu-presence-games::before {
+      content: none;
+    }
   }
 
   .menu-presence-dot {
@@ -1599,7 +2299,7 @@
     min-height: 48px;
     width: 100%;
     padding: 0.25rem 0.1rem;
-    text-align: left;
+    text-align: start;
   }
 
   .switch-track {
@@ -1615,7 +2315,7 @@
   .switch-track > span {
     position: absolute;
     top: 0.2rem;
-    left: 0.2rem;
+    inset-inline-start: 0.2rem;
     width: 1.35rem;
     height: 1.35rem;
     border-radius: 9999px;
@@ -1629,6 +2329,11 @@
 
   .switch-track.is-on > span {
     transform: translateX(1.25rem);
+  }
+
+  /* Right to left: off sits at the start (right), on slides towards the end. */
+  [dir='rtl'] .switch-track.is-on > span {
+    transform: translateX(-1.25rem);
   }
 
   .menu-code-row {
@@ -1696,7 +2401,8 @@
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    padding: 0.5rem 0.5rem 0.5rem 0.85rem;
+    padding-block: 0.5rem;
+    padding-inline: 0.85rem 0.5rem;
     border-radius: 3px;
     background-color: rgba(23, 35, 31, 0.85);
   }
@@ -1722,15 +2428,94 @@
     font-size: var(--step-0);
   }
 
+  /* One door for newcomers: opens the Learn to play sheet. */
   .menu-learn {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.5rem;
+    width: 100%;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-height: 3.75rem;
+    padding-block: 0.65rem;
+    padding-inline: 1rem 0.85rem;
+    text-align: start;
   }
 
-  .menu-learn > .btn-ghost {
-    padding-left: 0.4rem;
-    padding-right: 0.4rem;
+  .menu-learn-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+
+  .menu-learn-title {
+    font-size: var(--step-1);
+    color: var(--ink);
+  }
+
+  .menu-learn-sub {
+    font-family: var(--font-body);
+    font-size: var(--step--1);
+    font-weight: 500;
+    line-height: 1.3;
+    color: var(--ink-mute);
+  }
+
+  .menu-learn-chevron {
+    flex: none;
+    width: 1.25rem;
+    height: 1.25rem;
+    color: var(--brass);
+  }
+
+  .menu-learn:hover:not(:disabled) .menu-learn-title {
+    color: var(--brass);
+  }
+
+  /* The Learn to play sheet (home/LearnSheet.tsx), in the practice sheet's chrome. */
+  .learn-options {
+    gap: 0.6rem;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+
+  .learn-option {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+    padding: 0.8rem 1rem;
+    text-align: start;
+  }
+
+  .learn-option-title {
+    font-size: var(--step-1);
+  }
+
+  .learn-option-sub {
+    font-family: var(--font-body);
+    font-size: var(--step--1);
+    font-weight: 500;
+    line-height: 1.3;
+  }
+
+  .btn-primary.learn-option .learn-option-sub {
+    opacity: 0.8;
+  }
+
+  .btn-secondary.learn-option .learn-option-sub {
+    color: var(--ink-mute);
+  }
+
+  .learn-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    column-gap: 0.75rem;
+  }
+
+  .learn-foot-text {
+    font-size: var(--step--1);
+    color: var(--ink-mute);
   }
 
   .menu-footer {
@@ -1752,6 +2537,191 @@
   }
 
   .menu-footer-link:hover {
+    color: var(--ink);
+  }
+
+  /* ── The landing pages: "About" under the menu ─────────────────────────
+     `components/home/SeoContent.tsx`, on `/` and every `/pt-br`-style page.
+     Prose for search engines and for the curious, below the first screen:
+     the menu keeps `min-height: 100dvh`, so a player never has to look past
+     it. Body type, `--ink-mute` for reading, `--ink` for headings in the
+     display face, no panel outlines (ART-DIRECTION §3.1, §4).
+
+     The council chamber stays the size of one screen. Before, the menu was
+     at most a screen tall and the chamber was `cover` over the whole page;
+     with a section below, `cover` would scale it to the page's full height
+     (iOS ignores the fixed attachment that otherwise pins it). So the
+     chamber is sized and placed exactly as `cover` would place it in one
+     large viewport, scrolls away with the menu, and the section sits on the
+     plain ground underneath. Same first screen, pixel for pixel.
+     ------------------------------------------------------------------ */
+  body:has(.landing-below) {
+    background-color: #070b0c;
+    background-image:
+      linear-gradient(180deg, rgba(6, 10, 11, 0.55) 0%, rgba(6, 10, 11, 0.25) 45%, rgba(6, 10, 11, 0.7) 100%),
+      url('/assets/backgrounds/menu-chamber-wide-v1.webp');
+    background-attachment: scroll;
+    background-repeat: no-repeat;
+    /* `cover` in a 100vw x 100lvh box; the wide chamber is 1672x941. */
+    background-size: 100% 100lvh, max(100vw, 100lvh * 1672 / 941) auto;
+    background-position: 0 0, center calc((100lvh - max(100lvh, 100vw * 941 / 1672)) * 0.6);
+  }
+
+  @media (max-aspect-ratio: 4/5) {
+    body:has(.landing-below) {
+      background-image:
+        linear-gradient(180deg, rgba(6, 10, 11, 0.5) 0%, rgba(6, 10, 11, 0.2) 50%, rgba(6, 10, 11, 0.65) 100%),
+        url('/assets/backgrounds/menu-chamber-tall-v1.webp');
+      /* The tall chamber is 900x1600, anchored to the bottom of the screen. */
+      background-size: 100% 100lvh, max(100vw, 100lvh * 900 / 1600) auto;
+      background-position: 0 0, center calc(100lvh - max(100lvh, 100vw * 1600 / 900));
+    }
+  }
+
+  body:has(.landing-below)::before {
+    display: none;
+  }
+
+  /* Before the menu hydrates (it renders on the client), keep the section
+     where it will end up, under one empty screen, so nothing jumps. */
+  body:not(:has(.menu-root)) .landing-below {
+    margin-top: 100dvh;
+  }
+
+  .landing-below {
+    width: 100%;
+    background: linear-gradient(180deg, transparent, #070b0c 4rem);
+    padding: 3rem 1rem max(2rem, env(safe-area-inset-bottom));
+  }
+
+  .landing-about,
+  .landing-foot {
+    max-width: 38rem;
+    margin-inline: auto;
+  }
+
+  .landing-about {
+    color: var(--ink-mute);
+    font-size: var(--step-0);
+    line-height: 1.6;
+    text-align: start;
+  }
+
+  .landing-about p {
+    margin-top: 0.5rem;
+  }
+
+  .landing-title {
+    font-family: var(--font-display);
+    font-size: var(--step-3);
+    font-weight: 700;
+    letter-spacing: var(--display-tracking);
+    line-height: 1.2;
+    color: var(--ink);
+  }
+
+  .landing-subtitle {
+    margin-top: 1.75rem;
+    font-family: var(--font-display);
+    font-size: var(--step-1);
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--ink);
+  }
+
+  .landing-faq-item {
+    margin-top: 1rem;
+  }
+
+  .landing-faq dt {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .landing-faq dd {
+    margin-top: 0.25rem;
+  }
+
+  .landing-foot {
+    margin-top: 2.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    color: var(--ink-mute);
+    font-size: var(--step--1);
+    line-height: 1.5;
+  }
+
+  .landing-languages ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.5rem;
+  }
+
+  .landing-language {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 0.5rem;
+    margin-inline-start: -0.5rem;
+    color: var(--ink-mute);
+    font-size: var(--step-0);
+    font-weight: 600;
+  }
+
+  .landing-language:hover {
+    color: var(--ink);
+  }
+
+  .landing-language[aria-current='page'] {
+    color: var(--brass);
+  }
+
+  /* "Leia em português": a plate at the foot of the screen, offered on `/`
+     to a reader whose browser lists a language with its own page. */
+  .lang-suggest {
+    position: fixed;
+    inset-inline: 0.75rem;
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+    z-index: 50;
+    margin-inline: auto;
+    max-width: 22rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding-inline: 0.75rem 0.25rem;
+    border-radius: 2px;
+    background-color: rgba(23, 35, 31, 0.96);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 12px 28px rgba(0, 0, 0, 0.45);
+    background-image: linear-gradient(var(--brass), var(--brass));
+    background-repeat: no-repeat;
+    background-size: 100% 3px;
+  }
+
+  .lang-suggest-link {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    color: var(--ink);
+    font-weight: 600;
+    font-size: var(--step-0);
+  }
+
+  .lang-suggest-link:hover {
+    color: var(--brass);
+  }
+
+  .lang-suggest-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    color: var(--ink-mute);
+  }
+
+  .lang-suggest-close:hover {
     color: var(--ink);
   }
 
@@ -1824,10 +2794,12 @@
   .lobby-grid {
     display: grid;
     gap: 1rem;
+    /* minmax(0, ...): a long unbreakable name (twenty CJK characters) truncates instead of widening the page. */
+    grid-template-columns: minmax(0, 1fr);
   }
 
   @media (min-width: 900px) {
-    .lobby-grid { grid-template-columns: 1fr 1fr; align-items: start; }
+    .lobby-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
   }
 
   .lobby-players {
@@ -1841,7 +2813,8 @@
     align-items: center;
     gap: 0.5rem;
     min-height: 56px;
-    padding: 0.4rem 0.4rem 0.4rem 0.85rem;
+    padding-block: 0.4rem;
+    padding-inline: 0.85rem 0.4rem;
     border-radius: 3px;
     background-color: var(--ground-deep);
     box-shadow: var(--deboss);
@@ -1872,7 +2845,6 @@
     gap: 0.3rem;
     font-size: 0.75rem;
     color: var(--ink-mute);
-    text-transform: capitalize;
   }
 
   .lobby-tag-host {
@@ -2080,14 +3052,33 @@
     font-size: var(--step--1);
   }
 
+  /* Gives way before the buttons do: when the turn and the spectator count
+     do not fit beside the room code (a phone with spectators, or a longer
+     word for "Turn" or "watching" in another language), they wrap onto a
+     second line instead of running under the buttons. */
   .court-header-info {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 0.9rem;
+    gap: 0 0.9rem;
     min-width: 0;
+    overflow: hidden;
+  }
+
+  .court-header-info > * {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .court-header-actions {
+    flex: none;
   }
 
   .court-room {
+    flex: none;
     color: var(--ink);
     letter-spacing: 0.08em;
   }
@@ -2103,8 +3094,11 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2.75rem;
-    height: 2.75rem;
+    /* 44px at the normal text size. The larger text sizes grow the root
+       font, which made five of these overrun a 320px phone's header (the
+       last one off screen); an icon does not need to grow past 48px. */
+    width: clamp(44px, 2.75rem, 48px);
+    height: clamp(44px, 2.75rem, 48px);
     border-radius: 3px;
     color: var(--ink-mute);
     background-color: rgba(23, 35, 31, 0.7);
@@ -2124,7 +3118,7 @@
   .court-badge {
     position: absolute;
     top: -0.35rem;
-    right: -0.35rem;
+    inset-inline-end: -0.35rem;
     min-width: 1.1rem;
     height: 1.1rem;
     padding: 0 0.2rem;
@@ -2319,6 +3313,18 @@
     display: none;
   }
 
+  /* The answer buttons share a row (Challenge | Pass, the two "Block with"
+     buttons). Their inline padding is only breathing room around a centred
+     label, so it gives way to the label: a long word in another language
+     (or at the largest text size on a 320px phone) fits its slab instead of
+     running into the edges, and a single word longer than the slab breaks
+     rather than overflowing. English, which fits, looks the same. */
+  .court-prompts :is(.btn-primary, .btn-secondary, .btn-danger).flex-1 {
+    padding-inline: 0.5rem;
+    overflow-wrap: anywhere;
+    min-width: 0;
+  }
+
   /* ── The phase line: typography on the felt, not a coloured banner ── */
 
   .phase-line {
@@ -2360,7 +3366,7 @@
 
   .claim-block {
     margin-top: -0.4rem;
-    margin-left: 4rem;
+    margin-inline-start: 4rem;
     transform: rotate(2deg);
     background-color: #d9d1c0;
     animation-delay: 60ms;
@@ -2722,7 +3728,7 @@
     width: 100%;
     padding: 0.5rem 0.6rem;
     border-radius: 2px;
-    text-align: left;
+    text-align: start;
     color: var(--ink);
     font-size: var(--step--1);
     background-color: rgba(5, 9, 10, 0.55);
@@ -2741,9 +3747,209 @@
     min-width: 0;
   }
 
-  .log-ticker-line > svg {
-    flex: none;
+  .log-ticker-text,
+  .log-latest > .truncate {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .log-ticker .log-stamp,
+  .log-latest .log-stamp {
+    margin-top: 0;
+  }
+
+  /* ------------------------------------------------------------------
+     The action log (ActionLog, the drawer's Latest row, LogTicker; one
+     line renderer in components/game/LogLine.tsx).
+
+     Kinds are told apart by MATERIAL in a 16px gutter stamp (§1.2: state is
+     never a hue): the hazard hatch for a challenge or a card being lost,
+     an ink slab for a block, brass for coins and the win, nothing for
+     claims and turn markers, whose meaning is the character emblem inline.
+     Logical properties throughout, so the log mirrors under dir="rtl".
+     ------------------------------------------------------------------ */
+  .log-turn {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    padding-inline-start: 0.5rem;
+    border-inline-start: 3px solid var(--line);
+  }
+
+  .log-line {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.4rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: #9ca3af;
+  }
+
+  .log-line.is-latest {
+    color: var(--ink);
+  }
+
+  .log-line[data-kind='turn'] {
     color: var(--ink-mute);
+  }
+
+  .log-line[data-kind='out'] .log-text,
+  .log-line[data-kind='win'] .log-text {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .log-text {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .log-latest {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    min-width: 0;
+  }
+
+  .log-stamp {
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    margin-top: 2px;
+    border-radius: 2px;
+    color: var(--ink-mute);
+  }
+
+  /* Hazard: a challenge, or a card about to be lost. */
+  .log-stamp:is([data-kind='challenge'], [data-kind='loss'], [data-kind='out']) {
+    color: var(--ink);
+    background-color: var(--oxblood);
+    background-image: repeating-linear-gradient(45deg, rgba(242, 115, 102, 0.5) 0 2px, transparent 2px 5px);
+  }
+
+  /* Ink slab: a block. */
+  .log-stamp[data-kind='block'] {
+    color: var(--ground);
+    background-color: var(--ink);
+  }
+
+  .log-stamp[data-kind='coins'] {
+    color: var(--brass-lit);
+  }
+
+  .log-stamp[data-kind='win'] {
+    color: var(--brass);
+  }
+
+  /* A player's name: brighter than the line, isolated by <bdi>. */
+  .log-name {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  /* A character: its emblem in its own hue, then its name in the same hue. */
+  .log-char {
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .log-char-glyph {
+    display: inline-block;
+    vertical-align: -0.15em;
+    margin-inline-end: 0.2em;
+  }
+
+  /* Coin amounts are figures (§4). */
+  .log-figure {
+    font-family: var(--font-figure);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: var(--brass-lit);
+  }
+
+  .log-verdict,
+  .log-explain {
+    display: inline-block;
+    margin-inline-start: 0.375rem;
+    padding: 0 0.375rem;
+    border-radius: 2px;
+    font-size: 11px;
+    line-height: 1.125rem;
+    font-weight: 700;
+    vertical-align: 1px;
+  }
+
+  .log-verdict.is-bluff {
+    color: var(--ink);
+    background-color: var(--oxblood);
+    background-image: repeating-linear-gradient(45deg, rgba(242, 115, 102, 0.35) 0 2px, transparent 2px 6px);
+  }
+
+  .log-verdict.is-honest {
+    color: var(--ink-mute);
+    background-color: var(--ground-deep);
+    box-shadow: var(--deboss);
+  }
+
+  .log-explain {
+    color: var(--ink-mute);
+    box-shadow: inset 0 0 0 1px var(--line);
+    transition: color 120ms, box-shadow 120ms;
+  }
+
+  .log-explain:hover,
+  .log-explain.is-open {
+    color: var(--brass);
+    box-shadow: inset 0 0 0 1px var(--brass);
+  }
+
+  /* Settings > Language: each language named in itself. */
+  .lang-picker {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.2rem;
+    padding: 0.2rem;
+    border-radius: 3px;
+    background-color: var(--ground-deep);
+    box-shadow: var(--deboss);
+  }
+
+  .lang-picker > button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0.3rem 0.5rem;
+    border-radius: 2px;
+    font-family: var(--font-body);
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--ink);
+    transition: background-color 120ms, color 120ms;
+  }
+
+  .lang-picker > button small {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--ink-mute);
+  }
+
+  .lang-picker > button.is-on {
+    background-color: var(--brass);
+    color: var(--ground);
+  }
+
+  .lang-picker > button.is-on small {
+    color: var(--ground);
+  }
+
+  .lang-picker > .lang-picker-auto {
+    grid-column: 1 / -1;
   }
 
   /* A coin in the air between a pool and a seat (table/CoinFlights.tsx).
@@ -2792,7 +3998,7 @@
   }
 
   .table-talk-chevron {
-    margin-left: auto;
+    margin-inline-start: auto;
     color: var(--ink-mute);
   }
 
@@ -2858,10 +4064,12 @@
     pointer-events: auto;
   }
 
+  /* The drawer comes in from the end of the line: the right in English, the
+     left in Arabic (docs/I18N.md, "Right to left"). */
   .court-drawer {
     position: fixed;
     top: 0;
-    right: 0;
+    inset-inline-end: 0;
     bottom: 0;
     z-index: 45;
     display: flex;
@@ -2873,6 +4081,11 @@
     transform: translateX(105%);
     transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
     visibility: hidden;
+  }
+
+  [dir='rtl'] .court-drawer {
+    box-shadow: 18px 0 40px rgba(0, 0, 0, 0.5);
+    transform: translateX(-105%);
   }
 
   .court-drawer.is-open {
@@ -2935,12 +4148,12 @@
     }
 
     .court-seat-cards .card-face-sm .card-label-plate { padding: 15px 3px 4px; gap: 2px; }
-    .court-seat-cards .card-face-sm .card-character-label { font-size: 8.4px; }
-    .court-seat-cards .card-face-sm .card-action-label { font-size: 9.2px; }
-    .court-seat-cards .card-face-sm .card-character-label.card-label-medium { font-size: 7.6px; }
-    .court-seat-cards .card-face-sm .card-character-label.card-label-long { font-size: 7px; }
-    .court-seat-cards .card-face-sm .card-character-label.card-label-extra-long { font-size: 6.4px; letter-spacing: -0.05em; }
-    .court-seat-cards .card-face-sm .card-action-label.card-label-medium { font-size: 7.5px; letter-spacing: -0.04em; }
+    .court-seat-cards .card-face-sm .card-character-label { --label-size: 8.4px; }
+    .court-seat-cards .card-face-sm .card-action-label { --label-size: 9.2px; }
+    .court-seat-cards .card-face-sm .card-character-label.card-label-medium { --label-size: 7.6px; }
+    .court-seat-cards .card-face-sm .card-character-label.card-label-long { --label-size: 7px; }
+    .court-seat-cards .card-face-sm .card-character-label.card-label-extra-long { --label-size: 6.4px; letter-spacing: -0.05em; }
+    .court-seat-cards .card-face-sm .card-action-label.card-label-medium { --label-size: 7.5px; letter-spacing: -0.04em; }
 
     .seat-card-slot + .seat-card-slot { margin-left: -0.8rem; }
   }
@@ -2956,9 +4169,35 @@
 
     .court-dock-log { display: none; }
     /* The action sheet rises ABOVE the hand, over the near half of the
-       table, instead of pushing the table up. */
-    .court-dock-actions { order: -1; justify-self: stretch; width: 100%; }
-    .court-objects, .court-discard { display: none; }
+       table, instead of pushing the table up. It never rises over the
+       header: on a short phone at the largest text size, or with longer
+       translated text, the prompt scrolls inside the sheet instead of its
+       first lines running off the top of the screen. */
+    .court-dock {
+      max-height: calc(100% - 5rem);
+      grid-template-rows: minmax(0, 1fr) auto;
+    }
+    .court-dock-actions {
+      order: -1;
+      justify-self: stretch;
+      width: 100%;
+      min-height: 0;
+      align-self: stretch;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+    }
+    /* Each panel scrolls itself (an element's overflow never clips its own
+       shadow, so the sheet keeps the shadow it casts up over the table). */
+    .court-dock-actions > * {
+      min-height: 0;
+      overflow-y: auto;
+    }
+    /* The deck, treasury and fallen pile are desktop furniture (GameTable's
+       motion notes: the Fall verb is desktop-only). `.table-object` sets
+       `display: flex` further down, so the pile's selector carries both
+       classes to win here. */
+    .court-objects, .table-object.court-discard { display: none; }
 
     .court-hand-plate {
       flex-direction: row;
@@ -2978,8 +4217,8 @@
     }
 
     .court-hand .card-face-xl .card-label-plate { padding: 15px 3px 4px; gap: 2px; }
-    .court-hand .card-face-xl .card-character-label { font-size: 9px; }
-    .court-hand .card-face-xl .card-action-label { font-size: 10px; }
+    .court-hand .card-face-xl .card-character-label { --label-size: 9px; }
+    .court-hand .card-face-xl .card-action-label { --label-size: 10px; }
   }
 
   @media (max-width: 767px) {
@@ -3014,6 +4253,286 @@
 
     .phase-line { font-size: var(--step-0); }
     .phase-line[data-tone='mine'] { font-size: var(--step-1); }
+  }
+
+  /* ── The centre says it once ─────────────────────────────────────────
+     A claim used to be stated three times over the felt: the phase line
+     ("Marvin claims Captain: challenge or pass"), the plaque, and the
+     prompt's own first line. The plaque is the statement of the claim.
+
+     · While a prompt is open (an answer you owe, or the note that you are
+       waiting on others), the prompt is the one statement of the state, so
+       the phase line steps aside. It stays in the accessibility tree: it is
+       the `role="status"` line screen readers follow.
+     · A prompt's `.prompt-claim` line restates the claim for the bottom
+       sheet below 1024px, where the sheet can cover the plaque. In the
+       middle of the felt the plaque sits right above it, so it goes. */
+  .court-root:has(.court-prompts > *) .court-phase .phase-line {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .court-centre .prompt-claim {
+    display: none;
+  }
+
+  /* The examined card and the decision about it (ExaminePrompt). */
+  .examine-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .examine-card {
+    flex: none;
+  }
+
+  .examine-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    text-align: center;
+  }
+
+  .court-centre .examine-body {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .court-centre .examine-text {
+    align-items: flex-start;
+    text-align: start;
+  }
+
+  /* ── Watching: a knocked-out player's seat (WaitingView) ──────────── */
+  .watch-panel {
+    display: grid;
+    gap: 0.35rem;
+    text-align: start;
+  }
+
+  .watch-title {
+    font-size: var(--step-1);
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--ink);
+  }
+
+  .watch-copy {
+    font-size: var(--step--1);
+    line-height: 1.35;
+    color: var(--ink-mute);
+  }
+
+  .watch-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.35rem;
+  }
+
+  .watch-actions > button {
+    flex: 1 1 0%;
+    min-height: 44px;
+  }
+
+  .watch-actions > button[aria-disabled='true'] {
+    cursor: progress;
+  }
+
+  /* ── The big table (1024px and up) ───────────────────────────────────
+     The table used to be laid out at one size from 1024px up, so a 1920
+     screen showed the same 104px hand and 56px seat cards as a 1024 one with
+     the felt empty around them. Three sizes now follow the viewport, and
+     everything else on the table is derived from them:
+
+       --hand-card-h   your own cards. Height-led (the hand, the prompt and
+                       the far seats share one column of screen), capped by
+                       width so a tall narrow window does not starve the dock.
+       --seat-card-h   an opponent's cards; the seat's width follows.
+       the centre      bounded between the far seats and the top of your hand
+                       instead of centred on the felt, so a tall prompt can
+                       never run down under the cards (it scrolls first).
+
+     Short laptops (720-860px tall) keep the hand near its old size: there
+     the height goes to the prompt. Below 1024px nothing here applies. */
+  @media (min-width: 1024px) {
+    .court-root {
+      --hand-card-h: clamp(9.1rem, min(21dvh, 18vw), 16.5rem);
+      --seat-card-h: clamp(5rem, min(11.5dvh, 7.2vw), 8.25rem);
+    }
+
+    .court-stage {
+      --seat-w: calc(var(--seat-card-h) * 1.75);
+      --table-top: calc(var(--seat-card-h) * 0.6 + 1.75rem);
+      --table-bottom: calc(var(--hand-card-h) * 0.8);
+    }
+
+    .court-hand .card-face-xl {
+      width: calc(var(--hand-card-h) / 1.4);
+      height: var(--hand-card-h);
+      --card-band: calc(var(--hand-card-h) * 0.048);
+    }
+
+    .court-hand .card-face-xl .card-label-plate {
+      padding: calc(var(--hand-card-h) * 0.171) 5px calc(var(--hand-card-h) * 0.048);
+      gap: 3px;
+    }
+    .court-hand .card-face-xl .card-character-label { --label-size: calc(var(--hand-card-h) * 0.096); }
+    .court-hand .card-face-xl .card-action-label { --label-size: calc(var(--hand-card-h) * 0.107); }
+    .court-hand .card-face-xl .card-character-label.card-label-medium { --label-size: calc(var(--hand-card-h) * 0.087); }
+    .court-hand .card-face-xl .card-character-label.card-label-long { --label-size: calc(var(--hand-card-h) * 0.0795); }
+    .court-hand .card-face-xl .card-character-label.card-label-extra-long { --label-size: calc(var(--hand-card-h) * 0.073); }
+    .court-hand .card-face-xl .card-action-label.card-label-medium { --label-size: calc(var(--hand-card-h) * 0.0925); }
+
+    .court-hand .hand-cards { gap: calc(var(--hand-card-h) * 0.07); }
+
+    .court-seat-cards .card-face-sm {
+      width: calc(var(--seat-card-h) * 0.7);
+      height: var(--seat-card-h);
+    }
+
+    .court-seat-cards .card-face-sm .card-label-plate {
+      padding: calc(var(--seat-card-h) * 0.19) 3px calc(var(--seat-card-h) * 0.05);
+    }
+    .court-seat-cards .card-face-sm .card-character-label { --label-size: calc(var(--seat-card-h) * 0.105); }
+    .court-seat-cards .card-face-sm .card-action-label { --label-size: calc(var(--seat-card-h) * 0.115); }
+    .court-seat-cards .card-face-sm .card-character-label.card-label-medium { --label-size: calc(var(--seat-card-h) * 0.095); }
+    .court-seat-cards .card-face-sm .card-character-label.card-label-long { --label-size: calc(var(--seat-card-h) * 0.0875); }
+    .court-seat-cards .card-face-sm .card-character-label.card-label-extra-long { --label-size: calc(var(--seat-card-h) * 0.08); }
+    .court-seat-cards .card-face-sm .card-action-label.card-label-medium { --label-size: calc(var(--seat-card-h) * 0.094); }
+
+    .seat-card-slot + .seat-card-slot { margin-left: calc(var(--seat-card-h) * -0.16); }
+
+    /* The centre: from just under the far seats to just above your hand.
+       The hand plate is its cards plus ~3.2rem of padding and the name row. */
+    .court-centre {
+      top: calc(var(--table-top) + var(--seat-card-h) * 0.55 + 1.9rem);
+      bottom: calc(var(--hand-card-h) + 4rem);
+      max-height: none;
+      width: min(36rem, 58%);
+      transform: translateX(-50%);
+      justify-content: center;
+    }
+
+    /* Two blockers side by side, "Don't block" under them: the column of
+       three full-width slabs was what pushed the prompt into the hand. */
+    .court-centre .block-choices {
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+
+    .court-centre .block-choice {
+      flex: 1 1 12rem;
+      width: auto;
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
+    }
+
+    .court-centre .block-allow {
+      flex: 1 1 100%;
+    }
+
+    .court-centre .prompt-hint {
+      font-size: var(--step--1);
+    }
+
+    /* The seats are bigger here, so the objects on the felt sit a little
+       lower, clear of the seats on the far flanks at six players. */
+    .court-objects > .table-object:nth-child(1) { top: 47%; }
+    .court-objects > .table-object:nth-child(2) { top: 47%; }
+    .court-objects > .table-object:nth-child(3) { top: 71%; }
+    .court-discard { top: 71%; }
+    .court-felt:has(.coin-well-reserve) .court-discard { top: 75%; }
+  }
+
+  /* A short laptop (SHORT_DESKTOP_QUERY in table/seatLayout.ts) gives the
+     height to the prompt: the hand's name and coins sit beside the cards,
+     as they do on a phone, which hands ~2rem back to the middle. */
+  @media (min-width: 1024px) and (max-height: 860px) {
+    .court-hand-plate {
+      flex-direction: row;
+      gap: 0.9rem;
+      padding: 0.5rem 0.9rem 0.5rem 0.6rem;
+    }
+
+    .court-hand-meta {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.3rem;
+    }
+
+    .court-centre {
+      bottom: calc(var(--hand-card-h) + 2rem);
+    }
+  }
+
+  /* A tall desktop has height to spend on the cards. */
+  @media (min-width: 1024px) and (min-height: 860px) {
+    .court-root {
+      --hand-card-h: clamp(9.1rem, min(24dvh, 18vw), 16.5rem);
+    }
+  }
+
+  /* A wide one spends width on the table, the plaque and the prompt. */
+  @media (min-width: 1600px) {
+    .court-table {
+      width: min(calc(100% - var(--seat-w) - 0.5rem), 92rem);
+    }
+
+    .court-centre {
+      width: min(40rem, 50%);
+    }
+
+    .court-seat-name,
+    .court-seat-coins {
+      font-size: var(--step-0);
+    }
+  }
+
+  @media (min-width: 1024px) and (min-height: 860px) {
+    .court-centre .claim-plaque {
+      gap: 0.85rem;
+      padding: 0.55rem 1.25rem 0.55rem 0.6rem;
+    }
+
+    .court-centre .claim-mark > svg {
+      width: 3.5rem;
+      height: 3.5rem;
+    }
+
+    .court-centre .claim-block .claim-mark > svg {
+      width: 3rem;
+      height: 3rem;
+    }
+
+    .court-centre .claim-actor,
+    .court-centre .claim-detail {
+      font-size: var(--step-0);
+    }
+
+    .court-centre .claim-action {
+      font-size: var(--step-3);
+    }
+  }
+
+  /* On a big screen the deck, the coins and the fallen pile grow with the
+     seats, from their bottom edge so the labels under them stay put. `scale`
+     composes with the translate that centres them, and the flight engine
+     measures boxes, so coins and falling cards still land on them. */
+  @media (min-width: 1600px) and (min-height: 1000px) {
+    .court-objects .deck-well,
+    .court-objects .coin-well,
+    .court-discard .discard-well {
+      scale: 1.3;
+      transform-origin: 50% 100%;
+    }
   }
 
   /* ── The objects on the felt ─────────────────────────────────────────── */
@@ -3312,13 +4831,16 @@
     .onb-chapter > .onb-text { align-self: end; }
   }
 
+  /* Forward is toward the end of the line: leftward under dir="rtl". */
   @keyframes onb-in-fwd {
-    from { opacity: 0; transform: translateX(18px); }
+    from { opacity: 0; transform: translateX(calc(18px * var(--onb-line, 1))); }
   }
 
   @keyframes onb-in-back {
-    from { opacity: 0; transform: translateX(-18px); }
+    from { opacity: 0; transform: translateX(calc(-18px * var(--onb-line, 1))); }
   }
+
+  [dir='rtl'] .onb-root { --onb-line: -1; }
 
   @keyframes onb-fade {
     from { opacity: 0; }
@@ -3362,7 +4884,8 @@
     min-height: 2.75rem;
     display: flex;
     align-items: center;
-    padding: 0.5rem 0.75rem 0.5rem 0.9rem;
+    padding-block: 0.5rem;
+    padding-inline: 0.9rem 0.75rem;
     border-radius: 2px;
     background-color: var(--ground-deep);
     background-image: linear-gradient(var(--ink-mute), var(--ink-mute));
@@ -3373,6 +4896,9 @@
     font-size: var(--step-0);
     line-height: 1.35;
   }
+
+  /* The rail sits at the start of the line. */
+  [dir='rtl'] .onb-note { background-position: right; }
 
   .onb-note.is-done { background-image: linear-gradient(var(--brass), var(--brass)); }
   .onb-note.is-danger { background-image: var(--hazard-rail); background-size: 4px 100%; }
@@ -3402,8 +4928,8 @@
     .onb-foot > .onb-back,
     .onb-foot > .onb-next { flex: 0 0 auto; min-width: 9.5rem; }
     .onb-foot > .onb-back:only-child,
-    .onb-foot > .onb-next:only-child { margin-left: auto; }
-    .onb-foot > .onb-cta { min-width: 15rem; margin-left: auto; }
+    .onb-foot > .onb-next:only-child { margin-inline-start: auto; }
+    .onb-foot > .onb-cta { min-width: 15rem; margin-inline-start: auto; }
   }
 
   @media (min-width: 768px) and (min-height: 600px) and (hover: hover) {
@@ -3606,7 +5132,7 @@
     min-height: 52px;
     padding: 0.4rem 0.5rem;
     border-radius: 3px;
-    text-align: left;
+    text-align: start;
     background-color: var(--raised);
     color: var(--ink);
     box-shadow:
@@ -3641,19 +5167,18 @@
     line-height: 1.15;
   }
 
+  /* Names wrap rather than truncate: "Foreign Aid" is one line in English
+     and two in most translations, and a cut-off action name teaches nothing. */
   .onb-tile-name {
     font-size: var(--step-0);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow-wrap: break-word;
+    hyphens: auto;
   }
 
   .onb-tile-sub {
     font-size: 0.75rem;
     color: var(--ink-mute);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow-wrap: break-word;
   }
 
   /* Three across is too tight for a glyph beside a name on a phone. */
@@ -3742,12 +5267,14 @@
       0 1px 0 rgba(0, 0, 0, 0.55);
   }
 
+  /* The meter fills from the start of the line, so under dir="rtl" it fills
+     from the right and its marks hang off the other side of their slot. */
   .onb-meter-mark {
     position: absolute;
     top: 0;
-    left: calc(var(--at) * 100%);
-    transform: translateX(-100%);
-    padding-right: 0.15rem;
+    inset-inline-start: calc(var(--at) * 100%);
+    transform: translateX(calc(-100% * var(--onb-line, 1)));
+    padding-inline-end: 0.15rem;
     white-space: nowrap;
     font-size: 0.75rem;
     font-weight: 700;
@@ -3998,7 +5525,9 @@
   }
 
   /* The brass pointer: a printed triangle on the edge that faces the anchor,
-     its tip a few pixels short of the thing it is about. */
+     its tip a few pixels short of the thing it is about. Physical left/right
+     on purpose, in every direction: coachPlacement.ts measures the table,
+     which never mirrors, in physical pixels. */
   .coach-pointer {
     position: absolute;
     width: 18px;
@@ -4087,7 +5616,7 @@
     flex: none;
     display: flex;
     gap: 0.25rem;
-    margin-right: -0.35rem;
+    margin-inline-end: -0.35rem;
   }
 
   .coach-btn {
@@ -4119,6 +5648,64 @@
     font-size: var(--step--1);
     line-height: 1.4;
     color: var(--ink-mute);
+  }
+
+  /* Compact (PracticeCoach, a docked banner with no clean spot): the title
+     shares the row with the controls and the body folds away; the title
+     opens it. The label gives way first, it is the least needed word. */
+  .coach-callout[data-compact] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 0.5rem;
+  }
+
+  .coach-callout[data-compact] > .coach-head,
+  .coach-callout[data-compact] > [role='status'] {
+    display: contents;
+  }
+
+  .coach-callout[data-compact] .coach-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .coach-callout[data-compact] .coach-controls {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .coach-callout[data-compact] .coach-title {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  .coach-callout[data-compact] .coach-body {
+    grid-column: 1 / -1;
+  }
+
+  .coach-expand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 44px;
+    text-align: start;
+  }
+
+  .coach-expand-chevron {
+    flex: none;
+    width: 1rem;
+    height: 1rem;
+    color: var(--brass);
+    transition: transform 160ms ease-out;
+  }
+
+  .coach-expand[aria-expanded='true'] .coach-expand-chevron {
+    transform: rotate(180deg);
   }
 
   .coach-rules {
@@ -4170,4 +5757,37 @@
   .court-dock-actions .prompt-action > .grid button {
     padding: 0.4rem 0.5rem;
   }
+}
+
+/* ------------------------------------------------------------------
+   Simplified Chinese (zh-Hans) only. Kept minimal; see
+   docs/i18n-glossary/zh-Hans.md.
+
+   An auto-layout table sizes each column to its min-content width, and
+   for Chinese that is one character, since a line may break between any
+   two ideographs. The rules table's action names ("收入") and headers then
+   stack one character per line on a phone. keep-all lets lines break only
+   at spaces and punctuation, which Chinese cells have where they need them.
+   ------------------------------------------------------------------ */
+:lang(zh-Hans) table :is(th, td) {
+  word-break: keep-all;
+}
+
+/* The action buttons are narrow (two or three to a row) and their small
+   line ends in a claim in brackets, "（声称队长）". Breaking anywhere splits
+   that name across lines; keep-all breaks at the spaces and punctuation
+   instead, and overflow-wrap still breaks a run that cannot fit. */
+:lang(zh-Hans) .court-dock-actions button {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------------------
+   Hindi (hi) translation fixes. Only :lang(hi) rules; keep this block last.
+   ------------------------------------------------------------------ */
+/* The countdown beside the timer bar is sized for "47s"; Hindi says
+   "47 सेकंड", so let it take its own width on one line. */
+:root:lang(hi) [role='timer'] > .figure {
+  width: auto;
+  white-space: nowrap;
 }

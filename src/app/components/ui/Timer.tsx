@@ -1,12 +1,15 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useT } from '../../i18n';
 
 interface TimerProps {
   expiresAt: number | null;
 }
 
+/** The answer timer in the table's prompts and action bar. Its text is in the `common` namespace. */
 export function Timer({ expiresAt }: TimerProps) {
+  const t = useT();
   const [remaining, setRemaining] = useState(0);
   const durationRef = useRef(0);
 
@@ -39,7 +42,7 @@ export function Timer({ expiresAt }: TimerProps) {
     <div
       className="flex items-center gap-3 justify-center my-2"
       role="timer"
-      aria-label={`${seconds} second${seconds === 1 ? '' : 's'} remaining`}
+      aria-label={t('common.secondsRemaining', { seconds })}
     >
       <div className="w-32 h-2.5 bg-gray-700 rounded-full overflow-hidden" aria-hidden="true">
         <div
@@ -47,8 +50,8 @@ export function Timer({ expiresAt }: TimerProps) {
           style={{ width: `${fraction * 100}%` }}
         />
       </div>
-      <span className={`figure text-sm font-bold w-8 text-right ${isLow ? 'timer-low text-red-400' : 'text-gray-300'}`}>
-        {seconds}s
+      <span className={`figure text-sm font-bold w-8 text-end ${isLow ? 'timer-low text-red-400' : 'text-gray-300'}`}>
+        {t('common.secondsShort', { seconds })}
       </span>
     </div>
   );

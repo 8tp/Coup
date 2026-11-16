@@ -1,4 +1,24 @@
+import { FeedbackResponse, FeedbackSubmission } from './feedbackTypes';
 import { ActionType, BotPersonality, ChallengeRevealEvent, Character, ChatMessage, ClientGameState, ClientRoomPlayer, ClientSpectator, Faction, PublicRoomInfo, ReactionEvent, RoomOrigin, RoomSettings } from './types';
+import type { ServerErrorCode, ServerErrorParams } from './i18n/serverErrors';
+
+/**
+ * A server error or notice: the English `message` (kept for logs and older
+ * clients) plus a stable `code` and its `params`, which clients render through
+ * their `errors` catalog (docs/I18N.md).
+ */
+export interface ServerNotice {
+  message: string;
+  code?: ServerErrorCode;
+  params?: ServerErrorParams;
+}
+
+/** Fields every acknowledgement carries when `success` is false. */
+export interface AckError {
+  error?: string;
+  errorCode?: ServerErrorCode;
+  errorParams?: ServerErrorParams;
+}
 
 // ─── Client → Server Events ───
 export interface ClientToServerEvents {
@@ -6,8 +26,8 @@ export interface ClientToServerEvents {
   'room:create': (data: { playerName: string; isPublic?: boolean; origin?: RoomOrigin }, callback: (response: RoomResponse) => void) => void;
   'room:join': (data: { roomCode: string; playerName: string }, callback: (response: RoomResponse) => void) => void;
   'room:leave': () => void;
-  'room:remove_player': (data: { playerId: string }, callback: (response: { success: boolean; error?: string }) => void) => void;
-  'room:remove_spectator': (data: { spectatorId: string }, callback: (response: { success: boolean; error?: string }) => void) => void;
+  'room:remove_player': (data: { playerId: string }, callback: (response: { success: boolean } & AckError) => void) => void;
+  'room:remove_spectator': (data: { spectatorId: string }, callback: (response: { success: boolean } & AckError) => void) => void;
   'game:start': () => void;
 
   // Game actions
@@ -28,7 +48,12 @@ export interface ClientToServerEvents {
   'game:examine_decision': (data: { forceSwap: boolean }) => void;
 
   // Chat
-  'chat:send': (data: { message: string }) => void;
+  /**
+   * `phraseId` marks one of `QUICK_PHRASES`: the server then stores that
+   * phrase's English as `message` and passes the id on, so each reader
+   * renders it in their own language. Older clients send `message` alone.
+   */
+  'chat:send': (data: { message: string; phraseId?: string }) => void;
 
   // Reactions
   'reaction:send': (data: { reactionId: string }) => void;
@@ -37,12 +62,12 @@ export interface ClientToServerEvents {
   'game:rematch': () => void;
 
   // Bots
-  'bot:add': (data: { name: string; personality: BotPersonality }, callback: (response: { success: boolean; botId?: string; error?: string }) => void) => void;
-  'bot:add_many': (data: { bots: Array<{ name: string; personality: BotPersonality }> }, callback: (response: { success: boolean; botIds?: string[]; error?: string }) => void) => void;
-  'bot:remove': (data: { botId: string }, callback: (response: { success: boolean; error?: string }) => void) => void;
+  'bot:add': (data: { name: string; personality: BotPersonality }, callback: (response: { success: boolean; botId?: string } & AckError) => void) => void;
+  'bot:add_many': (data: { bots: Array<{ name: string; personality: BotPersonality }> }, callback: (response: { success: boolean; botIds?: string[] } & AckError) => void) => void;
+  'bot:remove': (data: { botId: string }, callback: (response: { success: boolean } & AckError) => void) => void;
 
   // Room settings
-  'room:update_settings': (data: { settings: RoomSettings }, callback: (response: { success: boolean; error?: string }) => void) => void;
+  'room:update_settings': (data: { settings: RoomSettings }, callback: (response: { success: boolean } & AckError) => void) => void;
 
   // Spectator
   'room:spectate': (data: { roomCode: string; playerName: string }, callback: (response: SpectateResponse) => void) => void;
@@ -52,6 +77,9 @@ export interface ClientToServerEvents {
   'browser:subscribe': () => void;
   'browser:unsubscribe': () => void;
 
+  // Feedback (works with or without a room; context is derived server-side)
+  'feedback:send': (data: FeedbackSubmission, callback: (response: FeedbackResponse) => void) => void;
+
   // Reconnection
   'room:rejoin': (data: { roomCode: string; playerId: string; sessionToken?: string }, callback: (response: RoomResponse) => void) => void;
 }
@@ -59,10 +87,10 @@ export interface ClientToServerEvents {
 // ─── Server → Client Events ───
 export interface ServerToClientEvents {
   'room:updated': (data: { players: ClientRoomPlayer[]; hostId: string; settings: RoomSettings; lastWinnerId?: string | null; spectators?: ClientSpectator[] }) => void;
-  'room:error': (data: { message: string }) => void;
-  'room:removed': (data: { message: string }) => void;
+  'room:error': (data: ServerNotice) => void;
+  'room:removed': (data: ServerNotice) => void;
   'game:state': (state: ClientGameState) => void;
-  'game:error': (data: { message: string }) => void;
+  'game:error': (data: ServerNotice) => void;
   'game:log': (data: { message: string }) => void;
   'chat:message': (data: ChatMessage) => void;
   'chat:history': (data: { messages: ChatMessage[] }) => void;
@@ -75,17 +103,15 @@ export interface ServerToClientEvents {
 }
 
 // ─── Response Types ───
-export interface RoomResponse {
+export interface RoomResponse extends AckError {
   success: boolean;
   roomCode?: string;
   playerId?: string;
   sessionToken?: string;
-  error?: string;
 }
 
-export interface SpectateResponse {
+export interface SpectateResponse extends AckError {
   success: boolean;
   roomCode?: string;
   spectatorId?: string;
-  error?: string;
 }

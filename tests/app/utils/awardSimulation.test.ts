@@ -14,7 +14,7 @@ import {
   TurnPhase,
 } from '@/shared/types';
 import { BOT_PERSONALITIES } from '@/shared/constants';
-import { computeAwards } from '@/app/utils/gameStats';
+import { AWARD_IDS, computeAwards } from '@/app/utils/gameStats';
 import { serializeForPlayer } from '@/server/StateSerializer';
 
 function resolvePersonality(type: BotPersonality): PersonalityParams {
@@ -98,15 +98,11 @@ describe('Award Distribution', () => {
       completed++;
       const state = serializeForPlayer(engine.getFullState(), 'bot1');
       for (const award of computeAwards(state)) {
-        awardCounts[award.title] = (awardCounts[award.title] || 0) + 1;
+        awardCounts[award.id] = (awardCounts[award.id] || 0) + 1;
       }
     }
 
-    const allAwards = [
-      'Pants on Fire', 'Honest Abe', 'The Inquisitor', 'Eagle Eye',
-      'The Wall', 'Smooth Operator', 'Coup Machine', 'Silent Assassin',
-      'Bold Strategy', 'Quick Exit',
-    ];
+    const allAwards = AWARD_IDS;
 
     // Log distribution for debugging
     console.log(`\n4-player award distribution (${completed} games):`);
@@ -127,7 +123,7 @@ describe('Award Distribution', () => {
     expect(typesPresent, `Only ${typesPresent}/10 award types appeared`).toBeGreaterThanOrEqual(8);
 
     // Previously-rare awards should appear at least occasionally (>2%)
-    for (const rare of ['Eagle Eye', 'Silent Assassin', 'Coup Machine']) {
+    for (const rare of ['eagleEye', 'silentAssassin', 'coupMachine']) {
       const rate = (awardCounts[rare] || 0) / completed;
       expect(rate, `${rare} is too rare at ${(rate * 100).toFixed(1)}%`).toBeGreaterThan(0.02);
     }

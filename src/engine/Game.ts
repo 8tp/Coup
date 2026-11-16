@@ -10,6 +10,7 @@ import {
   LogEventType,
 } from '../shared/types';
 import { STARTING_COINS, TOTAL_COINS, STARTING_HAND_SIZE } from '../shared/constants';
+import { logMsg, type LogMessage } from '../shared/i18n/logMessages';
 import { Deck } from './Deck';
 import { Player } from './Player';
 
@@ -79,7 +80,11 @@ export class Game {
     this.winnerId = null;
     this.actionLog = [];
 
-    this.log(`Game started. ${this.currentPlayer.name} goes first.`, 'game_start', null, null, null);
+    this.log({
+      message: `Game started. ${this.currentPlayer.name} goes first.`,
+      msg: logMsg('gameStarted', { actor: this.currentPlayer.id }),
+      eventType: 'game_start',
+    });
   }
 
   /** Check if all remaining alive players share the same faction (restrictions lift) */
@@ -122,7 +127,13 @@ export class Game {
       this.winnerId = alivePlayers[0]?.id ?? null;
       if (this.winnerId) {
         const winner = this.getPlayer(this.winnerId);
-        this.log(`${winner?.name} wins the game.`, 'win', null, this.winnerId, winner?.name ?? null);
+        this.log({
+          message: `${winner?.name} wins the game.`,
+          msg: logMsg('win', { actor: this.winnerId }),
+          eventType: 'win',
+          actorId: this.winnerId,
+          actorName: winner?.name ?? null,
+        });
       }
       return;
     }
@@ -136,7 +147,13 @@ export class Game {
     this.turnPhase = TurnPhase.AwaitingAction;
     this.turnNumber++;
 
-    this.log(`${this.currentPlayer.name}'s turn.`, 'turn_start', null, this.currentPlayer.id, this.currentPlayer.name);
+    this.log({
+      message: `${this.currentPlayer.name}'s turn.`,
+      msg: logMsg('turnStart', { actor: this.currentPlayer.id }),
+      eventType: 'turn_start',
+      actorId: this.currentPlayer.id,
+      actorName: this.currentPlayer.name,
+    });
   }
 
   /** Check if only one player remains */
@@ -155,7 +172,13 @@ export class Game {
   eliminatePlayer(player: Player): void {
     this.treasury += player.coins;
     player.coins = 0;
-    this.log(`${player.name} is out.`, 'elimination', null, player.id, player.name);
+    this.log({
+      message: `${player.name} is out.`,
+      msg: logMsg('eliminated', { actor: player.id }),
+      eventType: 'elimination',
+      actorId: player.id,
+      actorName: player.name,
+    });
   }
 
   giveCoins(player: Player, amount: number): void {
@@ -170,28 +193,35 @@ export class Game {
     this.treasury += actual;
   }
 
-  log(
-    message: string,
-    eventType: LogEventType = 'game_start',
-    character: Character | null = null,
-    actorId: string | null = null,
-    actorName: string | null = null,
-    targetId?: string | null,
-    wasBluff?: boolean,
-  ): void {
+  /**
+   * Append a log line. `message` is the English text every server-side reader
+   * uses; `msg` is the same line as a catalog key and params, which clients
+   * render in their own language (docs/I18N.md). Both are required.
+   */
+  log(line: {
+    message: string;
+    msg: LogMessage;
+    eventType: LogEventType;
+    character?: Character | null;
+    actorId?: string | null;
+    actorName?: string | null;
+    targetId?: string | null;
+    wasBluff?: boolean;
+  }): void {
     const entry: LogEntry = {
-      message,
+      message: line.message,
       timestamp: Date.now(),
-      eventType,
-      character,
+      eventType: line.eventType,
+      character: line.character ?? null,
       turnNumber: this.turnNumber,
-      actorId,
-      actorName,
-      targetId: targetId ?? null,
+      actorId: line.actorId ?? null,
+      actorName: line.actorName ?? null,
+      targetId: line.targetId ?? null,
     };
-    if (wasBluff !== undefined) {
-      entry.wasBluff = wasBluff;
+    if (line.wasBluff !== undefined) {
+      entry.wasBluff = line.wasBluff;
     }
+    entry.msg = line.msg;
     this.actionLog.push(entry);
   }
 

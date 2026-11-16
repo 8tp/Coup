@@ -1,0 +1,71 @@
+import type { NamespaceTranslation } from '../../schema';
+
+/** vi `rules`. */
+const rules: NamespaceTranslation<'rules'> = {
+  title: 'Cách chơi',
+
+  'tab.overview': 'Tổng quan',
+  'tab.characters': 'Nhân vật',
+  'tab.rules': 'Hành động và luật',
+
+  'overview.whatIsHeading': 'Coup là gì?',
+  'overview.whatIs': 'Coup là board game bịp bài cho {minPlayers} đến {maxPlayers} người. Mỗi người bắt đầu với hai lá bài úp, gọi là ảnh hưởng, và {startingCoins, plural, other {# xu}}. Người cuối cùng còn lá bài úp sẽ thắng.',
+  'overview.goalHeading': 'Mục tiêu',
+  'overview.goal': 'Khiến mọi người khác mất hết ảnh hưởng. Mỗi lần mất một ảnh hưởng, bạn lật ngửa một lá bài của mình. Mất cả hai lá là bạn bị loại.',
+  'overview.flowHeading': 'Diễn biến một lượt',
+  'overview.flow1': 'Tới lượt mình, bạn chọn một hành động. Một số hành động cần tuyên bố một nhân vật.',
+  'overview.flow2': 'Bất kỳ người chơi nào khác cũng có thể <term>thách thức</term> lời tuyên bố. Nếu bạn bịp, bạn mất một ảnh hưởng. Nếu không, người thách thức mất một ảnh hưởng.',
+  'overview.flow3': 'Một số hành động có thể bị <term>chặn</term> bằng cách tuyên bố nhân vật khắc chế nó. Người ra hành động có thể thách thức lượt chặn.',
+  'overview.flow4': 'Nếu không ai thách thức hay chặn, hành động được thực hiện.',
+  'overview.bluffHeading': 'Bịp',
+  'overview.bluff': 'Bạn được tuyên bố bất kỳ nhân vật nào, dù đang giữ lá gì. Lời tuyên bố chỉ khiến bạn thiệt khi có người thách thức và bạn đang bịp.',
+  'overview.creditsHeading': 'Về game gốc',
+  'overview.credits': 'Coup là board game do <term>{designer}</term> thiết kế, phát hành lần đầu năm 2012 bởi <term>{publisher1}</term> và <term>{publisher2}</term>. Đây là bản chuyển thể do người hâm mộ làm. Nếu bạn thấy thích, hãy ủng hộ tác giả bằng cách <link>mua bản game thật</link>.',
+
+  'character.Duke': '{tax}: Lấy {taxCoins, plural, other {# xu}}. Chặn {foreignAid}.',
+  'character.Assassin': '{assassinate}: Trả {assassinateCost, plural, other {# xu}}. Mục tiêu mất một lá.',
+  'character.Captain': '{steal}: Lấy {stealCoins, plural, other {# xu}} của mục tiêu. Chặn {steal}.',
+  'character.Ambassador': '{exchange}: Rút {exchangeDraw}, trả lại {exchangeDraw}. Chặn {steal}.',
+  'character.Contessa': 'Chặn Ám sát.',
+  'character.Inquisitor': '{exchange}: Rút {inquisitorDraw}, trả lại {inquisitorDraw}. {examine}: Xem một lá của đối thủ. Chặn {steal}.',
+
+  actionsHeading: 'Hành động',
+  'table.action': 'Hành động',
+  'table.cost': 'Giá',
+  'table.effect': 'Hiệu quả',
+  'table.claims': 'Tuyên bố',
+  'table.blockedBy': 'Bị chặn bởi',
+  'effect.gain': '+{amount, plural, other {# xu}}',
+  'effect.loseInfluence': 'Mục tiêu mất một ảnh hưởng',
+  'effect.steal': 'Lấy {stealCoins, plural, other {# xu}} của mục tiêu',
+  'effect.exchange': 'Rút {exchangeDraw}, giữ lá bạn muốn',
+  'table.pair': '{first}, {second}',
+  challengeHeading: 'Thách thức',
+  challenge: 'Bất kỳ ai cũng có thể thách thức một lời tuyên bố, dù là để ra hành động hay để chặn. Nếu người tuyên bố có lá đó, họ lật cho mọi người xem, trộn lại vào chồng bài rồi rút lá mới, còn người thách thức mất một ảnh hưởng. Nếu không có, người tuyên bố mất một ảnh hưởng.',
+  blockHeading: 'Chặn',
+  block: 'Một số hành động có thể bị chặn bằng cách tuyên bố nhân vật khắc chế nó. Chặn cũng là một lời tuyên bố, nên có thể bị thách thức, và bạn có thể bịp khi chặn.',
+  forcedHeading: '{coup} bắt buộc',
+  forced: 'Nếu bắt đầu lượt với {forcedCoup, plural, other {từ # xu trở lên}}, bạn phải {coup}.',
+
+  'reformation.whatIsHeading': '{reformation} là gì?',
+  'reformation.whatIs': '{reformation} là bản mở rộng thêm các phe, ba hành động ({convert}, {embezzle} và {examine}) và <inq>{inquisitor}</inq>. Bật nó trong cài đặt phòng chờ trước khi ván bắt đầu.',
+  'reformation.quickStartHeading': 'Bắt đầu nhanh',
+  'reformation.quick1': 'Xem dấu phe trước khi nhắm mục tiêu: <loy>{loyalistMark}</loy> và <ref>{reformistMark}</ref>.',
+  'reformation.quick2': 'Dùng {convert} để mở đường nhắm mục tiêu, cứu đồng minh, hoặc bỏ xu vào quỹ dự trữ.',
+  'reformation.quick3': 'Chỉ {embezzle} khi quỹ dự trữ đáng để liều bị thách thức.',
+  'reformation.quick4': 'Khi có {inquisitor}, {exchange} chỉ rút {inquisitorDraw, plural, other {# lá}} thay vì {exchangeDraw}, và {examine} cho bạn xem một lá của người chơi khác.',
+  // Initials of the faction names, as printed on the seats (game.seat.faction.*).
+  markLoyalist: '▲ BH',
+  markReformist: '◆ CC',
+  'reformation.openWalkthrough': 'Mở hướng dẫn từng bước',
+  'reformation.factionsHeading': 'Phe',
+  'reformation.factions': 'Mỗi người chơi thuộc phe <loy>▲ {loyalist}</loy> hoặc phe <ref>◆ {reformist}</ref>. Bạn không thể {coup}, {assassinate}, {steal} hay {examine} người cùng phe. Khi mọi người còn lại cùng một phe, ai cũng có thể nhắm vào bất kỳ ai. Khi cả hai phe còn trong ván, chỉ phe kia mới chặn được {foreignAid} của bạn.',
+  'reformation.newActionsHeading': 'Hành động mới',
+  'reformation.convert': '<name>{convert}:</name> trả {convertSelfCost, plural, other {# xu}} để tự đổi phe, hoặc {convertOtherCost, plural, other {# xu}} để đổi phe cho người khác. Số xu đó vào {reserve}. Không ai thách thức hay chặn được.',
+  'reformation.embezzle': '<name>{embezzle}:</name> lấy toàn bộ xu trong {reserve} bằng cách tuyên bố bạn không có {duke}. Thách thức lúc này đảo ngược: người thách thức thắng nếu bạn thật sự có lá đó.',
+  'reformation.examine': '<inq>{examine}:</inq> tuyên bố có {inquisitor}. Mục tiêu chọn một lá úp của họ để cho bạn xem. Sau đó bạn trả lại, hoặc buộc họ đổi nó lấy một lá ngẫu nhiên từ chồng bài.',
+  'reformation.inquisitor': 'Thay cho {ambassador} khi được bật. {inquisitor} có thể {exchange} (rút {inquisitorDraw, plural, other {# lá}} thay vì {exchangeDraw}), {examine} lá bài của người khác, và chặn {steal} như {captain}.',
+  'reformation.reserve': 'Một quỹ xu tách riêng khỏi ngân khố. Tiền {convert} được bỏ vào đây, và {embezzle} lấy hết ra.',
+};
+
+export default rules;

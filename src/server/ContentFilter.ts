@@ -1,4 +1,11 @@
-import { NAME_MAX_LENGTH, CHAT_MAX_MESSAGE_LENGTH } from '../shared/constants';
+import {
+  CHAT_MAX_MESSAGE_CODE_UNITS,
+  CHAT_MAX_MESSAGE_LENGTH,
+  NAME_MAX_CODE_UNITS,
+  NAME_MAX_LENGTH,
+  TEXT_MAX_COMBINING_RUN,
+} from '../shared/constants';
+import { graphemeLength } from '../shared/textLimits';
 
 // ─── Result Types ───
 
@@ -7,19 +14,54 @@ type InvalidResult = { valid: false; error: string };
 type ValidationResult = ValidResult | InvalidResult;
 
 // ─── Invisible / Control Character Stripping ───
+//
+// Names and chat arrive in any script (Arabic, Chinese, Devanagari,
+// Vietnamese...). Letters, combining marks and emoji are kept. What is
+// removed is anything invisible, or anything that changes how the text
+// *around* it is displayed:
+//
+// - C0/C1 controls (tab and newlines become spaces below).
+// - Bidi controls: LRM, RLM, ALM, the embeddings and overrides (LRE..RLO)
+//   and the isolates (LRI..PDI). An override in a name would reverse every
+//   line it is shown in.
+// - Zero-width space, word joiner, invisible operators, BOM, soft hyphen,
+//   combining grapheme joiner, Mongolian vowel separator, Khmer invisible
+//   vowels, deprecated format characters.
+// - "Blank letters" that render as nothing but count as letters: the Hangul
+//   fillers (U+115F, U+1160, U+3164, U+FFA0) and the blank braille pattern.
+// - Tag characters (U+E0000..E007F) and variation selectors other than
+//   VS15/VS16, which can carry hidden text.
+const STRIPPED = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F­͏؜ᅟᅠ឴឵᠎​‎‏‪-‮⁠-⁯⠀ㅤ︀-︍﻿ﾠ\u{E0000}-\u{E007F}\u{E0100}-\u{E01EF}]/gu;
 
-// Zero-width and invisible Unicode characters
-const INVISIBLE_CHARS = /[\u200B-\u200F\u2028-\u202F\u2060-\u206F\uFEFF\u00AD\u034F\u061C\u180E]/g;
-// Control characters (C0/C1) except standard whitespace (tab, newline, carriage return)
-const CONTROL_CHARS = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g;
+// ZWNJ and ZWJ shape real text (Devanagari half forms, emoji sequences such
+// as the family emoji), so one is kept between two visible characters. Runs
+// of them, and joiners at an edge or next to a space, are removed.
+const JOINER_RUN = /[‌‍]+/g;
+
+// A base character followed by more combining marks than any script needs.
+const MARK_RUN = new RegExp(`(\\p{M}{${TEXT_MAX_COMBINING_RUN}})\\p{M}+`, 'gu');
 
 function sanitizeText(raw: string): string {
-  let text = raw;
-  text = text.replace(INVISIBLE_CHARS, '');
-  text = text.replace(CONTROL_CHARS, '');
-  // Collapse all whitespace runs (including newlines) to single space, then trim
+  // NFC first: composed and decomposed Vietnamese (one code point, or e plus
+  // two marks) become one spelling, so lengths, names and the filter agree.
+  let text = raw.normalize('NFC');
+  text = text.replace(STRIPPED, '');
+  text = text.replace(JOINER_RUN, (run: string, offset: number, whole: string) => {
+    const before = whole[offset - 1];
+    const after = whole[offset + run.length];
+    if (!before || !after || /\s/.test(before) || /\s/.test(after)) return '';
+    return run[0];
+  });
+  text = text.replace(MARK_RUN, '$1');
+  // Collapse all whitespace runs (newlines, NBSP, ideographic space...) to
+  // a single space, then trim.
   text = text.replace(/\s+/g, ' ').trim();
   return text;
+}
+
+/** Over the limit in user-perceived characters, or in code units (stacked marks). */
+function tooLong(text: string, maxChars: number, maxCodeUnits: number): boolean {
+  return text.length > maxCodeUnits || graphemeLength(text) > maxChars;
 }
 
 // ─── Game Term Whitelist ───
@@ -178,7 +220,10 @@ function buildBlockedRegex(word: string): RegExp {
 const BLOCKED_REGEXES = BLOCKED_WORDS.map(w => buildBlockedRegex(w));
 
 function containsProfanity(text: string): boolean {
-  const lower = text.toLowerCase();
+  // Fold compatibility forms and accents first, so fullwidth "ｆｕｃｋ" and
+  // "fück" read as the plain word. Non-Latin letters are then dropped by
+  // STRIP_REGEX, as before: the list is English only.
+  const lower = text.normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase();
 
   // Blank game terms using word boundaries (before stripping, so boundaries exist)
   const blanked = blankOutGameTerms(lower);
@@ -206,12 +251,12 @@ export function validateName(raw: string): ValidationResult {
     return { valid: false, error: 'Name is required' };
   }
 
-  if (sanitized.length > NAME_MAX_LENGTH) {
+  if (tooLong(sanitized, NAME_MAX_LENGTH, NAME_MAX_CODE_UNITS)) {
     return { valid: false, error: `Name must be ${NAME_MAX_LENGTH} characters or less` };
   }
 
-  // Must contain at least one alphanumeric character
-  if (!/[a-zA-Z0-9]/.test(sanitized)) {
+  // Must contain at least one letter or digit, in any script
+  if (!/[\p{L}\p{N}]/u.test(sanitized)) {
     return { valid: false, error: 'Name must contain at least one letter or number' };
   }
 
@@ -233,7 +278,7 @@ export function validateChatMessage(raw: string): ValidationResult {
     return { valid: false, error: 'Message is required' };
   }
 
-  if (sanitized.length > CHAT_MAX_MESSAGE_LENGTH) {
+  if (tooLong(sanitized, CHAT_MAX_MESSAGE_LENGTH, CHAT_MAX_MESSAGE_CODE_UNITS)) {
     return { valid: false, error: `Message must be ${CHAT_MAX_MESSAGE_LENGTH} characters or less` };
   }
 

@@ -64,6 +64,8 @@ import {
   type FxRow,
 } from './tuning';
 import type { FloatTone } from './floaters';
+import type { FxFloatKey } from './tuning';
+import { getT } from '../i18n/runtime';
 
 export {
   FX_EVENTS,
@@ -286,8 +288,9 @@ function floatTone(tone: FxFloatTone, amount: number): FloatTone {
   return amount < 0 ? 'crimson' : 'brass';
 }
 
-function floatText(spec: string | null, opts: CueOptions): string {
-  if (spec !== null) return spec;
+function floatText(spec: FxFloatKey | null, opts: CueOptions): string {
+  // Read at fire time, so a float speaks the language the player has now.
+  if (spec !== null) return getT()(spec);
   if (opts.text) return opts.text;
   const a = opts.amount ?? 0;
   return a > 0 ? `+${a}` : String(a);

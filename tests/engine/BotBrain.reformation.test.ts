@@ -594,4 +594,30 @@ describe('BotBrain — Reformation', () => {
       expect(result).toEqual({ type: 'pass_block' });
     });
   });
+
+  // ─── Steal targets respect factions ───
+
+  describe('Steal target selection', () => {
+    it('never steals from a same-faction player, even when only they have coins', () => {
+      const game = createReformationGame(3);
+      // Bot1 (p2) and Alice (p1) share a faction; Charlie (p3) is the other faction but broke.
+      game.getPlayer('p1')!.faction = Faction.Loyalist;
+      game.getPlayer('p2')!.faction = Faction.Loyalist;
+      game.getPlayer('p3')!.faction = Faction.Reformist;
+      game.getPlayer('p1')!.coins = 5;
+      game.getPlayer('p2')!.coins = 2;
+      game.getPlayer('p3')!.coins = 0;
+      setCards(game, 'p2', [Character.Captain, Character.Captain]);
+
+      for (const personality of Object.values(BOT_PERSONALITIES)) {
+        for (let i = 0; i < 50; i++) {
+          const result = decide(game, 'p2', personality);
+          if (result?.type === 'action' && result.action === ActionType.Steal) {
+            // A Steal the engine would refuse leaves the bot retrying until its turn timer runs out
+            expect(game.isFactionRestricted('p2', result.targetId!)).toBe(false);
+          }
+        }
+      }
+    });
+  });
 });

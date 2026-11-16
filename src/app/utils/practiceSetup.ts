@@ -1,4 +1,6 @@
 import { BotPersonality, GameMode } from '@/shared/types';
+import { gameModeName } from '../i18n/glossary';
+import type { PlainTranslator } from '../i18n/runtime';
 
 /**
  * Practice vs Bots — the options a new player picks on the setup sheet, and
@@ -25,11 +27,11 @@ export const PRACTICE_STYLE_PERSONALITY: Record<PracticeStyle, Exclude<BotPerson
   ruthless: 'optimal',
 };
 
-export const PRACTICE_STYLES: ReadonlyArray<{ id: PracticeStyle; label: string; blurb: string }> = [
-  { id: 'gentle', label: 'Gentle', blurb: 'Rarely bluffs, rarely challenges. Good for a first game.' },
-  { id: 'sharp', label: 'Sharp', blurb: 'Counts the cards and calls bluffs that don\'t add up.' },
-  { id: 'ruthless', label: 'Ruthless', blurb: 'Bluffs when it pays and goes after the leader.' },
-];
+/** In the order the sheet shows them. Names and blurbs: `tutorial.setup.style.<id>`, `tutorial.setup.blurb.<id>`. */
+export const PRACTICE_STYLES: readonly PracticeStyle[] = ['gentle', 'sharp', 'ruthless'];
+
+/** Reformation's factions only restrict targets with at least this many opponents. */
+export const REFORMATION_MIN_OPPONENTS = 2;
 
 export const PRACTICE_OPPONENT_CHOICES: readonly PracticeOpponents[] = [1, 2, 3];
 
@@ -95,8 +97,10 @@ export function practiceBots(
 }
 
 /** One-line summary for the start button, e.g. "1 gentle opponent · Classic". */
-export function describePracticeOptions(options: PracticeOptions): string {
-  const style = PRACTICE_STYLES.find(s => s.id === options.style)?.label.toLowerCase() ?? options.style;
-  const who = `${options.opponents} ${style} ${options.opponents === 1 ? 'opponent' : 'opponents'}`;
-  return `${who} · ${options.gameMode}`;
+export function describePracticeOptions(options: PracticeOptions, t: PlainTranslator): string {
+  return t('tutorial.setup.summary', {
+    count: options.opponents,
+    style: options.style,
+    mode: gameModeName(t, options.gameMode),
+  });
 }

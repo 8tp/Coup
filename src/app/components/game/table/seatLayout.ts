@@ -49,3 +49,10 @@ export function seatPoint(angleDeg: number, inset = 0): { x: number; y: number }
   const r = 50 - inset;
   return { x: 50 + r * Math.cos(a), y: 50 + r * Math.sin(a) };
 }
+
+/**
+ * A desktop-width window without much height: a 1280x720 or 1366x768 laptop.
+ * The middle of the table has the least room here, so the prompts in it use
+ * smaller cards and the hand lays its name row beside the cards (globals.css).
+ */
+export const SHORT_DESKTOP_QUERY = '(min-width: 1024px) and (max-height: 860px)';

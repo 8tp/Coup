@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Modal } from '../ui/Modal';
 import { haptic } from '../../utils/haptic';
+import { useT } from '../../i18n';
 
 interface QRShareModalProps {
   open: boolean;
@@ -12,6 +13,7 @@ interface QRShareModalProps {
 }
 
 export function QRShareModal({ open, onClose, roomCode }: QRShareModalProps) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const [url, setUrl] = useState(`https://coup.8tp.dev/lobby/${roomCode}`);
@@ -43,7 +45,7 @@ export function QRShareModal({ open, onClose, roomCode }: QRShareModalProps) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Share room">
+    <Modal open={open} onClose={onClose} title={t('lobby.shareRoom')}>
       <div className="flex flex-col items-center space-y-4">
         {/* QR Code */}
         <div className="bg-white rounded-xl p-4">
@@ -51,10 +53,10 @@ export function QRShareModal({ open, onClose, roomCode }: QRShareModalProps) {
         </div>
 
         {/* Link */}
-        <p className="text-gray-400 text-sm text-center break-all">{url}</p>
+        <p className="text-gray-400 text-sm text-center break-all" dir="ltr">{url}</p>
         <p className="min-h-4 text-xs text-center" aria-live="polite">
-          {copied && <span className="text-green-400">Invite link copied</span>}
-          {copyError && <span className="text-red-300">Copy failed. Select the link above.</span>}
+          {copied && <span className="text-green-400">{t('lobby.linkCopied')}</span>}
+          {copyError && <span className="text-red-300">{t('lobby.copyLinkFailed')}</span>}
         </p>
 
         {/* Copy Link Button */}
@@ -63,7 +65,7 @@ export function QRShareModal({ open, onClose, roomCode }: QRShareModalProps) {
           onClick={handleCopyLink}
           className="btn-primary w-full"
         >
-          {copied ? 'Copied' : 'Copy link'}
+          {copied ? t('lobby.copied') : t('lobby.copyLink')}
         </button>
 
         {/* Close */}
@@ -72,7 +74,7 @@ export function QRShareModal({ open, onClose, roomCode }: QRShareModalProps) {
           onClick={() => { haptic(); onClose(); }}
           className="btn-secondary w-full"
         >
-          Close
+          {t('common.close')}
         </button>
       </div>
     </Modal>

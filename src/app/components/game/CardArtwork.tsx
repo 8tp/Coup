@@ -1,6 +1,7 @@
 'use client';
 
-import type { CSSProperties } from 'react';
+import { useRef, type CSSProperties } from 'react';
+import { useIsomorphicLayoutEffect } from '../../anim/useFlight';
 import { Character } from '@/shared/types';
 import {
   CARD_ART_DIMENSIONS,
@@ -11,15 +12,37 @@ import {
 } from '../../utils/assets';
 import { CHARACTER_GLYPHS } from '../icons';
 import { characterGlyphVars } from '../../utils/characterPalette';
+import { characterName, useT } from '../../i18n';
 
-export const CHARACTER_CARD_BADGES: Record<Character, { name: string; action: string }> = {
-  [Character.Duke]: { name: 'DUKE', action: 'TAX' },
-  [Character.Assassin]: { name: 'ASSASSIN', action: 'KILL' },
-  [Character.Captain]: { name: 'CAPTAIN', action: 'STEAL' },
-  [Character.Ambassador]: { name: 'AMBASSADOR', action: 'EXCHANGE' },
-  [Character.Contessa]: { name: 'CONTESSA', action: 'BLOCK' },
-  [Character.Inquisitor]: { name: 'INQUISITOR', action: 'EXAMINE' },
-};
+let graphemes: Intl.Segmenter | null = null;
+
+/**
+ * How many characters a label holds, as the reader sees them: grapheme
+ * clusters, so a Devanagari syllable with its vowel marks counts once, and an
+ * accented Vietnamese letter counts once.
+ */
+export function labelLength(text: string): number {
+  if (typeof Intl !== 'undefined' && 'Segmenter' in Intl) {
+    graphemes ??= new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+    let n = 0;
+    for (const _ of graphemes.segment(text)) n++;
+    return n;
+  }
+  return [...text].length;
+}
+
+/**
+ * The plates' size steps, picked by length. The thresholds are the ones the
+ * English names were tuned against (AMBASSADOR and INQUISITOR at 10 are
+ * "extra long"). A word still wider than its plate is fitted by `fitLabel`.
+ */
+export function nameFit(length: number): string {
+  return length >= 9 ? 'card-label-extra-long' : length >= 7 ? 'card-label-medium' : '';
+}
+
+export function actionFit(length: number): string {
+  return length >= 8 ? 'card-label-medium' : '';
+}
 
 interface CardArtworkProps {
   character: Character;
@@ -183,17 +206,84 @@ interface CharacterCardBadgeProps {
  * someone remembered to update. The two children are absolutely positioned at
  * opposite ends of the card and never meet.
  */
+/** Below half its tuned size a word stops shrinking and wraps instead. */
+const LABEL_FIT_FLOOR = 0.5;
+
+/**
+ * Shrink a label that is wider than its plate, so a long name in another
+ * language fits rather than being clipped. A label that fits is left at the
+ * size its class sets, so nothing changes for a word that already fit.
+ * Measured at the tuned size every time, so it also grows back.
+ */
+export function fitLabel(el: HTMLElement): void {
+  el.style.removeProperty('--label-fit');
+  delete el.dataset.wrap;
+  const room = el.clientWidth;
+  const need = el.scrollWidth;
+  // A hidden plate (display: none at some sizes) measures 0: nothing to fit.
+  if (room <= 0 || need <= room + 0.5) return;
+  // 3% under the exact ratio: text width does not scale quite linearly with
+  // font size (hinting, rounding), and `scrollWidth` is a whole pixel.
+  const fit = Math.floor((room / need) * 0.97 * 1000) / 1000;
+  if (fit >= LABEL_FIT_FLOOR) {
+    el.style.setProperty('--label-fit', String(fit));
+  } else {
+    el.style.setProperty('--label-fit', String(LABEL_FIT_FLOOR));
+    el.dataset.wrap = 'true';
+  }
+}
+
+/**
+ * One observer for every label on screen: a plate's width changes with the
+ * breakpoint (seat and hand cards are sized off the viewport), and only a
+ * change of width can change the fit. Created on first use, in the browser.
+ */
+let labelObserver: ResizeObserver | null = null;
+const labelWidths = new WeakMap<Element, number>();
+
+function observeLabel(el: HTMLElement): () => void {
+  if (typeof ResizeObserver === 'undefined') return () => {};
+  labelObserver ??= new ResizeObserver(entries => {
+    for (const entry of entries) {
+      const width = entry.contentRect.width;
+      if (labelWidths.get(entry.target) === width) continue;
+      labelWidths.set(entry.target, width);
+      fitLabel(entry.target as HTMLElement);
+    }
+  });
+  labelObserver.observe(el);
+  return () => {
+    labelObserver?.unobserve(el);
+    labelWidths.delete(el);
+  };
+}
+
 export function CharacterCardBadge({ character }: CharacterCardBadgeProps) {
-  const details = CHARACTER_CARD_BADGES[character];
-  const nameFit = details.name.length >= 9 ? 'card-label-extra-long' : details.name.length >= 7 ? 'card-label-medium' : '';
-  const actionFit = details.action.length >= 8 ? 'card-label-medium' : '';
+  const t = useT();
+  /* Printed in capitals by CSS (`.card-character-label`), which leaves
+     scripts without case alone; the catalog holds the names as words. */
+  const name = characterName(t, character);
+  const action = t(`game.cardAction.${character}`);
+  const nameRef = useRef<HTMLSpanElement>(null);
+  const actionRef = useRef<HTMLSpanElement>(null);
+
+  useIsomorphicLayoutEffect(() => {
+    const els = [nameRef.current, actionRef.current].filter((el): el is HTMLSpanElement => el !== null);
+    els.forEach(fitLabel);
+    const stops = els.map(observeLabel);
+    return () => stops.forEach(stop => stop());
+  }, [name, action]);
 
   return (
     <>
       <CharacterCardGlyph character={character} />
       <span className="card-label-plate">
-        <span className={`card-character-label ${nameFit}`}>{details.name}</span>
-        <span className={`card-action-label ${actionFit}`}>{details.action}</span>
+        <span ref={nameRef} className={`card-character-label ${nameFit(labelLength(name))}`}>
+          {name}
+        </span>
+        <span ref={actionRef} className={`card-action-label ${actionFit(labelLength(action))}`}>
+          {action}
+        </span>
       </span>
     </>
   );

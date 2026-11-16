@@ -6,13 +6,22 @@ import { useSocket } from '../../hooks/useSocket';
 import { useGameStore } from '../../stores/gameStore';
 import { GameTable } from '../../components/game/GameTable';
 import { useGameMusic } from '../../hooks/useMusicDirector';
+import { QUICK_PLAY_BOT_COUNT } from '@/shared/constants';
+import { buildBots } from '../../utils/botFill';
+import { loadSavedPlayerName, savePlayerName } from '../../utils/playerName';
+import { getT, useT } from '../../i18n';
 
 export default function GamePage() {
+  const t = useT();
   const router = useRouter();
-  const { sendChat, sendReaction, rematch, stopSpectating, leaveRoom } = useSocket();
+  const { sendChat, sendReaction, rematch, stopSpectating, leaveRoom, createRoom, addBots, startGame } = useSocket();
 
   const { gameState, chatMessages, playerId, hostId, error, isSpectator } = useGameStore();
   const [isPracticeRoom, setIsPracticeRoom] = useState(false);
+  /* A knocked-out player asked for a new game: the old room is gone and the
+     new one is being dealt. While this is set, a missing game state means
+     "dealing", not "the game ended", so the redirect below holds off. */
+  const [dealingNew, setDealingNew] = useState(false);
 
   const isHost = !isSpectator && playerId === hostId;
 
@@ -37,7 +46,11 @@ export default function GamePage() {
 
   // Redirect when game state is cleared (rematch -> lobby) or missing
   useEffect(() => {
-    if (!gameState) {
+    if (gameState && dealingNew) setDealingNew(false);
+  }, [gameState, dealingNew]);
+
+  useEffect(() => {
+    if (!gameState && !dealingNew) {
       // Small delay to allow state to load (reconnection)
       const timer = setTimeout(() => {
         const current = useGameStore.getState();
@@ -61,7 +74,7 @@ export default function GamePage() {
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [clearPracticeSession, gameState, router]);
+  }, [clearPracticeSession, dealingNew, gameState, router]);
 
   const handleExitPractice = useCallback(() => {
     leaveRoom();
@@ -69,10 +82,54 @@ export default function GamePage() {
     router.push('/');
   }, [clearPracticeSession, leaveRoom, router]);
 
+  /* A knocked-out player's way out. The game carries on without them: the
+     server hands nothing to a bot for a player who is already out, and if
+     they were the last person at the table it closes the room. */
+  const handleLeaveTable = useCallback(() => {
+    leaveRoom();
+    clearPracticeSession();
+    router.push('/');
+  }, [clearPracticeSession, leaveRoom, router]);
+
+  /* The menu's Play vs Bots (`handleQuickPlay` in app/page.tsx), from the
+     table: leave this room, open a new one, seat the bots and deal. */
+  const handleNewGame = useCallback(async () => {
+    if (dealingNew) return;
+    const current = useGameStore.getState();
+    const seatName = current.gameState?.players.find(p => p.id === current.playerId)?.name;
+    const playerName = (seatName || loadSavedPlayerName()).trim();
+    if (!playerName) {
+      handleLeaveTable();
+      return;
+    }
+    setDealingNew(true);
+    leaveRoom();
+    clearPracticeSession();
+    setIsPracticeRoom(false);
+    let roomCreated = false;
+    try {
+      const result = await createRoom(playerName, false, 'quick_play');
+      roomCreated = true;
+      savePlayerName(playerName);
+      useGameStore.getState().setRoom(result.roomCode, result.playerId);
+      await addBots(buildBots(QUICK_PLAY_BOT_COUNT, [playerName]));
+      startGame();
+      router.replace(`/game/${result.roomCode}`);
+    } catch (e: unknown) {
+      if (roomCreated) {
+        leaveRoom();
+        useGameStore.getState().clearRoom();
+      }
+      setDealingNew(false);
+      useGameStore.getState().setError(e instanceof Error ? e.message : getT()('game.newGameFailed'));
+      router.push('/');
+    }
+  }, [addBots, clearPracticeSession, createRoom, dealingNew, handleLeaveTable, leaveRoom, router, startGame]);
+
   if (!gameState) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-400">Connecting…</p>
+        <p className="text-gray-400">{dealingNew ? t('game.dealing') : t('game.connecting')}</p>
       </div>
     );
   }
@@ -100,6 +157,9 @@ export default function GamePage() {
           useGameStore.getState().clearRoom();
           router.push('/');
         } : undefined}
+        onLeaveTable={isSpectator ? undefined : handleLeaveTable}
+        onNewGame={isSpectator ? undefined : handleNewGame}
+        newGamePending={dealingNew}
       />
     </>
   );

@@ -18,6 +18,7 @@ import {
   COUP_COST,
   ASSASSINATE_COST,
   CARDS_PER_CHARACTER,
+  STEAL_COINS,
 } from '../shared/constants';
 import { Game } from './Game';
 
@@ -610,7 +611,9 @@ export class BotBrain {
     }
 
     // Steal (Captain)
-    const stealTargets = alivePlayers.filter(p => p.id !== botId && p.coins > 0);
+    const stealTargets = alivePlayers.filter(p =>
+      p.id !== botId && p.coins > 0 && !game.isFactionRestricted(botId, p.id),
+    );
     if (stealTargets.length > 0) {
       const hasCaptain = ownedCharacters.includes(Character.Captain);
       const captainRevealed = revealed.get(Character.Captain) || 0;
@@ -809,7 +812,7 @@ export class BotBrain {
       const opponent = alivePlayers.find(p => p.id !== botId)!;
       let opponentCoinsAfter = opponent.coins;
       if (pendingAction.type === ActionType.Tax) opponentCoinsAfter += 3;
-      else if (pendingAction.type === ActionType.Steal) opponentCoinsAfter += Math.min(2, bot.coins);
+      else if (pendingAction.type === ActionType.Steal) opponentCoinsAfter += Math.min(STEAL_COINS, bot.coins);
       if (opponentCoinsAfter >= COUP_COST && bot.coins < COUP_COST && bot.coins < ASSASSINATE_COST) {
         return { type: 'challenge' };
       }

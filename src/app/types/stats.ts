@@ -15,6 +15,7 @@ export interface LifetimeStats {
   firstEliminatedCount: number;
   totalTurns: number;
   actionCounts: Partial<Record<ActionType, number>>;
+  /** Times each award was earned, by award id (`AwardId` in utils/gameStats.ts). */
   awardCounts: Record<string, number>;
 }
 
@@ -29,6 +30,7 @@ export interface GameHistoryEntry {
   blocksMade: number;
   coupsMade: number;
   assassinationsMade: number;
+  /** Award ids. Stats saved before ids hold English award names; `normalizeStoredStats` converts them on load. */
   awardsEarned: string[];
 }
 

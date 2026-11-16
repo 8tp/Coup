@@ -1,13 +1,17 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ClientGameState, TurnPhase } from '@/shared/types';
+import { ActionType, Character, ClientGameState, TurnPhase } from '@/shared/types';
+import { actionName, characterName, useT } from '../../i18n';
 import { Timer } from '../ui/Timer';
 import { getSocket } from '../../hooks/useSocket';
 import { haptic } from '../../utils/haptic';
+import { usePendingAnswer } from '../../hooks/usePendingAnswer';
 import { characterCardVars } from '../../utils/characterPalette';
 import { CardArtwork, CharacterCardBadge } from './CardArtwork';
 import { getSoundEngine } from '../../audio/SoundEngine';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { SHORT_DESKTOP_QUERY } from './table/seatLayout';
 import {
   FLIGHT_TRANSFORM_STYLE,
   cancel as cancelFlight,
@@ -41,8 +45,13 @@ function playSwapLanding(): void {
 }
 
 export function ExchangeView({ gameState }: ExchangeViewProps) {
+  const t = useT();
   const socket = getSocket();
+  const { pending: pendingAnswer, answer } = usePendingAnswer(gameState);
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
+  // A short desktop has no height to spare between the far seats and your hand.
+  const shortDesktop = useMediaQuery(SHORT_DESKTOP_QUERY);
+  const cardSize = shortDesktop ? 'card-face-md' : 'card-face-md sm:card-face-lg';
   const { turnPhase, exchangeState } = gameState;
   const prevTurnRef = useRef(gameState.turnNumber);
 
@@ -160,7 +169,7 @@ export function ExchangeView({ gameState }: ExchangeViewProps) {
   if (exchangeState.availableCards.length === 0) {
     return (
       <div className="prompt-info">
-        <p className="text-center text-gray-400 text-sm">Exchange in progress</p>
+        <p className="text-center text-gray-400 text-sm">{t('prompts.exchangeInProgress')}</p>
       </div>
     );
   }
@@ -192,18 +201,23 @@ export function ExchangeView({ gameState }: ExchangeViewProps) {
   };
 
   const handleConfirm = () => {
-    haptic(80);
-    socket.emit('game:choose_exchange', { keepIndices: selectedIndices });
+    answer('keep', () => {
+      haptic(80);
+      socket.emit('game:choose_exchange', { keepIndices: selectedIndices });
+    });
   };
 
   return (
     <div className="prompt-action">
       <Timer expiresAt={gameState.timerExpiry} />
-      <p className="text-center text-coup-accent font-bold text-lg mb-1">
-        {gameState.useInquisitor ? 'Inquisitor' : 'Ambassador'} Exchange
+      <p className="prompt-claim text-center text-coup-accent font-bold text-lg mb-1">
+        {t('prompts.exchangeTitle', {
+          character: characterName(t, gameState.useInquisitor ? Character.Inquisitor : Character.Ambassador),
+          action: actionName(t, ActionType.Exchange),
+        })}
       </p>
       <p className="text-center text-gray-400 text-xs mb-4">
-        Tap {keepCount} card{keepCount > 1 ? 's' : ''} to keep. The rest go back to the deck.
+        {t('prompts.exchangeHint', { count: keepCount })}
       </p>
       <div className="flex flex-wrap gap-2 sm:gap-3 justify-center mb-4">
         {order.map(i => {
@@ -219,11 +233,11 @@ export function ExchangeView({ gameState }: ExchangeViewProps) {
               key={i}
               ref={nodeRef(i)}
               style={FLIGHT_TRANSFORM_STYLE}
-              className="card-flip-wrapper card-face-md sm:card-face-lg"
+              className={`card-flip-wrapper ${cardSize}`}
             >
               <button
-                title={char}
-                className={`card-face card-face-md sm:card-face-lg is-interactive
+                title={characterName(t, char)}
+                className={`card-face ${cardSize} is-interactive
                   ${selectedIndices.includes(i) ? 'is-selected ring-2 ring-coup-accent' : 'opacity-60'}`}
                 style={characterCardVars(char)}
                 onClick={() => toggleCard(i)}
@@ -231,7 +245,7 @@ export function ExchangeView({ gameState }: ExchangeViewProps) {
                 <CardArtwork character={char} variant="focus" priority />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
                 <CharacterCardBadge character={char} />
-                <span className="sr-only">{char}</span>
+                <span className="sr-only">{characterName(t, char)}</span>
               </button>
             </div>
           );
@@ -240,9 +254,11 @@ export function ExchangeView({ gameState }: ExchangeViewProps) {
       <button
         className="btn-primary w-full"
         disabled={selectedIndices.length !== keepCount}
+        data-pending={pendingAnswer === 'keep' || undefined}
+        aria-busy={pendingAnswer === 'keep' || undefined}
         onClick={handleConfirm}
       >
-        Keep selected ({selectedIndices.length}/{keepCount})
+        {t('prompts.keepSelected', { selected: selectedIndices.length, total: keepCount })}
       </button>
     </div>
   );

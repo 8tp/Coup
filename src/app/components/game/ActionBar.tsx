@@ -1,8 +1,19 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActionType, ClientGameState, ClientPlayerState, GameMode, TargetingPublication, TurnPhase } from '@/shared/types';
-import { ACTION_DEFINITIONS, FORCED_COUP_THRESHOLD, CONVERSION_SELF_COST, CONVERSION_OTHER_COST } from '@/shared/constants';
+import { ActionType, Character, ClientGameState, ClientPlayerState, GameMode, Refusal, RefusalKey, TargetingPublication, TurnPhase } from '@/shared/types';
+import {
+  ACTION_DEFINITIONS,
+  ASSASSINATE_COST,
+  CONVERSION_OTHER_COST,
+  CONVERSION_SELF_COST,
+  COUP_COST,
+  EXCHANGE_DRAW_COUNT,
+  FORCED_COUP_THRESHOLD,
+  INQUISITOR_EXCHANGE_DRAW_COUNT,
+} from '@/shared/constants';
+import { actionName, characterName, useT, type PlainTranslator } from '../../i18n';
+import { playerName, refusalText } from './tableText';
 import { DukeIcon, AssassinIcon, CaptainIcon, AmbassadorIcon, InquisitorIcon, CoinIcon } from '../icons';
 import { Timer } from '../ui/Timer';
 import { getSocket } from '../../hooks/useSocket';
@@ -85,28 +96,29 @@ function SwapIcon({ size = 16 }: { size?: number }) {
 
 type ActionConfig = {
   type: ActionType;
-  label: string;
   desc: string;
   icon: React.ComponentType<{ size?: number }>;
 };
 
-function coinLabel(amount: number): string {
-  return `${amount} coin${amount === 1 ? '' : 's'}`;
-}
-
 /**
- * The refusal sentences. Every number in them comes from `src/shared/constants`
- * — `COUP_COST`, `ASSASSINATE_COST`, `CONVERSION_*_COST`,
- * `FORCED_COUP_THRESHOLD` — so a rules change cannot leave the UI lying about
- * the price of a Coup. "You need 7 coins to Coup" is a sentence; a greyed
- * button is a shrug.
+ * The refusals, as catalog keys (`game.refusal.*`) and params. Every number
+ * in them comes from `src/shared/constants` — `COUP_COST`, `ASSASSINATE_COST`,
+ * `CONVERSION_*_COST`, `FORCED_COUP_THRESHOLD` — so a rules change cannot
+ * leave the UI lying about the price of a Coup. "You need 7 coins to Coup" is
+ * a sentence; a greyed button is a shrug.
  */
-function needCoins(cost: number, verb: string, have: number): string {
-  return `You need ${coinLabel(cost)} to ${verb}. You have ${have}.`;
-}
+const SAME_FACTION_REASON: Refusal = { key: 'sameFaction' };
+const PENDING_REASON: Refusal = { key: 'pending' };
+const NEED_COINS_KEY: Partial<Record<ActionType, RefusalKey>> = {
+  [ActionType.Coup]: 'needCoinsCoup',
+  [ActionType.Assassinate]: 'needCoinsAssassinate',
+};
 
-const SAME_FACTION_REASON = 'Same faction. Convert first, or wait until everyone is in one faction.';
-const PENDING_REASON = 'You already chose an action.';
+/** The coins each action moves, as ActionResolver applies them. */
+const INCOME_AMOUNT = 1;
+const FOREIGN_AID_AMOUNT = 2;
+const TAX_AMOUNT = 3;
+const STEAL_AMOUNT = 2;
 
 /** Which actions the Reformation faction rule can forbid. */
 const FACTION_RESTRICTED: ReadonlyArray<ActionType> = [
@@ -116,20 +128,26 @@ const FACTION_RESTRICTED: ReadonlyArray<ActionType> = [
   ActionType.Examine,
 ];
 
-function getActionConfig(isReformation: boolean, useInquisitor: boolean, treasuryReserve: number): ActionConfig[] {
+function getActionConfig(t: PlainTranslator, isReformation: boolean, useInquisitor: boolean, treasuryReserve: number): ActionConfig[] {
+  const claim = (character: Character) => characterName(t, character);
   const config: ActionConfig[] = [
-    { type: ActionType.Income, label: 'Income', desc: '+1 coin (no block)', icon: CoinIcon },
-    { type: ActionType.ForeignAid, label: 'Foreign Aid', desc: '+2 coins (blockable)', icon: CoinsIcon },
-    { type: ActionType.Tax, label: 'Tax', desc: '+3 coins (claim Duke)', icon: DukeIcon },
-    { type: ActionType.Steal, label: 'Steal', desc: 'Take 2 coins (claim Captain)', icon: CaptainIcon },
-    { type: ActionType.Assassinate, label: 'Assassinate', desc: 'Pay 3, they lose a card (claim Assassin)', icon: AssassinIcon },
+    { type: ActionType.Income, desc: t('game.actionDesc.Income', { count: INCOME_AMOUNT }), icon: CoinIcon },
+    { type: ActionType.ForeignAid, desc: t('game.actionDesc.ForeignAid', { count: FOREIGN_AID_AMOUNT }), icon: CoinsIcon },
+    { type: ActionType.Tax, desc: t('game.actionDesc.Tax', { count: TAX_AMOUNT, character: claim(Character.Duke) }), icon: DukeIcon },
+    { type: ActionType.Steal, desc: t('game.actionDesc.Steal', { count: STEAL_AMOUNT, character: claim(Character.Captain) }), icon: CaptainIcon },
+    {
+      type: ActionType.Assassinate,
+      desc: t('game.actionDesc.Assassinate', { cost: ASSASSINATE_COST, character: claim(Character.Assassin) }),
+      icon: AssassinIcon,
+    },
     {
       type: ActionType.Exchange,
-      label: 'Exchange',
-      desc: useInquisitor ? 'Draw 1, put back 1 (claim Inquisitor)' : 'Draw 2, put back 2 (claim Ambassador)',
+      desc: useInquisitor
+        ? t('game.actionDesc.Exchange', { count: INQUISITOR_EXCHANGE_DRAW_COUNT, character: claim(Character.Inquisitor) })
+        : t('game.actionDesc.Exchange', { count: EXCHANGE_DRAW_COUNT, character: claim(Character.Ambassador) }),
       icon: useInquisitor ? InquisitorIcon : AmbassadorIcon,
     },
-    { type: ActionType.Coup, label: 'Coup', desc: 'Pay 7, they lose a card (no block)', icon: SwordsIcon },
+    { type: ActionType.Coup, desc: t('game.actionDesc.Coup', { cost: COUP_COST }), icon: SwordsIcon },
   ];
 
   if (isReformation) {
@@ -137,22 +155,21 @@ function getActionConfig(isReformation: boolean, useInquisitor: boolean, treasur
     if (useInquisitor) {
       config.splice(-1, 0, {
         type: ActionType.Examine,
-        label: 'Examine',
-        desc: 'Look at a card (claim Inquisitor)',
+        desc: t('game.actionDesc.Examine', { character: claim(Character.Inquisitor) }),
         icon: InquisitorIcon,
       });
     }
     // Add Convert and Embezzle
     config.splice(-1, 0, {
       type: ActionType.Convert,
-      label: 'Convert',
-      desc: `Switch a faction (${CONVERSION_SELF_COST} or ${CONVERSION_OTHER_COST} coins)`,
+      desc: t('game.actionDesc.Convert', { self: CONVERSION_SELF_COST, other: CONVERSION_OTHER_COST }),
       icon: SwapIcon,
     });
     config.splice(-1, 0, {
       type: ActionType.Embezzle,
-      label: 'Embezzle',
-      desc: treasuryReserve > 0 ? `Take ${coinLabel(treasuryReserve)} from the reserve (claim no Duke)` : 'The reserve is empty',
+      desc: treasuryReserve > 0
+        ? t('game.actionDesc.Embezzle', { count: treasuryReserve, character: claim(Character.Duke) })
+        : t('game.actionDesc.EmbezzleEmpty'),
       icon: TreasuryIcon,
     });
   }
@@ -160,11 +177,11 @@ function getActionConfig(isReformation: boolean, useInquisitor: boolean, treasur
   return config;
 }
 
-/** One row of the target list. `reason` is empty exactly when `eligible`. */
+/** One row of the target list. `reason` is null exactly when `eligible`. */
 interface TargetOption {
   player: ClientPlayerState;
   eligible: boolean;
-  reason: string;
+  reason: Refusal | null;
 }
 
 /**
@@ -186,23 +203,23 @@ function buildTargetOptions(
       return { player, eligible: false, reason: SAME_FACTION_REASON };
     }
     if (action === ActionType.Steal && player.coins === 0) {
-      return { player, eligible: false, reason: `${player.name} has no coins to steal.` };
+      return { player, eligible: false, reason: { key: 'noCoinsToSteal', params: { name: player.name } } };
     }
     if (action === ActionType.Convert && me.coins < CONVERSION_OTHER_COST) {
       return {
         player,
         eligible: false,
-        reason: needCoins(CONVERSION_OTHER_COST, `Convert ${player.name}`, me.coins),
+        reason: { key: 'needCoinsConvertOther', params: { cost: CONVERSION_OTHER_COST, have: me.coins, name: player.name } },
       };
     }
-    return { player, eligible: true, reason: '' };
+    return { player, eligible: true, reason: null };
   });
 }
 
 interface RefusalState {
   /** Identifies the control that refused: an ActionType, or `target:<id>`. */
   id: string;
-  message: string;
+  reason: Refusal;
   /** Bumped per refusal. Drives the shake restart and the alert re-announce. */
   nonce: number;
 }
@@ -235,6 +252,7 @@ interface ActionBarProps {
 }
 
 export function ActionBar({ gameState }: ActionBarProps) {
+  const t = useT();
   const [selectingTarget, setSelectingTarget] = useState<ActionType | null>(null);
   const [actionPending, setActionPending] = useState(false);
   const [refusal, setRefusal] = useState<RefusalState | null>(null);
@@ -281,7 +299,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
     return () => window.removeEventListener('pointerdown', onDown, true);
   }, []);
 
-  const refuse = useCallback((id: string, message: string) => {
+  const refuse = useCallback((id: string, reason: Refusal) => {
     getSoundEngine().play(DENIED_SOUND);
     fireHaptic('denied');
 
@@ -300,7 +318,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
     fx.cue('denied', { condition: 'mine', x: p?.x, y: p?.y });
 
     nonceRef.current += 1;
-    setRefusal({ id, message, nonce: nonceRef.current });
+    setRefusal({ id, reason, nonce: nonceRef.current });
     setShaking(true);
   }, []);
 
@@ -343,7 +361,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
     const option = targetOptions.find(o => o.player.id === playerId);
     if (!targetingAction || !option) return;
     if (actionPending) { refuse(`target:${playerId}`, PENDING_REASON); return; }
-    if (!option.eligible) { refuse(`target:${playerId}`, option.reason); return; }
+    if (!option.eligible && option.reason) { refuse(`target:${playerId}`, option.reason); return; }
 
     hapticHeavy();
     setActionPending(true);
@@ -357,9 +375,9 @@ export function ActionBar({ gameState }: ActionBarProps) {
 
   /** Published for the seats. See the header of this file. */
   const publication = useMemo<TargetingPublication>(() => {
-    const reasons: Record<string, string> = {};
+    const reasons: Record<string, Refusal> = {};
     for (const option of targetOptions) {
-      if (!option.eligible) reasons[option.player.id] = option.reason;
+      if (!option.eligible && option.reason) reasons[option.player.id] = option.reason;
     }
     return {
       action: targetingAction,
@@ -382,7 +400,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
   }
 
   const useInquisitor = gameState.useInquisitor;
-  const actionConfig = getActionConfig(isReformation, useInquisitor, gameState.treasuryReserve);
+  const actionConfig = getActionConfig(t, isReformation, useInquisitor, gameState.treasuryReserve);
 
   const handleAction = (action: ActionType) => {
     haptic(80);
@@ -403,25 +421,26 @@ export function ActionBar({ gameState }: ActionBarProps) {
   /** The shared `role="alert"` line. Keyed so a repeat refusal re-announces. */
   const refusalAlert = refusal ? (
     <p key={refusal.nonce} role="alert" className="refusal-alert">
-      {refusal.message}
+      {refusalText(t, refusal.reason)}
     </p>
   ) : null;
 
-  if (selectingTarget) {
-    const actionVerb = selectingTarget === ActionType.Coup ? 'Coup' :
-                       selectingTarget === ActionType.Assassinate ? 'Assassinate' :
-                       selectingTarget === ActionType.Steal ? 'Steal from' :
-                       selectingTarget === ActionType.Examine ? 'Examine' :
-                       selectingTarget === ActionType.Convert ? 'Convert' : selectingTarget;
+  /** The line under a refused target row. */
+  const reasonLine = (reason: Refusal | null, className = 'text-gray-300') => reason && (
+    <span className={`mt-0.5 block text-[11px] font-normal leading-tight ${className}`}>
+      {refusalText(t, reason)}
+    </span>
+  );
 
+  if (selectingTarget) {
     // Convert has special options: self-convert or target-convert
     if (selectingTarget === ActionType.Convert) {
       const canConvertSelf = me.coins >= CONVERSION_SELF_COST;
-      const selfReason = needCoins(CONVERSION_SELF_COST, 'Convert yourself', me.coins);
+      const selfReason: Refusal = { key: 'needCoinsConvertSelf', params: { cost: CONVERSION_SELF_COST, have: me.coins } };
       return (
         <div className="prompt-action">
           <Timer expiresAt={gameState.timerExpiry} />
-          <p className="text-center text-white font-bold mb-3">Choose who to Convert</p>
+          <p className="text-center text-white font-bold mb-3">{t('game.chooseConvert')}</p>
           <div className="flex flex-col gap-2">
             <RefusalHost
               active={shaking && refusal?.id === 'convert:self'}
@@ -441,12 +460,8 @@ export function ActionBar({ gameState }: ActionBarProps) {
                   setSelectingTarget(null);
                 }}
               >
-                <span className="block">Yourself ({CONVERSION_SELF_COST} coin)</span>
-                {!canConvertSelf && (
-                  <span className="mt-0.5 block text-[11px] font-normal leading-tight text-gray-300">
-                    {selfReason}
-                  </span>
-                )}
+                <span className="block">{t('game.convertSelf', { count: CONVERSION_SELF_COST })}</span>
+                {!canConvertSelf && reasonLine(selfReason)}
               </button>
             </RefusalHost>
             {targetOptions.map(({ player, eligible, reason }) => (
@@ -462,12 +477,8 @@ export function ActionBar({ gameState }: ActionBarProps) {
                   aria-disabled={eligible && !actionPending ? undefined : true}
                   onClick={() => chooseTarget(player.id)}
                 >
-                  <span className="block">{player.name} ({CONVERSION_OTHER_COST} coins)</span>
-                  {!eligible && (
-                    <span className="mt-0.5 block text-[11px] font-normal leading-tight text-gray-300">
-                      {reason}
-                    </span>
-                  )}
+                  <span className="block">{t.rich('game.convertOther', { name: playerName(player.name), count: CONVERSION_OTHER_COST })}</span>
+                  {!eligible && reasonLine(reason)}
                 </button>
               </RefusalHost>
             ))}
@@ -475,7 +486,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
               className="btn-ghost w-full mt-1"
               onClick={() => { haptic(80); setRefusal(null); setSelectingTarget(null); }}
             >
-              Cancel
+              {t('common.cancel')}
             </button>
           </div>
           {refusalAlert}
@@ -485,13 +496,13 @@ export function ActionBar({ gameState }: ActionBarProps) {
 
     const noneEligible = targetOptions.length > 0 && targetOptions.every(o => !o.eligible);
     const stealBlocked = selectingTarget === ActionType.Steal && noneEligible
-      && targetOptions.every(o => o.reason.endsWith('no coins to steal.'));
+      && targetOptions.every(o => o.reason?.key === 'noCoinsToSteal');
 
     return (
       <div className="prompt-action">
         <Timer expiresAt={gameState.timerExpiry} />
         <p className="text-center text-white font-bold mb-3">
-          Choose who to {actionVerb}
+          {t('game.chooseTarget', { action: selectingTarget })}
         </p>
         <div className="flex flex-col gap-2">
           {targetOptions.map(({ player, eligible, reason }) => (
@@ -507,28 +518,24 @@ export function ActionBar({ gameState }: ActionBarProps) {
                 aria-disabled={eligible && !actionPending ? undefined : true}
                 onClick={() => chooseTarget(player.id)}
               >
-                <span className="block">{player.name} ({coinLabel(player.coins)})</span>
-                {!eligible && (
-                  <span className="mt-0.5 block text-[11px] font-normal leading-tight text-gray-300">
-                    {reason}
-                  </span>
-                )}
+                <span className="block">{t.rich('game.targetRow', { name: playerName(player.name), count: player.coins })}</span>
+                {!eligible && reasonLine(reason)}
               </button>
             </RefusalHost>
           ))}
           {noneEligible && (
             <p className="text-gray-400 text-sm text-center py-2">
-              {stealBlocked ? 'Nobody has coins to steal.' : SAME_FACTION_REASON}
+              {refusalText(t, stealBlocked ? { key: 'nobodyHasCoins' } : SAME_FACTION_REASON)}
             </p>
           )}
           {targetOptions.length === 0 && (
-            <p className="text-gray-400 text-sm text-center py-2">Nobody else is left to target.</p>
+            <p className="text-gray-400 text-sm text-center py-2">{t('game.nobodyToTarget')}</p>
           )}
           <button
             className="btn-ghost w-full mt-1"
             onClick={() => { haptic(80); setRefusal(null); setSelectingTarget(null); }}
           >
-            Cancel
+            {t('common.cancel')}
           </button>
         </div>
         {refusalAlert}
@@ -541,10 +548,10 @@ export function ActionBar({ gameState }: ActionBarProps) {
       <div className="prompt-urgent">
         <Timer expiresAt={gameState.timerExpiry} />
         <p className="text-center text-red-300 font-bold mb-1">
-          You have {me.coins} coins, so you must Coup
+          {t('game.mustCoup', { count: me.coins })}
         </p>
         <p className="text-center text-gray-400 text-xs mb-3">
-          Choose who loses a card
+          {t('game.mustCoupHint')}
         </p>
         <div className="flex flex-col gap-2">
           {targetOptions.map(({ player, eligible, reason }) => (
@@ -560,12 +567,8 @@ export function ActionBar({ gameState }: ActionBarProps) {
                 aria-disabled={eligible && !actionPending ? undefined : true}
                 onClick={() => chooseTarget(player.id)}
               >
-                <span className="block">Coup {player.name}</span>
-                {!eligible && (
-                  <span className="mt-0.5 block text-[11px] font-normal leading-tight text-gray-200">
-                    {reason}
-                  </span>
-                )}
+                <span className="block">{t.rich('game.coupTarget', { name: playerName(player.name) })}</span>
+                {!eligible && reasonLine(reason, 'text-gray-200')}
               </button>
             </RefusalHost>
           ))}
@@ -588,41 +591,42 @@ export function ActionBar({ gameState }: ActionBarProps) {
            * the one the player is asked to act on, so the cheapest fix is
            * named first (coins) before the structural one (targets).
            */
-          const gate = ((): { ok: boolean; reason: string } => {
+          const gate = ((): { ok: true } | { ok: false; reason: Refusal } => {
             if (actionPending) return { ok: false, reason: PENDING_REASON };
 
             if (a.type === ActionType.Convert) {
               if (me.coins < CONVERSION_SELF_COST) {
-                return { ok: false, reason: needCoins(CONVERSION_SELF_COST, 'Convert yourself', me.coins) };
+                return { ok: false, reason: { key: 'needCoinsConvertSelf', params: { cost: CONVERSION_SELF_COST, have: me.coins } } };
               }
-              return { ok: true, reason: '' };
+              return { ok: true };
             }
 
             if (a.type === ActionType.Embezzle) {
               if (gameState.treasuryReserve === 0) {
-                return { ok: false, reason: 'The reserve is empty, so there\'s nothing to Embezzle.' };
+                return { ok: false, reason: { key: 'reserveEmpty' } };
               }
-              return { ok: true, reason: '' };
+              return { ok: true };
             }
 
-            if (def.cost > 0 && me.coins < def.cost) {
-              return { ok: false, reason: needCoins(def.cost, a.label, me.coins) };
+            const needKey = NEED_COINS_KEY[a.type];
+            if (def.cost > 0 && me.coins < def.cost && needKey) {
+              return { ok: false, reason: { key: needKey, params: { cost: def.cost, have: me.coins } } };
             }
 
             if (def.requiresTarget) {
               const options = buildTargetOptions(a.type, opponents, me, factionsSplit);
               if (options.length === 0) {
-                return { ok: false, reason: `Nobody else is left to ${a.label}.` };
+                return { ok: false, reason: { key: 'nobodyLeft', params: { action: a.type } } };
               }
               if (options.every(o => !o.eligible)) {
                 if (a.type === ActionType.Steal && options.every(o => o.player.coins === 0)) {
-                  return { ok: false, reason: 'Nobody has coins to steal.' };
+                  return { ok: false, reason: { key: 'nobodyHasCoins' } };
                 }
                 return { ok: false, reason: SAME_FACTION_REASON };
               }
             }
 
-            return { ok: true, reason: '' };
+            return { ok: true };
           })();
 
           const Icon = a.icon;
@@ -636,7 +640,7 @@ export function ActionBar({ gameState }: ActionBarProps) {
               className="h-full"
             >
               <button
-                className={`bg-coup-surface rounded-lg p-2 text-left border border-gray-700 relative
+                className={`bg-coup-surface rounded-lg p-2 text-start border border-gray-700 relative
                   h-full w-full
                   ${gate.ok ? 'hover:border-coup-accent cursor-pointer active:scale-[0.97]' : ''}
                   transition-all action-choice-enter`}
@@ -649,9 +653,9 @@ export function ActionBar({ gameState }: ActionBarProps) {
                   <span className="mt-0.5 shrink-0"><Icon size={18} /></span>
                   <div className="min-w-0">
                     {/* ART-DIRECTION.md §4: action names are a Display role. */}
-                    <div className="type-display text-step-0 leading-tight">{a.label}</div>
+                    <div className="type-display text-step-0 leading-tight">{actionName(t, a.type)}</div>
                     <div className="text-[11.5px] text-coup-ink-mute leading-snug mt-0.5">
-                      {gate.ok ? a.desc : gate.reason}
+                      {gate.ok ? a.desc : refusalText(t, gate.reason)}
                     </div>
                   </div>
                 </div>

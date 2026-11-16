@@ -96,6 +96,12 @@ Not every turn visits every phase. Income resolves immediately. Coup skips to In
 | `src/server/RoomManager.ts` | Room lifecycle: create, join, rejoin, leave, cleanup (24h TTL), chat storage, rematch reset, bot management |
 | `src/server/SocketHandler.ts` | Socket.io event routing: validates context, delegates to engine |
 | `src/server/StateSerializer.ts` | Per-player state filtering before sending to clients |
+| `src/server/feedback.ts` | In-game feedback: validation and sanitizing, per-connection and global rate limits, PII-free context, `[feedback] {json}` log line |
+| `src/server/storage/PostgresFeedbackStorage.ts` | `coup_feedback` table (only when `DATABASE_URL` is set); `listRecent` backs `npm run feedback` |
+| `src/shared/feedbackTypes.ts` | Feedback kinds, client/room context, record and ack types |
+| `src/app/components/feedback/FeedbackForm.tsx` | Feedback form (Bug/Idea/Other, note, send states) and `FeedbackModal`; opened from Settings and the game over screen |
+| `src/app/utils/feedbackContext.ts` | Coarse client context for feedback: viewport bucket, browser and OS family |
+| `scripts/feedback.ts` | `npm run feedback -- [--limit N] [--since 7d] [--json]`: print recent feedback from Postgres |
 | `src/server/BotController.ts` | Bot timing/execution: schedules AI decisions with randomized delays, triggers bot emotes |
 | `server.ts` | Entry point: wires Express + Socket.io + Next.js |
 | `src/app/page.tsx` | Home screen UI (create/join room) |
@@ -114,11 +120,16 @@ Not every turn visits every phase. Income resolves immediately. Coup skips to In
 | `src/app/components/game/GameOverOverlay.tsx` | Game over screen with rematch flow |
 | `src/app/components/game/ReactionPicker.tsx` | Emoji reaction selector (12 reactions) |
 | `src/app/components/game/ReactionBubble.tsx` | Displays active reaction above a player seat |
-| `src/app/components/settings/SettingsModal.tsx` | Settings: sound, haptic feedback, text size, bug report/feedback links |
+| `src/app/components/settings/SettingsModal.tsx` | Settings: sound, haptic feedback, text size, in-app feedback form (plus a GitHub issues link) |
 | `src/app/components/lobby/AddBotModal.tsx` | Modal with name input + personality selector (7 personality buttons) for adding bots |
 | `src/app/components/game/ExaminePrompt.tsx` | Inquisitor examine decision UI: shows revealed card, Return or Force Swap buttons |
 | `src/app/components/icons/InquisitorIcon.tsx` | Inquisitor SVG icon (all-seeing eye, teal) |
 | `docs/REFORMATION_PLAN.md` | Full implementation plan for the Reformation expansion |
+| `docs/I18N.md` | Internationalisation: adding strings, key naming, plurals, rich text, adding a language, right to left, glossary |
+| `src/shared/i18n/` | Shared i18n core: language registry (`locales.ts`), ICU message formatter, locale matching, pre-paint boot script, structured log keys (`logMessages.ts`), server error codes (`serverErrors.ts`) |
+| `src/app/i18n/` | Client i18n: catalogs in `messages/<locale>/<namespace>.ts` (English is the source of truth), `useT()` / `getT()`, glossary helpers, `I18nBootstrap` |
+| `src/app/components/game/LogLine.tsx` | Renders one action-log line from its structured `msg` (stamps, emblems, figures); shared by `ActionLog`, the drawer's Latest row and `LogTicker` |
+| `scripts/i18n-report.ts` | `npx tsx scripts/i18n-report.ts [locale]`: missing, extra and mismatched keys per locale |
 
 ---
 
@@ -157,7 +168,7 @@ All bots use the same underlying architecture: card counting, bluff persistence,
 
 The default personality is `'random'` (defined as `DEFAULT_BOT_PERSONALITY` in constants). The lobby UI presents 7 color-coded personality buttons: Random (purple), Aggressive (red), Conservative (green), Vengeful (orange), Deceptive (pink), Analytical (blue), Optimal (yellow).
 
-Bots are server-side only — they use the same `GameEngine` methods as human players but decisions are made by `BotBrain` (pure logic, no I/O) and scheduled by `BotController` (timing layer with randomized delays: 1.5–3.5s for actions, 0.8–2s for reactions). Only one bot acts at a time; each action triggers a state change which cascades to the next bot.
+Bots are server-side only — they use the same `GameEngine` methods as human players but decisions are made by `BotBrain` (pure logic, no I/O) and scheduled by `BotController` (timing layer with randomized delays: 1.5–3.5s for actions, 0.8–2s for reactions, both floored by the room's "Bot thinking time", default 2s). Turn decisions (action, influence loss, exchange, examine) are scheduled one bot at a time. In a reaction window (challenge an action, block, challenge a block) every bot thinks in parallel on its own timer, so the window closes after the slowest bot rather than the sum; a timer survives other players passing and is cleared when the window changes. A pass, a challenge and a block draw from the same delay distribution, so timing never hints at a bot's hand.
 
 Key behaviors:
 - Bots never peek at opponents' hidden cards or the deck (they only use publicly revealed card information for card counting)
@@ -214,6 +225,7 @@ The `GameEngine.applySideEffect()` method interprets each effect and mutates the
 
 - **Server is authoritative** -- never add game logic to the client
 - **On-screen copy follows `docs/VOICE.md`** -- no em-dash clauses, slogans, rhetorical questions or eyebrow labels
+- **On-screen text comes from the catalogs** (`docs/I18N.md`) -- `t('namespace.key')` via `useT()`, game nouns via the glossary helpers, never a hard-coded string or a printed enum value. Server text a player sees carries a key: log side effects need `msg: logMsg(...)` beside `message`, and new error texts need a code in `src/shared/i18n/serverErrors.ts`. Use logical CSS properties so right-to-left works; the court table never mirrors
 - **Types live in `src/shared/`** -- do not define game types in engine or server files
 - **Engine has no I/O** -- no `setTimeout`, no `socket.emit`, no `console.log` in `ActionResolver`. Timers and logging are expressed as side effects
 - **All game constants** are in `src/shared/constants.ts` -- do not hardcode magic numbers

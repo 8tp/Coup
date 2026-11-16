@@ -1,3 +1,5 @@
+import type { LogMessage } from './i18n/logMessages';
+
 // ─── Character Cards ───
 export enum Character {
   Duke = 'Duke',
@@ -82,6 +84,14 @@ export interface PendingAction {
   targetId?: string;
   /** Character claimed for this action (e.g., Duke for Tax) */
   claimedCharacter?: Character;
+  /**
+   * A block the target declared while the action was still open to challenge.
+   * It counts as the target passing on that challenge. If the action survives
+   * its challenge window the block takes effect straight away (the actor can
+   * still challenge it); if the action is successfully challenged it is
+   * dropped with the action. Public, like a block said aloud at the table.
+   */
+  declaredBlock?: PendingBlock;
 }
 
 // ─── Pending Block ───
@@ -196,6 +206,13 @@ export interface LogEntry {
   targetId?: string | null;
   /** Whether this claim was a bluff (actor did not hold the claimed character). Only set on claim_action/block entries. */
   wasBluff?: boolean;
+  /**
+   * The same line as a stable key plus typed params, so each client renders
+   * it in its own language (docs/I18N.md). `message` stays the English text
+   * for logs, metrics, bots and older clients. Optional only because entries
+   * stored before this field existed lack it.
+   */
+  msg?: LogMessage;
 }
 
 // ─── Client-visible state (what gets sent to each player) ───
@@ -261,6 +278,29 @@ export interface ClientInfluence {
  * the same call and cannot drift apart. That is what `onSelect` is doing in a
  * "data" shape: it is the seam, not a convenience.
  */
+/**
+ * Why the ActionBar refused a choice, as a key under `game.refusal.` in the
+ * catalog (`src/app/i18n/messages/en/game.ts`) and its params, so each reader
+ * sees the sentence in their own language. `name` params are player names;
+ * every other param is a number.
+ */
+export type RefusalKey =
+  | 'pending'
+  | 'sameFaction'
+  | 'noCoinsToSteal'
+  | 'nobodyHasCoins'
+  | 'nobodyLeft'
+  | 'reserveEmpty'
+  | 'needCoinsCoup'
+  | 'needCoinsAssassinate'
+  | 'needCoinsConvertSelf'
+  | 'needCoinsConvertOther';
+
+export interface Refusal {
+  key: RefusalKey;
+  params?: Readonly<Record<string, string | number>>;
+}
+
 export interface TargetingPublication {
   /** The action awaiting a target, or null when nothing is being targeted. */
   action: ActionType | null;
@@ -268,8 +308,8 @@ export interface TargetingPublication {
   eligibleIds: string[];
   /** Seats rendered but refused — §6.2's "illegal half". */
   ineligibleIds: string[];
-  /** playerId → the sentence explaining why that seat cannot be picked. */
-  reasons: Record<string, string>;
+  /** playerId → why that seat cannot be picked, as a catalog key and params. */
+  reasons: Record<string, Refusal>;
   /**
    * Choose a seat. Eligible → the action is sent; ineligible or already
    * pending → the ActionBar's own `refuse()` fires (cue, haptic, shake,
@@ -432,4 +472,18 @@ export interface ChatMessage {
   playerName: string;
   message: string;
   timestamp: number;
+  /**
+   * Set when the line is a reaction (a player's or a bot's emote) rather than
+   * typed text. `message` is then the English "<emoji> <label>"; clients
+   * render `reactionId` through the catalog instead. Typed chat is never
+   * translated.
+   */
+  reactionId?: string;
+  /**
+   * Set when the line is one of the composer's quick phrases
+   * (`QUICK_PHRASES`). `message` is then the phrase in English, for older
+   * clients and server logs; clients render `phraseId` through the catalog,
+   * so each reader sees the phrase in their own language.
+   */
+  phraseId?: string;
 }

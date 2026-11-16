@@ -1,20 +1,25 @@
-import { COUP_COST, FORCED_COUP_THRESHOLD, STARTING_COINS } from '@/shared/constants';
-import { Character } from '@/shared/types';
+import { ASSASSINATE_COST, COUP_COST, FORCED_COUP_THRESHOLD, STARTING_COINS } from '@/shared/constants';
+import { ActionType, Character } from '@/shared/types';
+import { FOREIGN_AID_COINS, INCOME_COINS, STEAL_COINS, TAX_COINS } from './learnText';
 
 /**
  * "How Coup works" — the tutorial's chapters and every demonstration's state,
  * as one reducer. The components only render this state and dispatch taps, so
  * the whole sequence is tested without a browser.
+ *
+ * No words live here: chapter labels, results and refusals are keys in the
+ * `tutorial` catalog (`tutorial.chapter.<id>`, `tutorial.turn.result.<id>`,
+ * `tutorial.coins.refusal.<kind>`), looked up by the component.
  */
 
 export const TUTORIAL_CHAPTERS = [
-  { id: 'goal', label: 'The goal' },
-  { id: 'turn', label: 'Your turn' },
-  { id: 'claims', label: 'Claims' },
-  { id: 'challenge', label: 'Challenge' },
-  { id: 'blocks', label: 'Blocks' },
-  { id: 'coins', label: 'Coins' },
-  { id: 'finish', label: 'Ready' },
+  { id: 'goal' },
+  { id: 'turn' },
+  { id: 'claims' },
+  { id: 'challenge' },
+  { id: 'blocks' },
+  { id: 'coins' },
+  { id: 'finish' },
 ] as const;
 
 export type ChapterId = (typeof TUTORIAL_CHAPTERS)[number]['id'];
@@ -35,23 +40,22 @@ export type TurnActionId =
 
 export interface TurnActionDef {
   id: TurnActionId;
-  label: string;
+  /** The action, for its glossary name. */
+  action: ActionType;
   /** Coins gained (positive) or paid (negative). */
   delta: number;
   /** The character this action claims, or null for a general action. */
   claim: Character | null;
-  /** What happened, in one sentence. */
-  result: string;
 }
 
 export const TURN_ACTIONS: readonly TurnActionDef[] = [
-  { id: 'income', label: 'Income', delta: 1, claim: null, result: 'Income: +1 coin. Nobody can stop it.' },
-  { id: 'foreign-aid', label: 'Foreign Aid', delta: 2, claim: null, result: 'Foreign Aid: +2 coins, unless someone blocks it with a Duke.' },
-  { id: 'coup', label: 'Coup', delta: -COUP_COST, claim: null, result: 'Coup: pay 7 and pick a player to lose a card.' },
-  { id: 'tax', label: 'Tax', delta: 3, claim: Character.Duke, result: 'Tax: you claim the Duke and take 3 coins.' },
-  { id: 'steal', label: 'Steal', delta: 2, claim: Character.Captain, result: 'Steal: you claim the Captain and take 2 coins from another player.' },
-  { id: 'assassinate', label: 'Assassinate', delta: -3, claim: Character.Assassin, result: 'Assassinate: you claim the Assassin, pay 3, and pick a player to lose a card.' },
-  { id: 'exchange', label: 'Exchange', delta: 0, claim: Character.Ambassador, result: 'Exchange: you claim the Ambassador, draw 2 cards and put back any 2.' },
+  { id: 'income', action: ActionType.Income, delta: INCOME_COINS, claim: null },
+  { id: 'foreign-aid', action: ActionType.ForeignAid, delta: FOREIGN_AID_COINS, claim: null },
+  { id: 'coup', action: ActionType.Coup, delta: -COUP_COST, claim: null },
+  { id: 'tax', action: ActionType.Tax, delta: TAX_COINS, claim: Character.Duke },
+  { id: 'steal', action: ActionType.Steal, delta: STEAL_COINS, claim: Character.Captain },
+  { id: 'assassinate', action: ActionType.Assassinate, delta: -ASSASSINATE_COST, claim: Character.Assassin },
+  { id: 'exchange', action: ActionType.Exchange, delta: 0, claim: Character.Ambassador },
 ];
 
 export function turnAction(id: TurnActionId): TurnActionDef {
@@ -67,7 +71,7 @@ export type ChallengeStage = 'claim' | 'revealed' | 'passed';
 /* ── Chapter 5: blocks ───────────────────────────────────────────────── */
 
 export interface BlockThreat {
-  action: 'Foreign Aid' | 'Steal' | 'Assassinate';
+  action: ActionType.ForeignAid | ActionType.Steal | ActionType.Assassinate;
   /** The character the actor claims, or null (Foreign Aid claims nothing). */
   claim: Character | null;
   /** Whether it is aimed at you. */
@@ -75,17 +79,17 @@ export interface BlockThreat {
 }
 
 export const BLOCK_THREATS: readonly BlockThreat[] = [
-  { action: 'Foreign Aid', claim: null, targeted: false },
-  { action: 'Steal', claim: Character.Captain, targeted: true },
-  { action: 'Assassinate', claim: Character.Assassin, targeted: true },
+  { action: ActionType.ForeignAid, claim: null, targeted: false },
+  { action: ActionType.Steal, claim: Character.Captain, targeted: true },
+  { action: ActionType.Assassinate, claim: Character.Assassin, targeted: true },
 ];
 
 /** Who may block a threat. The Inquisitor replaces the Ambassador in Reformation. */
 export function blockersFor(threat: number, useInquisitor = false): Character[] {
   switch (BLOCK_THREATS[threat]?.action) {
-    case 'Foreign Aid': return [Character.Duke];
-    case 'Steal': return [Character.Captain, useInquisitor ? Character.Inquisitor : Character.Ambassador];
-    case 'Assassinate': return [Character.Contessa];
+    case ActionType.ForeignAid: return [Character.Duke];
+    case ActionType.Steal: return [Character.Captain, useInquisitor ? Character.Inquisitor : Character.Ambassador];
+    case ActionType.Assassinate: return [Character.Contessa];
     default: return [];
   }
 }
@@ -102,6 +106,13 @@ export function mustCoup(coins: number): boolean {
   return coins >= FORCED_COUP_THRESHOLD;
 }
 
+/**
+ * Why the coins demonstration refused a tap: `must-coup` at 10 or more coins
+ * for anything but a Coup, `short` for a Coup under 7 (the component says how
+ * many coins are missing).
+ */
+export type CoinsRefusal = 'must-coup' | 'short';
+
 /* ── The whole tutorial ──────────────────────────────────────────────── */
 
 export interface TutorialState {
@@ -111,7 +122,7 @@ export interface TutorialState {
   claims: { claimed: boolean };
   challenge: { round: ChallengeRound; stage: ChallengeStage };
   blocks: { threat: number; blocked: boolean; miss: Character | null };
-  coins: { coins: number; couped: boolean; refusal: string | null };
+  coins: { coins: number; couped: boolean; refusal: CoinsRefusal | null };
 }
 
 export type TutorialEvent =
@@ -214,18 +225,14 @@ export function tutorialReducer(state: TutorialState, event: TutorialEvent): Tut
     case 'coins/take': {
       if (state.coins.couped) return state;
       if (mustCoup(state.coins.coins)) {
-        return { ...state, coins: { ...state.coins, refusal: 'At 10 coins you must Coup.' } };
+        return { ...state, coins: { ...state.coins, refusal: 'must-coup' } };
       }
       return { ...state, coins: { coins: state.coins.coins + event.amount, couped: false, refusal: null } };
     }
     case 'coins/coup': {
       if (state.coins.couped) return state;
       if (!canCoup(state.coins.coins)) {
-        const short = COUP_COST - state.coins.coins;
-        return {
-          ...state,
-          coins: { ...state.coins, refusal: `A Coup costs 7. You need ${short} more ${short === 1 ? 'coin' : 'coins'}.` },
-        };
+        return { ...state, coins: { ...state.coins, refusal: 'short' } };
       }
       return { ...state, coins: { coins: state.coins.coins - COUP_COST, couped: true, refusal: null } };
     }

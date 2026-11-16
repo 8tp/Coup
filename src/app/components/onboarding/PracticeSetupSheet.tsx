@@ -6,11 +6,14 @@ import {
   DEFAULT_PRACTICE_OPTIONS,
   PRACTICE_OPPONENT_CHOICES,
   PRACTICE_STYLES,
+  REFORMATION_MIN_OPPONENTS,
   describePracticeOptions,
   normalizePracticeOptions,
   type PracticeOptions,
 } from '../../utils/practiceSetup';
 import { haptic } from '../../utils/haptic';
+import { learnParams } from '../../utils/learnText';
+import { gameModeName, useT } from '../../i18n';
 
 /**
  * Practice vs Bots, set up in one sheet: how many opponents, how they play,
@@ -39,6 +42,7 @@ function loadOptions(): PracticeOptions {
 }
 
 export function PracticeSetupSheet({ open, onClose, onStart, loading = false }: PracticeSetupSheetProps) {
+  const t = useT();
   const titleId = useId();
   const sheetRef = useRef<HTMLDivElement>(null);
   const [options, setOptions] = useState<PracticeOptions>(DEFAULT_PRACTICE_OPTIONS);
@@ -80,8 +84,7 @@ export function PracticeSetupSheet({ open, onClose, onStart, loading = false }: 
     onStart(options);
   };
 
-  const style = PRACTICE_STYLES.find(s => s.id === options.style)!;
-  const reformationSolo = options.gameMode === GameMode.Reformation && options.opponents === 1;
+  const reformationSolo = options.gameMode === GameMode.Reformation && options.opponents < REFORMATION_MIN_OPPONENTS;
 
   return (
     <div className="practice-sheet-root">
@@ -89,10 +92,10 @@ export function PracticeSetupSheet({ open, onClose, onStart, loading = false }: 
       <div ref={sheetRef} className="practice-sheet" role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <header className="practice-sheet-head">
           <div>
-            <h2 id={titleId} className="practice-sheet-title type-display">Practice vs Bots</h2>
-            <p className="practice-sheet-lede">A private game against bots, with a coach that points at what matters.</p>
+            <h2 id={titleId} className="practice-sheet-title type-display">{t('tutorial.setup.title')}</h2>
+            <p className="practice-sheet-lede">{t('tutorial.setup.lede')}</p>
           </div>
-          <button type="button" className="court-icon-btn" aria-label="Close practice setup" onClick={() => { haptic(); onClose(); }}>
+          <button type="button" className="court-icon-btn" aria-label={t('tutorial.setup.close')} onClick={() => { haptic(); onClose(); }}>
             <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" aria-hidden="true">
               <path d="M5.3 4 10 8.6 14.7 4 16 5.3 11.4 10l4.6 4.7-1.3 1.3-4.7-4.6L5.3 16 4 14.7 8.6 10 4 5.3z" />
             </svg>
@@ -101,7 +104,7 @@ export function PracticeSetupSheet({ open, onClose, onStart, loading = false }: 
 
         <div className="practice-sheet-body">
           <div className="lobby-setting">
-            <span className="lobby-setting-head" id={`${titleId}-opp`}>Opponents</span>
+            <span className="lobby-setting-head" id={`${titleId}-opp`}>{t('tutorial.setup.opponents')}</span>
             <div className="lobby-seg practice-seg-3" role="radiogroup" aria-labelledby={`${titleId}-opp`}>
               {PRACTICE_OPPONENT_CHOICES.map(n => (
                 <button
@@ -113,33 +116,33 @@ export function PracticeSetupSheet({ open, onClose, onStart, loading = false }: 
                   data-autofocus={options.opponents === n ? '' : undefined}
                   onClick={() => set({ opponents: n })}
                 >
-                  {n}
+                  {t.number(n)}
                 </button>
               ))}
             </div>
           </div>
 
           <div className="lobby-setting">
-            <span className="lobby-setting-head" id={`${titleId}-style`}>Bot style</span>
+            <span className="lobby-setting-head" id={`${titleId}-style`}>{t('tutorial.setup.style')}</span>
             <div className="lobby-seg practice-seg-3" role="radiogroup" aria-labelledby={`${titleId}-style`}>
-              {PRACTICE_STYLES.map(s => (
+              {PRACTICE_STYLES.map(id => (
                 <button
-                  key={s.id}
+                  key={id}
                   type="button"
                   role="radio"
-                  aria-checked={options.style === s.id}
-                  className={options.style === s.id ? 'is-on' : ''}
-                  onClick={() => set({ style: s.id })}
+                  aria-checked={options.style === id}
+                  className={options.style === id ? 'is-on' : ''}
+                  onClick={() => set({ style: id })}
                 >
-                  {s.label}
+                  {t(`tutorial.setup.style.${id}`)}
                 </button>
               ))}
             </div>
-            <p className="practice-sheet-hint" aria-live="polite">{style.blurb}</p>
+            <p className="practice-sheet-hint" aria-live="polite">{t(`tutorial.setup.blurb.${options.style}`)}</p>
           </div>
 
           <div className="lobby-setting">
-            <span className="lobby-setting-head" id={`${titleId}-mode`}>Rules</span>
+            <span className="lobby-setting-head" id={`${titleId}-mode`}>{t('tutorial.setup.rules')}</span>
             <div className="lobby-seg" role="radiogroup" aria-labelledby={`${titleId}-mode`}>
               {[GameMode.Classic, GameMode.Reformation].map(mode => (
                 <button
@@ -150,16 +153,16 @@ export function PracticeSetupSheet({ open, onClose, onStart, loading = false }: 
                   className={options.gameMode === mode ? 'is-on' : ''}
                   onClick={() => set({ gameMode: mode })}
                 >
-                  {mode}
+                  {gameModeName(t, mode)}
                 </button>
               ))}
             </div>
             <p className="practice-sheet-hint">
               {reformationSolo
-                ? 'Factions need at least 2 opponents to matter.'
+                ? t('tutorial.setup.hint.reformationSolo', { count: REFORMATION_MIN_OPPONENTS })
                 : options.gameMode === GameMode.Reformation
-                  ? 'Factions, Convert, Embezzle and the Inquisitor.'
-                  : 'The base game. Start here if you\'re new.'}
+                  ? t('tutorial.setup.hint.reformation', learnParams(t))
+                  : t('tutorial.setup.hint.classic')}
             </p>
           </div>
 
@@ -170,10 +173,10 @@ export function PracticeSetupSheet({ open, onClose, onStart, loading = false }: 
             className="menu-switch"
             onClick={() => set({ coach: !options.coach })}
           >
-            <span className="text-left">
-              <span className="block font-semibold text-coup-ink">Coach tips</span>
+            <span className="text-start">
+              <span className="block font-semibold text-coup-ink">{t('tutorial.setup.coach')}</span>
               <span className="block text-sm text-coup-ink-mute">
-                {options.coach ? 'Callouts point at what to do next' : 'No tips'}
+                {options.coach ? t('tutorial.setup.coachOn') : t('tutorial.setup.coachOff')}
               </span>
             </span>
             <span className={`switch-track ${options.coach ? 'is-on' : ''}`} aria-hidden="true"><span /></span>
@@ -182,8 +185,8 @@ export function PracticeSetupSheet({ open, onClose, onStart, loading = false }: 
 
         <footer className="practice-sheet-foot">
           <button type="button" className="btn-primary menu-play w-full" onClick={start} disabled={loading}>
-            <span>{loading ? 'Dealing…' : 'Start practice'}</span>
-            <span className="menu-play-sub">{describePracticeOptions(options)}</span>
+            <span>{loading ? t('tutorial.setup.starting') : t('tutorial.setup.start')}</span>
+            <span className="menu-play-sub">{describePracticeOptions(options, t)}</span>
           </button>
         </footer>
       </div>
