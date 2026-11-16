@@ -62,6 +62,7 @@ import { getSoundEngine } from '../../audio/SoundEngine';
 import { useGameStore } from '../../stores/gameStore';
 import { characterCardVars } from '../../utils/characterPalette';
 import { haptic } from '../../utils/haptic';
+import { canBlockDuringChallenge } from '../../utils/blockOptions';
 
 /* ======================================================================
    THE COURT TABLE.
@@ -878,7 +879,9 @@ export function GameTable({ gameState, chatMessages, onSendChat, onSendReaction,
         gameState.pendingAction?.actorId !== gameState.myId &&
         !challengePassed
       ) {
-        title = `Challenge or pass | ${titleSuffix}`;
+        title = canBlockDuringChallenge(gameState)
+          ? `Block or challenge | ${titleSuffix}`
+          : `Challenge or pass | ${titleSuffix}`;
       } else if (
         gameState.turnPhase === TurnPhase.AwaitingBlock &&
         gameState.pendingAction?.actorId !== gameState.myId &&

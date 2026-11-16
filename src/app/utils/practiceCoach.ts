@@ -1,5 +1,6 @@
 import { ACTION_DEFINITIONS, ACTION_DISPLAY_NAMES, COUP_COST, FORCED_COUP_THRESHOLD } from '@/shared/constants';
 import { ActionType, Character, ClientGameState, GameMode, TurnPhase } from '@/shared/types';
+import { formatCharacters, visibleBlockCharacters } from './blockOptions';
 
 /**
  * The practice coach's brain: which tip fits this moment of the game, and
@@ -46,22 +47,6 @@ export interface PracticeCoachTip {
 export type CoachHistory = ReadonlyMap<string, number>;
 
 const EMPTY_HISTORY: CoachHistory = new Map();
-
-function visibleBlockCharacters(gameState: ClientGameState): Character[] {
-  const action = gameState.pendingAction;
-  if (!action) return [];
-
-  return ACTION_DEFINITIONS[action.type].blockedBy.filter(character => (
-    gameState.useInquisitor
-      ? character !== Character.Ambassador
-      : character !== Character.Inquisitor
-  ));
-}
-
-function formatCharacters(characters: Character[]): string {
-  if (characters.length <= 1) return characters[0] ?? 'the shown character';
-  return `${characters.slice(0, -1).join(', ')} or ${characters[characters.length - 1]}`;
-}
 
 /** True when a `once` tip may still be shown under this history. */
 export function onceTipAvailable(id: string, history: CoachHistory, turnNumber: number): boolean {
@@ -148,18 +133,33 @@ export function getPracticeCoachTip(
   ) {
     const actorName = gameState.players.find(player => player.id === pendingAction.actorId)?.name ?? 'The bot';
 
+    const blockable = pendingAction.targetId === myId
+      && ACTION_DEFINITIONS[pendingAction.type].blockedBy.length > 0;
+    const blockers = formatCharacters(visibleBlockCharacters(gameState));
+
     if (pendingAction.targetId === myId && canShowOnce('first-targeted')) {
-      const blockers = ACTION_DEFINITIONS[pendingAction.type].blockedBy.length > 0
-        ? `, or wait and block with ${formatCharacters(visibleBlockCharacters(gameState))}`
+      const blockLine = blockable
+        ? ` Or block it now with ${blockers}.`
         : '';
       return {
         id: 'first-targeted',
         label: 'You are the target',
         title: `${actorName} is targeting you`,
-        body: `${targetedConsequence(pendingAction.type)} Challenge now if you doubt their ${pendingAction.claimedCharacter ?? 'claim'}${blockers}.`,
+        body: `${targetedConsequence(pendingAction.type)} Challenge if you doubt their ${pendingAction.claimedCharacter ?? 'claim'}.${blockLine}`,
         tone: 'danger',
         anchor: 'plaque',
         once: true,
+      };
+    }
+
+    if (blockable) {
+      return {
+        id: 'block-or-challenge',
+        label: 'Block?',
+        title: `You can block this ${ACTION_DISPLAY_NAMES[pendingAction.type]}`,
+        body: `Claim ${blockers} to stop it, even without the card. Or challenge their ${pendingAction.claimedCharacter ?? 'claim'}. A lost challenge costs you a card.`,
+        tone: pendingAction.type === ActionType.Assassinate ? 'danger' : 'info',
+        anchor: 'plaque',
       };
     }
 
