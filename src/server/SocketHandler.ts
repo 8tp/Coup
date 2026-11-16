@@ -6,12 +6,18 @@ import { validateName, validateChatMessage } from './ContentFilter';
 import { RoomEvent, RoomManager } from './RoomManager';
 import { serializeForPlayer, serializeForSpectator } from './StateSerializer';
 import { BotController } from './BotController';
+import { FeedbackService } from './feedback';
 
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 
 const VALID_CHARACTERS = new Set(Object.values(Character));
 const VALID_BOT_PERSONALITIES = new Set<string>(['aggressive', 'conservative', 'vengeful', 'deceptive', 'analytical', 'optimal', 'random']);
 const VALID_ROOM_ORIGINS = new Set<string>(['standard', 'quick_play', 'practice']);
+
+export interface SocketHandlerOptions {
+  /** Accepts in-game feedback notes. Defaults to a log-only service. */
+  feedback?: FeedbackService;
+}
 
 export class SocketHandler {
   private io: Server<ClientToServerEvents, ServerToClientEvents>;
@@ -20,10 +26,12 @@ export class SocketHandler {
   private connectionsByIp: Map<string, number> = new Map();
   /** Per-socket rate limits: socketId -> (eventName -> lastTimestamp) */
   private socketRateLimits: Map<string, Map<string, number>> = new Map();
+  private feedback: FeedbackService;
 
-  constructor(io: Server<ClientToServerEvents, ServerToClientEvents>, roomManager: RoomManager) {
+  constructor(io: Server<ClientToServerEvents, ServerToClientEvents>, roomManager: RoomManager, options: SocketHandlerOptions = {}) {
     this.io = io;
     this.roomManager = roomManager;
+    this.feedback = options.feedback ?? new FeedbackService();
     this.roomManager.setRoomEventListener(event => this.handleRoomEvent(event));
   }
 
@@ -745,6 +753,21 @@ export class SocketHandler {
       }
     });
 
+    // ─── Feedback ───
+    // Works with or without a room. Room context comes from this socket's
+    // membership, so the client never sends a room code or name.
+
+    socket.on('feedback:send', (data, callback) => {
+      if (typeof callback !== 'function') return;
+      try {
+        const snapshot = this.roomManager.getFeedbackSnapshot(socket.id);
+        callback(this.feedback.submit(socket.id, data, snapshot));
+      } catch (err) {
+        console.error('Error in feedback:send handler:', err);
+        callback({ success: false, error: 'server_error' });
+      }
+    });
+
     // ─── Rematch ───
 
     socket.on('game:rematch', () => {
@@ -1005,6 +1028,7 @@ export class SocketHandler {
     socket.on('disconnect', () => {
       this.untrackConnection(socket);
       this.socketRateLimits.delete(socket.id);
+      this.feedback.releaseConnection(socket.id);
       this.handleLeave(socket, false);
     });
   }

@@ -5,6 +5,8 @@ import next from 'next';
 import { RoomManager } from './src/server/RoomManager';
 import { SocketHandler } from './src/server/SocketHandler';
 import { createGameLogStorage } from './src/server/storage/PostgresGameLogStorage';
+import { createFeedbackStorage } from './src/server/storage/PostgresFeedbackStorage';
+import { FeedbackService } from './src/server/feedback';
 import type { ClientToServerEvents, ServerToClientEvents } from './src/shared/protocol';
 
 const dev = process.env.NODE_ENV !== 'production';
@@ -74,8 +76,16 @@ app.prepare().then(() => {
     ? '> Game log storage: Postgres (DATABASE_URL set)'
     : '> Game log storage: disabled (set DATABASE_URL to enable)');
 
+  // Feedback notes always go to the log as `[feedback] {json}`; also to Postgres when DATABASE_URL is set.
+  const feedbackStorage = createFeedbackStorage();
+  console.log(feedbackStorage
+    ? '> Feedback storage: Postgres coup_feedback (DATABASE_URL set)'
+    : '> Feedback storage: log lines only (set DATABASE_URL to also store in Postgres)');
+
   const roomManager = new RoomManager({ gameLogStorage });
-  const socketHandler = new SocketHandler(io, roomManager);
+  const socketHandler = new SocketHandler(io, roomManager, {
+    feedback: new FeedbackService({ storage: feedbackStorage }),
+  });
 
   io.on('connection', (socket) => {
     socketHandler.handleConnection(socket);
@@ -121,10 +131,18 @@ app.prepare().then(() => {
     roomManager.destroy();
     io.close();
     // Let finished-game writes land before the pool goes away (bounded wait).
-    if (gameLogStorage) {
-      await gameLogStorage.flush(SHUTDOWN_STORAGE_FLUSH_MS);
-      await gameLogStorage.close();
-    }
+    await Promise.all([
+      (async () => {
+        if (!gameLogStorage) return;
+        await gameLogStorage.flush(SHUTDOWN_STORAGE_FLUSH_MS);
+        await gameLogStorage.close();
+      })(),
+      (async () => {
+        if (!feedbackStorage) return;
+        await feedbackStorage.flush(SHUTDOWN_STORAGE_FLUSH_MS);
+        await feedbackStorage.close();
+      })(),
+    ]);
     httpServer.close(() => {
       process.exit(0);
     });

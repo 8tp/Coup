@@ -133,6 +133,25 @@ export const REACTIONS: ReactionDefinition[] = [
 export const REACTION_RATE_LIMIT_MS = 2000;
 export const REACTION_DISPLAY_MS = 3000;
 
+// ─── Feedback Constants ───
+/** Longest feedback note accepted, after trimming and stripping control characters. */
+export const FEEDBACK_MAX_LENGTH = 1000;
+/** Reject a raw payload this long without sanitizing it (cheap guard against huge strings). */
+export const FEEDBACK_MAX_RAW_LENGTH = FEEDBACK_MAX_LENGTH * 4;
+/** Per connection: at most this many notes in the window below. */
+export const FEEDBACK_PER_CONNECTION_MAX = 5;
+export const FEEDBACK_PER_CONNECTION_WINDOW_MS = 10 * 60_000;
+/** Whole server: at most this many notes in the window below, so nobody can flood the log or database. */
+export const FEEDBACK_GLOBAL_MAX = 30;
+export const FEEDBACK_GLOBAL_WINDOW_MS = 10 * 60_000;
+/** Client gives up waiting for the server's acknowledgement after this long. */
+export const FEEDBACK_ACK_TIMEOUT_MS = 8000;
+/** Viewport width buckets reported with feedback (CSS px). */
+export const FEEDBACK_PHONE_MAX_WIDTH = 639;
+export const FEEDBACK_TABLET_MAX_WIDTH = 1023;
+/** GitHub issues page offered as a secondary route. */
+export const FEEDBACK_GITHUB_ISSUES_URL = 'https://github.com/8tp/Coup/issues/new/choose';
+
 // ─── Socket Rate Limits ───
 export const RATE_LIMIT_ROOM_CREATE_MS = 3000;
 export const RATE_LIMIT_ROOM_JOIN_MS = 2000;

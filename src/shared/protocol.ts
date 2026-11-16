@@ -1,3 +1,4 @@
+import { FeedbackResponse, FeedbackSubmission } from './feedbackTypes';
 import { ActionType, BotPersonality, ChallengeRevealEvent, Character, ChatMessage, ClientGameState, ClientRoomPlayer, ClientSpectator, Faction, PublicRoomInfo, ReactionEvent, RoomOrigin, RoomSettings } from './types';
 
 // ─── Client → Server Events ───
@@ -51,6 +52,9 @@ export interface ClientToServerEvents {
   // Room browser
   'browser:subscribe': () => void;
   'browser:unsubscribe': () => void;
+
+  // Feedback (works with or without a room; context is derived server-side)
+  'feedback:send': (data: FeedbackSubmission, callback: (response: FeedbackResponse) => void) => void;
 
   // Reconnection
   'room:rejoin': (data: { roomCode: string; playerId: string; sessionToken?: string }, callback: (response: RoomResponse) => void) => void;

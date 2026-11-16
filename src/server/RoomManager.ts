@@ -3,6 +3,7 @@ import { BotPersonality, BotReplaceReason, ChatMessage, GameMode, GameStatus, Pu
 import { AFK_TIMEOUTS_BEFORE_REPLACE, CHAT_MAX_HISTORY, CHAT_MAX_MESSAGE_LENGTH, CHAT_RATE_LIMIT_MS, DEFAULT_ROOM_SETTINGS, DISCONNECT_BOT_REPLACE_MS, INACTIVE_ROOM_CLEANUP_MS, LOBBY_DISCONNECT_GRACE_MS, MAX_ACTION_TIMER, MAX_BOT_REACTION_SECONDS, MAX_PLAYERS, MAX_TURN_TIMER, MIN_ACTION_TIMER, MIN_BOT_REACTION_SECONDS, MIN_PLAYERS, MIN_TURN_TIMER, PUBLIC_ROOM_LIST_MAX, REACTION_RATE_LIMIT_MS } from '../shared/constants';
 import { RoomCloseReason, RoomMeta } from '../shared/metricTypes';
 import { GameLog } from '../shared/gameLogTypes';
+import { FeedbackRoomSnapshot, FeedbackRoomState, FeedbackSenderStatus } from '../shared/feedbackTypes';
 import { GameEngine } from '../engine/GameEngine';
 import { BotController } from './BotController';
 import { GameLogger } from './GameLogger';
@@ -684,6 +685,55 @@ export class RoomManager {
       this.roomMeta.set(roomCode, meta);
     }
     return meta;
+  }
+
+  /**
+   * PII-free room/game context for a feedback note sent from `socketId`.
+   * Identifies the room only by its random metric id; never returns the room
+   * code, names, socket ids or session tokens.
+   */
+  getFeedbackSnapshot(socketId: string): FeedbackRoomSnapshot {
+    const asPlayer = this.getPlayerRoom(socketId);
+    const asSpectator = asPlayer ? null : this.getSpectatorRoom(socketId);
+    const room = asPlayer?.room ?? asSpectator?.room;
+    if (!room) {
+      return {
+        room: null, gameId: null, roomState: 'none', sender: 'no_room', origin: null,
+        gameMode: null, useInquisitor: null, turnPhase: null, turn: null, humans: null, bots: null,
+      };
+    }
+
+    const meta = this.roomMeta.get(room.code);
+    const engine = this.engines.get(room.code);
+    const state = engine?.getFullState() ?? null;
+    const roomState: FeedbackRoomState = !state
+      ? 'lobby'
+      : state.status === GameStatus.Finished ? 'finished' : 'in_game';
+
+    let sender: FeedbackSenderStatus;
+    if (asSpectator) {
+      sender = 'spectating';
+    } else if (!state) {
+      sender = 'lobby';
+    } else {
+      const seat = state.players.find(p => p.id === asPlayer!.player.id);
+      sender = seat && !seat.isAlive ? 'eliminated' : 'alive';
+    }
+
+    const bots = room.players.filter(p => p.isBot).length;
+    return {
+      room: meta?.metricId ?? null,
+      gameId: state ? meta?.currentGame?.gameId ?? null : null,
+      roomState,
+      sender,
+      origin: meta?.origin ?? null,
+      gameMode: state?.gameMode ?? room.settings.gameMode,
+      useInquisitor: state?.useInquisitor ?? room.settings.useInquisitor,
+      turnPhase: state?.turnPhase ?? null,
+      turn: state?.turnNumber ?? null,
+      humans: room.players.length - bots,
+      bots,
+    };
   }
 
   private createMeta(origin: RoomOrigin): RoomMeta {

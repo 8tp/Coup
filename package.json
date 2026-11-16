@@ -28,7 +28,8 @@
     "generate:music": "tsx scripts/generate-music.ts",
     "generate:sfx": "tsx scripts/generate-sfx.ts",
     "audio:mix": "tsx scripts/render-audio-mix.ts",
-    "simulate": "tsx scripts/simulate.ts"
+    "simulate": "tsx scripts/simulate.ts",
+    "feedback": "tsx scripts/feedback.ts"
   },
   "dependencies": {
     "express": "^4.21.0",
