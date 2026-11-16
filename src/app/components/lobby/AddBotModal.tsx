@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useId } from 'react';
 import { Modal } from '../ui/Modal';
 import { BotPersonality } from '@/shared/types';
-import { BOT_NAMES, DEFAULT_BOT_PERSONALITY } from '@/shared/constants';
+import { BOT_NAMES, DEFAULT_BOT_PERSONALITY, NAME_MAX_CODE_UNITS, NAME_MAX_LENGTH } from '@/shared/constants';
+import { clampToGraphemes, nameKey } from '@/shared/textLimits';
+import { useT } from '../../i18n';
 import { haptic } from '../../utils/haptic';
 
 interface AddBotModalProps {
@@ -15,64 +17,48 @@ interface AddBotModalProps {
 
 const PERSONALITY_OPTIONS: Array<{
   value: BotPersonality;
-  label: string;
-  description: string;
   color: string;
   bgColor: string;
   borderColor: string;
 }> = [
   {
     value: 'random',
-    label: 'Random',
-    description: 'Plays one of the six styles below, picked at random and kept hidden.',
     color: 'text-purple-400',
     bgColor: 'bg-purple-500/20',
     borderColor: 'border-purple-500',
   },
   {
     value: 'aggressive',
-    label: 'Aggressive',
-    description: 'Bluffs often and favors attacks.',
     color: 'text-red-400',
     bgColor: 'bg-red-500/20',
     borderColor: 'border-red-500',
   },
   {
     value: 'conservative',
-    label: 'Conservative',
-    description: 'Plays honest and rarely bluffs.',
     color: 'text-green-400',
     bgColor: 'bg-green-500/20',
     borderColor: 'border-green-500',
   },
   {
     value: 'vengeful',
-    label: 'Vengeful',
-    description: 'Retaliates against whoever attacked it.',
     color: 'text-orange-400',
     bgColor: 'bg-orange-500/20',
     borderColor: 'border-orange-500',
   },
   {
     value: 'deceptive',
-    label: 'Deceptive',
-    description: 'Bluffs the most and avoids challenges.',
     color: 'text-pink-400',
     bgColor: 'bg-pink-500/20',
     borderColor: 'border-pink-500',
   },
   {
     value: 'analytical',
-    label: 'Analytical',
-    description: 'Challenges when the revealed cards point to a bluff.',
     color: 'text-blue-400',
     bgColor: 'bg-blue-500/20',
     borderColor: 'border-blue-500',
   },
   {
     value: 'optimal',
-    label: 'Optimal',
-    description: 'Counts revealed cards and bluffs selectively.',
     color: 'text-yellow-400',
     bgColor: 'bg-yellow-500/20',
     borderColor: 'border-yellow-500',
@@ -80,15 +66,16 @@ const PERSONALITY_OPTIONS: Array<{
 ];
 
 export function AddBotModal({ open, onClose, onAdd, existingNames }: AddBotModalProps) {
+  const t = useT();
+  const nameId = useId();
   const [name, setName] = useState('');
   const [personality, setPersonality] = useState<BotPersonality>(DEFAULT_BOT_PERSONALITY);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const pickRandomName = useCallback(() => {
-    const available = BOT_NAMES.filter(
-      n => !existingNames.some(en => en.toLowerCase() === n.toLowerCase()),
-    );
+    const taken = new Set(existingNames.map(nameKey));
+    const available = BOT_NAMES.filter(n => !taken.has(nameKey(n)));
     if (available.length === 0) {
       setName(`Bot-${Math.floor(Math.random() * 1000)}`);
       return;
@@ -101,12 +88,10 @@ export function AddBotModal({ open, onClose, onAdd, existingNames }: AddBotModal
     if (open && !name) pickRandomName();
   }, [open, name, pickRandomName]);
 
-  const selected = PERSONALITY_OPTIONS.find(o => o.value === personality);
-
   const handleSubmit = async () => {
     const trimmed = name.trim();
     if (!trimmed) {
-      setError('Enter a name');
+      setError(t('errors.enterBotName'));
       return;
     }
     setSubmitting(true);
@@ -118,41 +103,43 @@ export function AddBotModal({ open, onClose, onAdd, existingNames }: AddBotModal
       setPersonality(DEFAULT_BOT_PERSONALITY);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add bot');
+      setError(err instanceof Error ? err.message : t('errors.addBotFailed'));
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Add a bot">
+    <Modal open={open} onClose={onClose} title={t('lobby.addBotTitle')}>
       <div className="space-y-4">
         {/* Name */}
         <div>
-          <label className="block text-sm text-gray-400 mb-1">Name</label>
+          <label className="block text-sm text-gray-400 mb-1" htmlFor={nameId}>{t('lobby.botName')}</label>
           <div className="flex gap-2">
             <input
+              id={nameId}
               type="text"
               value={name}
-              onChange={e => setName(e.target.value)}
-              maxLength={20}
+              onChange={e => setName(clampToGraphemes(e.target.value, NAME_MAX_LENGTH))}
+              maxLength={NAME_MAX_CODE_UNITS}
+              dir="auto"
               className="input-field flex-1 min-w-0"
             />
             <button
               type="button"
               onClick={() => { haptic(); pickRandomName(); }}
               className="btn-secondary"
-              aria-label="Pick a random name"
+              aria-label={t('lobby.randomNameLabel')}
             >
-              Random
+              {t('lobby.randomName')}
             </button>
           </div>
         </div>
 
         {/* Personality Selector */}
         <div>
-          <label className="block text-sm text-gray-400 mb-2">Personality</label>
-          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Personality">
+          <label className="block text-sm text-gray-400 mb-2">{t('lobby.personality')}</label>
+          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={t('lobby.personality')}>
             {PERSONALITY_OPTIONS.map(opt => (
               <button
                 key={opt.value}
@@ -160,17 +147,17 @@ export function AddBotModal({ open, onClose, onAdd, existingNames }: AddBotModal
                 role="radio"
                 aria-checked={personality === opt.value}
                 onClick={() => { haptic(); setPersonality(opt.value); }}
-                className={`min-h-[48px] px-3 rounded border-2 text-left font-bold text-sm transition ${
+                className={`min-h-[48px] px-3 rounded border-2 text-start font-bold text-sm transition ${
                   personality === opt.value
                     ? `${opt.bgColor} ${opt.borderColor} ${opt.color}`
                     : 'border-coup-line text-gray-300 hover:border-coup-ink-mute'
                 }`}
               >
-                {opt.label}
+                {t(`lobby.personality.${opt.value}`)}
               </button>
             ))}
           </div>
-          {selected && <p className="text-sm text-coup-ink-mute mt-2">{selected.description}</p>}
+          <p className="text-sm text-coup-ink-mute mt-2">{t(`lobby.personalityDescription.${personality}`)}</p>
         </div>
 
         {error && (
@@ -184,7 +171,7 @@ export function AddBotModal({ open, onClose, onAdd, existingNames }: AddBotModal
             onClick={() => { haptic(); onClose(); }}
             className="btn-secondary flex-1"
           >
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             type="button"
@@ -192,7 +179,7 @@ export function AddBotModal({ open, onClose, onAdd, existingNames }: AddBotModal
             disabled={submitting || !name.trim()}
             className="btn-primary flex-1"
           >
-            {submitting ? 'Adding…' : 'Add bot'}
+            {submitting ? t('lobby.adding') : t('lobby.addBotSubmit')}
           </button>
         </div>
       </div>

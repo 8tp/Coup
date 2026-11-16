@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { useT } from '../../i18n';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -16,6 +17,7 @@ function isStandalone(): boolean {
 }
 
 export function PWAInstallPrompt() {
+  const t = useT();
   const pathname = usePathname();
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [dismissed, setDismissed] = useState(true);
@@ -62,21 +64,21 @@ export function PWAInstallPrompt() {
       <div className="flex items-center gap-3">
         <img src="/icons/icon-192-v3.png" alt="" className="h-10 w-10 rounded-lg" aria-hidden="true" />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold text-gray-100">Install Coup</p>
-          <p className="text-xs text-gray-400">Opens faster, and cached game assets load on weak Wi-Fi.</p>
+          <p className="text-sm font-bold text-gray-100">{t('home.installTitle')}</p>
+          <p className="text-xs text-gray-400">{t('home.installBody')}</p>
         </div>
         <button
           type="button"
           className="rounded-lg bg-coup-accent px-3 py-2 text-xs font-bold text-coup-bg"
           onClick={install}
         >
-          Install
+          {t('home.install')}
         </button>
         <button
           type="button"
           className="rounded-lg border border-coup-line px-2.5 py-2 text-xs font-bold text-gray-400"
           onClick={dismiss}
-          aria-label="Dismiss install prompt"
+          aria-label={t('home.installDismiss')}
         >
           &times;
         </button>

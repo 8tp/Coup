@@ -8,7 +8,7 @@ import type { ServerErrorCode } from '@/shared/i18n/serverErrors';
  * `cannot_block_with` a character and an action, which render through the
  * glossary.
  */
-const errors = {
+const server = {
   rate_limited: 'Too many requests. Wait a moment.',
   server_error: 'Something went wrong on the server. Try again.',
   invalid_request: "The server couldn't read that request. Try again.",
@@ -90,5 +90,38 @@ const errors = {
   moment_passed: 'Too late. That step is over.',
   unknown: '',
 } satisfies Record<ServerErrorCode, string>;
+
+/**
+ * Failures the client notices itself (camelCase, so they never collide with
+ * a server code): a form left empty, a request with no answer, and the
+ * fallback when a failed request carries no code.
+ */
+const client = {
+  /** Home screen, an action needs a name and the name field is empty. */
+  enterName: 'Enter your name',
+  /** Same, and the name field is focused for the player. */
+  enterNameFirst: 'Enter your name first',
+  enterRoomCode: 'Enter room code',
+  /** Add a bot dialog, the bot's name field is empty. */
+  enterBotName: 'Enter a name',
+  /** The server did not answer in time. */
+  requestTimedOut: 'Request timed out',
+  /** Something failed and no better reason is known. */
+  generic: 'An error occurred',
+  createRoomFailed: 'Failed to create room',
+  joinRoomFailed: 'Failed to join room',
+  spectateFailed: 'Failed to spectate',
+  addBotFailed: 'Failed to add bot',
+  addBotsFailed: 'Failed to add bots',
+  updateSettingsFailed: 'Failed to update settings',
+  removeBotFailed: 'Failed to remove bot',
+  removePlayerFailed: 'Failed to remove player',
+  removeSpectatorFailed: 'Failed to remove spectator',
+  fillBotsFailed: 'Could not add bots',
+  quickPlayFailed: 'Could not start a game',
+  practiceFailed: 'Could not start practice game',
+} satisfies Record<string, string>;
+
+const errors = { ...server, ...client };
 
 export default errors;

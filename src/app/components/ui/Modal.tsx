@@ -1,6 +1,7 @@
 'use client';
 
 import { useId } from 'react';
+import { useT } from '../../i18n';
 
 interface ModalProps {
   open: boolean;
@@ -12,6 +13,7 @@ interface ModalProps {
 }
 
 export function Modal({ open, onClose, title, maxWidth = 'max-w-md', children }: ModalProps) {
+  const t = useT();
   const titleId = useId();
 
   if (!open) return null;
@@ -30,7 +32,7 @@ export function Modal({ open, onClose, title, maxWidth = 'max-w-md', children }:
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? titleId : undefined}
-        aria-label={title ? undefined : 'Dialog'}
+        aria-label={title ? undefined : t('common.dialog')}
       >
         {title && (
           <h2 id={titleId} className="text-xl font-bold mb-4">{title}</h2>
