@@ -60,7 +60,7 @@ export function GameCenterTabs({ log, chatMessages, myId, onSendChat, turnPhase,
         >
           {t('log.tabChat')}
           {unreadCount > 0 && activeTab !== 'chat' && (
-            <span className="absolute -top-0.5 -end-1 min-w-[18px] h-[18px] bg-coup-accent text-coup-bg text-[11px] font-bold rounded-full flex items-center justify-center px-1">
+            <span className="figure absolute -top-0.5 -end-1 min-w-[18px] h-[18px] bg-coup-accent text-coup-bg text-[11px] font-bold rounded-full flex items-center justify-center px-1">
               {unreadCount > 9 ? t('log.unreadMany') : t.number(unreadCount)}
             </span>
           )}
