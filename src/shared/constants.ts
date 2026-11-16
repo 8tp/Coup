@@ -138,6 +138,12 @@ export const RATE_LIMIT_ROOM_CREATE_MS = 3000;
 export const RATE_LIMIT_ROOM_JOIN_MS = 2000;
 export const RATE_LIMIT_GAME_ACTION_MS = 500;
 export const RATE_LIMIT_BOT_ADD_MS = 400; // add-one then fill-seats in quick succession is normal use
+/**
+ * How long a prompt holds a sent answer (the chosen button stays pressed, a
+ * second answer is ignored) while waiting for the server. Normally released
+ * far sooner, by the server's reply; this only covers a reply that never comes.
+ */
+export const PENDING_ANSWER_TIMEOUT_MS = 5000;
 
 // ─── Action Definitions ───
 export interface ActionDefinition {

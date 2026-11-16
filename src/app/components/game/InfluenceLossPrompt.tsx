@@ -5,6 +5,7 @@ import { CardFace } from './CardFace';
 import { Timer } from '../ui/Timer';
 import { getSocket } from '../../hooks/useSocket';
 import { hapticHeavy } from '../../utils/haptic';
+import { usePendingAnswer } from '../../hooks/usePendingAnswer';
 
 interface InfluenceLossPromptProps {
   gameState: ClientGameState;
@@ -28,6 +29,7 @@ const SPECTATOR_REASON_LABELS: Record<string, string> = {
 
 export function InfluenceLossPrompt({ gameState }: InfluenceLossPromptProps) {
   const socket = getSocket();
+  const { pending, answer } = usePendingAnswer(gameState);
   const { turnPhase, influenceLossRequest, myId } = gameState;
 
   if (turnPhase !== TurnPhase.AwaitingInfluenceLoss || !influenceLossRequest) return null;
@@ -69,8 +71,10 @@ export function InfluenceLossPrompt({ gameState }: InfluenceLossPromptProps) {
         {unrevealed.map(({ inf, index }) => (
           <button
             key={index}
-            className="transition-transform hover:scale-110 active:scale-95"
-            onClick={() => { hapticHeavy(); socket.emit('game:choose_influence_loss', { influenceIndex: index }); }}
+            className="loss-choice transition-transform hover:scale-110 active:scale-95"
+            data-pending={pending === `lose:${index}` || undefined}
+            aria-busy={pending === `lose:${index}` || undefined}
+            onClick={() => answer(`lose:${index}`, () => { hapticHeavy(); socket.emit('game:choose_influence_loss', { influenceIndex: index }); })}
           >
             <CardFace influence={inf} size="lg" disablePreview priority />
           </button>

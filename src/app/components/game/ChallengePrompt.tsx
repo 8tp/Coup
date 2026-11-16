@@ -5,6 +5,7 @@ import { ACTION_DEFINITIONS, ACTION_DISPLAY_NAMES } from '@/shared/constants';
 import { Timer } from '../ui/Timer';
 import { getSocket } from '../../hooks/useSocket';
 import { haptic, hapticHeavy } from '../../utils/haptic';
+import { usePendingAnswer } from '../../hooks/usePendingAnswer';
 
 interface ChallengePromptProps {
   gameState: ClientGameState;
@@ -12,6 +13,7 @@ interface ChallengePromptProps {
 
 export function ChallengePrompt({ gameState }: ChallengePromptProps) {
   const socket = getSocket();
+  const { pending, answer } = usePendingAnswer(gameState);
   const { turnPhase, pendingAction, challengeState, myId } = gameState;
 
   if (turnPhase !== TurnPhase.AwaitingActionChallenge || !pendingAction || !challengeState) {
@@ -79,13 +81,17 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
       <div className="flex gap-3 mt-3">
         <button
           className="btn-danger flex-1"
-          onClick={() => { hapticHeavy(); socket.emit('game:challenge'); }}
+          data-pending={pending === 'challenge' || undefined}
+          aria-busy={pending === 'challenge' || undefined}
+          onClick={() => answer('challenge', () => { hapticHeavy(); socket.emit('game:challenge'); })}
         >
           Challenge
         </button>
         <button
           className="btn-secondary flex-1"
-          onClick={() => { haptic(80); socket.emit('game:pass_challenge'); }}
+          data-pending={pending === 'pass' || undefined}
+          aria-busy={pending === 'pass' || undefined}
+          onClick={() => answer('pass', () => { haptic(80); socket.emit('game:pass_challenge'); })}
         >
           Pass
         </button>
