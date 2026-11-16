@@ -3016,6 +3016,286 @@
     .phase-line[data-tone='mine'] { font-size: var(--step-1); }
   }
 
+  /* ── The centre says it once ─────────────────────────────────────────
+     A claim used to be stated three times over the felt: the phase line
+     ("Marvin claims Captain: challenge or pass"), the plaque, and the
+     prompt's own first line. The plaque is the statement of the claim.
+
+     · While a prompt is open (an answer you owe, or the note that you are
+       waiting on others), the prompt is the one statement of the state, so
+       the phase line steps aside. It stays in the accessibility tree: it is
+       the `role="status"` line screen readers follow.
+     · A prompt's `.prompt-claim` line restates the claim for the bottom
+       sheet below 1024px, where the sheet can cover the plaque. In the
+       middle of the felt the plaque sits right above it, so it goes. */
+  .court-root:has(.court-prompts > *) .court-phase .phase-line {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .court-centre .prompt-claim {
+    display: none;
+  }
+
+  /* The examined card and the decision about it (ExaminePrompt). */
+  .examine-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .examine-card {
+    flex: none;
+  }
+
+  .examine-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    text-align: center;
+  }
+
+  .court-centre .examine-body {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .court-centre .examine-text {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  /* ── Watching: a knocked-out player's seat (WaitingView) ──────────── */
+  .watch-panel {
+    display: grid;
+    gap: 0.35rem;
+    text-align: left;
+  }
+
+  .watch-title {
+    font-size: var(--step-1);
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--ink);
+  }
+
+  .watch-copy {
+    font-size: var(--step--1);
+    line-height: 1.35;
+    color: var(--ink-mute);
+  }
+
+  .watch-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.35rem;
+  }
+
+  .watch-actions > button {
+    flex: 1 1 0%;
+    min-height: 44px;
+  }
+
+  .watch-actions > button[aria-disabled='true'] {
+    cursor: progress;
+  }
+
+  /* ── The big table (1024px and up) ───────────────────────────────────
+     The table used to be laid out at one size from 1024px up, so a 1920
+     screen showed the same 104px hand and 56px seat cards as a 1024 one with
+     the felt empty around them. Three sizes now follow the viewport, and
+     everything else on the table is derived from them:
+
+       --hand-card-h   your own cards. Height-led (the hand, the prompt and
+                       the far seats share one column of screen), capped by
+                       width so a tall narrow window does not starve the dock.
+       --seat-card-h   an opponent's cards; the seat's width follows.
+       the centre      bounded between the far seats and the top of your hand
+                       instead of centred on the felt, so a tall prompt can
+                       never run down under the cards (it scrolls first).
+
+     Short laptops (720-860px tall) keep the hand near its old size: there
+     the height goes to the prompt. Below 1024px nothing here applies. */
+  @media (min-width: 1024px) {
+    .court-root {
+      --hand-card-h: clamp(9.1rem, min(21dvh, 18vw), 16.5rem);
+      --seat-card-h: clamp(5rem, min(11.5dvh, 7.2vw), 8.25rem);
+    }
+
+    .court-stage {
+      --seat-w: calc(var(--seat-card-h) * 1.75);
+      --table-top: calc(var(--seat-card-h) * 0.6 + 1.75rem);
+      --table-bottom: calc(var(--hand-card-h) * 0.8);
+    }
+
+    .court-hand .card-face-xl {
+      width: calc(var(--hand-card-h) / 1.4);
+      height: var(--hand-card-h);
+      --card-band: calc(var(--hand-card-h) * 0.048);
+    }
+
+    .court-hand .card-face-xl .card-label-plate {
+      padding: calc(var(--hand-card-h) * 0.171) 5px calc(var(--hand-card-h) * 0.048);
+      gap: 3px;
+    }
+    .court-hand .card-face-xl .card-character-label { font-size: calc(var(--hand-card-h) * 0.096); }
+    .court-hand .card-face-xl .card-action-label { font-size: calc(var(--hand-card-h) * 0.107); }
+    .court-hand .card-face-xl .card-character-label.card-label-medium { font-size: calc(var(--hand-card-h) * 0.087); }
+    .court-hand .card-face-xl .card-character-label.card-label-long { font-size: calc(var(--hand-card-h) * 0.0795); }
+    .court-hand .card-face-xl .card-character-label.card-label-extra-long { font-size: calc(var(--hand-card-h) * 0.073); }
+    .court-hand .card-face-xl .card-action-label.card-label-medium { font-size: calc(var(--hand-card-h) * 0.0925); }
+
+    .court-hand .hand-cards { gap: calc(var(--hand-card-h) * 0.07); }
+
+    .court-seat-cards .card-face-sm {
+      width: calc(var(--seat-card-h) * 0.7);
+      height: var(--seat-card-h);
+    }
+
+    .court-seat-cards .card-face-sm .card-label-plate {
+      padding: calc(var(--seat-card-h) * 0.19) 3px calc(var(--seat-card-h) * 0.05);
+    }
+    .court-seat-cards .card-face-sm .card-character-label { font-size: calc(var(--seat-card-h) * 0.105); }
+    .court-seat-cards .card-face-sm .card-action-label { font-size: calc(var(--seat-card-h) * 0.115); }
+    .court-seat-cards .card-face-sm .card-character-label.card-label-medium { font-size: calc(var(--seat-card-h) * 0.095); }
+    .court-seat-cards .card-face-sm .card-character-label.card-label-long { font-size: calc(var(--seat-card-h) * 0.0875); }
+    .court-seat-cards .card-face-sm .card-character-label.card-label-extra-long { font-size: calc(var(--seat-card-h) * 0.08); }
+    .court-seat-cards .card-face-sm .card-action-label.card-label-medium { font-size: calc(var(--seat-card-h) * 0.094); }
+
+    .seat-card-slot + .seat-card-slot { margin-left: calc(var(--seat-card-h) * -0.16); }
+
+    /* The centre: from just under the far seats to just above your hand.
+       The hand plate is its cards plus ~3.2rem of padding and the name row. */
+    .court-centre {
+      top: calc(var(--table-top) + var(--seat-card-h) * 0.55 + 1.9rem);
+      bottom: calc(var(--hand-card-h) + 4rem);
+      max-height: none;
+      width: min(36rem, 58%);
+      transform: translateX(-50%);
+      justify-content: center;
+    }
+
+    /* Two blockers side by side, "Don't block" under them: the column of
+       three full-width slabs was what pushed the prompt into the hand. */
+    .court-centre .block-choices {
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+
+    .court-centre .block-choice {
+      flex: 1 1 12rem;
+      width: auto;
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
+    }
+
+    .court-centre .block-allow {
+      flex: 1 1 100%;
+    }
+
+    .court-centre .prompt-hint {
+      font-size: var(--step--1);
+    }
+
+    /* The seats are bigger here, so the objects on the felt sit a little
+       lower, clear of the seats on the far flanks at six players. */
+    .court-objects > .table-object:nth-child(1) { top: 47%; }
+    .court-objects > .table-object:nth-child(2) { top: 47%; }
+    .court-objects > .table-object:nth-child(3) { top: 71%; }
+    .court-discard { top: 71%; }
+    .court-felt:has(.coin-well-reserve) .court-discard { top: 75%; }
+  }
+
+  /* A short laptop (SHORT_DESKTOP_QUERY in table/seatLayout.ts) gives the
+     height to the prompt: the hand's name and coins sit beside the cards,
+     as they do on a phone, which hands ~2rem back to the middle. */
+  @media (min-width: 1024px) and (max-height: 860px) {
+    .court-hand-plate {
+      flex-direction: row;
+      gap: 0.9rem;
+      padding: 0.5rem 0.9rem 0.5rem 0.6rem;
+    }
+
+    .court-hand-meta {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.3rem;
+    }
+
+    .court-centre {
+      bottom: calc(var(--hand-card-h) + 2rem);
+    }
+  }
+
+  /* A tall desktop has height to spend on the cards. */
+  @media (min-width: 1024px) and (min-height: 860px) {
+    .court-root {
+      --hand-card-h: clamp(9.1rem, min(24dvh, 18vw), 16.5rem);
+    }
+  }
+
+  /* A wide one spends width on the table, the plaque and the prompt. */
+  @media (min-width: 1600px) {
+    .court-table {
+      width: min(calc(100% - var(--seat-w) - 0.5rem), 92rem);
+    }
+
+    .court-centre {
+      width: min(40rem, 50%);
+    }
+
+    .court-seat-name,
+    .court-seat-coins {
+      font-size: var(--step-0);
+    }
+  }
+
+  @media (min-width: 1024px) and (min-height: 860px) {
+    .court-centre .claim-plaque {
+      gap: 0.85rem;
+      padding: 0.55rem 1.25rem 0.55rem 0.6rem;
+    }
+
+    .court-centre .claim-mark > svg {
+      width: 3.5rem;
+      height: 3.5rem;
+    }
+
+    .court-centre .claim-block .claim-mark > svg {
+      width: 3rem;
+      height: 3rem;
+    }
+
+    .court-centre .claim-actor,
+    .court-centre .claim-detail {
+      font-size: var(--step-0);
+    }
+
+    .court-centre .claim-action {
+      font-size: var(--step-3);
+    }
+  }
+
+  /* On a big screen the deck, the coins and the fallen pile grow with the
+     seats, from their bottom edge so the labels under them stay put. `scale`
+     composes with the translate that centres them, and the flight engine
+     measures boxes, so coins and falling cards still land on them. */
+  @media (min-width: 1600px) and (min-height: 1000px) {
+    .court-objects .deck-well,
+    .court-objects .coin-well,
+    .court-discard .discard-well {
+      scale: 1.3;
+      transform-origin: 50% 100%;
+    }
+  }
+
   /* ── The objects on the felt ─────────────────────────────────────────── */
 
   .table-object {

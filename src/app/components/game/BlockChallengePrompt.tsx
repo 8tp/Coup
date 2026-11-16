@@ -3,6 +3,7 @@
 import { ClientGameState, TurnPhase } from '@/shared/types';
 import { ACTION_DISPLAY_NAMES } from '@/shared/constants';
 import { Timer } from '../ui/Timer';
+import { formatNames, remainingChallengeNames } from './PhaseStatus';
 import { getSocket } from '../../hooks/useSocket';
 import { haptic, hapticHeavy } from '../../utils/haptic';
 
@@ -22,14 +23,17 @@ export function BlockChallengePrompt({ gameState }: BlockChallengePromptProps) {
   if (!me || !me.isAlive) return null;
 
   const blocker = gameState.players.find(p => p.id === pendingBlock.blockerId);
+  const waitingOn = formatNames(remainingChallengeNames(gameState, pendingBlock.blockerId));
 
   // Blocker sees waiting message (can't challenge own block)
   if (myId === pendingBlock.blockerId) {
     return (
       <div className="prompt-info">
-        <p className="text-center text-gray-300 text-sm">
+        <p className="prompt-claim text-center text-gray-300 text-sm mb-1">
           You claimed <span className="text-coup-accent font-bold">{pendingBlock.claimedCharacter}</span> to block.
-          Waiting to see if anyone challenges.
+        </p>
+        <p className="text-center text-gray-400 text-sm">
+          Waiting for {waitingOn} to challenge or pass.
         </p>
         <Timer expiresAt={gameState.timerExpiry} />
       </div>
@@ -41,7 +45,7 @@ export function BlockChallengePrompt({ gameState }: BlockChallengePromptProps) {
     return (
       <div className="prompt-info">
         <p className="text-center text-gray-400 text-sm">
-          You accepted the block. Waiting for the others.
+          You accepted the block. Waiting for {waitingOn}.
         </p>
         <Timer expiresAt={gameState.timerExpiry} />
       </div>
@@ -51,10 +55,10 @@ export function BlockChallengePrompt({ gameState }: BlockChallengePromptProps) {
   // All other alive players can challenge or accept the block
   return (
     <div className="prompt-action">
-      <p className="text-center text-white font-bold mb-1">
+      <p className="prompt-claim text-center text-white font-bold mb-1">
         {blocker?.name} claims <span className="text-coup-accent">{pendingBlock.claimedCharacter}</span> to block{pendingAction ? ` the ${ACTION_DISPLAY_NAMES[pendingAction.type]}` : ''}
       </p>
-      <p className="text-center text-gray-400 text-xs mb-2">
+      <p className="prompt-hint text-center text-gray-400 text-xs mb-2">
         Challenge if you think they&apos;re bluffing. If they aren&apos;t, you lose a card.
       </p>
       <Timer expiresAt={gameState.timerExpiry} />

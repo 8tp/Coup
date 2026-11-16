@@ -7,14 +7,14 @@ interface PhaseStatusProps {
   gameState: ClientGameState;
 }
 
-function formatNames(names: string[]): string {
+export function formatNames(names: string[]): string {
   if (names.length === 0) return 'players';
   if (names.length === 1) return names[0];
   if (names.length === 2) return `${names[0]} and ${names[1]}`;
   return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
 }
 
-function remainingChallengeNames(gameState: ClientGameState, excludedPlayerId?: string): string[] {
+export function remainingChallengeNames(gameState: ClientGameState, excludedPlayerId?: string): string[] {
   const passed = new Set(gameState.challengeState?.passedPlayerIds ?? []);
   if (excludedPlayerId) passed.add(excludedPlayerId);
   return gameState.players
@@ -22,7 +22,7 @@ function remainingChallengeNames(gameState: ClientGameState, excludedPlayerId?: 
     .map(p => p.name);
 }
 
-function remainingBlockNames(gameState: ClientGameState): string[] {
+export function remainingBlockNames(gameState: ClientGameState): string[] {
   const pendingAction = gameState.pendingAction;
   if (!pendingAction) return [];
 
@@ -63,10 +63,22 @@ function claimText(gameState: ClientGameState): string {
   return action.claimedCharacter ?? 'a character';
 }
 
+/**
+ * The status line over the felt. During a claim it never restates the claim
+ * itself: the plaque under it says who claimed what, at whom. It names who the
+ * table is waiting on, and when you can answer it says what to do.
+ *
+ * Whenever a prompt is open (yours, or the waiting note for you) the prompt is
+ * the one statement of the state, so globals.css hides this line visually and
+ * keeps it for screen readers ("THE CENTRE SAYS IT ONCE").
+ */
 export function PhaseStatus({ gameState }: PhaseStatusProps) {
   const { turnPhase, pendingAction, pendingBlock, influenceLossRequest, myId } = gameState;
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
   const isMyTurn = currentPlayer?.id === myId;
+  // A spectator, or a seat that has been knocked out, can only watch.
+  const canAnswer = !!gameState.players.find(p => p.id === myId)?.isAlive;
+  const passedChallenge = gameState.challengeState?.passedPlayerIds.includes(myId) ?? false;
 
   let text = '';
   let tone: 'neutral' | 'mine' | 'ask' | 'danger' = 'neutral';
@@ -83,46 +95,40 @@ export function PhaseStatus({ gameState }: PhaseStatusProps) {
 
     case TurnPhase.AwaitingActionChallenge: {
       const actor = gameState.players.find(p => p.id === pendingAction?.actorId);
-      const remainingNames = remainingChallengeNames(gameState, pendingAction?.actorId);
-      if (myId === pendingAction?.actorId) {
-        text = `Waiting for ${formatNames(remainingNames)} to challenge or pass on your claim of ${claimText(gameState)}`;
-      } else if (gameState.challengeState?.passedPlayerIds.includes(myId)) {
-        text = `Waiting for ${formatNames(remainingNames)} to challenge or pass`;
-      } else {
+      if (canAnswer && myId !== pendingAction?.actorId && !passedChallenge) {
         text = `${actor?.name} claims ${claimText(gameState)}: challenge or pass`;
         tone = 'ask';
+      } else {
+        text = `Waiting for ${formatNames(remainingChallengeNames(gameState, pendingAction?.actorId))} to challenge or pass`;
       }
       break;
     }
 
     case TurnPhase.AwaitingBlock: {
       const actor = gameState.players.find(p => p.id === pendingAction?.actorId);
-      const isTarget = pendingAction?.targetId === myId;
-      const remainingNames = remainingBlockNames(gameState);
-      if (myId === pendingAction?.actorId) {
-        text = `Waiting for ${formatNames(remainingNames)} to block or allow your ${pendingAction ? ACTION_DISPLAY_NAMES[pendingAction.type] : 'action'}`;
-      } else if (isTarget) {
-        text = `${actor?.name} is targeting you: block or allow`;
-        tone = 'danger';
-      } else if (gameState.blockPassedPlayerIds?.includes(myId)) {
-        text = `Waiting for ${formatNames(remainingNames)} to block or allow`;
+      const remaining = remainingBlockNames(gameState);
+      const myName = gameState.players.find(p => p.id === myId)?.name;
+      if (canAnswer && myName && remaining.includes(myName)) {
+        if (pendingAction?.targetId === myId) {
+          text = `${actor?.name} is targeting you: block or allow`;
+          tone = 'danger';
+        } else {
+          text = `${actor?.name} uses ${pendingAction ? ACTION_DISPLAY_NAMES[pendingAction.type] : 'an action'}: block or allow`;
+          tone = 'ask';
+        }
       } else {
-        text = `Waiting for ${formatNames(remainingNames)} to block ${actor?.name}'s ${pendingAction ? ACTION_DISPLAY_NAMES[pendingAction.type] : 'action'}`;
+        text = `Waiting for ${formatNames(remaining)} to block or allow`;
       }
       break;
     }
 
     case TurnPhase.AwaitingBlockChallenge: {
       const blocker = gameState.players.find(p => p.id === pendingBlock?.blockerId);
-      const remainingNames = remainingChallengeNames(gameState, pendingBlock?.blockerId);
-      if (myId === pendingAction?.actorId && !gameState.challengeState?.passedPlayerIds.includes(myId)) {
+      if (canAnswer && myId !== pendingBlock?.blockerId && !passedChallenge) {
         text = `${blocker?.name} blocks with ${pendingBlock?.claimedCharacter}: challenge or pass`;
         tone = 'ask';
-      } else if (gameState.challengeState?.passedPlayerIds.includes(myId) || myId === pendingBlock?.blockerId) {
-        text = `Waiting for ${formatNames(remainingNames)} to challenge or pass on ${blocker?.name}'s block`;
       } else {
-        text = `${blocker?.name} blocks with ${pendingBlock?.claimedCharacter}: challenge or pass`;
-        tone = 'ask';
+        text = `Waiting for ${formatNames(remainingChallengeNames(gameState, pendingBlock?.blockerId))} to challenge or pass`;
       }
       break;
     }

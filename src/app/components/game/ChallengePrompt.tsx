@@ -1,7 +1,8 @@
 'use client';
 
 import { ActionType, ClientGameState, TurnPhase } from '@/shared/types';
-import { ACTION_DEFINITIONS, ACTION_DISPLAY_NAMES } from '@/shared/constants';
+import { ACTION_DISPLAY_NAMES } from '@/shared/constants';
+import { formatNames, remainingChallengeNames } from './PhaseStatus';
 import { Timer } from '../ui/Timer';
 import { getSocket } from '../../hooks/useSocket';
 import { haptic, hapticHeavy } from '../../utils/haptic';
@@ -22,24 +23,31 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
   if (!me || !me.isAlive) return null;
 
   const actor = gameState.players.find(p => p.id === pendingAction.actorId);
-  const target = pendingAction.targetId
-    ? gameState.players.find(p => p.id === pendingAction.targetId)
-    : null;
-  const def = ACTION_DEFINITIONS[pendingAction.type];
+  const targetName = !pendingAction.targetId
+    ? null
+    : pendingAction.targetId === myId
+      ? 'you'
+      : gameState.players.find(p => p.id === pendingAction.targetId)?.name ?? null;
+  const isEmbezzle = pendingAction.type === ActionType.Embezzle;
+  const action = ACTION_DISPLAY_NAMES[pendingAction.type];
+  const waitingOn = formatNames(remainingChallengeNames(gameState, pendingAction.actorId));
+
+  /* `.prompt-claim` restates the claim for a phone, where this prompt sits in
+     the bottom sheet and can cover the plaque. On the desktop table the plaque
+     sits right above the prompt, so globals.css hides the line there. */
 
   // Actor sees waiting state
   if (myId === pendingAction.actorId) {
-    const isMyEmbezzle = pendingAction.type === ActionType.Embezzle;
     return (
       <div className="prompt-info">
-        <p className="text-center text-gray-300 mb-1">
-          {isMyEmbezzle
+        <p className="prompt-claim text-center text-gray-300 mb-1">
+          {isEmbezzle
             ? <>You claimed <span className="text-coup-accent font-bold">no Duke</span> to Embezzle</>
-            : <>You claimed <span className="text-coup-accent font-bold">{pendingAction.claimedCharacter}</span> to {ACTION_DISPLAY_NAMES[pendingAction.type]}
-              {target && <> on <span className="font-bold">{target.name}</span></>}</>
+            : <>You claimed <span className="text-coup-accent font-bold">{pendingAction.claimedCharacter}</span> to {action}
+              {targetName && <> on <span className="font-bold">{targetName}</span></>}</>
           }
         </p>
-        <p className="text-center text-coup-ink-mute text-xs">Waiting for the others to challenge or pass.</p>
+        <p className="text-center text-coup-ink-mute text-sm">Waiting for {waitingOn} to challenge or pass.</p>
         <Timer expiresAt={gameState.timerExpiry} />
       </div>
     );
@@ -50,7 +58,7 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
     return (
       <div className="prompt-info">
         <p className="text-center text-gray-400 text-sm">
-          You passed. Waiting for the others.
+          You passed. Waiting for {waitingOn}.
         </p>
         <Timer expiresAt={gameState.timerExpiry} />
       </div>
@@ -58,19 +66,18 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
   }
 
   // Actionable: can challenge or pass
-  const isEmbezzle = pendingAction.type === ActionType.Embezzle;
   const actionDesc = isEmbezzle
     ? `${actor?.name} claims no Duke to Embezzle`
-    : target
-      ? `${actor?.name} claims ${pendingAction.claimedCharacter} to ${ACTION_DISPLAY_NAMES[pendingAction.type]} ${target.name}`
-      : `${actor?.name} claims ${pendingAction.claimedCharacter} to ${ACTION_DISPLAY_NAMES[pendingAction.type]}`;
+    : targetName
+      ? `${actor?.name} claims ${pendingAction.claimedCharacter} to ${action} ${pendingAction.type === ActionType.Steal ? 'from ' : ''}${targetName}`
+      : `${actor?.name} claims ${pendingAction.claimedCharacter} to ${action}`;
 
   return (
     <div className="prompt-action">
-      <p className="text-center text-white font-bold mb-1">
+      <p className="prompt-claim text-center text-white font-bold mb-1">
         {actionDesc}
       </p>
-      <p className="text-center text-gray-400 text-xs mb-2">
+      <p className="prompt-hint text-center text-gray-400 text-xs mb-2">
         {isEmbezzle
           ? 'Challenge if you think they have a Duke. If they don\u0027t, you lose a card.'
           : 'Challenge if you think they\u0027re bluffing. If they aren\u0027t, you lose a card.'}

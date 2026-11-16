@@ -1,91 +1,72 @@
 'use client';
 
 import { ClientGameState, TurnPhase } from '@/shared/types';
+import { haptic } from '../../utils/haptic';
 
 interface WaitingViewProps {
   gameState: ClientGameState;
+  /** Leave the room and go back to the menu. */
+  onLeave?: () => void;
+  /** Start a fresh Play vs Bots game. Offered only when you are the one human here. */
+  onNewGame?: () => void;
+  /** A new game is being dealt: the buttons stay put but stop answering. */
+  busy?: boolean;
 }
 
-export function WaitingView({ gameState }: WaitingViewProps) {
-  const { turnPhase, myId, players, currentPlayerIndex } = gameState;
+/**
+ * The seat of a player who has been knocked out.
+ *
+ * The game does not stop for them: the others (often all bots) play it out,
+ * and they can stay and watch it to the end. What they need from the table is
+ * to know that this is a choice, and the two ways out of it: leave, or, when
+ * nobody else here is a person, deal a new game against bots straight away.
+ *
+ * It sits in the dock where your actions would be, on every screen size, so it
+ * never covers the middle of the felt the watcher is following.
+ *
+ * Every other "waiting for X" line that used to live here is the phase line's
+ * job (PhaseStatus), and the centre says each thing once.
+ */
+export function WaitingView({ gameState, onLeave, onNewGame, busy }: WaitingViewProps) {
+  const { turnPhase, myId, players } = gameState;
 
-  // Don't show during game over
+  // The game-over overlay takes over from here.
   if (turnPhase === TurnPhase.GameOver) return null;
 
   const me = players.find(p => p.id === myId);
-  const currentPlayer = players[currentPlayerIndex];
+  if (!me || me.isAlive) return null;
 
-  // Show eliminated message
-  if (me && !me.isAlive) {
-    return (
-      <div className="prompt-info">
-        <p className="text-center text-gray-400 text-sm">
-          You&apos;re eliminated. You can watch the rest of the game.
-        </p>
-      </div>
-    );
-  }
+  const onlyHuman = players.filter(p => !p.isBot).length === 1;
+  const offerNewGame = onlyHuman && !!onNewGame;
 
-  // Show waiting message when it's not your turn and you have no prompt
-  if (turnPhase === TurnPhase.AwaitingAction && currentPlayer?.id !== myId) {
-    return (
-      <div className="prompt-info">
-        <p className="text-center text-gray-400 text-sm">
-          Waiting for <span className="font-bold text-gray-300">{currentPlayer?.name}</span> to choose an action
-        </p>
-      </div>
-    );
-  }
-
-  // Show waiting message during examine phase for non-examiners
-  if (turnPhase === TurnPhase.AwaitingExamineSelection && gameState.examineSelectionState) {
-    const examiner = players.find(p => p.id === gameState.examineSelectionState?.examinerId);
-    const target = players.find(p => p.id === gameState.examineSelectionState?.targetId);
-    if (target?.id === myId) return null;
-    return (
-      <div className="prompt-info">
-        <p className="text-center text-gray-400 text-sm">
-          <span className="font-bold text-gray-300">{target?.name}</span> is choosing a card to show{' '}
-          <span className="font-bold text-gray-300">{examiner?.name}</span>
-        </p>
-      </div>
-    );
-  }
-
-  if (turnPhase === TurnPhase.AwaitingExamineDecision && gameState.examineState) {
-    const examiner = players.find(p => p.id === gameState.pendingAction?.actorId);
-    const target = players.find(p => p.id === gameState.examineState?.targetId);
-    return (
-      <div className="prompt-info">
-        <p className="text-center text-gray-400 text-sm">
-          <span className="font-bold text-gray-300">{examiner?.name}</span> is examining{' '}
-          <span className="font-bold text-gray-300">{target?.name}</span>&apos;s card
-        </p>
-      </div>
-    );
-  }
-
-  if (turnPhase === TurnPhase.AwaitingExchange) {
-    const exchanger = players.find(p => p.id === gameState.pendingAction?.actorId);
-    return (
-      <div className="prompt-info">
-        <p className="text-center text-gray-400 text-sm">
-          Waiting for <span className="font-bold text-gray-300">{exchanger?.name ?? 'a player'}</span> to choose cards to keep
-        </p>
-      </div>
-    );
-  }
-
-  if (turnPhase === TurnPhase.AwaitingInfluenceLoss && gameState.influenceLossRequest?.playerId !== myId) {
-    const loser = players.find(p => p.id === gameState.influenceLossRequest?.playerId);
-    return (
-      <div className="prompt-info">
-        <p className="text-center text-gray-400 text-sm">
-          Waiting for <span className="font-bold text-gray-300">{loser?.name ?? 'a player'}</span> to choose a card to lose
-        </p>
-      </div>
-    );
-  }
-
-  return null;
+  return (
+    <div className="prompt-info watch-panel" role="region" aria-label="You are watching">
+      <p className="watch-title type-display">Watching</p>
+      <p className="watch-copy">
+        You&apos;re eliminated. Watch the rest of the game, or leave whenever you like.
+      </p>
+      {(onLeave || offerNewGame) && (
+        <div className="watch-actions">
+          {offerNewGame && (
+            <button
+              className="btn-primary"
+              aria-disabled={busy || undefined}
+              onClick={() => { if (busy) return; haptic(80); onNewGame?.(); }}
+            >
+              {busy ? 'Dealing…' : 'New game'}
+            </button>
+          )}
+          {onLeave && (
+            <button
+              className="btn-secondary"
+              aria-disabled={busy || undefined}
+              onClick={() => { if (busy) return; haptic(); onLeave(); }}
+            >
+              Leave table
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }

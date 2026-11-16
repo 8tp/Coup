@@ -8,6 +8,8 @@ import { haptic } from '../../utils/haptic';
 import { characterCardVars } from '../../utils/characterPalette';
 import { CardArtwork, CharacterCardBadge } from './CardArtwork';
 import { getSoundEngine } from '../../audio/SoundEngine';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { SHORT_DESKTOP_QUERY } from './table/seatLayout';
 import {
   FLIGHT_TRANSFORM_STYLE,
   cancel as cancelFlight,
@@ -43,6 +45,9 @@ function playSwapLanding(): void {
 export function ExchangeView({ gameState }: ExchangeViewProps) {
   const socket = getSocket();
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
+  // A short desktop has no height to spare between the far seats and your hand.
+  const shortDesktop = useMediaQuery(SHORT_DESKTOP_QUERY);
+  const cardSize = shortDesktop ? 'card-face-md' : 'card-face-md sm:card-face-lg';
   const { turnPhase, exchangeState } = gameState;
   const prevTurnRef = useRef(gameState.turnNumber);
 
@@ -199,7 +204,7 @@ export function ExchangeView({ gameState }: ExchangeViewProps) {
   return (
     <div className="prompt-action">
       <Timer expiresAt={gameState.timerExpiry} />
-      <p className="text-center text-coup-accent font-bold text-lg mb-1">
+      <p className="prompt-claim text-center text-coup-accent font-bold text-lg mb-1">
         {gameState.useInquisitor ? 'Inquisitor' : 'Ambassador'} Exchange
       </p>
       <p className="text-center text-gray-400 text-xs mb-4">
@@ -219,11 +224,11 @@ export function ExchangeView({ gameState }: ExchangeViewProps) {
               key={i}
               ref={nodeRef(i)}
               style={FLIGHT_TRANSFORM_STYLE}
-              className="card-flip-wrapper card-face-md sm:card-face-lg"
+              className={`card-flip-wrapper ${cardSize}`}
             >
               <button
                 title={char}
-                className={`card-face card-face-md sm:card-face-lg is-interactive
+                className={`card-face ${cardSize} is-interactive
                   ${selectedIndices.includes(i) ? 'is-selected ring-2 ring-coup-accent' : 'opacity-60'}`}
                 style={characterCardVars(char)}
                 onClick={() => toggleCard(i)}
