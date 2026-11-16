@@ -13,8 +13,9 @@ import feedback from './feedback';
 import tutorial from './tutorial';
 import rules from './rules';
 import seo from './seo';
+import stats from './stats';
 
 /** hi. Loaded on demand (../../registry.ts). */
-const messages: Translation = { common, glossary, log, errors, settings, home, lobby, game, prompts, gameover, feedback, tutorial, rules, seo };
+const messages: Translation = { common, glossary, log, errors, settings, home, lobby, game, prompts, gameover, feedback, tutorial, rules, seo, stats };
 
 export default messages;

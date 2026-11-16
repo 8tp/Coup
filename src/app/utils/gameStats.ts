@@ -1,7 +1,12 @@
-import { LogEntry, ClientGameState, LogEventType } from '@/shared/types';
+import { LogEntry, ClientGameState } from '@/shared/types';
 // Type-only: erased at compile time, so this module stays React-free.
 import type { AwardGlyphKey } from './logGlyphs';
 
+/**
+ * Numbers about a finished game, read from the log's structured fields
+ * (event types, actor ids, `wasBluff`), never from its English text. The
+ * sentences built from them are in components/game/gameover/summary.ts.
+ */
 export interface PlayerStats {
   playerId: string;
   playerName: string;
@@ -18,30 +23,60 @@ export interface PlayerStats {
   eliminationOrder: number; // 0 = not eliminated, 1 = first out, etc.
 }
 
+/**
+ * Every award, by stable id. The id is what lifetime stats store and what
+ * the catalogs key on (`gameover.awardTitle.<id>`, `gameover.awardLine.<id>`,
+ * `stats.awardCriterion.<id>`); the names on screen are translations.
+ * In the order the stats modal lists them.
+ */
+export const AWARD_IDS = [
+  'pantsOnFire',
+  'honestAbe',
+  'inquisitor',
+  'eagleEye',
+  'wall',
+  'smoothOperator',
+  'coupMachine',
+  'silentAssassin',
+  'boldStrategy',
+  'quickExit',
+] as const;
+
+export type AwardId = typeof AWARD_IDS[number];
+
+export const AWARD_GLYPH: Record<AwardId, AwardGlyphKey> = {
+  pantsOnFire: 'bluff',
+  honestAbe: 'truth',
+  inquisitor: 'challenge',
+  eagleEye: 'target',
+  wall: 'block',
+  smoothOperator: 'claim',
+  coupMachine: 'coup',
+  silentAssassin: 'assassinate',
+  boldStrategy: 'dice',
+  quickExit: 'exit',
+};
+
+export function isAwardId(value: unknown): value is AwardId {
+  return typeof value === 'string' && (AWARD_IDS as readonly string[]).includes(value);
+}
+
 export interface Award {
+  id: AwardId;
   /** Key into AWARD_GLYPHS; the render site resolves it to a glyph component. */
   glyph: AwardGlyphKey;
-  title: string;
-  playerName: string;
-  description: string;
+  playerId: string;
+  /** The numbers in the award's line (`gameover.awardLine.<id>`), besides the player. */
+  params: Readonly<Record<string, number>>;
 }
 
-export type RecapTone = 'gold' | 'green' | 'red' | 'blue' | 'purple' | 'gray';
-
-export interface GameRecapItem {
-  label: string;
-  value: string;
-  detail: string;
-  tone: RecapTone;
-}
-
-export function computePlayerStats(log: LogEntry[], playerIds: string[], playerNames: Map<string, string>): Map<string, PlayerStats> {
+export function computePlayerStats(log: LogEntry[], playerIds: string[], playerNames: Map<string, string> = new Map()): Map<string, PlayerStats> {
   const stats = new Map<string, PlayerStats>();
 
   for (const id of playerIds) {
     stats.set(id, {
       playerId: id,
-      playerName: playerNames.get(id) ?? 'Unknown',
+      playerName: playerNames.get(id) ?? id,
       challengesMade: 0,
       challengesWon: 0,
       challengesLost: 0,
@@ -141,171 +176,86 @@ function selectAwards(stats: Map<string, PlayerStats>): Award[] {
   // Higher score = more likely to be selected. This replaces the old fixed-
   // priority system so rare/impressive feats naturally surface over common ones.
   const candidates: { award: Award; score: number; playerId: string }[] = [];
+  const add = (id: AwardId, s: PlayerStats, score: number, params: Record<string, number> = {}) => {
+    candidates.push({ playerId: s.playerId, score, award: { id, glyph: AWARD_GLYPH[id], playerId: s.playerId, params } });
+  };
 
-  // Pants on Fire — most times caught bluffing (≥1)
+  // Pants on Fire: most times caught bluffing (>=1)
   const mostCaught = all.filter(s => s.timesCaughtBluffing >= 1)
     .sort((a, b) => b.timesCaughtBluffing - a.timesCaughtBluffing)[0];
   if (mostCaught) {
-    candidates.push({
-      playerId: mostCaught.playerId,
-      score: mostCaught.timesCaughtBluffing * 4 - 1, // 1→3, 2→7, 3→11
-      award: {
-        glyph: 'bluff',
-        title: 'Pants on Fire',
-        playerName: mostCaught.playerName,
-        description: `caught bluffing ${mostCaught.timesCaughtBluffing}x`,
-      },
-    });
+    // 1→3, 2→7, 3→11
+    add('pantsOnFire', mostCaught, mostCaught.timesCaughtBluffing * 4 - 1, { count: mostCaught.timesCaughtBluffing });
   }
 
-  // Honest Abe — most times proven honest, 0 caught bluffing (≥1 proven)
+  // Honest Abe: most times proven honest, 0 caught bluffing (>=1 proven)
   const honestCandidates = all.filter(s => s.timesProvenHonest >= 1 && s.timesCaughtBluffing === 0)
     .sort((a, b) => b.timesProvenHonest - a.timesProvenHonest);
   if (honestCandidates.length > 0) {
     const h = honestCandidates[0];
-    candidates.push({
-      playerId: h.playerId,
-      score: h.timesProvenHonest * 3, // 1→3, 2→6, 3→9
-      award: {
-        glyph: 'truth',
-        title: 'Honest Abe',
-        playerName: h.playerName,
-        description: `proven honest ${h.timesProvenHonest}x, never caught`,
-      },
-    });
+    add('honestAbe', h, h.timesProvenHonest * 3, { count: h.timesProvenHonest }); // 1→3, 2→6, 3→9
   }
 
-  // The Inquisitor — most challenges made (≥2)
+  // The Inquisitor: most challenges made (>=2)
   const mostChallenges = all.filter(s => s.challengesMade >= 2)
     .sort((a, b) => b.challengesMade - a.challengesMade)[0];
   if (mostChallenges) {
-    candidates.push({
-      playerId: mostChallenges.playerId,
-      score: mostChallenges.challengesMade * 2.5, // 2→5, 3→7.5, 4→10
-      award: {
-        glyph: 'challenge',
-        title: 'The Inquisitor',
-        playerName: mostChallenges.playerName,
-        description: `${mostChallenges.challengesMade} challenges made`,
-      },
-    });
+    // 2→5, 3→7.5, 4→10
+    add('inquisitor', mostChallenges, mostChallenges.challengesMade * 2.5, { count: mostChallenges.challengesMade });
   }
 
-  // Eagle Eye — best challenge accuracy (≥2 challenges, ≥50% win rate)
+  // Eagle Eye: best challenge accuracy (>=2 challenges, >=50% win rate)
   const eagleEyeCandidates = all.filter(s => s.challengesMade >= 2)
     .map(s => ({ ...s, winRate: s.challengesWon / s.challengesMade }))
     .filter(s => s.winRate >= 0.5)
     .sort((a, b) => b.winRate - a.winRate || b.challengesWon - a.challengesWon);
   if (eagleEyeCandidates.length > 0) {
     const e = eagleEyeCandidates[0];
-    candidates.push({
-      playerId: e.playerId,
-      score: e.challengesWon * 4 + (e.winRate - 0.5) * 6, // 2/2→11, 2/3→7.3, 3/4→13.5
-      award: {
-        glyph: 'target',
-        title: 'Eagle Eye',
-        playerName: e.playerName,
-        description: `${e.challengesWon}/${e.challengesMade} challenges correct`,
-      },
-    });
+    // 2/2→11, 2/3→7.3, 3/4→13.5
+    add('eagleEye', e, e.challengesWon * 4 + (e.winRate - 0.5) * 6, { won: e.challengesWon, made: e.challengesMade });
   }
 
-  // The Wall — most blocks made (≥2)
+  // The Wall: most blocks made (>=2)
   const mostBlocks = all.filter(s => s.blocksMade >= 2)
     .sort((a, b) => b.blocksMade - a.blocksMade)[0];
   if (mostBlocks) {
-    candidates.push({
-      playerId: mostBlocks.playerId,
-      score: mostBlocks.blocksMade * 3.5, // 2→7, 3→10.5, 4→14
-      award: {
-        glyph: 'block',
-        title: 'The Wall',
-        playerName: mostBlocks.playerName,
-        description: `${mostBlocks.blocksMade} blocks made`,
-      },
-    });
+    add('wall', mostBlocks, mostBlocks.blocksMade * 3.5, { count: mostBlocks.blocksMade }); // 2→7, 3→10.5, 4→14
   }
 
-  // Smooth Operator — most claims with 0 times caught (≥4 claims)
+  // Smooth Operator: most claims with 0 times caught (>=4 claims)
   const smoothCandidates = all.filter(s => s.actionsClaimed >= 4 && s.timesCaughtBluffing === 0)
     .sort((a, b) => b.actionsClaimed - a.actionsClaimed);
   if (smoothCandidates.length > 0) {
     const sm = smoothCandidates[0];
-    candidates.push({
-      playerId: sm.playerId,
-      score: sm.actionsClaimed * 1.5, // 4→6, 6→9, 8→12
-      award: {
-        glyph: 'claim',
-        title: 'Smooth Operator',
-        playerName: sm.playerName,
-        description: `${sm.actionsClaimed} claims, never caught`,
-      },
-    });
+    add('smoothOperator', sm, sm.actionsClaimed * 1.5, { count: sm.actionsClaimed }); // 4→6, 6→9, 8→12
   }
 
-  // Coup Machine — most coups (≥2)
+  // Coup Machine: most coups (>=2)
   const mostCoups = all.filter(s => s.coupsMade >= 2)
     .sort((a, b) => b.coupsMade - a.coupsMade)[0];
   if (mostCoups) {
-    candidates.push({
-      playerId: mostCoups.playerId,
-      score: mostCoups.coupsMade * 4, // 2→8, 3→12
-      award: {
-        glyph: 'coup',
-        title: 'Coup Machine',
-        playerName: mostCoups.playerName,
-        description: `${mostCoups.coupsMade} Coups launched`,
-      },
-    });
+    add('coupMachine', mostCoups, mostCoups.coupsMade * 4, { count: mostCoups.coupsMade }); // 2→8, 3→12
   }
 
-  // Silent Assassin — most assassinations (≥1)
+  // Silent Assassin: most assassinations (>=1)
   const mostAssassinations = all.filter(s => s.assassinationsMade >= 1)
     .sort((a, b) => b.assassinationsMade - a.assassinationsMade)[0];
   if (mostAssassinations) {
-    candidates.push({
-      playerId: mostAssassinations.playerId,
-      score: mostAssassinations.assassinationsMade * 7, // 1→7, 2→14, 3→21
-      award: {
-        glyph: 'assassinate',
-        title: 'Silent Assassin',
-        playerName: mostAssassinations.playerName,
-        description: mostAssassinations.assassinationsMade === 1
-          ? '1 assassination'
-          : `${mostAssassinations.assassinationsMade} assassinations`,
-      },
-    });
+    // 1→7, 2→14, 3→21
+    add('silentAssassin', mostAssassinations, mostAssassinations.assassinationsMade * 7, { count: mostAssassinations.assassinationsMade });
   }
 
-  // Bold Strategy — most challenges lost (≥2)
+  // Bold Strategy: most challenges lost (>=2)
   const mostLost = all.filter(s => s.challengesLost >= 2)
     .sort((a, b) => b.challengesLost - a.challengesLost)[0];
   if (mostLost) {
-    candidates.push({
-      playerId: mostLost.playerId,
-      score: mostLost.challengesLost * 3.5, // 2→7, 3→10.5
-      award: {
-        glyph: 'dice',
-        title: 'Bold Strategy',
-        playerName: mostLost.playerName,
-        description: `${mostLost.challengesLost} challenges lost`,
-      },
-    });
+    add('boldStrategy', mostLost, mostLost.challengesLost * 3.5, { count: mostLost.challengesLost }); // 2→7, 3→10.5
   }
 
-  // Quick Exit — first player eliminated
+  // Quick Exit: first player eliminated
   const firstOut = all.find(s => s.eliminationOrder === 1);
   if (firstOut) {
-    candidates.push({
-      playerId: firstOut.playerId,
-      score: 2, // Low flat score — filler award, only appears when slots remain
-      award: {
-        glyph: 'exit',
-        title: 'Quick Exit',
-        playerName: firstOut.playerName,
-        description: 'first player eliminated',
-      },
-    });
+    add('quickExit', firstOut, 2); // Low flat score: filler award, only appears when slots remain
   }
 
   // Select: highest score first, max 1 award per player, max 4 total
@@ -324,128 +274,8 @@ function selectAwards(stats: Map<string, PlayerStats>): Award[] {
   return selected;
 }
 
-function buildFlavorStats(gameState: ClientGameState) {
-  const playerIds = gameState.players.map(p => p.id);
-  const playerNames = new Map<string, string>();
-  for (const p of gameState.players) {
-    playerNames.set(p.id, p.name);
-  }
-  return computePlayerStats(gameState.actionLog, playerIds, playerNames);
-}
-
-export function getWinnerFlavorText(gameState: ClientGameState): string {
-  const winnerId = gameState.winnerId;
-  if (!winnerId) return 'Everyone else is out.';
-
-  const w = buildFlavorStats(gameState).get(winnerId);
-  if (!w) return 'Everyone else is out.';
-
-  // Pure Income + Coup — no character claims at all
-  if (w.actionsClaimed === 0) {
-    return 'You won without claiming a character on your turn.';
-  }
-
-  // Caught bluffing but still won
-  if (w.timesCaughtBluffing >= 2) {
-    return `You were caught bluffing ${w.timesCaughtBluffing} times and still won.`;
-  }
-  if (w.timesCaughtBluffing === 1) {
-    return 'You were caught bluffing once and still won.';
-  }
-
-  // Great at reading opponents
-  if (w.challengesWon >= 2) {
-    return `You won ${w.challengesWon} challenges.`;
-  }
-
-  // Proven honest multiple times (never caught, checked above)
-  if (w.timesProvenHonest >= 2) {
-    return `You were challenged ${w.timesProvenHonest} times and had the card every time.`;
-  }
-
-  // Assassination-heavy victory
-  if (w.assassinationsMade >= 2) {
-    return `You won with ${w.assassinationsMade} assassinations.`;
-  }
-
-  // Coup-heavy victory
-  if (w.coupsMade >= 2) {
-    return `You won with ${w.coupsMade} Coups.`;
-  }
-
-  // Block-heavy
-  if (w.blocksMade >= 2) {
-    return `You blocked ${w.blocksMade} actions.`;
-  }
-
-  // Many claims, never caught
-  if (w.actionsClaimed >= 3 && w.timesCaughtBluffing === 0) {
-    return `You made ${w.actionsClaimed} claims and were never caught.`;
-  }
-
-  return 'Everyone else is out.';
-}
-
-export function getLoserFlavorText(gameState: ClientGameState): string {
-  const myId = gameState.myId;
-  // Spectators have no stats entry.
-  if (!myId) return 'Thanks for watching.';
-
-  const stats = buildFlavorStats(gameState);
-  const m = stats.get(myId);
-  if (!m) return 'Thanks for watching.';
-
-  // First player eliminated
-  if (m.eliminationOrder === 1) {
-    return 'You were the first player out.';
-  }
-
-  // Caught bluffing
-  if (m.timesCaughtBluffing >= 2) {
-    return `You were caught bluffing ${m.timesCaughtBluffing} times.`;
-  }
-  if (m.timesCaughtBluffing === 1) {
-    return 'You were caught bluffing once.';
-  }
-
-  // Lost multiple challenges
-  if (m.challengesLost >= 2) {
-    return `You lost ${m.challengesLost} challenges.`;
-  }
-
-  // Played it safe with no claims
-  if (m.actionsClaimed === 0) {
-    return 'You never claimed a character on your turn.';
-  }
-
-  // Good challenges but still lost
-  if (m.challengesWon >= 2) {
-    return `You won ${m.challengesWon} challenges.`;
-  }
-
-  // Strong defense but still fell
-  if (m.blocksMade >= 2) {
-    return `You blocked ${m.blocksMade} actions.`;
-  }
-
-  // Landed assassinations or coups
-  if (m.assassinationsMade >= 1 || m.coupsMade >= 1) {
-    const hits: string[] = [];
-    if (m.coupsMade >= 1) hits.push(plural(m.coupsMade, 'Coup'));
-    if (m.assassinationsMade >= 1) hits.push(plural(m.assassinationsMade, 'assassination'));
-    return `You landed ${hits.join(' and ')}.`;
-  }
-
-  if (m.eliminationOrder > 1) {
-    return `You were the ${ordinal(m.eliminationOrder)} player out.`;
-  }
-
-  return "You're out.";
-}
-
 export interface BluffSummaryEntry {
   playerId: string;
-  playerName: string;
   totalClaims: number;
   bluffs: number;
   caughtBluffing: number;
@@ -454,12 +284,7 @@ export interface BluffSummaryEntry {
 
 export function computeBluffSummary(gameState: ClientGameState): BluffSummaryEntry[] {
   const playerIds = gameState.players.map(p => p.id);
-  const playerNames = new Map<string, string>();
-  for (const p of gameState.players) {
-    playerNames.set(p.id, p.id === gameState.myId ? 'You' : p.name);
-  }
-
-  const stats = computePlayerStats(gameState.actionLog, playerIds, playerNames);
+  const stats = computePlayerStats(gameState.actionLog, playerIds);
   const entries: BluffSummaryEntry[] = [];
 
   for (const s of stats.values()) {
@@ -468,7 +293,6 @@ export function computeBluffSummary(gameState: ClientGameState): BluffSummaryEnt
     if (totalClaims === 0) continue;
     entries.push({
       playerId: s.playerId,
-      playerName: s.playerName,
       totalClaims,
       bluffs: s.actualBluffs,
       caughtBluffing: s.timesCaughtBluffing,
@@ -481,235 +305,8 @@ export function computeBluffSummary(gameState: ClientGameState): BluffSummaryEnt
   return entries;
 }
 
-const DECISIVE_EVENT_TYPES = new Set<LogEventType>([
-  'coup',
-  'assassination',
-  'challenge_success',
-  'challenge_fail',
-  'block_challenge_success',
-  'block_challenge_fail',
-  'influence_loss',
-  'elimination',
-  'embezzle',
-  'examine_decision',
-  'action_resolve',
-  'convert',
-]);
-
-function plural(count: number, noun: string): string {
-  return `${count} ${noun}${count === 1 ? '' : 's'}`;
-}
-
-function ordinal(n: number): string {
-  const suffix = n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th';
-  return `${n}${suffix}`;
-}
-
-function displayName(gameState: ClientGameState, playerId: string | null | undefined, fallback = 'Unknown'): string {
-  if (!playerId) return fallback;
-  const player = gameState.players.find(p => p.id === playerId);
-  if (!player) return fallback;
-  return player.id === gameState.myId ? 'You' : player.name;
-}
-
-function decisiveTitle(entry: LogEntry, gameState: ClientGameState): string {
-  const actor = displayName(gameState, entry.actorId, entry.actorName ?? 'Someone');
-  const target = displayName(gameState, entry.targetId, 'the table');
-
-  switch (entry.eventType) {
-    case 'elimination':
-      return `${actor} went out`;
-    case 'coup':
-      return `${actor} launched a Coup`;
-    case 'assassination':
-      return `${actor} landed an assassination`;
-    case 'challenge_success':
-      return `${actor} caught a bluff`;
-    case 'challenge_fail':
-      return `${actor} proved the claim`;
-    case 'block_challenge_success':
-      return `${actor} broke a block`;
-    case 'block_challenge_fail':
-      return `${actor} proved the block`;
-    case 'influence_loss':
-      return `${actor} lost a card`;
-    case 'embezzle':
-      return `${actor} took the reserve`;
-    case 'convert':
-      return `${actor} changed faction`;
-    case 'examine_decision':
-      return `${actor} resolved an examine`;
-    case 'action_resolve':
-      if (entry.character) return `${actor} resolved ${entry.character}`;
-      if (entry.targetId) return `${actor} moved against ${target}`;
-      return `${actor} resolved an action`;
-    default:
-      return entry.actorName ?? 'Final move';
-  }
-}
-
-interface CoinMove {
-  amount: number;
-  playerName: string;
-  verb: string;
-  entry: LogEntry;
-}
-
-function embezzleAmount(log: LogEntry[], index: number, actorId: string | null): number {
-  for (let i = index - 1; i >= 0; i--) {
-    const entry = log[i];
-    if (entry.actorId !== actorId) continue;
-    const match = entry.message.match(/Treasury Reserve \((\d+) coins?\)/);
-    if (match) return Number(match[1]);
-  }
-  return 0;
-}
-
-function coinMoveForEntry(log: LogEntry[], index: number, gameState: ClientGameState): CoinMove | null {
-  const entry = log[index];
-  const playerName = displayName(gameState, entry.actorId, entry.actorName ?? 'Someone');
-
-  if (entry.eventType === 'income') {
-    return { amount: 1, playerName, verb: 'gained', entry };
-  }
-
-  if (entry.eventType === 'coup') {
-    return { amount: 7, playerName, verb: 'spent', entry };
-  }
-
-  if (entry.eventType === 'convert') {
-    const amount = Number(entry.message.match(/\((\d+) coins? to Treasury Reserve\)/)?.[1] ?? 0);
-    return amount > 0 ? { amount, playerName, verb: 'paid', entry } : null;
-  }
-
-  if (entry.eventType === 'embezzle') {
-    const amount = embezzleAmount(log, index, entry.actorId);
-    return amount > 0 ? { amount, playerName, verb: 'took', entry } : null;
-  }
-
-  if (entry.eventType !== 'action_resolve') return null;
-
-  const plusAmount = Number(entry.message.match(/\(\+(\d+) coins?\)/)?.[1] ?? 0);
-  if (plusAmount > 0) {
-    return { amount: plusAmount, playerName, verb: 'gained', entry };
-  }
-
-  const stealAmount = Number(entry.message.match(/steals (\d+) coin/)?.[1] ?? 0);
-  if (stealAmount > 0) {
-    return { amount: stealAmount, playerName, verb: 'stole', entry };
-  }
-
-  return null;
-}
-
-function biggestCoinMove(gameState: ClientGameState): CoinMove | null {
-  let biggest: CoinMove | null = null;
-
-  for (let i = 0; i < gameState.actionLog.length; i++) {
-    const move = coinMoveForEntry(gameState.actionLog, i, gameState);
-    if (!move) continue;
-    if (!biggest || move.amount > biggest.amount) {
-      biggest = move;
-    }
-  }
-
-  return biggest;
-}
-
-export function computeGameRecap(gameState: ClientGameState): GameRecapItem[] {
-  const items: GameRecapItem[] = [];
-  const winner = gameState.players.find(p => p.id === gameState.winnerId);
-  const playerIds = gameState.players.map(p => p.id);
-  const playerNames = new Map<string, string>();
-
-  for (const p of gameState.players) {
-    playerNames.set(p.id, p.id === gameState.myId ? 'You' : p.name);
-  }
-
-  const stats = computePlayerStats(gameState.actionLog, playerIds, playerNames);
-
-  if (winner) {
-    const influenceLeft = winner.influences.filter(influence => !influence.revealed).length;
-    items.push({
-      label: 'Winner standing',
-      value: `${displayName(gameState, winner.id)} kept ${plural(influenceLeft, 'card')}`,
-      detail: `${winner.coins} coin${winner.coins === 1 ? '' : 's'} left after ${plural(gameState.turnNumber, 'turn')}.`,
-      tone: 'gold',
-    });
-  }
-
-  const decisiveEntry = [...gameState.actionLog]
-    .reverse()
-    .find(entry => DECISIVE_EVENT_TYPES.has(entry.eventType));
-  if (decisiveEntry) {
-    items.push({
-      label: 'Deciding moment',
-      value: decisiveTitle(decisiveEntry, gameState),
-      detail: decisiveEntry.message,
-      tone: 'purple',
-    });
-  }
-
-  const coinMove = biggestCoinMove(gameState);
-  if (coinMove) {
-    items.push({
-      label: 'Biggest coin move',
-      value: `${coinMove.playerName} ${coinMove.verb} ${plural(coinMove.amount, 'coin')}`,
-      detail: coinMove.entry.message,
-      tone: coinMove.verb === 'spent' || coinMove.verb === 'paid' ? 'red' : 'green',
-    });
-  }
-
-  const allStats = Array.from(stats.values());
-  const totalClaims = allStats.reduce((sum, s) => sum + s.actionsClaimed + s.blocksMade, 0);
-  const totalBluffs = allStats.reduce((sum, s) => sum + s.actualBluffs, 0);
-  const totalCaught = allStats.reduce((sum, s) => sum + s.timesCaughtBluffing, 0);
-  const biggestBluffer = allStats
-    .filter(s => s.actualBluffs > 0)
-    .sort((a, b) => b.actualBluffs - a.actualBluffs || b.actionsClaimed + b.blocksMade - (a.actionsClaimed + a.blocksMade))[0];
-
-  if (totalClaims > 0) {
-    items.push({
-      label: 'Bluff table',
-      value: totalBluffs > 0
-        ? `${totalBluffs}/${totalClaims} claims were bluffs`
-        : 'Every logged claim was honest',
-      detail: biggestBluffer
-        ? `${biggestBluffer.playerName} led with ${plural(biggestBluffer.actualBluffs, 'bluff')}; ${plural(totalCaught, 'bluff')} caught.`
-        : "Each claim was checked against the claimer's hand at the time.",
-      tone: totalBluffs > 0 ? 'red' : 'green',
-    });
-  }
-
-  const totalChallenges = allStats.reduce((sum, s) => sum + s.challengesMade, 0);
-  const totalChallengeWins = allStats.reduce((sum, s) => sum + s.challengesWon, 0);
-  const bestReader = allStats
-    .filter(s => s.challengesWon > 0)
-    .sort((a, b) => b.challengesWon - a.challengesWon || a.challengesLost - b.challengesLost)[0];
-
-  if (totalChallenges > 0) {
-    items.push({
-      label: 'Challenge reads',
-      value: `${totalChallengeWins}/${totalChallenges} challenges won`,
-      detail: bestReader
-        ? `${bestReader.playerName} won the most, with ${plural(bestReader.challengesWon, 'correct challenge')}.`
-        : 'Every challenge failed.',
-      tone: totalChallengeWins > 0 ? 'blue' : 'gray',
-    });
-  }
-
-  return items;
-}
-
 export function computeAwards(gameState: ClientGameState): Award[] {
   if (gameState.turnNumber < 3) return [];
-
-  const playerIds = gameState.players.map(p => p.id);
-  const playerNames = new Map<string, string>();
-  for (const p of gameState.players) {
-    playerNames.set(p.id, p.id === gameState.myId ? 'You' : p.name);
-  }
-
-  const stats = computePlayerStats(gameState.actionLog, playerIds, playerNames);
+  const stats = computePlayerStats(gameState.actionLog, gameState.players.map(p => p.id));
   return selectAwards(stats);
 }

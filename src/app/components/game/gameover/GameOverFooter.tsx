@@ -2,6 +2,7 @@
 
 import type { Ref } from 'react';
 import { haptic } from '../../../utils/haptic';
+import { useT } from '../../../i18n/react';
 
 interface GameOverFooterProps {
   /** Host, the only human, or the host has dropped: this player starts the rematch. */
@@ -32,6 +33,7 @@ export function GameOverFooter({
   onFeedback,
   feedbackRef,
 }: GameOverFooterProps) {
+  const t = useT();
   let primary: React.ReactNode;
   if (isPracticeRoom) {
     primary = (
@@ -41,19 +43,19 @@ export function GameOverFooter({
         onClick={() => { haptic(80); onExitPractice?.(); }}
         disabled={!onExitPractice}
       >
-        Back Home
+        {t('gameover.backHome')}
       </button>
     );
   } else if (isSpectator) {
-    primary = <p className="gameover-status">Spectating</p>;
+    primary = <p className="gameover-status">{t('gameover.spectating')}</p>;
   } else if (canRematch) {
     primary = (
       <button type="button" className="btn-primary gameover-primary" onClick={() => { haptic(80); onRematch(); }}>
-        Play Again
+        {t('gameover.playAgain')}
       </button>
     );
   } else {
-    primary = <p className="gameover-status" role="status">Waiting for the host to start a rematch</p>;
+    primary = <p className="gameover-status" role="status">{t('gameover.waitingForHost')}</p>;
   }
 
   return (
@@ -64,12 +66,12 @@ export function GameOverFooter({
         className="gameover-feedback"
         onClick={() => { haptic(); onFeedback(); }}
       >
-        Report a bug or idea
+        {t('gameover.feedback')}
       </button>
       <div className="gameover-actions">
         {!isPracticeRoom && (
           <button type="button" className="btn-secondary gameover-leave" onClick={() => { haptic(); onLeave(); }}>
-            Leave
+            {t('gameover.leave')}
           </button>
         )}
         {primary}

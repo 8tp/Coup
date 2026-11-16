@@ -701,7 +701,8 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 0.375rem 0.625rem;
-    padding: 0.5rem 0.75rem 0.5rem 0.5rem;
+    padding-block: 0.5rem;
+    padding-inline: 0.5rem 0.75rem;
   }
 
   /* The winner: brass, and the crown (§1.2 RULING: the crown means the winner). */
@@ -756,7 +757,8 @@
     flex: none;
     display: flex;
     gap: 0.375rem;
-    margin-left: auto;
+    /* Cards to the far end of the row: the right, or the left under dir="rtl". */
+    margin-inline-start: auto;
   }
 
   /* Every hand at full strength. The table's "Eliminated" print degradation
