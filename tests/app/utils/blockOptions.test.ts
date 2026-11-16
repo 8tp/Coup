@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ActionType, Character, ClientGameState, GameMode, GameStatus, TurnPhase } from '@/shared/types';
 import { blockHint, canBlockDuringChallenge, visibleBlockCharacters } from '@/app/utils/blockOptions';
+import { makePlainTranslator } from '@/app/i18n/runtime';
 
 function claimOnMe(type: ActionType, overrides: Partial<ClientGameState> = {}): ClientGameState {
   return {
@@ -60,9 +61,18 @@ describe('block copy', () => {
   });
 
   it('names the cards and what blocking saves', () => {
-    expect(blockHint(ActionType.Steal, [Character.Captain, Character.Ambassador]))
+    const t = makePlainTranslator('en');
+    expect(blockHint(t, ActionType.Steal, [Character.Captain, Character.Ambassador]))
       .toBe('Block with Captain or Ambassador to keep your coins. You can claim either without holding it.');
-    expect(blockHint(ActionType.Assassinate, [Character.Contessa]))
+    expect(blockHint(t, ActionType.Assassinate, [Character.Contessa]))
       .toBe('Block with Contessa or lose a card. You can claim Contessa without holding one.');
+    expect(blockHint(t, ActionType.Steal, [Character.Captain, Character.Inquisitor]))
+      .toBe('Block with Captain or Inquisitor to keep your coins. You can claim either without holding it.');
+  });
+
+  it('builds the hint from the catalog, so other languages get their own words and list', () => {
+    const accented = blockHint(makePlainTranslator('en-XA'), ActionType.Steal, [Character.Captain, Character.Ambassador]);
+    expect(accented.startsWith('⟦')).toBe(true);
+    expect(accented).not.toContain('Block with');
   });
 });

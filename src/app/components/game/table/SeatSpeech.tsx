@@ -3,14 +3,18 @@
 import { useEffect, useState } from 'react';
 import type { ChatMessage } from '@/shared/types';
 import { useGameStore } from '../../../stores/gameStore';
+import { useT } from '../../../i18n';
+import { chatText } from '../tableText';
 
 const SPEECH_MS = 5000;
 
 /**
  * A player's latest chat line, said out loud at their seat for a few seconds.
- * The chat drawer keeps the record; this is the table hearing it.
+ * The chat drawer keeps the record; this is the table hearing it. Reactions
+ * and quick phrases read in the reader's language (`chatText`).
  */
 export function SeatSpeech({ playerId, messages }: { playerId: string; messages: ChatMessage[] }) {
+  const t = useT();
   const muted = useGameStore(s => s.mutedPlayerIds.includes(playerId));
   const latest = [...messages].reverse().find(m => m.playerId === playerId);
   const [visibleId, setVisibleId] = useState<string | null>(null);
@@ -18,14 +22,14 @@ export function SeatSpeech({ playerId, messages }: { playerId: string; messages:
   useEffect(() => {
     if (!latest || Date.now() - latest.timestamp > SPEECH_MS) return;
     setVisibleId(latest.id);
-    const t = setTimeout(() => setVisibleId(null), SPEECH_MS);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setVisibleId(null), SPEECH_MS);
+    return () => clearTimeout(timer);
   }, [latest]);
 
   if (muted || !latest || visibleId !== latest.id) return null;
   return (
     <div className="seat-speech" role="status">
-      {latest.message}
+      {chatText(t, latest)}
     </div>
   );
 }

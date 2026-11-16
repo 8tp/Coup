@@ -1,6 +1,11 @@
 import { ActionType, BotPersonality, Character, GameMode, PersonalityParams, LogEventType, RoomSettings } from './types';
 
 // ─── Action Display Names ───
+/**
+ * English, for the server's own log and error text. Screens name actions
+ * with `actionName(t, type)` from `src/app/i18n`, so they read in the
+ * player's language.
+ */
 export const ACTION_DISPLAY_NAMES: Record<ActionType, string> = {
   [ActionType.Income]: 'Income',
   [ActionType.ForeignAid]: 'Foreign Aid',
@@ -120,10 +125,45 @@ export const CHAT_MAX_MESSAGE_CODE_UNITS = CHAT_MAX_MESSAGE_LENGTH * 4;
 export const CHAT_RATE_LIMIT_MS = 1000;
 export const CHAT_MAX_HISTORY = 50;
 
+// ─── Quick Phrases ───
+/**
+ * One-tap chat lines offered in the desktop chat composer. The client sends
+ * the `id` (`chat:send` with `phraseId`) and every reader renders it from the
+ * catalog (`game.phrase.<id>`) in their own language. `text` is the English,
+ * used only as the chat line's `message` for older clients and server logs.
+ */
+export const QUICK_PHRASE_IDS = ['nice_bluff', 'have_it', 'liar', 'well_played'] as const;
+export type QuickPhraseId = (typeof QUICK_PHRASE_IDS)[number];
+
+export const QUICK_PHRASES: ReadonlyArray<{ id: QuickPhraseId; text: string }> = [
+  { id: 'nice_bluff', text: 'Nice bluff' },
+  { id: 'have_it', text: 'I have it' },
+  { id: 'liar', text: 'Liar!' },
+  { id: 'well_played', text: 'Well played' },
+];
+
+export function isQuickPhraseId(value: unknown): value is QuickPhraseId {
+  return typeof value === 'string' && (QUICK_PHRASE_IDS as readonly string[]).includes(value);
+}
+
 // ─── Reaction Constants ───
+export const REACTION_IDS = [
+  'gg', 'nice_bluff', 'sus', 'salty', 'wow', 'lol', 'rip', 'no_way', 'big_brain', 'sweat', 'eyes', 'cope',
+] as const;
+export type ReactionId = (typeof REACTION_IDS)[number];
+
+export function isReactionId(value: unknown): value is ReactionId {
+  return typeof value === 'string' && (REACTION_IDS as readonly string[]).includes(value);
+}
+
 export interface ReactionDefinition {
-  id: string;
+  id: ReactionId;
   emoji: string;
+  /**
+   * English, for the server's chat line (`"<emoji> <label>"`), which older
+   * clients and server logs read. Screens render `game.reaction.<id>` from
+   * the catalog instead.
+   */
   label: string;
 }
 
@@ -276,6 +316,10 @@ export const ACTION_DEFINITIONS: Record<ActionType, ActionDefinition> = {
 };
 
 // ─── Character role descriptions ───
+/**
+ * English only. The table's card preview reads `game.cardAbility.<Character>`
+ * from the catalog instead; this stays for code not yet converted.
+ */
 export const CHARACTER_DESCRIPTIONS: Record<Character, string> = {
   [Character.Duke]: 'Tax: Take 3 coins. Blocks Foreign Aid.',
   [Character.Assassin]: 'Assassinate: Pay 3 coins. The target loses a card.',

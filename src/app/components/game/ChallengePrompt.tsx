@@ -1,23 +1,34 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { ActionType, Character, ClientGameState, PendingAction, TurnPhase } from '@/shared/types';
-import { ACTION_DISPLAY_NAMES } from '@/shared/constants';
 import { CHARACTER_SVG_ICONS } from '../icons';
 import { Timer } from '../ui/Timer';
 import { getSocket } from '../../hooks/useSocket';
 import { haptic, hapticHeavy } from '../../utils/haptic';
 import { blockHint, canBlockDuringChallenge, visibleBlockCharacters } from '../../utils/blockOptions';
 import { usePendingAnswer } from '../../hooks/usePendingAnswer';
-import { formatNames, remainingChallengeNames } from './PhaseStatus';
+import { actionName, characterName, useT, type Translator } from '../../i18n';
+import { remainingChallengeNames } from './PhaseStatus';
+import { nameList, playerName } from './tableText';
 
 interface ChallengePromptProps {
   gameState: ClientGameState;
 }
 
-/** "Steal from you", "Assassinate you": the claim as the target hears it. */
-function aimedAtYou(action: PendingAction): string {
-  const name = ACTION_DISPLAY_NAMES[action.type];
-  return action.type === ActionType.Steal ? `${name} from you` : `${name} you`;
+/** Bold, for a player's name inside a prompt sentence. */
+const b = (chunks: ReactNode) => <span className="font-bold">{chunks}</span>;
+/** The claimed character, in the accent. */
+const c = (chunks: ReactNode) => <span className="text-coup-accent font-bold">{chunks}</span>;
+
+/** "X claims Captain to Steal from you", "X claims Assassin to Assassinate you": the claim as the target hears it. */
+function aimedAtYou(t: Translator, action: PendingAction, actor: ReactNode): ReactNode {
+  const params = {
+    actor,
+    character: action.claimedCharacter ? characterName(t, action.claimedCharacter) : '',
+    action: actionName(t, action.type),
+  };
+  return t.rich(action.type === ActionType.Steal ? 'prompts.claimStealFromYou' : 'prompts.claimAtYou', params);
 }
 
 function BlockButtons({ characters, pending, answer }: {
@@ -25,6 +36,7 @@ function BlockButtons({ characters, pending, answer }: {
   pending: string | null;
   answer: (choice: string, send: () => void) => void;
 }) {
+  const t = useT();
   const socket = getSocket();
   return (
     /* Stacked in the phone dock, where half a row cannot hold "Block with
@@ -42,7 +54,7 @@ function BlockButtons({ characters, pending, answer }: {
             onClick={() => answer(`block:${char}`, () => { haptic(80); socket.emit('game:block', { character: char }); })}
           >
             <Icon size={20} />
-            Block with {char}
+            {t('prompts.blockWith', { character: characterName(t, char) })}
           </button>
         );
       })}
@@ -51,6 +63,7 @@ function BlockButtons({ characters, pending, answer }: {
 }
 
 export function ChallengePrompt({ gameState }: ChallengePromptProps) {
+  const t = useT();
   const socket = getSocket();
   const { pending, answer } = usePendingAnswer(gameState);
   const { turnPhase, pendingAction, challengeState, myId } = gameState;
@@ -66,8 +79,10 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
   const target = pendingAction.targetId
     ? gameState.players.find(p => p.id === pendingAction.targetId)
     : null;
-  const actionName = ACTION_DISPLAY_NAMES[pendingAction.type];
-  const waitingOn = formatNames(remainingChallengeNames(gameState, pendingAction.actorId));
+  const action = actionName(t, pendingAction.type);
+  const claimed = pendingAction.claimedCharacter ? characterName(t, pendingAction.claimedCharacter) : '';
+  const waitingNames = remainingChallengeNames(gameState, pendingAction.actorId);
+  const waitingOn = { count: waitingNames.length, names: nameList(t, waitingNames) };
 
   /* `.prompt-claim` restates the claim for a phone, where this prompt sits in
      the bottom sheet and can cover the plaque. On the desktop table the plaque
@@ -80,7 +95,12 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
   const declaredBy = declared ? gameState.players.find(p => p.id === declared.blockerId) : null;
   const declaredNote = declared && declared.blockerId !== myId && declaredBy ? (
     <p className="text-center text-coup-ink-mute text-xs mt-1">
-      <span className="font-bold">{declaredBy.name}</span> will block with {declared.claimedCharacter} if the {actionName} goes ahead.
+      {t.rich('prompts.declaredBlock', {
+        blocker: playerName(declaredBy.name),
+        character: characterName(t, declared.claimedCharacter),
+        action,
+        b,
+      })}
     </p>
   ) : null;
 
@@ -91,12 +111,12 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
       <div className="prompt-info">
         <p className="prompt-claim text-center text-gray-300 mb-1">
           {isMyEmbezzle
-            ? <>You claimed <span className="text-coup-accent font-bold">no Duke</span> to Embezzle</>
-            : <>You claimed <span className="text-coup-accent font-bold">{pendingAction.claimedCharacter}</span> to {actionName}
-              {target && <> on <span className="font-bold">{target.name}</span></>}</>
-          }
+            ? t.rich('prompts.youClaimedNo', { character: characterName(t, Character.Duke), action, c })
+            : target
+              ? t.rich('prompts.youClaimedOn', { character: claimed, action, target: playerName(target.name), b, c })
+              : t.rich('prompts.youClaimed', { character: claimed, action, c })}
         </p>
-        <p className="text-center text-coup-ink-mute text-sm">Waiting for {waitingOn} to challenge or pass.</p>
+        <p className="text-center text-coup-ink-mute text-sm">{t.rich('prompts.waitingChallenge', waitingOn)}</p>
         {declaredNote}
         <Timer expiresAt={gameState.timerExpiry} />
       </div>
@@ -108,9 +128,9 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
     return (
       <div className="prompt-info">
         <p className="text-center text-gray-300 text-sm">
-          You&apos;ll block with <span className="text-coup-accent font-bold">{declared.claimedCharacter}</span> if the {actionName} goes ahead.
+          {t.rich('prompts.youWillBlock', { character: characterName(t, declared.claimedCharacter), action, c })}
         </p>
-        <p className="text-center text-coup-ink-mute text-xs">Waiting for {waitingOn}.</p>
+        <p className="text-center text-coup-ink-mute text-xs">{t.rich('prompts.waitingFor', waitingOn)}</p>
         <Timer expiresAt={gameState.timerExpiry} />
       </div>
     );
@@ -126,9 +146,9 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
       return (
         <div className={isAssassination ? 'prompt-urgent' : 'prompt-action'}>
           <p className="text-center text-gray-300 text-sm mb-1">
-            You passed on the challenge. You can still block.
+            {t('prompts.passedCanBlock')}
           </p>
-          <p className="prompt-hint text-center text-gray-400 text-xs mb-2">{blockHint(pendingAction.type, blockers)}</p>
+          <p className="prompt-hint text-center text-gray-400 text-xs mb-2">{blockHint(t, pendingAction.type, blockers)}</p>
           <Timer expiresAt={gameState.timerExpiry} />
           <BlockButtons characters={blockers} pending={pending} answer={answer} />
         </div>
@@ -137,7 +157,7 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
     return (
       <div className="prompt-info">
         <p className="text-center text-gray-400 text-sm">
-          You passed. Waiting for {waitingOn}.
+          {t.rich('prompts.passedWaiting', waitingOn)}
         </p>
         {declaredNote}
         <Timer expiresAt={gameState.timerExpiry} />
@@ -153,7 +173,7 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
         aria-busy={pending === 'challenge' || undefined}
         onClick={() => answer('challenge', () => { hapticHeavy(); socket.emit('game:challenge'); })}
       >
-        Challenge
+        {t('prompts.challenge')}
       </button>
       <button
         className="btn-secondary flex-1"
@@ -161,23 +181,25 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
         aria-busy={pending === 'pass' || undefined}
         onClick={() => answer('pass', () => { haptic(80); socket.emit('game:pass_challenge'); })}
       >
-        Pass
+        {t('prompts.pass')}
       </button>
     </div>
   );
+
+  const actorName = playerName(actor?.name);
 
   // Actionable target of a blockable claim: block, challenge or pass, all here.
   if (canBlock) {
     return (
       <div className={isAssassination ? 'prompt-urgent' : 'prompt-action'}>
         <p className={`prompt-claim text-center font-bold mb-1 ${isAssassination ? 'text-red-300' : 'text-white'}`}>
-          {actor?.name} claims {pendingAction.claimedCharacter} to {aimedAtYou(pendingAction)}
+          {aimedAtYou(t, pendingAction, actorName)}
         </p>
-        <p className="prompt-hint text-center text-gray-400 text-xs mb-2">{blockHint(pendingAction.type, blockers)}</p>
+        <p className="prompt-hint text-center text-gray-400 text-xs mb-2">{blockHint(t, pendingAction.type, blockers)}</p>
         <Timer expiresAt={gameState.timerExpiry} />
         <BlockButtons characters={blockers} pending={pending} answer={answer} />
         <p className="prompt-hint text-center text-gray-400 text-xs mt-3">
-          Challenge if you think they&apos;re bluffing. If they aren&apos;t, you lose a card.
+          {t('prompts.bluffHint')}
         </p>
         {challengeButtons}
       </div>
@@ -186,11 +208,16 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
 
   // Actionable: can challenge or pass
   const isEmbezzle = pendingAction.type === ActionType.Embezzle;
+  const isSteal = pendingAction.type === ActionType.Steal;
   const actionDesc = isEmbezzle
-    ? `${actor?.name} claims no Duke to Embezzle`
+    ? t.rich('prompts.claimNo', { actor: actorName, character: characterName(t, Character.Duke), action })
     : target
-      ? `${actor?.name} claims ${pendingAction.claimedCharacter} to ${actionName} ${pendingAction.type === ActionType.Steal ? 'from ' : ''}${target.id === myId ? 'you' : target.name}`
-      : `${actor?.name} claims ${pendingAction.claimedCharacter} to ${actionName}`;
+      ? target.id === myId
+        ? aimedAtYou(t, pendingAction, actorName)
+        : t.rich(isSteal ? 'prompts.claimStealFrom' : 'prompts.claimOn', {
+          actor: actorName, character: claimed, action, target: playerName(target.name),
+        })
+      : t.rich('prompts.claim', { actor: actorName, character: claimed, action });
 
   return (
     <div className="prompt-action">
@@ -199,8 +226,8 @@ export function ChallengePrompt({ gameState }: ChallengePromptProps) {
       </p>
       <p className="prompt-hint text-center text-gray-400 text-xs mb-2">
         {isEmbezzle
-          ? "Challenge if you think they have a Duke. If they don't, you lose a card."
-          : "Challenge if you think they're bluffing. If they aren't, you lose a card."}
+          ? t('prompts.embezzleHint', { character: characterName(t, Character.Duke) })
+          : t('prompts.bluffHint')}
       </p>
       {declaredNote}
       <Timer expiresAt={gameState.timerExpiry} />

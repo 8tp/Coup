@@ -1,22 +1,34 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { Character, ClientGameState, GameMode, TurnPhase, ActionType } from '@/shared/types';
-import { ACTION_DEFINITIONS, ACTION_DISPLAY_NAMES } from '@/shared/constants';
+import { ACTION_DEFINITIONS } from '@/shared/constants';
 import { CHARACTER_SVG_ICONS } from '../icons';
-import { formatNames, remainingBlockNames } from './PhaseStatus';
+import { remainingBlockNames } from './PhaseStatus';
 import { Timer } from '../ui/Timer';
 import { getSocket } from '../../hooks/useSocket';
 import { haptic } from '../../utils/haptic';
+import { characterList } from '../../utils/blockOptions';
 import { usePendingAnswer } from '../../hooks/usePendingAnswer';
+import { actionName, characterName, useT } from '../../i18n';
+import { nameList, playerName } from './tableText';
 
 /** What a Steal takes, at most. Mirrors `Math.min(2, target.coins)` in ActionResolver. */
 const STEAL_AMOUNT = 2;
+/** What Foreign Aid takes. Mirrors the resolver's `give_coins` amount. */
+const FOREIGN_AID_AMOUNT = 2;
+
+/** Bold, for a player's name inside a prompt sentence. */
+const b = (chunks: ReactNode) => <span className="font-bold">{chunks}</span>;
+/** Bold and a shade brighter: the one player the table is waiting on. */
+const bLit = (chunks: ReactNode) => <span className="font-bold text-gray-300">{chunks}</span>;
 
 interface BlockPromptProps {
   gameState: ClientGameState;
 }
 
 export function BlockPrompt({ gameState }: BlockPromptProps) {
+  const t = useT();
   const socket = getSocket();
   const { pending, answer } = usePendingAnswer(gameState);
   const { turnPhase, pendingAction, myId } = gameState;
@@ -31,14 +43,16 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
     ? gameState.players.find(p => p.id === pendingAction.targetId)
     : null;
   const def = ACTION_DEFINITIONS[pendingAction.type];
+  const action = actionName(t, pendingAction.type);
 
   // Actor sees waiting state
   if (myId === pendingAction.actorId) {
     return (
       <div className="prompt-info">
         <p className="text-center text-gray-300 text-sm">
-          Your {ACTION_DISPLAY_NAMES[pendingAction.type]} goes ahead unless{' '}
-          {target ? <><span className="font-bold">{target.name}</span> blocks it.</> : 'someone blocks it.'}
+          {target
+            ? t.rich('prompts.yourActionUnless', { action, target: playerName(target.name), b })
+            : t('prompts.yourActionUnlessAnyone', { action })}
         </p>
         <Timer expiresAt={gameState.timerExpiry} />
       </div>
@@ -50,11 +64,10 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
     return (
       <div className="prompt-info">
         <p className="prompt-claim text-center text-gray-300 text-sm mb-1">
-          <span className="font-bold">{actor?.name}</span> uses {ACTION_DISPLAY_NAMES[pendingAction.type]} on{' '}
-          <span className="font-bold">{target?.name}</span>.
+          {t.rich('prompts.usesOn', { actor: playerName(actor?.name), action, target: playerName(target?.name), b })}
         </p>
         <p className="text-center text-gray-400 text-sm">
-          Waiting for <span className="font-bold text-gray-300">{target?.name}</span> to block or allow.
+          {t.rich('prompts.waitingTarget', { target: playerName(target?.name), b: bLit })}
         </p>
         <Timer expiresAt={gameState.timerExpiry} />
       </div>
@@ -75,8 +88,7 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
     return (
       <div className="prompt-info">
         <p className="text-center text-gray-400 text-sm">
-          You can&apos;t block <span className="font-bold text-gray-300">{actor?.name}</span>&apos;s Foreign Aid.
-          You share a faction, and both factions are still in the game.
+          {t.rich('prompts.sameFactionForeignAid', { actor: playerName(actor?.name), action, b: bLit })}
         </p>
         <Timer expiresAt={gameState.timerExpiry} />
       </div>
@@ -89,7 +101,9 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
     return (
       <div className="prompt-info">
         <p className="text-center text-gray-400 text-sm">
-          {waitingOn.length > 0 ? <>You passed. Waiting for {formatNames(waitingOn)}.</> : 'You passed.'}
+          {waitingOn.length > 0
+            ? t.rich('prompts.blockPassedWaiting', { names: nameList(t, waitingOn) })
+            : t('prompts.blockPassed')}
         </p>
         <Timer expiresAt={gameState.timerExpiry} />
       </div>
@@ -102,28 +116,29 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
   const isForeignAid = pendingAction.type === ActionType.ForeignAid;
 
   const wrapperClass = isAssassination ? 'prompt-urgent' : 'prompt-action';
+  const actorName = playerName(actor?.name);
 
   /* `headline` is the claim, for a phone (see ChallengePrompt). `subtext` is
      what blocking or allowing costs you, and it has to stand on its own on the
      desktop table, where the plaque states the claim and the headline is hidden. */
-  let headline: string;
+  let headline: ReactNode;
   let subtext: string;
 
   if (isAssassination) {
-    headline = `${actor?.name} is assassinating you`;
-    subtext = 'Block with Contessa or lose a card. You can claim Contessa without holding one.';
+    const contessa = characterName(t, Character.Contessa);
+    headline = t.rich('prompts.assassinating', { actor: actorName });
+    subtext = t('prompts.assassinatingHint', { character: contessa });
   } else if (isStealing) {
     const taken = Math.min(STEAL_AMOUNT, me.coins);
-    const coins = taken === 1 ? 'your coin' : `${taken} of your coins`;
-    headline = `${actor?.name} is stealing ${coins}`;
-    const blocker = gameState.useInquisitor ? 'Captain or Inquisitor' : 'Captain or Ambassador';
-    subtext = `Block with ${blocker} to keep ${coins}. You can claim either without holding it.`;
+    headline = t.rich('prompts.stealing', { actor: actorName, count: taken });
+    const blockers = characterList(t, [Character.Captain, gameState.useInquisitor ? Character.Inquisitor : Character.Ambassador]);
+    subtext = t('prompts.stealingHint', { blockers, count: taken });
   } else if (isForeignAid) {
-    headline = `${actor?.name} is taking Foreign Aid (+2 coins)`;
-    subtext = 'Claim Duke to stop them taking 2 coins. You can claim Duke without holding one.';
+    headline = t.rich('prompts.foreignAid', { actor: actorName, action, count: FOREIGN_AID_AMOUNT });
+    subtext = t('prompts.foreignAidHint', { character: characterName(t, Character.Duke), count: FOREIGN_AID_AMOUNT });
   } else {
-    headline = `${actor?.name} uses ${ACTION_DISPLAY_NAMES[pendingAction.type]}`;
-    subtext = 'You can block it.';
+    headline = t.rich('prompts.uses', { actor: actorName, action });
+    subtext = t('prompts.canBlock');
   }
 
   return (
@@ -153,7 +168,7 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
               onClick={() => answer(`block:${char}`, () => { haptic(80); socket.emit('game:block', { character: char }); })}
             >
               <Icon size={20} />
-              Block with {char}
+              {t('prompts.blockWith', { character: characterName(t, char) })}
             </button>
           );
         })}
@@ -163,7 +178,7 @@ export function BlockPrompt({ gameState }: BlockPromptProps) {
           aria-busy={pending === 'pass' || undefined}
           onClick={() => answer('pass', () => { haptic(80); socket.emit('game:pass_block'); })}
         >
-          Don&apos;t block
+          {t('prompts.dontBlock')}
         </button>
       </div>
     </div>

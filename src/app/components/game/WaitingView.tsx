@@ -2,6 +2,7 @@
 
 import { ClientGameState, TurnPhase } from '@/shared/types';
 import { haptic } from '../../utils/haptic';
+import { useT } from '../../i18n';
 
 interface WaitingViewProps {
   gameState: ClientGameState;
@@ -28,6 +29,7 @@ interface WaitingViewProps {
  * job (PhaseStatus), and the centre says each thing once.
  */
 export function WaitingView({ gameState, onLeave, onNewGame, busy }: WaitingViewProps) {
+  const t = useT();
   const { turnPhase, myId, players } = gameState;
 
   // The game-over overlay takes over from here.
@@ -40,10 +42,10 @@ export function WaitingView({ gameState, onLeave, onNewGame, busy }: WaitingView
   const offerNewGame = onlyHuman && !!onNewGame;
 
   return (
-    <div className="prompt-info watch-panel" role="region" aria-label="You are watching">
-      <p className="watch-title type-display">Watching</p>
+    <div className="prompt-info watch-panel" role="region" aria-label={t('game.watch.label')}>
+      <p className="watch-title type-display">{t('game.watch.title')}</p>
       <p className="watch-copy">
-        You&apos;re eliminated. Watch the rest of the game, or leave whenever you like.
+        {t('game.watch.body')}
       </p>
       {(onLeave || offerNewGame) && (
         <div className="watch-actions">
@@ -53,7 +55,7 @@ export function WaitingView({ gameState, onLeave, onNewGame, busy }: WaitingView
               aria-disabled={busy || undefined}
               onClick={() => { if (busy) return; haptic(80); onNewGame?.(); }}
             >
-              {busy ? 'Dealing…' : 'New game'}
+              {busy ? t('game.dealing') : t('game.watch.newGame')}
             </button>
           )}
           {onLeave && (
@@ -62,7 +64,7 @@ export function WaitingView({ gameState, onLeave, onNewGame, busy }: WaitingView
               aria-disabled={busy || undefined}
               onClick={() => { if (busy) return; haptic(); onLeave(); }}
             >
-              Leave table
+              {t('game.watch.leave')}
             </button>
           )}
         </div>

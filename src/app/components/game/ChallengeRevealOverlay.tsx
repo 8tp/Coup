@@ -46,7 +46,7 @@
  * land. Motion collapses; information does not.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { MAX_EVENT_MS, cancel as cancelFlight, fly, setRest, writeRest } from '../../anim/flight';
 import { useIsomorphicLayoutEffect } from '../../anim/useFlight';
 import {
@@ -62,7 +62,12 @@ import { useGameStore } from '../../stores/gameStore';
 import { characterCardVars } from '../../utils/characterPalette';
 import { BluffGlyph } from '../icons';
 import { CardArtwork, CardBackArtwork, CharacterCardBadge } from './CardArtwork';
-import type { ChallengeRevealEvent } from '@/shared/types';
+import { Character, type ChallengeRevealEvent } from '@/shared/types';
+import { characterName, useT } from '../../i18n';
+import { playerName } from './tableText';
+
+/** The revealed character, in the accent. */
+const accent = (chunks: ReactNode) => <span className="text-coup-accent">{chunks}</span>;
 
 /* ── the sequence ─────────────────────────────────────────────────────────
    Pure, exported, and tested in tests/app/hooks — none of it needs a DOM. */
@@ -220,6 +225,7 @@ function armPhase(els: readonly HTMLElement[], gate: RevealGate, dwellMs: number
 /* ── the component ────────────────────────────────────────────────────────── */
 
 export function ChallengeRevealOverlay() {
+  const t = useT();
   const challengeReveal = useGameStore(s => s.challengeReveal);
   const setChallengeReveal = useGameStore(s => s.setChallengeReveal);
   const gameState = useGameStore(s => s.gameState);
@@ -432,7 +438,7 @@ export function ChallengeRevealOverlay() {
          never wait behind a plate to do it. */
       onClick={() => setPhase('done')}
       role="button"
-      aria-label="Skip the reveal"
+      aria-label={t('prompts.reveal.skip')}
     >
       <div className="flex flex-col items-center gap-4">
         <div className="relative flex gap-3">
@@ -477,7 +483,7 @@ export function ChallengeRevealOverlay() {
                     the same mark the action log uses for a caught bluff, so the
                     overlay and the log line beneath it say it the same way. */}
                 <BluffGlyph size={52} className="text-coup-crimson" />
-                <span className="type-display text-step-0 text-coup-ink">{character}</span>
+                <span className="type-display text-step-0 text-coup-ink">{characterName(t, character)}</span>
               </div>
             </div>
           )}
@@ -500,7 +506,7 @@ export function ChallengeRevealOverlay() {
                   <div className="card-face card-back h-40 w-28 bg-coup-surface">
                     <CardBackArtwork variant="focus" priority />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10" />
-                    <span className="sr-only">New hidden influence</span>
+                    <span className="sr-only">{t('prompts.reveal.newCard')}</span>
                   </div>
                 </div>
               ))}
@@ -514,29 +520,25 @@ export function ChallengeRevealOverlay() {
             <>
               <p className="text-white text-lg font-bold">
                 {inverseClaim && wasGenuine
-                  ? <>{challengedName} shows every card and has <span className="text-coup-accent">no Duke</span></>
+                  ? t.rich('prompts.reveal.showsAllNo', { name: playerName(challengedName), character: characterName(t, Character.Duke), c: accent })
                   : inverseClaim
-                    ? <>{challengedName} reveals <span className="text-coup-accent">Duke</span></>
+                    ? t.rich('prompts.reveal.reveals', { name: playerName(challengedName), character: characterName(t, Character.Duke), c: accent })
                     : wasGenuine
-                  ? <>{challengedName} reveals <span className="text-coup-accent">{character}</span></>
-                  : <>{challengedName} doesn&apos;t have <span className="text-coup-accent">{character}</span></>
+                  ? t.rich('prompts.reveal.reveals', { name: playerName(challengedName), character: characterName(t, character), c: accent })
+                  : t.rich('prompts.reveal.doesNotHave', { name: playerName(challengedName), character: characterName(t, character), c: accent })
                 }
               </p>
               <p className={`text-sm font-bold mt-1 ${wasGenuine ? 'text-green-400' : 'text-red-400'}`}>
-                {wasGenuine ? 'Challenge fails' : 'Caught bluffing'}
+                {wasGenuine ? t('prompts.reveal.challengeFails') : t('prompts.reveal.caught')}
               </p>
               <p className="text-gray-400 text-xs mt-1">
-                {wasGenuine
-                  ? `${challengerName} must lose a card`
-                  : `${challengedName} must lose a card`}
+                {t.rich('prompts.reveal.mustLose', { name: playerName(wasGenuine ? challengerName : challengedName) })}
               </p>
             </>
           )}
           {phase === 'swap' && (
             <p className="text-gray-400 text-sm animate-fade-in">
-              {revealedCharacters.length > 1
-                ? 'The shown cards go back into the deck. Replacements are drawn.'
-                : 'The card goes back into the deck. A replacement is drawn.'}
+              {t('prompts.reveal.swap', { count: revealedCharacters.length })}
             </p>
           )}
         </div>

@@ -14,7 +14,7 @@ function publication(overrides: Partial<TargetingPublication> = {}): TargetingPu
     action: ActionType.Steal,
     eligibleIds: ['bishop'],
     ineligibleIds: ['auto'],
-    reasons: { auto: 'Auto has no coins to steal.' },
+    reasons: { auto: { key: 'noCoinsToSteal', params: { name: 'Auto' } } },
     onSelect: vi.fn(),
     ...overrides,
   };
@@ -36,7 +36,7 @@ describe('gameStore targeting', () => {
     const held = useGameStore.getState().targeting;
     expect(held).toBe(pub);
     expect(held?.eligibleIds).toEqual(['bishop']);
-    expect(held?.reasons.auto).toBe('Auto has no coins to steal.');
+    expect(held?.reasons.auto).toEqual({ key: 'noCoinsToSteal', params: { name: 'Auto' } });
   });
 
   it('routes a seat tap through the publisher\'s own handler', () => {

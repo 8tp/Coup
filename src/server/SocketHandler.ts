@@ -1,7 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import { ClientToServerEvents, ServerToClientEvents } from '../shared/protocol';
 import { ActionType, BotPersonality, BotReplaceReason, Character, GameState, GameStatus, RoomOrigin, TurnPhase } from '../shared/types';
-import { MAX_PLAYERS, REACTIONS, RATE_LIMIT_ROOM_CREATE_MS, RATE_LIMIT_ROOM_JOIN_MS, RATE_LIMIT_GAME_ACTION_MS, RATE_LIMIT_BOT_ADD_MS } from '../shared/constants';
+import { MAX_PLAYERS, QUICK_PHRASES, REACTIONS,RATE_LIMIT_ROOM_CREATE_MS, RATE_LIMIT_ROOM_JOIN_MS, RATE_LIMIT_GAME_ACTION_MS, RATE_LIMIT_BOT_ADD_MS } from '../shared/constants';
 import { validateName, validateChatMessage } from './ContentFilter';
 import { nameKey } from '../shared/textLimits';
 import { failedAck, serverErrorPayload } from '../shared/i18n/serverErrors';
@@ -698,7 +698,9 @@ export class SocketHandler {
       this.roomManager.touchRoom(found.room.code);
 
       if (!data || typeof data.message !== 'string') return;
-      const msgResult = validateChatMessage(data.message);
+      // A quick phrase is sent by id; its English is what older clients see.
+      const phrase = QUICK_PHRASES.find(p => p.id === data.phraseId);
+      const msgResult = validateChatMessage(phrase ? phrase.text : data.message);
       if (!msgResult.valid) {
         socket.emit('room:error', serverErrorPayload(msgResult.error));
         return;
@@ -709,6 +711,8 @@ export class SocketHandler {
         found.player.id,
         found.player.name,
         msgResult.sanitized,
+        undefined,
+        phrase?.id,
       );
       if ('error' in result) {
         socket.emit('room:error', serverErrorPayload(result.error));

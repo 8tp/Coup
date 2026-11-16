@@ -7,6 +7,7 @@ interface TimerProps {
   expiresAt: number | null;
 }
 
+/** The answer timer in the table's prompts and action bar. Its text is in the `common` namespace. */
 export function Timer({ expiresAt }: TimerProps) {
   const t = useT();
   const [remaining, setRemaining] = useState(0);

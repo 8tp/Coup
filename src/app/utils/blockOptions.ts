@@ -1,5 +1,7 @@
 import { ACTION_DEFINITIONS } from '@/shared/constants';
 import { ActionType, Character, ClientGameState, TurnPhase } from '@/shared/types';
+import { characterName, type PlainTranslator } from '../i18n';
+import { plainList } from '../components/game/tableText';
 
 /**
  * Which characters the pending action can be blocked with in this game:
@@ -16,7 +18,11 @@ export function visibleBlockCharacters(gameState: ClientGameState): Character[] 
   ));
 }
 
-/** "Captain", "Captain or Ambassador", "Duke, Captain or Contessa". */
+/**
+ * "Captain", "Captain or Ambassador", "Duke, Captain or Contessa". English
+ * only: the table uses `characterList` below. Kept for the practice coach
+ * until it is converted.
+ */
 export function formatCharacters(characters: Character[]): string {
   if (characters.length <= 1) return characters[0] ?? 'the shown character';
   return `${characters.slice(0, -1).join(', ')} or ${characters[characters.length - 1]}`;
@@ -39,16 +45,20 @@ export function canBlockDuringChallenge(gameState: ClientGameState): boolean {
   return def.challengeable && def.blockedBy.length > 0;
 }
 
+/** "Captain", "Captain or Ambassador": the characters' names, in the reader's language. */
+export function characterList(t: PlainTranslator, characters: Character[]): string {
+  return plainList(t, characters.map(c => characterName(t, c)), 'disjunction');
+}
+
 /** What blocking would save you from, in one sentence for a prompt. */
-export function blockHint(type: ActionType, characters: Character[]): string {
-  const who = formatCharacters(characters);
-  const holding = characters.length > 1 ? 'either' : characters[0];
+export function blockHint(t: PlainTranslator, type: ActionType, characters: Character[]): string {
+  const params = { count: characters.length, who: characterList(t, characters) };
   switch (type) {
     case ActionType.Assassinate:
-      return `Block with ${who} or lose a card. You can claim ${holding} without holding one.`;
+      return t('prompts.blockHint.Assassinate', params);
     case ActionType.Steal:
-      return `Block with ${who} to keep your coins. You can claim ${holding} without holding it.`;
+      return t('prompts.blockHint.Steal', params);
     default:
-      return `Block with ${who} to stop it. You can claim ${holding} without holding it.`;
+      return t('prompts.blockHint.other', params);
   }
 }

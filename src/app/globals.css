@@ -339,7 +339,8 @@
     unicode-bidi: isolate;
   }
 
-  [dir='rtl'] .court-table .table-seat :is(span, p) {
+  [dir='rtl'] .court-table .table-seat :is(span, p),
+  [dir='rtl'] .court-table .table-object-label {
     unicode-bidi: plaintext;
   }
 
@@ -1229,8 +1230,19 @@
     pointer-events: none;
   }
 
+  /* THE PLATES FIT THEIR WORDS, IN ANY LANGUAGE.
+     Each size class below sets `--label-size`, the size the English names
+     were tuned at. A word wider than its plate at that size (a long
+     Portuguese name, the pseudo-locale, AMBASSADOR in a phone's hand) is
+     measured by CharacterCardBadge, which sets `--label-fit` to the
+     fraction that fits, so it shrinks instead of being clipped, at every
+     card size. Past half size it wraps instead (`data-wrap`). A word that
+     fits keeps its tuned size. Printed in capitals, like a real card's
+     role strip; `:lang()` turns that off for scripts without case. */
   .card-character-label,
   .card-action-label {
+    font-size: calc(var(--label-size) * var(--label-fit, 1));
+    text-transform: uppercase;
     color: white;
     line-height: 1;
     font-weight: 900;
@@ -1247,31 +1259,37 @@
     min-width: 0;
   }
 
+  .card-character-label[data-wrap],
+  .card-action-label[data-wrap] {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
   .card-character-label {
-    font-size: 5.8px;
+    --label-size: 5.8px;
   }
 
   .card-action-label {
     color: rgb(251, 191, 36);
-    font-size: 6.4px;
+    --label-size: 6.4px;
     text-shadow: 0 1px 1px rgba(0,0,0,0.95);
   }
 
   .card-character-label.card-label-medium {
-    font-size: 5.3px;
+    --label-size: 5.3px;
   }
 
   .card-character-label.card-label-long {
-    font-size: 4.8px;
+    --label-size: 4.8px;
   }
 
   .card-character-label.card-label-extra-long {
-    font-size: 4.6px;
+    --label-size: 4.6px;
     letter-spacing: -0.05em;
   }
 
   .card-action-label.card-label-medium {
-    font-size: 5.7px;
+    --label-size: 5.7px;
     letter-spacing: -0.03em;
   }
 
@@ -1280,28 +1298,28 @@
   }
 
   .card-face-sm .card-character-label {
-    font-size: 6.6px;
+    --label-size: 6.6px;
   }
 
   .card-face-sm .card-action-label {
-    font-size: 7px;
+    --label-size: 7px;
   }
 
   .card-face-sm .card-character-label.card-label-medium {
-    font-size: 6px;
+    --label-size: 6px;
   }
 
   .card-face-sm .card-character-label.card-label-long {
-    font-size: 5.5px;
+    --label-size: 5.5px;
   }
 
   .card-face-sm .card-character-label.card-label-extra-long {
-    font-size: 5.2px;
+    --label-size: 5.2px;
     letter-spacing: -0.06em;
   }
 
   .card-face-sm .card-action-label.card-label-medium {
-    font-size: 6px;
+    --label-size: 6px;
     letter-spacing: -0.04em;
   }
 
@@ -1311,28 +1329,28 @@
   }
 
   .card-face-md .card-character-label {
-    font-size: 8.4px;
+    --label-size: 8.4px;
   }
 
   .card-face-md .card-action-label {
-    font-size: 9.2px;
+    --label-size: 9.2px;
   }
 
   .card-face-md .card-character-label.card-label-medium {
-    font-size: 7.6px;
+    --label-size: 7.6px;
   }
 
   .card-face-md .card-character-label.card-label-long {
-    font-size: 7px;
+    --label-size: 7px;
   }
 
   .card-face-md .card-character-label.card-label-extra-long {
-    font-size: 6.4px;
+    --label-size: 6.4px;
     letter-spacing: -0.05em;
   }
 
   .card-face-md .card-action-label.card-label-medium {
-    font-size: 7.5px;
+    --label-size: 7.5px;
     letter-spacing: -0.04em;
   }
 
@@ -1342,28 +1360,28 @@
   }
 
   .card-face-lg .card-character-label {
-    font-size: 10.8px;
+    --label-size: 10.8px;
   }
 
   .card-face-lg .card-action-label {
-    font-size: 12px;
+    --label-size: 12px;
   }
 
   .card-face-lg .card-character-label.card-label-medium {
-    font-size: 9.8px;
+    --label-size: 9.8px;
   }
 
   .card-face-lg .card-character-label.card-label-long {
-    font-size: 8.9px;
+    --label-size: 8.9px;
   }
 
   .card-face-lg .card-character-label.card-label-extra-long {
-    font-size: 8.2px;
+    --label-size: 8.2px;
     letter-spacing: -0.04em;
   }
 
   .card-face-lg .card-action-label.card-label-medium {
-    font-size: 10.4px;
+    --label-size: 10.4px;
     letter-spacing: -0.02em;
   }
 
@@ -1373,28 +1391,28 @@
   }
 
   .card-reveal-face .card-character-label {
-    font-size: 12.8px;
+    --label-size: 12.8px;
   }
 
   .card-reveal-face .card-action-label {
-    font-size: 14.2px;
+    --label-size: 14.2px;
   }
 
   .card-reveal-face .card-character-label.card-label-medium {
-    font-size: 11.6px;
+    --label-size: 11.6px;
   }
 
   .card-reveal-face .card-character-label.card-label-long {
-    font-size: 10.8px;
+    --label-size: 10.8px;
   }
 
   .card-reveal-face .card-character-label.card-label-extra-long {
-    font-size: 10px;
+    --label-size: 10px;
     letter-spacing: -0.03em;
   }
 
   .card-reveal-face .card-action-label.card-label-medium {
-    font-size: 12.6px;
+    --label-size: 12.6px;
     letter-spacing: -0.01em;
   }
 
@@ -1404,28 +1422,28 @@
   }
 
   .card-preview-face .card-character-label {
-    font-size: 13px;
+    --label-size: 13px;
   }
 
   .card-preview-face .card-action-label {
-    font-size: 15px;
+    --label-size: 15px;
   }
 
   .card-preview-face .card-character-label.card-label-medium {
-    font-size: 12px;
+    --label-size: 12px;
   }
 
   .card-preview-face .card-character-label.card-label-long {
-    font-size: 11px;
+    --label-size: 11px;
   }
 
   .card-preview-face .card-character-label.card-label-extra-long {
-    font-size: 10.3px;
+    --label-size: 10.3px;
     letter-spacing: -0.02em;
   }
 
   .card-preview-face .card-action-label.card-label-medium {
-    font-size: 13px;
+    --label-size: 13px;
     letter-spacing: 0;
   }
 
@@ -1449,12 +1467,12 @@
   }
 
   .card-face-xl .card-label-plate { padding: 25px 5px 7px; gap: 3px; }
-  .card-face-xl .card-character-label { font-size: 14px; }
-  .card-face-xl .card-action-label { font-size: 15.6px; }
-  .card-face-xl .card-character-label.card-label-medium { font-size: 12.7px; }
-  .card-face-xl .card-character-label.card-label-long { font-size: 11.6px; }
-  .card-face-xl .card-character-label.card-label-extra-long { font-size: 10.7px; letter-spacing: -0.04em; }
-  .card-face-xl .card-action-label.card-label-medium { font-size: 13.5px; letter-spacing: -0.02em; }
+  .card-face-xl .card-character-label { --label-size: 14px; }
+  .card-face-xl .card-action-label { --label-size: 15.6px; }
+  .card-face-xl .card-character-label.card-label-medium { --label-size: 12.7px; }
+  .card-face-xl .card-character-label.card-label-long { --label-size: 11.6px; }
+  .card-face-xl .card-character-label.card-label-extra-long { --label-size: 10.7px; letter-spacing: -0.04em; }
+  .card-face-xl .card-action-label.card-label-medium { --label-size: 13.5px; letter-spacing: -0.02em; }
 
   /* Band width per card size. 4px on a 44px card is 9% of the width — enough
      to name the character at a glance in a seat, small enough that the art
@@ -2830,14 +2848,33 @@
     font-size: var(--step--1);
   }
 
+  /* Gives way before the buttons do: when the turn and the spectator count
+     do not fit beside the room code (a phone with spectators, or a longer
+     word for "Turn" or "watching" in another language), they wrap onto a
+     second line instead of running under the buttons. */
   .court-header-info {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 0.9rem;
+    gap: 0 0.9rem;
     min-width: 0;
+    overflow: hidden;
+  }
+
+  .court-header-info > * {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .court-header-actions {
+    flex: none;
   }
 
   .court-room {
+    flex: none;
     color: var(--ink);
     letter-spacing: 0.08em;
   }
@@ -3110,7 +3147,7 @@
 
   .claim-block {
     margin-top: -0.4rem;
-    margin-left: 4rem;
+    margin-inline-start: 4rem;
     transform: rotate(2deg);
     background-color: #d9d1c0;
     animation-delay: 60ms;
@@ -3742,7 +3779,7 @@
   }
 
   .table-talk-chevron {
-    margin-left: auto;
+    margin-inline-start: auto;
     color: var(--ink-mute);
   }
 
@@ -3808,10 +3845,12 @@
     pointer-events: auto;
   }
 
+  /* The drawer comes in from the end of the line: the right in English, the
+     left in Arabic (docs/I18N.md, "Right to left"). */
   .court-drawer {
     position: fixed;
     top: 0;
-    right: 0;
+    inset-inline-end: 0;
     bottom: 0;
     z-index: 45;
     display: flex;
@@ -3823,6 +3862,11 @@
     transform: translateX(105%);
     transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
     visibility: hidden;
+  }
+
+  [dir='rtl'] .court-drawer {
+    box-shadow: 18px 0 40px rgba(0, 0, 0, 0.5);
+    transform: translateX(-105%);
   }
 
   .court-drawer.is-open {
@@ -3885,12 +3929,12 @@
     }
 
     .court-seat-cards .card-face-sm .card-label-plate { padding: 15px 3px 4px; gap: 2px; }
-    .court-seat-cards .card-face-sm .card-character-label { font-size: 8.4px; }
-    .court-seat-cards .card-face-sm .card-action-label { font-size: 9.2px; }
-    .court-seat-cards .card-face-sm .card-character-label.card-label-medium { font-size: 7.6px; }
-    .court-seat-cards .card-face-sm .card-character-label.card-label-long { font-size: 7px; }
-    .court-seat-cards .card-face-sm .card-character-label.card-label-extra-long { font-size: 6.4px; letter-spacing: -0.05em; }
-    .court-seat-cards .card-face-sm .card-action-label.card-label-medium { font-size: 7.5px; letter-spacing: -0.04em; }
+    .court-seat-cards .card-face-sm .card-character-label { --label-size: 8.4px; }
+    .court-seat-cards .card-face-sm .card-action-label { --label-size: 9.2px; }
+    .court-seat-cards .card-face-sm .card-character-label.card-label-medium { --label-size: 7.6px; }
+    .court-seat-cards .card-face-sm .card-character-label.card-label-long { --label-size: 7px; }
+    .court-seat-cards .card-face-sm .card-character-label.card-label-extra-long { --label-size: 6.4px; letter-spacing: -0.05em; }
+    .court-seat-cards .card-face-sm .card-action-label.card-label-medium { --label-size: 7.5px; letter-spacing: -0.04em; }
 
     .seat-card-slot + .seat-card-slot { margin-left: -0.8rem; }
   }
@@ -3928,8 +3972,8 @@
     }
 
     .court-hand .card-face-xl .card-label-plate { padding: 15px 3px 4px; gap: 2px; }
-    .court-hand .card-face-xl .card-character-label { font-size: 9px; }
-    .court-hand .card-face-xl .card-action-label { font-size: 10px; }
+    .court-hand .card-face-xl .card-character-label { --label-size: 9px; }
+    .court-hand .card-face-xl .card-action-label { --label-size: 10px; }
   }
 
   @media (max-width: 767px) {
@@ -4019,14 +4063,14 @@
 
   .court-centre .examine-text {
     align-items: flex-start;
-    text-align: left;
+    text-align: start;
   }
 
   /* ── Watching: a knocked-out player's seat (WaitingView) ──────────── */
   .watch-panel {
     display: grid;
     gap: 0.35rem;
-    text-align: left;
+    text-align: start;
   }
 
   .watch-title {
@@ -4095,12 +4139,12 @@
       padding: calc(var(--hand-card-h) * 0.171) 5px calc(var(--hand-card-h) * 0.048);
       gap: 3px;
     }
-    .court-hand .card-face-xl .card-character-label { font-size: calc(var(--hand-card-h) * 0.096); }
-    .court-hand .card-face-xl .card-action-label { font-size: calc(var(--hand-card-h) * 0.107); }
-    .court-hand .card-face-xl .card-character-label.card-label-medium { font-size: calc(var(--hand-card-h) * 0.087); }
-    .court-hand .card-face-xl .card-character-label.card-label-long { font-size: calc(var(--hand-card-h) * 0.0795); }
-    .court-hand .card-face-xl .card-character-label.card-label-extra-long { font-size: calc(var(--hand-card-h) * 0.073); }
-    .court-hand .card-face-xl .card-action-label.card-label-medium { font-size: calc(var(--hand-card-h) * 0.0925); }
+    .court-hand .card-face-xl .card-character-label { --label-size: calc(var(--hand-card-h) * 0.096); }
+    .court-hand .card-face-xl .card-action-label { --label-size: calc(var(--hand-card-h) * 0.107); }
+    .court-hand .card-face-xl .card-character-label.card-label-medium { --label-size: calc(var(--hand-card-h) * 0.087); }
+    .court-hand .card-face-xl .card-character-label.card-label-long { --label-size: calc(var(--hand-card-h) * 0.0795); }
+    .court-hand .card-face-xl .card-character-label.card-label-extra-long { --label-size: calc(var(--hand-card-h) * 0.073); }
+    .court-hand .card-face-xl .card-action-label.card-label-medium { --label-size: calc(var(--hand-card-h) * 0.0925); }
 
     .court-hand .hand-cards { gap: calc(var(--hand-card-h) * 0.07); }
 
@@ -4112,12 +4156,12 @@
     .court-seat-cards .card-face-sm .card-label-plate {
       padding: calc(var(--seat-card-h) * 0.19) 3px calc(var(--seat-card-h) * 0.05);
     }
-    .court-seat-cards .card-face-sm .card-character-label { font-size: calc(var(--seat-card-h) * 0.105); }
-    .court-seat-cards .card-face-sm .card-action-label { font-size: calc(var(--seat-card-h) * 0.115); }
-    .court-seat-cards .card-face-sm .card-character-label.card-label-medium { font-size: calc(var(--seat-card-h) * 0.095); }
-    .court-seat-cards .card-face-sm .card-character-label.card-label-long { font-size: calc(var(--seat-card-h) * 0.0875); }
-    .court-seat-cards .card-face-sm .card-character-label.card-label-extra-long { font-size: calc(var(--seat-card-h) * 0.08); }
-    .court-seat-cards .card-face-sm .card-action-label.card-label-medium { font-size: calc(var(--seat-card-h) * 0.094); }
+    .court-seat-cards .card-face-sm .card-character-label { --label-size: calc(var(--seat-card-h) * 0.105); }
+    .court-seat-cards .card-face-sm .card-action-label { --label-size: calc(var(--seat-card-h) * 0.115); }
+    .court-seat-cards .card-face-sm .card-character-label.card-label-medium { --label-size: calc(var(--seat-card-h) * 0.095); }
+    .court-seat-cards .card-face-sm .card-character-label.card-label-long { --label-size: calc(var(--seat-card-h) * 0.0875); }
+    .court-seat-cards .card-face-sm .card-character-label.card-label-extra-long { --label-size: calc(var(--seat-card-h) * 0.08); }
+    .court-seat-cards .card-face-sm .card-action-label.card-label-medium { --label-size: calc(var(--seat-card-h) * 0.094); }
 
     .seat-card-slot + .seat-card-slot { margin-left: calc(var(--seat-card-h) * -0.16); }
 

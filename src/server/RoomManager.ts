@@ -746,7 +746,7 @@ export class RoomManager {
 
   // ─── Chat ───
 
-  addChatMessage(roomCode: string, playerId: string, playerName: string, message: string, reactionId?: string): ChatMessage | { error: string } {
+  addChatMessage(roomCode: string, playerId: string, playerName: string, message: string, reactionId?: string, phraseId?: string): ChatMessage | { error: string } {
     const room = this.rooms.get(roomCode);
     if (!room) return { error: 'Room not found' };
 
@@ -770,6 +770,7 @@ export class RoomManager {
       message: trimmed,
       timestamp: now,
       ...(reactionId ? { reactionId } : {}),
+      ...(phraseId ? { phraseId } : {}),
     };
 
     let history = this.chatMessages.get(roomCode);

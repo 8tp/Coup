@@ -318,8 +318,9 @@ export function useSocket() {
     sessionStorage.removeItem(PRACTICE_ROOM_KEY);
   }, []);
 
-  const sendChat = useCallback((message: string) => {
-    socketRef.current.emit('chat:send', { message });
+  /** `phraseId` sends one of `QUICK_PHRASES` by id; `message` is then its English. */
+  const sendChat = useCallback((message: string, phraseId?: string) => {
+    socketRef.current.emit('chat:send', phraseId ? { message, phraseId } : { message });
   }, []);
 
   const rematch = useCallback(() => {

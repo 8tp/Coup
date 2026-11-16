@@ -5,9 +5,10 @@ import type { ChatMessage } from '@/shared/types';
 import { ChatPanel } from '../../chat/ChatPanel';
 import { ReactionPicker } from '../ReactionPicker';
 import { haptic } from '../../../utils/haptic';
+import { QUICK_PHRASES } from '@/shared/constants';
+import { useT } from '../../../i18n';
 
 const STORAGE_KEY = 'coup_table_talk_open';
-const QUICK_PHRASES = ['Nice bluff', 'I have it', 'Liar!', 'Well played'] as const;
 
 /**
  * The table's chat, always on screen on a desktop, beside your hand. It can be
@@ -27,10 +28,11 @@ export function TableTalk({
 }: {
   messages: ChatMessage[];
   myId: string;
-  onSend: (message: string) => void;
+  onSend: (message: string, phraseId?: string) => void;
   onReact: (reactionId: string) => void;
   reactDisabled?: boolean;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(true);
   const [seen, setSeen] = useState(messages.length);
 
@@ -52,10 +54,10 @@ export function TableTalk({
   const unread = open ? 0 : Math.max(0, messages.length - seen);
 
   return (
-    <section className={`table-talk ${open ? 'is-open' : ''}`} aria-label="Table chat">
+    <section className={`table-talk ${open ? 'is-open' : ''}`} aria-label={t('game.tableTalkLabel')}>
       <button type="button" className="table-talk-head" onClick={toggle} aria-expanded={open}>
-        <span className="type-display">Table talk</span>
-        {unread > 0 && <span className="court-badge figure !static">{unread > 9 ? '9+' : unread}</span>}
+        <span className="type-display">{t('game.tableTalk')}</span>
+        {unread > 0 && <span className="court-badge figure !static">{unread > 9 ? t('game.unreadMany') : t.number(unread)}</span>}
         <span className="table-talk-chevron" aria-hidden="true">{open ? '▾' : '▴'}</span>
       </button>
       {open && (
