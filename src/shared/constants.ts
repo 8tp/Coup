@@ -447,3 +447,42 @@ export const BOT_PERSONALITIES: Record<Exclude<BotPersonality, 'random'>, Person
     bluffPersistenceModifier: 1.0,
   },
 };
+
+// ─── Home Screen Constants ───
+
+/**
+ * The live counter on the home screen ("12 online · 3 games in play") shows
+ * only at or above this many people online, and is left out entirely below
+ * it. `playersOnline` counts distinct connections by IP and includes the
+ * visitor reading it, so a single-digit figure mostly says "nobody else is
+ * here". Ten is the first two-digit number: enough people for a couple of
+ * full tables, which reads as a busy room rather than an empty one. At the
+ * current ~20 visitors a day it rarely shows; it appears when there is a
+ * real crowd to point at.
+ */
+export const HOME_PRESENCE_MIN_ONLINE = 10;
+
+/** Public tables listed on the home screen before "Browse all" takes over. */
+export const HOME_OPEN_TABLES_SHOWN = 3;
+
+/**
+ * Words for the name suggested to a first-time visitor ("Velvet Envoy 42"),
+ * so Play vs Bots is a single tap. Court titles and manners to match the
+ * game, never one of the character names (no "Duke 12 claims Duke"). With a
+ * number from 10 to 99 that is 26 × 26 × 90 = 60,840 names, at most 18
+ * characters, and every one passes the server's name filter
+ * (tests/app/utils/suggestedName.test.ts checks them all).
+ */
+export const SUGGESTED_NAME_ADJECTIVES = [
+  'Quiet', 'Sly', 'Bold', 'Velvet', 'Silver', 'Gilded', 'Masked', 'Shrewd',
+  'Wily', 'Hidden', 'Steady', 'Lucky', 'Stern', 'Candid', 'Subtle', 'Brazen',
+  'Nimble', 'Ashen', 'Iron', 'Golden', 'Veiled', 'Dapper', 'Placid', 'Wary',
+  'Grim', 'Sombre',
+] as const;
+
+export const SUGGESTED_NAME_TITLES = [
+  'Envoy', 'Baron', 'Regent', 'Herald', 'Steward', 'Marquis', 'Squire',
+  'Consul', 'Notary', 'Heir', 'Warden', 'Jester', 'Scribe', 'Sheriff',
+  'Abbess', 'Baroness', 'Courier', 'Vizier', 'Bailiff', 'Page',
+  'Minister', 'Prior', 'Earl', 'Lady', 'Knight', 'Falconer',
+] as const;
