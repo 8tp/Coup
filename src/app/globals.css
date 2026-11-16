@@ -2267,7 +2267,7 @@
     min-height: 48px;
     width: 100%;
     padding: 0.25rem 0.1rem;
-    text-align: left;
+    text-align: start;
   }
 
   .switch-track {
@@ -2364,7 +2364,8 @@
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    padding: 0.5rem 0.5rem 0.5rem 0.85rem;
+    padding-block: 0.5rem;
+    padding-inline: 0.85rem 0.5rem;
     border-radius: 3px;
     background-color: rgba(23, 35, 31, 0.85);
   }
@@ -2396,8 +2397,9 @@
     justify-content: space-between;
     gap: 0.75rem;
     min-height: 3.75rem;
-    padding: 0.65rem 0.85rem 0.65rem 1rem;
-    text-align: left;
+    padding-block: 0.65rem;
+    padding-inline: 1rem 0.85rem;
+    text-align: start;
   }
 
   .menu-learn-text {
@@ -2444,7 +2446,7 @@
     align-items: flex-start;
     gap: 0.25rem;
     padding: 0.8rem 1rem;
-    text-align: left;
+    text-align: start;
   }
 
   .learn-option-title {
@@ -2570,10 +2572,12 @@
   .lobby-grid {
     display: grid;
     gap: 1rem;
+    /* minmax(0, ...): a long unbreakable name (twenty CJK characters) truncates instead of widening the page. */
+    grid-template-columns: minmax(0, 1fr);
   }
 
   @media (min-width: 900px) {
-    .lobby-grid { grid-template-columns: 1fr 1fr; align-items: start; }
+    .lobby-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
   }
 
   .lobby-players {
@@ -2587,7 +2591,8 @@
     align-items: center;
     gap: 0.5rem;
     min-height: 56px;
-    padding: 0.4rem 0.4rem 0.4rem 0.85rem;
+    padding-block: 0.4rem;
+    padding-inline: 0.85rem 0.4rem;
     border-radius: 3px;
     background-color: var(--ground-deep);
     box-shadow: var(--deboss);
@@ -2618,7 +2623,6 @@
     gap: 0.3rem;
     font-size: 0.75rem;
     color: var(--ink-mute);
-    text-transform: capitalize;
   }
 
   .lobby-tag-host {

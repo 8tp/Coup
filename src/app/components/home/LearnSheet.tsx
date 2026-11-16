@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef } from 'react';
 import { haptic } from '../../utils/haptic';
+import { useT } from '../../i18n';
 
 /**
  * "Learn to play": the home screen's one door for newcomers. It replaces the
@@ -28,6 +29,7 @@ interface LearnSheetProps {
 const FOCUSABLE = 'button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export function LearnSheet({ open, onClose, onGuidedGame, onTutorial, onRules, onPracticeSetup, loading = false }: LearnSheetProps) {
+  const t = useT();
   const titleId = useId();
   const sheetRef = useRef<HTMLDivElement>(null);
 
@@ -58,8 +60,8 @@ export function LearnSheet({ open, onClose, onGuidedGame, onTutorial, onRules, o
       <div className="practice-sheet-scrim" aria-hidden="true" onClick={onClose} />
       <div ref={sheetRef} className="practice-sheet" role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <header className="practice-sheet-head">
-          <h2 id={titleId} className="practice-sheet-title type-display">Learn to play</h2>
-          <button type="button" className="court-icon-btn" aria-label="Close" onClick={() => { haptic(); onClose(); }}>
+          <h2 id={titleId} className="practice-sheet-title type-display">{t('home.learnTitle')}</h2>
+          <button type="button" className="court-icon-btn" aria-label={t('common.close')} onClick={() => { haptic(); onClose(); }}>
             <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" aria-hidden="true">
               <path d="M5.3 4 10 8.6 14.7 4 16 5.3 11.4 10l4.6 4.7-1.3 1.3-4.7-4.6L5.3 16 4 14.7 8.6 10 4 5.3z" />
             </svg>
@@ -74,25 +76,25 @@ export function LearnSheet({ open, onClose, onGuidedGame, onTutorial, onRules, o
             onClick={() => { haptic(80); onGuidedGame(); }}
             disabled={loading}
           >
-            <span className="learn-option-title">{loading ? 'Dealing…' : 'Play a guided game'}</span>
-            <span className="learn-option-sub">You against 1 gentle bot. A coach points at what to do next.</span>
+            <span className="learn-option-title">{loading ? t('home.dealing') : t('home.guidedGame')}</span>
+            <span className="learn-option-sub">{t('home.guidedGameSub')}</span>
           </button>
 
           <button type="button" className="btn-secondary learn-option" onClick={() => { haptic(); onTutorial(); }}>
-            <span className="learn-option-title">Take the tutorial</span>
-            <span className="learn-option-sub">6 short lessons. You try each move on a small table.</span>
+            <span className="learn-option-title">{t('home.tutorial')}</span>
+            <span className="learn-option-sub">{t('home.tutorialSub')}</span>
           </button>
 
           <button type="button" className="btn-secondary learn-option" onClick={() => { haptic(); onRules(); }}>
-            <span className="learn-option-title">Read the rules</span>
-            <span className="learn-option-sub">Characters, actions, challenges and blocks. Reformation too.</span>
+            <span className="learn-option-title">{t('home.rules')}</span>
+            <span className="learn-option-sub">{t('home.rulesSub')}</span>
           </button>
         </div>
 
         <footer className="practice-sheet-foot learn-foot">
-          <span className="learn-foot-text">More bots, other rules, or no coach</span>
+          <span className="learn-foot-text">{t('home.practiceFoot')}</span>
           <button type="button" className="menu-link" onClick={() => { haptic(); onPracticeSetup(); }}>
-            Set up practice
+            {t('home.practiceSetup')}
           </button>
         </footer>
       </div>

@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSocket } from '../../hooks/useSocket';
 import { useGameStore } from '../../stores/gameStore';
 import { MIN_PLAYERS, MAX_PLAYERS, MIN_ACTION_TIMER, MAX_ACTION_TIMER, MIN_TURN_TIMER, MAX_TURN_TIMER, MIN_BOT_REACTION_SECONDS, MAX_BOT_REACTION_SECONDS, FILL_WITH_BOTS_TARGET } from '@/shared/constants';
-import { GameMode, GameStatus } from '@/shared/types';
+import { Character, GameMode, GameStatus } from '@/shared/types';
 import { ChatPanel } from '../../components/chat/ChatPanel';
 import { AddBotModal } from '../../components/lobby/AddBotModal';
 import { QRShareModal } from '../../components/lobby/QRShareModal';
@@ -15,11 +15,16 @@ import { CrownGlyph } from '../../components/icons';
 import { haptic } from '../../utils/haptic';
 import { useLobbyMusic } from '../../hooks/useMusicDirector';
 import { botsNeededToFill, buildBots } from '../../utils/botFill';
+import { characterName, gameModeName, useT } from '../../i18n';
+
+/** Figures in the figure face, inside a translated sentence. */
+const fig = (chunks: ReactNode) => <span className="figure">{chunks}</span>;
 
 /** How long a refreshed lobby waits for the automatic rejoin before sending the player home. */
 const REJOIN_WAIT_MS = 8000;
 
 export default function LobbyPage() {
+  const t = useT();
   const router = useRouter();
   const params = useParams();
   const roomCode = params.roomCode as string;
@@ -51,10 +56,10 @@ export default function LobbyPage() {
   const isHost = playerId === hostId;
   const canStart = roomPlayers.length >= MIN_PLAYERS && roomPlayers.length <= MAX_PLAYERS;
   const startReason = roomPlayers.length < MIN_PLAYERS
-    ? `Need ${MIN_PLAYERS - roomPlayers.length} more player${MIN_PLAYERS - roomPlayers.length === 1 ? '' : 's'}`
+    ? t('lobby.needMorePlayers', { count: MIN_PLAYERS - roomPlayers.length })
     : roomPlayers.length > MAX_PLAYERS
-      ? 'Too many players'
-      : 'Start when everyone has joined';
+      ? t('lobby.tooManyPlayers')
+      : t('lobby.startWhenReady');
   const canAddBot = roomPlayers.length < MAX_PLAYERS;
   const hasBots = roomPlayers.some(p => p.isBot);
   // Host is the only human: offer to fill the table with bots instead of a dead "need players" state.
@@ -151,7 +156,7 @@ export default function LobbyPage() {
       await addBots(buildBots(botsToFill, roomPlayers.map(p => p.name)));
     } catch (e: unknown) {
       const { setError } = useGameStore.getState();
-      setError(e instanceof Error ? e.message : 'Could not add bots');
+      setError(e instanceof Error ? e.message : t('errors.fillBotsFailed'));
       setTimeout(() => setError(null), 3000);
     } finally {
       setFillingBots(false);
@@ -198,7 +203,7 @@ export default function LobbyPage() {
     <div className="lobby-setting">
       <div className="lobby-setting-head">
         <span>{label}</span>
-        <span className="figure text-coup-accent">{value}s</span>
+        <span className="figure text-coup-accent">{t('common.secondsShort', { seconds: value })}</span>
       </div>
       {isHost ? (
         <input
@@ -214,26 +219,26 @@ export default function LobbyPage() {
       ) : (
         <div className="lobby-range-readonly"><div style={{ width: `${((value - min) / (max - min)) * 100}%` }} /></div>
       )}
-      <div className="lobby-range-ends"><span>{min}s</span>{hint && <span className="text-center">{hint}</span>}<span>{max}s</span></div>
+      <div className="lobby-range-ends"><span>{t('common.secondsShort', { seconds: min })}</span>{hint && <span className="text-center">{hint}</span>}<span>{t('common.secondsShort', { seconds: max })}</span></div>
     </div>
   );
 
   return (
     <div className="lobby-root">
       <header className="lobby-top">
-        <button onClick={handleLeave} className="court-icon-btn" title="Leave room" aria-label="Leave room">
-          <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5" aria-hidden="true">
+        <button onClick={handleLeave} className="court-icon-btn" title={t('lobby.leaveRoom')} aria-label={t('lobby.leaveRoom')}>
+          <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 rtl:-scale-x-100" aria-hidden="true">
             <path fillRule="evenodd" d="M9.7 4.3a1 1 0 010 1.4L6.4 9H16a1 1 0 110 2H6.4l3.3 3.3a1 1 0 01-1.4 1.4l-5-5a1 1 0 010-1.4l5-5a1 1 0 011.4 0z" clipRule="evenodd" />
           </svg>
         </button>
         <div className="flex gap-2">
-          <button onClick={() => { haptic(); setShowRules(true); }} className="court-icon-btn type-display" title="How to play" aria-label="How to play">?</button>
-          <button onClick={() => { haptic(); setShowQRModal(true); }} className="court-icon-btn" title="Share room" aria-label="Share room">
+          <button onClick={() => { haptic(); setShowRules(true); }} className="court-icon-btn type-display" title={t('lobby.howToPlay')} aria-label={t('lobby.howToPlay')}>?</button>
+          <button onClick={() => { haptic(); setShowQRModal(true); }} className="court-icon-btn" title={t('lobby.shareRoom')} aria-label={t('lobby.shareRoom')}>
             <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5" aria-hidden="true">
               <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
             </svg>
           </button>
-          <button onClick={() => { haptic(); setShowSettings(true); }} className="court-icon-btn" title="Settings" aria-label="Settings">
+          <button onClick={() => { haptic(); setShowSettings(true); }} className="court-icon-btn" title={t('common.settings')} aria-label={t('common.settings')}>
             <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5" aria-hidden="true">
               <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
             </svg>
@@ -243,61 +248,61 @@ export default function LobbyPage() {
 
       <main className="lobby-column">
         <section className="lobby-code-card">
-          <p className="menu-label">Room code · {roomSettings?.isPublic ? 'public' : 'private'}</p>
-          <button className="lobby-code figure" onClick={copyRoomCode} aria-label={`Copy room code ${roomCode}`}>
+          <p className="menu-label">{t('lobby.codeLabel', { visibility: roomSettings?.isPublic ? 'public' : 'private' })}</p>
+          <button className="lobby-code figure" onClick={copyRoomCode} aria-label={t('lobby.copyCodeLabel', { code: roomCode })}>
             {roomCode}
           </button>
           <p className="lobby-copy-status" aria-live="polite">
-            {copyStatus === 'code' && 'Room code copied'}
-            {copyStatus === 'link' && 'Invite link copied'}
-            {copyStatus === 'error' && 'Copy failed. Select the code, or tap Share for a QR code.'}
-            {copyStatus === 'idle' && 'Friends enter this code under Join room.'}
+            {copyStatus === 'code' && t('lobby.codeCopied')}
+            {copyStatus === 'link' && t('lobby.linkCopied')}
+            {copyStatus === 'error' && t('lobby.copyFailed')}
+            {copyStatus === 'idle' && t('lobby.codeHint')}
           </p>
           <div className="lobby-share">
-            <button type="button" className="btn-secondary" onClick={copyRoomCode}>Copy code</button>
-            <button type="button" className="btn-secondary" onClick={copyInviteLink}>Copy invite link</button>
+            <button type="button" className="btn-secondary" onClick={copyRoomCode}>{t('lobby.copyCode')}</button>
+            <button type="button" className="btn-secondary" onClick={copyInviteLink}>{t('lobby.copyInviteLink')}</button>
           </div>
         </section>
 
         {error && <div className="menu-error" role="alert">{error}</div>}
 
         <div className="lobby-grid">
-          <section className="menu-panel" aria-label="Players">
+          <section className="menu-panel" aria-label={t('lobby.players')}>
             <div className="menu-section-head">
-              <h2 className="menu-section-title">Players</h2>
-              <span className="figure text-coup-ink-mute">{roomPlayers.length}/{MAX_PLAYERS}</span>
+              <h2 className="menu-section-title">{t('lobby.players')}</h2>
+              <span className="figure text-coup-ink-mute">{t.number(roomPlayers.length)}/{t.number(MAX_PLAYERS)}</span>
             </div>
             <ul className="lobby-players">
               {roomPlayers.map(p => (
                 <li key={p.id} className={`lobby-player ${!p.isBot && !p.connected ? 'is-away' : ''}`}>
                   <div className="min-w-0 flex-1">
                     <p className={`lobby-player-name ${p.id === playerId ? 'text-coup-accent' : ''}`}>
-                      {p.id === lastWinnerId && <CrownGlyph size={14} title="Last game winner" className="inline-block mr-1 align-[-2px] text-coup-accent" />}
-                      {p.name}{p.id === playerId && ' (you)'}
+                      {p.id === lastWinnerId && <CrownGlyph size={14} title={t('lobby.lastWinner')} className="inline-block me-1 align-[-2px] text-coup-accent" />}
+                      {p.id === playerId ? t.rich('lobby.nameYou', { name: <bdi>{p.name}</bdi> }) : <bdi>{p.name}</bdi>}
                     </p>
                     <p className="lobby-player-meta">
-                      {p.id === hostId && <span className="lobby-tag lobby-tag-host">Host</span>}
+                      {p.id === hostId && <span className="lobby-tag lobby-tag-host">{t('lobby.host')}</span>}
                       {p.isBot && (
                         <span className="lobby-tag">
                           <span className="lobby-dot" style={{ backgroundColor: personalityHue[p.personality ?? 'random'] }} aria-hidden="true" />
-                          Bot · {p.personality ?? 'random'}
+                          {t('lobby.botTag', { personality: t(`lobby.personality.${p.personality ?? 'random'}`) })}
                         </span>
                       )}
                       {!p.isBot && (
                         <span className="lobby-tag">
                           <span className="lobby-dot" style={{ backgroundColor: p.connected ? '#6fbf8a' : '#e0705f' }} aria-hidden="true" />
-                          {p.connected ? 'Here' : 'Reconnecting…'}
+                          {p.connected ? t('lobby.here') : t('lobby.reconnecting')}
                         </span>
                       )}
-                      {(p.wins ?? 0) > 0 && <span className="lobby-tag"><span className="figure">{p.wins}</span> {p.wins === 1 ? 'win' : 'wins'}</span>}
+                      {(p.wins ?? 0) > 0 && <span className="lobby-tag">{t.rich('lobby.wins', { count: p.wins ?? 0, fig })}</span>}
                     </p>
                   </div>
                   {isHost && p.id !== hostId && (
                     <button
                       onClick={() => { haptic(); if (p.isBot) handleRemoveBot(p.id); else handleRemovePlayer(p.id); }}
                       className="lobby-remove"
-                      title={p.isBot ? 'Remove bot' : 'Remove player'}
-                      aria-label={`Remove ${p.name}`}
+                      title={p.isBot ? t('lobby.removeBot') : t('lobby.removePlayer')}
+                      aria-label={t('lobby.removeNamed', { name: p.name })}
                     >
                       <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" aria-hidden="true">
                         <path d="M5.3 4 10 8.6 14.7 4 16 5.3 11.4 10l4.6 4.7-1.3 1.3-4.7-4.6L5.3 16 4 14.7 8.6 10 4 5.3z" />
@@ -311,11 +316,11 @@ export default function LobbyPage() {
             {isHost && canAddBot && (
               <div className="menu-split">
                 <button className="btn-secondary" onClick={() => { haptic(); setShowAddBotModal(true); }}>
-                  + Add bot
+                  {t('lobby.addBot')}
                 </button>
                 {botsToFill > 0 && roomPlayers.length >= MIN_PLAYERS && (
                   <button className="btn-secondary" onClick={handleFillWithBots} disabled={fillingBots}>
-                    Fill seats (+{botsToFill})
+                    {t('lobby.fillSeats', { count: botsToFill })}
                   </button>
                 )}
               </div>
@@ -323,18 +328,18 @@ export default function LobbyPage() {
 
             {spectators.length > 0 && (
               <div className="lobby-spectators">
-                <h3 className="menu-label">Watching ({spectators.length})</h3>
+                <h3 className="menu-label">{t('lobby.watching', { count: spectators.length })}</h3>
                 <ul className="lobby-players">
                   {spectators.map(s => (
                     <li key={s.id} className="lobby-player">
-                      <span className="lobby-player-name flex-1">{s.name}</span>
+                      <span className="lobby-player-name flex-1"><bdi>{s.name}</bdi></span>
                       {isHost && (
                         <button
                           type="button"
                           onClick={() => { haptic(); handleRemoveSpectator(s.id); }}
                           className="lobby-remove"
-                          title="Remove spectator"
-                          aria-label={`Remove spectator ${s.name}`}
+                          title={t('lobby.removeSpectator')}
+                          aria-label={t('lobby.removeSpectatorNamed', { name: s.name })}
                         >
                           <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" aria-hidden="true">
                             <path d="M5.3 4 10 8.6 14.7 4 16 5.3 11.4 10l4.6 4.7-1.3 1.3-4.7-4.6L5.3 16 4 14.7 8.6 10 4 5.3z" />
@@ -349,8 +354,8 @@ export default function LobbyPage() {
           </section>
 
           {roomSettings && (
-            <section className="menu-panel" aria-label="Room settings">
-              <h2 className="menu-section-title">Table rules</h2>
+            <section className="menu-panel" aria-label={t('lobby.roomSettings')}>
+              <h2 className="menu-section-title">{t('lobby.tableRules')}</h2>
 
               {isHost ? (
                 <button
@@ -361,21 +366,21 @@ export default function LobbyPage() {
                   onClick={() => { haptic(); updateRoomSettings({ ...roomSettings, isPublic: !roomSettings.isPublic }); }}
                 >
                   <span>
-                    <span className="block font-semibold text-coup-ink">Public room</span>
+                    <span className="block font-semibold text-coup-ink">{t('lobby.publicRoom')}</span>
                     <span className="block text-sm text-coup-ink-mute">
-                      {roomSettings.isPublic ? 'Listed in Open tables. Anyone can join.' : 'Only people with the code can join.'}
+                      {roomSettings.isPublic ? t('lobby.publicRoomOn') : t('lobby.publicRoomOff')}
                     </span>
                   </span>
                   <span className={`switch-track ${roomSettings.isPublic ? 'is-on' : ''}`} aria-hidden="true"><span /></span>
                 </button>
               ) : (
-                <div className="lobby-setting-head"><span>Visibility</span><span>{roomSettings.isPublic ? 'Public' : 'Private'}</span></div>
+                <div className="lobby-setting-head"><span>{t('lobby.visibility')}</span><span>{roomSettings.isPublic ? t('lobby.public') : t('lobby.private')}</span></div>
               )}
 
               <div className="lobby-setting">
-                <div className="lobby-setting-head"><span>Game mode</span></div>
+                <div className="lobby-setting-head"><span>{t('lobby.gameMode')}</span></div>
                 {isHost ? (
-                  <div className="lobby-seg" role="radiogroup" aria-label="Game mode">
+                  <div className="lobby-seg" role="radiogroup" aria-label={t('lobby.gameMode')}>
                     {[GameMode.Classic, GameMode.Reformation].map(m => (
                       <button
                         key={m}
@@ -389,12 +394,12 @@ export default function LobbyPage() {
                             : { ...roomSettings, gameMode: GameMode.Reformation });
                         }}
                       >
-                        {m === GameMode.Classic ? 'Classic' : 'Reformation'}
+                        {gameModeName(t, m)}
                       </button>
                     ))}
                   </div>
                 ) : (
-                  <span className="text-sm text-coup-ink-mute">{roomSettings.gameMode}</span>
+                  <span className="text-sm text-coup-ink-mute">{gameModeName(t, roomSettings.gameMode)}</span>
                 )}
               </div>
 
@@ -407,30 +412,30 @@ export default function LobbyPage() {
                   onClick={() => { haptic(); updateRoomSettings({ ...roomSettings, useInquisitor: !roomSettings.useInquisitor }); }}
                 >
                   <span>
-                    <span className="block font-semibold text-coup-ink">Use the Inquisitor</span>
-                    <span className="block text-sm text-coup-ink-mute">Replaces the Ambassador</span>
+                    <span className="block font-semibold text-coup-ink">{t('lobby.useInquisitor', { character: characterName(t, Character.Inquisitor) })}</span>
+                    <span className="block text-sm text-coup-ink-mute">{t('lobby.useInquisitorSub', { character: characterName(t, Character.Ambassador) })}</span>
                   </span>
                   <span className={`switch-track ${roomSettings.useInquisitor ? 'is-on' : ''}`} aria-hidden="true"><span /></span>
                 </button>
               ) : (
-                <div className="lobby-setting-head"><span>Inquisitor</span><span>{roomSettings.useInquisitor ? 'Yes' : 'No'}</span></div>
+                <div className="lobby-setting-head"><span>{characterName(t, Character.Inquisitor)}</span><span>{roomSettings.useInquisitor ? t('lobby.yes') : t('lobby.no')}</span></div>
               ))}
 
-              {settingRange('Challenge & block window', roomSettings.actionTimerSeconds, MIN_ACTION_TIMER, MAX_ACTION_TIMER, 5, (v) => {
+              {settingRange(t('lobby.challengeWindow'), roomSettings.actionTimerSeconds, MIN_ACTION_TIMER, MAX_ACTION_TIMER, 5, (v) => {
                 updateRoomSettings({ ...roomSettings, actionTimerSeconds: v, botMinReactionSeconds: Math.min(roomSettings.botMinReactionSeconds, v) });
               })}
-              {settingRange('Turn timer', roomSettings.turnTimerSeconds, MIN_TURN_TIMER, MAX_TURN_TIMER, 5, (v) => {
+              {settingRange(t('lobby.turnTimer'), roomSettings.turnTimerSeconds, MIN_TURN_TIMER, MAX_TURN_TIMER, 5, (v) => {
                 updateRoomSettings({ ...roomSettings, turnTimerSeconds: v });
-              }, 'actions, exchanges, losses')}
-              {hasBots && settingRange('Bot thinking time', roomSettings.botMinReactionSeconds, MIN_BOT_REACTION_SECONDS, botReactionMax, 0.5, (v) => {
+              }, t('lobby.turnTimerHint'))}
+              {hasBots && settingRange(t('lobby.botThinking'), roomSettings.botMinReactionSeconds, MIN_BOT_REACTION_SECONDS, botReactionMax, 0.5, (v) => {
                 updateRoomSettings({ ...roomSettings, botMinReactionSeconds: v });
               })}
             </section>
           )}
         </div>
 
-        <section className="menu-panel lobby-chat" aria-label="Chat">
-          <h2 className="menu-section-title">Chat</h2>
+        <section className="menu-panel lobby-chat" aria-label={t('lobby.chat')}>
+          <h2 className="menu-section-title">{t('lobby.chat')}</h2>
           <ChatPanel messages={chatMessages} myId={playerId} onSend={sendChat} />
         </section>
       </main>
@@ -440,20 +445,20 @@ export default function LobbyPage() {
           {isHost ? (
             !canStart && botsToFill > 0 ? (
               <button className="btn-primary flex-1" disabled={fillingBots} onClick={handleFillWithBots}>
-                {fillingBots ? 'Adding bots…' : `Start with bots · ${FILL_WITH_BOTS_TARGET} players`}
+                {fillingBots ? t('lobby.addingBots') : t('lobby.startWithBots', { count: FILL_WITH_BOTS_TARGET })}
               </button>
             ) : (
               <button className="btn-primary flex-1" disabled={!canStart} onClick={() => { haptic(80); startGame(); }} title={startReason}>
-                {canStart ? `Start game · ${roomPlayers.length} players` : `Need ${MIN_PLAYERS}+ players`}
+                {canStart ? t('lobby.startGame', { count: roomPlayers.length }) : t('lobby.needPlayersButton', { count: MIN_PLAYERS })}
               </button>
             )
           ) : (
-            <p className="flex-1 text-center text-coup-ink-mute">Waiting for the host to start…</p>
+            <p className="flex-1 text-center text-coup-ink-mute">{t('lobby.waitingForHost')}</p>
           )}
         </div>
         {isHost && (
           <p className={`lobby-actions-hint ${canStart ? '' : 'is-warn'}`}>
-            {!canStart && botsToFill > 0 ? 'Invite friends with the code above, or start now against bots.' : startReason}
+            {!canStart && botsToFill > 0 ? t('lobby.inviteOrBots') : startReason}
           </p>
         )}
       </div>

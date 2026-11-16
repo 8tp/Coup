@@ -101,10 +101,22 @@ export const BOT_EMOTE_TRIGGERS: BotEmoteTrigger[] = [
 ];
 
 // ─── Name Constants ───
+/** Longest name, in user-perceived characters (src/shared/textLimits.ts), whatever the script. */
 export const NAME_MAX_LENGTH = 20;
+/**
+ * Hard cap on a name in UTF-16 code units, and the name inputs' `maxLength`.
+ * Four per character leaves room for Devanagari conjuncts and emoji
+ * sequences while bounding stacked combining marks.
+ */
+export const NAME_MAX_CODE_UNITS = NAME_MAX_LENGTH * 4;
+/** Most combining marks kept in a row: real text needs two or three (Vietnamese, Arabic, Devanagari); more is "zalgo". */
+export const TEXT_MAX_COMBINING_RUN = 4;
 
 // ─── Chat Constants ───
+/** Longest chat message, in user-perceived characters. */
 export const CHAT_MAX_MESSAGE_LENGTH = 200;
+/** Hard cap on a chat message in UTF-16 code units (see NAME_MAX_CODE_UNITS). */
+export const CHAT_MAX_MESSAGE_CODE_UNITS = CHAT_MAX_MESSAGE_LENGTH * 4;
 export const CHAT_RATE_LIMIT_MS = 1000;
 export const CHAT_MAX_HISTORY = 50;
 

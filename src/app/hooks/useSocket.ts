@@ -4,6 +4,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import type { ClientToServerEvents, ServerNotice, ServerToClientEvents } from '@/shared/protocol';
 import { describeAckError, describeServerError } from '../i18n/serverErrors';
+import { getT } from '../i18n/runtime';
 import type { BotPersonality, ChallengeRevealEvent, ChatMessage, ClientGameState, ClientRoomPlayer, ClientSpectator, PublicRoomInfo, RoomOrigin, RoomSettings } from '@/shared/types';
 import type { FeedbackResponse, FeedbackSubmission } from '@/shared/feedbackTypes';
 import { FEEDBACK_ACK_TIMEOUT_MS } from '@/shared/constants';
@@ -18,7 +19,7 @@ const PRACTICE_ROOM_KEY = 'coup_practice_room';
 
 function withTimeout<T>(promise: Promise<T>, ms = SOCKET_TIMEOUT_MS): Promise<T> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('Request timed out')), ms);
+    const timer = setTimeout(() => reject(new Error(getT()('errors.requestTimedOut'))), ms);
     promise.then(
       (val) => { clearTimeout(timer); resolve(val); },
       (err) => { clearTimeout(timer); reject(err); },
@@ -91,7 +92,7 @@ export function useSocket() {
       if (storedRoom && storedPlayer) {
         if (isSpectator) {
           // Spectators re-spectate instead of attempting player rejoin
-          const storedName = sessionStorage.getItem('coup_player_name') || 'Spectator';
+          const storedName = sessionStorage.getItem('coup_player_name') || getT()('home.defaultSpectatorName');
           socket.emit('room:spectate', {
             roomCode: storedRoom,
             playerName: storedName,
@@ -281,7 +282,7 @@ export function useSocket() {
           }
           resolve({ roomCode: response.roomCode, playerId: response.playerId });
         } else {
-          reject(new Error(describeAckError(response, 'Failed to create room')));
+          reject(new Error(describeAckError(response, getT()('errors.createRoomFailed'))));
         }
       });
     }));
@@ -299,7 +300,7 @@ export function useSocket() {
           }
           resolve({ roomCode: response.roomCode, playerId: response.playerId });
         } else {
-          reject(new Error(describeAckError(response, 'Failed to join room')));
+          reject(new Error(describeAckError(response, getT()('errors.joinRoomFailed'))));
         }
       });
     }));
@@ -331,7 +332,7 @@ export function useSocket() {
         if (response.success && response.botId) {
           resolve(response.botId);
         } else {
-          reject(new Error(describeAckError(response, 'Failed to add bot')));
+          reject(new Error(describeAckError(response, getT()('errors.addBotFailed'))));
         }
       });
     }));
@@ -343,7 +344,7 @@ export function useSocket() {
         if (response.success && response.botIds) {
           resolve(response.botIds);
         } else {
-          reject(new Error(describeAckError(response, 'Failed to add bots')));
+          reject(new Error(describeAckError(response, getT()('errors.addBotsFailed'))));
         }
       });
     }));
@@ -355,7 +356,7 @@ export function useSocket() {
         if (response.success) {
           resolve();
         } else {
-          reject(new Error(describeAckError(response, 'Failed to update settings')));
+          reject(new Error(describeAckError(response, getT()('errors.updateSettingsFailed'))));
         }
       });
     }));
@@ -367,7 +368,7 @@ export function useSocket() {
         if (response.success) {
           resolve();
         } else {
-          reject(new Error(describeAckError(response, 'Failed to remove bot')));
+          reject(new Error(describeAckError(response, getT()('errors.removeBotFailed'))));
         }
       });
     }));
@@ -379,7 +380,7 @@ export function useSocket() {
         if (response.success) {
           resolve();
         } else {
-          reject(new Error(describeAckError(response, 'Failed to remove player')));
+          reject(new Error(describeAckError(response, getT()('errors.removePlayerFailed'))));
         }
       });
     }));
@@ -391,7 +392,7 @@ export function useSocket() {
         if (response.success) {
           resolve();
         } else {
-          reject(new Error(describeAckError(response, 'Failed to remove spectator')));
+          reject(new Error(describeAckError(response, getT()('errors.removeSpectatorFailed'))));
         }
       });
     }));
@@ -412,7 +413,7 @@ export function useSocket() {
           sessionStorage.setItem('coup_player_name', playerName);
           resolve({ roomCode: response.roomCode, spectatorId: response.spectatorId });
         } else {
-          reject(new Error(describeAckError(response, 'Failed to spectate')));
+          reject(new Error(describeAckError(response, getT()('errors.spectateFailed'))));
         }
       });
     }));
