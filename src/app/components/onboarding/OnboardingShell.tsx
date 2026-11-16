@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { haptic } from '../../utils/haptic';
+import { useT } from '../../i18n';
 
 /**
  * The stage every onboarding walkthrough is played on — "How Coup works" and
@@ -13,6 +14,10 @@ import { haptic } from '../../utils/haptic';
  * the progress rail, Back/Next, the keyboard (←/→/Esc), swipe on touch, the
  * focus trap, and the reduced-motion switch. Chapters bring only their
  * content.
+ *
+ * Right to left, the stage mirrors like any page: the rail fills from the
+ * right, Back sits on the right, and "forward" is leftward, so the arrow
+ * keys and the swipe swap and chapters slide in from the other side.
  */
 
 export interface OnboardingChapter {
@@ -23,7 +28,7 @@ export interface OnboardingChapter {
 interface OnboardingShellProps {
   open: boolean;
   onClose: () => void;
-  /** The dialog's accessible name, e.g. "How Coup works". */
+  /** The dialog's accessible name, e.g. "How Coup works" (already translated). */
   title: string;
   /** Segments of the progress rail. An index past the end means "finished". */
   chapters: readonly OnboardingChapter[];
@@ -56,11 +61,13 @@ export function OnboardingShell({
   onBack,
   hasNext,
   nextReady = true,
-  nextLabel = 'Next',
+  nextLabel,
   footer,
   children,
   className = '',
 }: OnboardingShellProps) {
+  const t = useT();
+  const rtl = t.dir === 'rtl';
   const titleId = useId();
   const stageRef = useRef<HTMLDivElement>(null);
   const reduced = useReducedMotion();
@@ -95,8 +102,10 @@ export function OnboardingShell({
         onClose();
         return;
       }
-      if (!typing && event.key === 'ArrowRight') { event.preventDefault(); goNext(); return; }
-      if (!typing && event.key === 'ArrowLeft') { event.preventDefault(); goBack(); return; }
+      const forwardKey = rtl ? 'ArrowLeft' : 'ArrowRight';
+      const backKey = rtl ? 'ArrowRight' : 'ArrowLeft';
+      if (!typing && event.key === forwardKey) { event.preventDefault(); goNext(); return; }
+      if (!typing && event.key === backKey) { event.preventDefault(); goBack(); return; }
       if (event.key !== 'Tab') return;
 
       const nodes = Array.from(stageRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])
@@ -110,7 +119,7 @@ export function OnboardingShell({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [goBack, goNext, onClose, open]);
+  }, [goBack, goNext, onClose, open, rtl]);
 
   // Swipe between chapters on touch. Vertical drags stay a scroll (the body
   // is `touch-action: pan-y`); only a clearly horizontal flick turns a page.
@@ -127,7 +136,8 @@ export function OnboardingShell({
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
     if (Math.abs(dx) < SWIPE_MIN_PX || Math.abs(dx) < Math.abs(dy) * 1.4) return;
-    if (dx < 0) goNext(); else goBack();
+    // A flick toward the start of the line turns the page forward.
+    if ((dx < 0) !== rtl) goNext(); else goBack();
   };
 
   if (!open) return null;
@@ -148,7 +158,7 @@ export function OnboardingShell({
       >
         <h2 id={titleId} className="sr-only">{title}</h2>
         <header className="onb-head">
-          <ol className="onb-progress" aria-label="Chapters">
+          <ol className="onb-progress" aria-label={t('tutorial.shell.chapters')}>
             {chapters.map((chapter, i) => {
               const state = finished || i < index ? 'done' : i === index ? 'current' : 'todo';
               return (
@@ -157,7 +167,7 @@ export function OnboardingShell({
                     type="button"
                     className={`onb-seg is-${state}`}
                     aria-current={i === index ? 'step' : undefined}
-                    aria-label={`Chapter ${i + 1}: ${chapter.label}`}
+                    aria-label={t('tutorial.shell.chapterLabel', { index: i + 1, label: chapter.label })}
                     onClick={() => { haptic(); onGoto(i); }}
                   >
                     <span className="onb-seg-label" aria-hidden="true">{chapter.label}</span>
@@ -166,7 +176,7 @@ export function OnboardingShell({
               );
             })}
           </ol>
-          <button type="button" className="court-icon-btn onb-close" aria-label={`Close ${title}`} onClick={() => { haptic(); onClose(); }}>
+          <button type="button" className="court-icon-btn onb-close" aria-label={t('tutorial.shell.close', { title })} onClick={() => { haptic(); onClose(); }}>
             <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" aria-hidden="true">
               <path d="M5.3 4 10 8.6 14.7 4 16 5.3 11.4 10l4.6 4.7-1.3 1.3-4.7-4.6L5.3 16 4 14.7 8.6 10 4 5.3z" />
             </svg>
@@ -174,7 +184,9 @@ export function OnboardingShell({
         </header>
 
         <p className="sr-only" aria-live="polite">
-          {finished ? `${title}: done` : `Chapter ${index + 1} of ${chapters.length}: ${current.label}`}
+          {finished
+            ? t('tutorial.shell.finished', { title })
+            : t('tutorial.shell.chapterStatus', { index: index + 1, total: chapters.length, label: current.label })}
         </p>
 
         <main
@@ -196,16 +208,16 @@ export function OnboardingShell({
                 className="btn-secondary onb-back"
                 onClick={index > 0 ? goBack : () => { haptic(); onClose(); }}
               >
-                {index > 0 ? 'Back' : 'Skip'}
+                {index > 0 ? t('common.back') : t('tutorial.shell.skip')}
               </button>
-              <span className="onb-keys" aria-hidden="true">← → to move · Esc to close</span>
+              <span className="onb-keys" aria-hidden="true">{t('tutorial.shell.keys')}</span>
               <button
                 type="button"
                 className={`${nextReady ? 'btn-primary' : 'btn-secondary'} onb-next`}
                 onClick={goNext}
                 disabled={!hasNext}
               >
-                {nextLabel}
+                {nextLabel ?? t('tutorial.shell.next')}
               </button>
             </>
           )}

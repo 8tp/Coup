@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { ClientGameState } from '@/shared/types';
-import { getPracticeCoachTip, type CoachAnchor, type CoachHistory } from '../../utils/practiceCoach';
+import {
+  coachParams,
+  getPracticeCoachMessage,
+  type CoachAnchor,
+  type CoachHistory,
+  type CoachText,
+} from '../../utils/practiceCoach';
 import {
   isEmptyRect,
   placeDockBanner,
@@ -14,6 +20,7 @@ import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useGameStore } from '../../stores/gameStore';
 import { useIsomorphicLayoutEffect } from '../../anim';
 import { haptic } from '../../utils/haptic';
+import { useT, type Translator } from '../../i18n';
 
 /**
  * THE PRACTICE COACH, AS A CALLOUT ON THE TABLE.
@@ -85,7 +92,13 @@ function rectsOf(selector: string): Rect[] {
   return Array.from(document.querySelectorAll(selector)).map(toRect).filter((r): r is Rect => r !== null);
 }
 
+/** One coach line as rich text: player names isolated in `<bdi>`, character lists joined with "or". */
+function CoachLine({ t, line }: { t: Translator; line: CoachText }) {
+  return <>{t.rich(line.key, coachParams(t, line.params, name => <bdi>{name}</bdi>, items => t.list(items, 'disjunction')))}</>;
+}
+
 export function PracticeCoach({ gameState, onOpenRules }: PracticeCoachProps) {
+  const t = useT();
   const [hidden, setHidden] = useState<boolean | null>(null);
   const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
   const [history, setHistory] = useState<CoachHistory>(() => new Map());
@@ -101,7 +114,7 @@ export function PracticeCoach({ gameState, onOpenRules }: PracticeCoachProps) {
     setHistory(new Map(readJson<Array<[string, number]>>(HISTORY_KEY, [])));
   }, []);
 
-  const tip = useMemo(() => getPracticeCoachTip(gameState, history), [gameState, history]);
+  const tip = useMemo(() => getPracticeCoachMessage(gameState, history), [gameState, history]);
   const visibleTip = hidden === false && !revealing && tip && !dismissed.has(tip.id) ? tip : null;
 
   // A first-time tip is recorded the turn it is first shown, so it stays up
@@ -239,7 +252,7 @@ export function PracticeCoach({ gameState, onOpenRules }: PracticeCoachProps) {
       data-tone={visibleTip.tone}
       data-placed={placement ? 'true' : 'false'}
       style={style}
-      aria-label="Practice coach"
+      aria-label={t('tutorial.coach.region')}
       aria-hidden={placement ? undefined : true}
     >
       {placement && placement.side !== 'dock' && (
@@ -249,19 +262,19 @@ export function PracticeCoach({ gameState, onOpenRules }: PracticeCoachProps) {
         </>
       )}
       <div className="coach-head">
-        <span className="coach-label">Coach</span>
+        <span className="coach-label">{t('tutorial.coach.tag')}</span>
         <span className="coach-controls">
-          <button type="button" className="coach-btn coach-got" onClick={dismissTip}>Got it</button>
-          <button type="button" className="coach-btn" onClick={hideCoach}>Hide tips</button>
+          <button type="button" className="coach-btn coach-got" onClick={dismissTip}>{t('tutorial.coach.gotIt')}</button>
+          <button type="button" className="coach-btn" onClick={hideCoach}>{t('tutorial.coach.hide')}</button>
         </span>
       </div>
       <div role="status" aria-live="polite">
-        <p className="coach-title type-display">{visibleTip.title}</p>
-        <p className="coach-body">{visibleTip.body}</p>
+        <p className="coach-title type-display"><CoachLine t={t} line={visibleTip.title} /></p>
+        <p className="coach-body"><CoachLine t={t} line={visibleTip.body} /></p>
       </div>
       {!docked && (
         <button type="button" className="coach-rules" onClick={() => { haptic(); onOpenRules(); }}>
-          Check the rules
+          {t('tutorial.coach.rules')}
         </button>
       )}
     </aside>

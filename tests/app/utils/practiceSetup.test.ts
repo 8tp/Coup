@@ -7,6 +7,7 @@ import {
   practiceBots,
   practiceOptionsForMode,
 } from '@/app/utils/practiceSetup';
+import { makePlainTranslator } from '@/app/i18n/runtime';
 
 describe('practiceBots', () => {
   it('maps each style to its engine personality', () => {
@@ -60,8 +61,11 @@ describe('practice options', () => {
   });
 
   it('summarizes the choice for the start button', () => {
-    expect(describePracticeOptions(DEFAULT_PRACTICE_OPTIONS)).toBe('1 gentle opponent · Classic');
-    expect(describePracticeOptions({ opponents: 3, style: 'ruthless', gameMode: GameMode.Reformation, coach: false }))
+    const t = makePlainTranslator('en');
+    expect(describePracticeOptions(DEFAULT_PRACTICE_OPTIONS, t)).toBe('1 gentle opponent · Classic');
+    expect(describePracticeOptions({ opponents: 3, style: 'ruthless', gameMode: GameMode.Reformation, coach: false }, t))
       .toBe('3 ruthless opponents · Reformation');
+    expect(describePracticeOptions({ opponents: 2, style: 'sharp', gameMode: GameMode.Classic, coach: true }, t))
+      .toBe('2 sharp opponents · Classic');
   });
 });

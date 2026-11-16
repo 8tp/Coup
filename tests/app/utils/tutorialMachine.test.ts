@@ -12,6 +12,11 @@ import {
   type TutorialEvent,
   type TutorialState,
 } from '@/app/utils/tutorialMachine';
+import { COUP_COST } from '@/shared/constants';
+import { makePlainTranslator } from '@/app/i18n/runtime';
+import { learnParams } from '@/app/utils/learnText';
+
+const t = makePlainTranslator('en');
 
 function run(events: TutorialEvent[], from: TutorialState = INITIAL_TUTORIAL_STATE): TutorialState {
   return events.reduce(tutorialReducer, from);
@@ -140,7 +145,10 @@ describe('coins', () => {
     const s = run([{ type: 'coins/coup' }]);
     expect(s.coins.couped).toBe(false);
     expect(s.coins.coins).toBe(COINS_DEMO_START);
-    expect(s.coins.refusal).toContain('2 more coins');
+    expect(s.coins.refusal).toBe('short');
+    // The component renders the refusal from the coins still missing.
+    expect(t('tutorial.coins.refusal.short', { ...learnParams(t), short: COUP_COST - s.coins.coins }))
+      .toBe('A Coup costs 7. You need 2 more coins.');
   });
 
   it('allows a Coup at 7 and pays for it', () => {
@@ -154,7 +162,8 @@ describe('coins', () => {
     expect(ten.coins.coins).toBe(11);
     const refused = run([{ type: 'coins/take', amount: 1 }], ten);
     expect(refused.coins.coins).toBe(11);
-    expect(refused.coins.refusal).toContain('must Coup');
+    expect(refused.coins.refusal).toBe('must-coup');
+    expect(t('tutorial.coins.refusal.must-coup', learnParams(t))).toBe('At 10 coins you must Coup.');
     expect(run([{ type: 'coins/coup' }], refused).coins).toEqual({ coins: 4, couped: true, refusal: null });
   });
 

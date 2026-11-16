@@ -7,6 +7,7 @@ import { CoinChangeBurst } from '../game/CoinChangeBurst';
 import { PlayerSeat } from '../game/PlayerSeat';
 import { CoinIcon } from '../icons';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { useT } from '../../i18n';
 
 /**
  * The pieces a walkthrough is built from — the real game's own components
@@ -36,7 +37,7 @@ export function ChapterLayout({
   note,
   noteTone = 'info',
 }: {
-  title: string;
+  title: ReactNode;
   lede: ReactNode;
   demo: ReactNode;
   note?: ReactNode;
@@ -49,7 +50,8 @@ export function ChapterLayout({
         <p className="onb-lede">{lede}</p>
       </div>
       <div className="onb-demo">{demo}</div>
-      <p className={`onb-note is-${noteTone}`} role="status" aria-live="polite">{note}</p>
+      {/* One span, so a sentence with a name or figure in it stays one flex item. */}
+      <p className={`onb-note is-${noteTone}`} role="status" aria-live="polite">{note ? <span>{note}</span> : null}</p>
     </>
   );
 }
@@ -67,17 +69,19 @@ export function Felt({ children, className = '' }: { children: ReactNode; classN
 export function HandPlate({
   influences,
   coins,
-  label = 'You',
+  label,
   compact = false,
   out = false,
 }: {
   influences: ClientInfluence[];
   coins?: number;
+  /** The name plate; "You" when absent. */
   label?: string;
   /** A supporting hand (the demo is about someone else): one size down. */
   compact?: boolean;
   out?: boolean;
 }) {
+  const t = useT();
   const size = useHandCardSize(compact);
   return (
     <div className={`court-hand-plate onb-hand ${out ? 'is-out' : ''}`}>
@@ -87,16 +91,16 @@ export function HandPlate({
         ))}
       </div>
       <div className="court-hand-meta">
-        <span className="court-hand-name type-display">{label}</span>
+        <span className="court-hand-name type-display">{label ?? t('tutorial.you')}</span>
         {coins !== undefined && (
-          <span className="court-hand-coins figure" aria-label={`${coins} coins`}>
+          <span className="court-hand-coins figure" aria-label={t('tutorial.coins', { count: coins })}>
             <CoinIcon size={18} />
             {coins}
             <CoinChangeBurst coins={coins} />
           </span>
         )}
       </div>
-      {out && <span className="onb-stamp type-display">Out</span>}
+      {out && <span className="onb-stamp type-display">{t('tutorial.outStamp')}</span>}
     </div>
   );
 }
